@@ -42,30 +42,25 @@ void way_create_positioner(wl_client* client, wl_resource* resource, u32 id)
     positioner->resource = way_resource_create_refcounted(xdg_positioner, client, resource, id, positioner.get());
 }
 
-#define POSITIONER_SET(Name, Expr, ...) \
+#define SET(Name, Expr, ...) \
     .set_##Name = [](wl_client* client, wl_resource* resource __VA_OPT__(,) __VA_ARGS__) { \
         way_get_userdata<way_positioner>(resource)->rules.Name = (Expr); \
     }
 
 WAY_INTERFACE(xdg_positioner) = {
     .destroy = way_simple_destroy,
-    POSITIONER_SET(size,                  vec2i32(width, height),                       i32 width, i32 height),
-    // POSITIONER_SET(anchor_rect,           rect2i32({x, y}, {width, height}, core_xywh), i32 x, i32 y, i32 width, i32 height),
-    .set_anchor_rect = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height) {
-        auto* positioner = way_get_userdata<way_positioner>(resource);
-        positioner->rules.anchor_rect = {{x, y}, {width, height}, core_xywh};
-        log_error("ANCHOR_RECT: {}", core_to_string(positioner->rules.anchor_rect));
-    },
-    POSITIONER_SET(anchor,                xdg_positioner_anchor(anchor),                u32 anchor),
-    POSITIONER_SET(gravity,               xdg_positioner_gravity(gravity),              u32 gravity),
-    POSITIONER_SET(constraint_adjustment, xdg_positioner_constraint_adjustment(constraint_adjustment), u32 constraint_adjustment),
-    POSITIONER_SET(offset,                vec2i32(x, y),                                i32 x, i32 y),
-    POSITIONER_SET(reactive,              true),
-    POSITIONER_SET(parent_size,           vec2i32(width, height),                       i32 width, i32 height),
-    POSITIONER_SET(parent_configure,      serial,                                       u32 serial),
+    SET(size,                  vec2i32(width, height),                       i32 width, i32 height),
+    SET(anchor_rect,           rect2i32({x, y}, {width, height}, core_xywh), i32 x, i32 y, i32 width, i32 height),
+    SET(anchor,                xdg_positioner_anchor(anchor),                u32 anchor),
+    SET(gravity,               xdg_positioner_gravity(gravity),              u32 gravity),
+    SET(constraint_adjustment, xdg_positioner_constraint_adjustment(constraint_adjustment), u32 constraint_adjustment),
+    SET(offset,                vec2i32(x, y),                                i32 x, i32 y),
+    SET(reactive,              true),
+    SET(parent_size,           vec2i32(width, height),                       i32 width, i32 height),
+    SET(parent_configure,      serial,                                       u32 serial),
 };
 
-#undef POSITIONER_SET
+#undef SET
 
 struct way_xdg_positioner_axis_rules
 {
@@ -164,7 +159,7 @@ way_axis_region positioner_apply_axis(const way_xdg_positioner_axis_rules& rules
     return region;
 }
 
-#define WAY_WAYLAND_EDGES_TO_REL_CASES(Prefix) \
+#define EDGES_TO_REL_CASES(Prefix) \
     case Prefix##_NONE:         return {rel.x / 2, rel.y / 2}; \
     case Prefix##_TOP:          return {rel.x / 2, 0        }; \
     case Prefix##_BOTTOM:       return {rel.x / 2, rel.y    }; \
@@ -179,7 +174,7 @@ template<typename T>
 core_vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, core_vec<2, T> rel)
 {
     switch (anchor) {
-        WAY_WAYLAND_EDGES_TO_REL_CASES(XDG_POSITIONER_ANCHOR)
+        EDGES_TO_REL_CASES(XDG_POSITIONER_ANCHOR)
     }
 }
 
@@ -187,9 +182,11 @@ template<typename T>
 core_vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, core_vec<2, T> rel)
 {
     switch (gravity) {
-        WAY_WAYLAND_EDGES_TO_REL_CASES(XDG_POSITIONER_GRAVITY)
+        EDGES_TO_REL_CASES(XDG_POSITIONER_GRAVITY)
     }
 }
+
+#undef EDGES_TO_REL_CASES
 
 static
 void positioner_apply_axis_from_rules(const way_positioner_rules& rules, rect2i32 constraint, rect2i32& target, u32 axis)
@@ -231,6 +228,15 @@ rect2i32 positioner_apply(const way_positioner_rules& rules, rect2i32 constraint
 
 // -----------------------------------------------------------------------------
 
+static
+void queue_reposition(way_surface* surface, way_positioner* positioner)
+{
+    // TODO: Respect `parent_configure` positioner rule
+
+    surface->pending->popup.positioner = way_get_userdata<way_positioner>(positioner);
+    surface->pending->set(way_surface_committed_state::reposition);
+}
+
 void way_get_popup(wl_client* client, wl_resource* resource, u32 id, wl_resource* wl_parent, wl_resource* positioner)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
@@ -240,49 +246,61 @@ void way_get_popup(wl_client* client, wl_resource* resource, u32 id, wl_resource
     auto* parent = way_get_userdata<way_surface>(wl_parent);
     surface->parent = parent;
 
-    surface->popup.positioner = way_get_userdata<way_positioner>(positioner);
-
-    log_error("anchor rect 1: {}", core_to_string(surface->popup.positioner->rules.anchor_rect));
-
     // Place into parent's surface stack
     scene_node_set_transform(surface->scene.transform.get(), parent->scene.transform.get());
     scene_tree_place_above(parent->scene.tree.get(), nullptr, surface->scene.tree.get());
 
     // Queue initial position operation
-    surface->popup.reposition = true;
-}
-
-// TODO: This should be shared across this and shell.cpp
-static
-void configure(way_surface* surface)
-{
-    auto* server = surface->client->server;
-    surface->sent_serial = way_next_serial(server);
-    way_send(server, xdg_surface_send_configure, surface->xdg_surface, surface->sent_serial);
+    queue_reposition(surface, way_get_userdata<way_positioner>(positioner));
 }
 
 static
-void position(way_surface* surface)
+void position(way_surface* surface, const way_positioner_rules& rules)
 {
     rect2i32 constraint = {{-INT_MAX/4, -INT_MAX/4}, {INT_MAX/2, INT_MAX/2}, core_xywh};
 
-    log_error("anchor rect 2: {}", core_to_string(surface->popup.positioner->rules.anchor_rect));
+    {
+        auto anchor = rules.anchor_rect;
+        auto point = vec2f32(anchor.origin) + vec2f32(anchor.extent) * 0.5f;
+        if (auto* output = scene_find_output_for_point(surface->client->server->scene, point).output) {
+            aabb2f32 vp = scene_output_get_viewport(output);
+            auto transform = surface->parent->scene.transform->global;
+            constraint = {
+                transform.to_local(vp.min),
+                transform.to_local(vp.max),
+                core_minmax
+            };
+        }
+    }
 
-    auto geometry = positioner_apply(surface->popup.positioner->rules, constraint);
-    log_error("popup geometry: {}", core_to_string(geometry));
+    auto geometry = positioner_apply(rules, constraint);
+    log_debug("popup geometry: {}", core_to_string(geometry));
+    surface->popup.position = geometry.origin;
 
-    auto[o, e] = geometry;
-    scene_transform_update(surface->scene.transform.get(), o, 1);
-    way_send(surface->client->server, xdg_popup_send_configure, surface->popup.resource, o.x, o.y, e.x, e.y);
-    configure(surface);
+    way_send(surface->client->server, xdg_popup_send_configure, surface->popup.resource,
+        geometry.origin.x, geometry.origin.y, geometry.extent.x, geometry.extent.y);
+    way_xdg_surface_configure(surface);
 }
 
-void way_popup_apply(way_surface* surface, way_surface_state& state)
+void way_popup_apply(way_surface* surface, way_surface_state& from)
 {
-    if (surface->popup.reposition) {
-        surface->popup.reposition = false;
+    // Apply reposition
 
-        position(surface);
+    if (from.is_set(way_surface_committed_state::reposition)) {
+        position(surface, from.popup.positioner->rules);
+        if (from.is_set(way_surface_committed_state::reposition_token)) {
+            way_send(surface->client->server, xdg_popup_send_repositioned, surface->popup.resource, from.popup.token);
+        }
+    }
+
+    // Adjust popup transform based on geometry offsets
+
+    {
+        auto position    = surface->popup.position;
+        auto geom        = surface->current.xdg.geometry;
+        auto parent_geom = surface->parent->current.xdg.geometry;
+        scene_transform_update(surface->scene.transform.get(),
+            position + vec2f32(parent_geom.origin) - vec2f32(geom.origin), 1);
     }
 }
 
@@ -290,8 +308,9 @@ static
 void reposition(wl_client* client, wl_resource* resource, wl_resource* positioner, u32 token)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    surface->popup.positioner = way_get_userdata<way_positioner>(positioner);
-    surface->popup.reposition = true;
+    queue_reposition(surface, way_get_userdata<way_positioner>(positioner));
+    surface->pending->popup.token = token;
+    surface->pending->set(way_surface_committed_state::reposition_token);
 }
 
 WAY_INTERFACE(xdg_popup) = {

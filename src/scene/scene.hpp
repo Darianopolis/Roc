@@ -43,6 +43,13 @@ struct scene_output;
 auto scene_list_outputs(scene_context*) -> std::span<scene_output* const>;
 auto scene_output_get_viewport(scene_output*) -> rect2f32;
 
+struct scene_find_output_result
+{
+    scene_output* output;
+    vec2f32       position;
+};
+auto scene_find_output_for_point(scene_context*, vec2f32 point) -> scene_find_output_result;
+
 // -----------------------------------------------------------------------------
 
 struct scene_client;

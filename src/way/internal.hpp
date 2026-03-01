@@ -118,6 +118,10 @@ enum class way_surface_committed_state : u32
     geometry,
     acked_serial,
 
+    // xdg_popup
+    reposition,
+    reposition_token,
+
     // xdg_toplevel
     title,
     app_id,
@@ -139,6 +143,8 @@ struct way_subsurface_move
 };
 
 static constexpr aabb2f32 way_infinite_aabb = {{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, core_minmax};
+
+struct way_positioner;
 
 struct way_surface_state
 {
@@ -196,6 +202,11 @@ struct way_surface_state
     } subsurface;
 
     struct {
+        ref<way_positioner> positioner;
+        u32                 token;
+    } popup;
+
+    struct {
         vec2i32 min_size;
         vec2i32 max_size;
         std::string title;
@@ -204,9 +215,6 @@ struct way_surface_state
 
     ~way_surface_state();
 };
-
-struct way_positioner;
-CORE_OBJECT_EXPLICIT_DECLARE(way_positioner);
 
 struct way_surface : core_object
 {
@@ -238,9 +246,8 @@ struct way_surface : core_object
 
     // xdg_popup
     struct {
-        way_resource        resource;
-        ref<way_positioner> positioner;
-        bool                reposition;
+        way_resource resource;
+        vec2f32      position;
     } popup;
 
     // xdg_toplevel
@@ -277,6 +284,7 @@ void way_subsurface_apply( way_surface*, way_surface_state&);
 // -----------------------------------------------------------------------------
 
 void way_xdg_surface_apply(way_surface*, way_surface_state&);
+void way_xdg_surface_configure(way_surface*);
 
 // -----------------------------------------------------------------------------
 
@@ -285,6 +293,8 @@ void way_toplevel_on_map_change(way_surface*, bool mapped);
 void way_toplevel_on_reposition(way_surface*, rect2f32 frame, vec2f32 gravity);
 
 // -----------------------------------------------------------------------------
+
+CORE_OBJECT_EXPLICIT_DECLARE(way_positioner);
 
 void way_create_positioner(wl_client*, wl_resource*, u32 id);
 void way_get_popup(        wl_client*, wl_resource*, u32 id,

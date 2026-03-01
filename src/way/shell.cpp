@@ -19,24 +19,6 @@ WAY_BIND_GLOBAL(xdg_wm_base)
     way_resource_create_unsafe(xdg_wm_base, client, version, id, way_get_userdata<way_server>(data));
 }
 
-void way_xdg_surface_apply(way_surface* surface, way_surface_state& from)
-{
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.geometry,     geometry);
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.acked_serial, acked_serial);
-
-    if (!surface->current.is_set(way_surface_committed_state::geometry) && surface->mapped) {
-        surface->current.xdg.geometry = { {}, surface->current.buffer.handle->extent, core_xywh };
-    }
-}
-
-static
-void configure(way_surface* surface)
-{
-    auto* server = surface->client->server;
-    surface->sent_serial = way_next_serial(server);
-    way_send(server, xdg_surface_send_configure, surface->xdg_surface, surface->sent_serial);
-}
-
 // -----------------------------------------------------------------------------
 
 static
@@ -84,6 +66,25 @@ WAY_INTERFACE(xdg_surface) = {
     .ack_configure = ack_configure,
 };
 
+void way_xdg_surface_apply(way_surface* surface, way_surface_state& from)
+{
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.geometry,     geometry);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.acked_serial, acked_serial);
+
+    if (!surface->current.is_set(way_surface_committed_state::geometry) && surface->mapped) {
+        surface->current.xdg.geometry = { {}, surface->current.buffer.handle->extent, core_xywh };
+    }
+}
+
+void way_xdg_surface_configure(way_surface* surface)
+{
+    auto* server = surface->client->server;
+    surface->sent_serial = way_next_serial(server);
+    way_send(server, xdg_surface_send_configure, surface->xdg_surface, surface->sent_serial);
+}
+
+// -----------------------------------------------------------------------------
+
 void way_toplevel_on_map_change(way_surface* surface, bool mapped)
 {
     if (mapped) {
@@ -119,7 +120,7 @@ void way_toplevel_on_reposition(way_surface* surface, rect2f32 frame, vec2f32 gr
             surface->toplevel.queued = true;
         } else {
             configure_toplevel(surface, frame.extent);
-            configure(surface);
+            way_xdg_surface_configure(surface);
             surface->toplevel.pending = true;
         }
     }
@@ -139,7 +140,7 @@ void send_premap_configure(way_surface* surface)
     }
 
     configure_toplevel(surface, {0, 0});
-    configure(surface);
+    way_xdg_surface_configure(surface);
 }
 
 void way_toplevel_apply(way_surface* surface, way_surface_state& from)
@@ -165,7 +166,7 @@ void way_toplevel_apply(way_surface* surface, way_surface_state& from)
         surface->toplevel.pending = false;
         if (surface->toplevel.queued) {
             configure_toplevel(surface, anchor.extent);
-            configure(surface);
+            way_xdg_surface_configure(surface);
             surface->toplevel.queued = false;
             surface->toplevel.pending = true;
         }

@@ -138,6 +138,8 @@ void scene_broadcast_event(scene_context* ctx, scene_event* event)
     }
 }
 
+// -----------------------------------------------------------------------------
+
 auto scene_list_outputs(scene_context* ctx) -> std::span<scene_output* const>
 {
     return ctx->outputs;
@@ -146,4 +148,24 @@ auto scene_list_outputs(scene_context* ctx) -> std::span<scene_output* const>
 auto scene_output_get_viewport(scene_output* out) -> rect2f32
 {
     return out->viewport;
+}
+
+auto scene_find_output_for_point(scene_context* ctx, vec2f32 point) -> scene_find_output_result
+{
+    vec2f32       best_position = point;
+    f32           best_distance = INFINITY;
+    scene_output* best_output   = nullptr;
+    for (auto* output : scene_list_outputs(ctx)) {
+        auto clamped = core_rect_clamp_point(scene_output_get_viewport(output), point);
+        if (point == clamped) {
+            best_position = point;
+            best_output = output;
+            break;
+        } else if (f32 dist = glm::distance(clamped, point); dist < best_distance) {
+            best_position = clamped;
+            best_distance = dist;
+            best_output = output;
+        }
+    }
+    return { best_output, best_position };
 }

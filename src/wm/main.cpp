@@ -41,23 +41,8 @@ int main()
 
         vec2f32 new_pos = in.position + delta;
 
-        // Clamp new position to output layout
-
-        vec2f32 best_position = new_pos;
-        f32 best_distance = INFINITY;
-        for (auto* output : scene_list_outputs(scene)) {
-            auto clamped = core_rect_clamp_point(scene_output_get_viewport(output), new_pos);
-            if (new_pos == clamped) {
-                best_position = new_pos;
-                break;
-            } else if (f32 dist = glm::distance(clamped, new_pos); dist < best_distance) {
-                best_position = clamped;
-                best_distance = dist;
-            }
-        }
-
         return {
-            .position = best_position,
+            .position = scene_find_output_for_point(scene, new_pos).position,
             .accel    = delta,
             .unaccel  = in.delta
         };
