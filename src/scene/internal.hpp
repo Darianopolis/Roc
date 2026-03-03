@@ -7,9 +7,10 @@
 // -----------------------------------------------------------------------------
 
 struct scene_output {
-    scene_context* ctx;
-    io_output*     io;
-    rect2f32       viewport;
+    scene_client* client;
+    rect2f32      viewport;
+
+    ~scene_output();
 };
 
 // -----------------------------------------------------------------------------
@@ -17,7 +18,6 @@ struct scene_output {
 struct scene_context
 {
     gpu_context* gpu;
-    io_context*  io;
 
     struct {
         ref<gpu_pipeline> premult;
@@ -31,7 +31,7 @@ struct scene_context
     ref<scene_tree>      root_tree;
     core_enum_map<scene_layer, ref<scene_tree>> layers;
 
-    core_ref_vector<scene_output> outputs;
+    std::vector<scene_output*> outputs;
 
     std::vector<scene_client*> clients;
     std::vector<scene_window*> windows;
@@ -121,6 +121,10 @@ auto scene_pointer_create(scene_context*) -> ref<scene_pointer>;
 
 // -----------------------------------------------------------------------------
 
-void scene_handle_input_added(scene_context*, io_input_device*);
+void scene_output_damage(scene_output*);
+
+// -----------------------------------------------------------------------------
+
+void scene_handle_input_added(  scene_context*, io_input_device*);
 void scene_handle_input_removed(scene_context*, io_input_device*);
-void scene_handle_input(scene_context*, const io_input_event&);
+void scene_handle_input(        scene_context*, const io_input_event&);

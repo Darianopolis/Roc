@@ -342,26 +342,42 @@ auto imui_create(gpu_context* gpu, scene_context* scene) -> ref<imui_context>
     scene_client_set_event_handler(ctx->client.get(), [ctx = ctx.get()](scene_event* event) {
         ImGui::SetCurrentContext(ctx->context);
         switch (event->type) {
+            // keyboard
             break;case scene_event_type::keyboard_key:
                 imui_handle_key(ctx, event->key.code, event->key.pressed);
             break;case scene_event_type::keyboard_modifier:
                 imui_handle_mods(ctx, scene_keyboard_get_modifiers(ctx->scene));
+
+            // pointer
             break;case scene_event_type::pointer_motion:
                 imui_handle_motion(ctx);
             break;case scene_event_type::pointer_button:
                 imui_handle_button(ctx, event->key.code, event->key.pressed);
             break;case scene_event_type::pointer_scroll:
                 imui_handle_wheel(ctx, event->pointer.scroll.delta);
+
+            // focus
             break;case scene_event_type::focus_pointer:
                 imui_handle_focus_pointer(ctx, event->focus.gained);
             break;case scene_event_type::focus_keyboard:
                 ;
+
+            // window
             break;case scene_event_type::window_reposition:
                 handle_reposition(ctx, event->window.window, event->window.reposition.frame);
-            break;case scene_event_type::redraw:
+
+            // output
+            break;case scene_event_type::output_added:
+                  case scene_event_type::output_configured:
+                  case scene_event_type::output_removed:
+                  case scene_event_type::output_damaged:
+                ;
+            break;case scene_event_type::output_frame:
                 imui_frame(ctx);
             break;case scene_event_type::output_layout:
                 imui_handle_output_layout(ctx);
+
+            // hotkey
             break;case scene_event_type::hotkey:
                 ;
         }

@@ -20,7 +20,7 @@ void handle_event(way_client* client, scene_event* event)
             auto* surface = find_surface(client, event->window.window);
             way_toplevel_on_reposition(surface, event->window.reposition.frame, event->window.reposition.gravity);
         }
-        break;case scene_event_type::redraw: {
+        break;case scene_event_type::output_frame: {
             for (auto* surface : client->surfaces) {
                 way_surface_on_redraw(surface);
             }
@@ -34,7 +34,11 @@ void handle_event(way_client* client, scene_event* event)
         break;case scene_event_type::pointer_scroll:    way_seat_on_scroll(        client, event);
         break;case scene_event_type::hotkey:
             ;
-        break;case scene_event_type::output_layout:
+        break;case scene_event_type::output_added:
+              case scene_event_type::output_removed:
+              case scene_event_type::output_configured:
+              case scene_event_type::output_layout:
+              case scene_event_type::output_damaged:
             ;
     }
 }

@@ -8,6 +8,7 @@
 
 // -----------------------------------------------------------------------------
 
+struct scene_output;
 struct scene_node;
 struct scene_tree;
 struct scene_transform;
@@ -38,11 +39,26 @@ void scene_request_redraw(scene_context*);
 
 // -----------------------------------------------------------------------------
 
-auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint;
+void scene_push_io_event(scene_context* ctx, struct io_event*);
 
 // -----------------------------------------------------------------------------
 
-struct scene_output;
+auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint;
+auto scene_render(scene_context* ctx, scene_output*, struct io_output* output) -> gpu_syncpoint;
+
+// -----------------------------------------------------------------------------
+
+struct scene_client;
+CORE_OBJECT_EXPLICIT_DECLARE(scene_client);
+
+auto scene_client_create(scene_context*) -> ref<scene_client>;
+
+// -----------------------------------------------------------------------------
+
+CORE_OBJECT_EXPLICIT_DECLARE(scene_output);
+
+auto scene_output_create(scene_client*) -> ref<scene_output>;
+void scene_output_set_viewport(scene_output*, rect2f32 viewport);
 
 auto scene_list_outputs(scene_context*) -> std::span<scene_output* const>;
 auto scene_output_get_viewport(scene_output*) -> rect2f32;
@@ -53,13 +69,6 @@ struct scene_find_output_result
     vec2f32       position;
 };
 auto scene_find_output_for_point(scene_context*, vec2f32 point) -> scene_find_output_result;
-
-// -----------------------------------------------------------------------------
-
-struct scene_client;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_client);
-
-auto scene_client_create(scene_context*) -> ref<scene_client>;
 
 // -----------------------------------------------------------------------------
 
@@ -352,14 +361,18 @@ enum class scene_event_type
     // their window frames at any time for any reason.
     window_reposition,
 
+    output_added,
+    output_configured,
+    output_removed,
+    output_layout,
+    output_damaged,
+
     // Sent before a frame may be composited to an output.
     // This may be sent even if there is no new scene graph changes
     // to commit, in response to a scene frame request.
     // Scene graph changes made directly in response to this event
     // will be applied immediately.
-    redraw,
-
-    output_layout,
+    output_frame,
 };
 
 struct scene_hotkey_event

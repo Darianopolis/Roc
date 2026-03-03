@@ -70,7 +70,7 @@ enum class io_event_type
     output_added,       // Sent when an output is first detected
     output_removed,     // Sent before a output is removed from the output list
     output_configure,   // Sent when an output's configuration changes
-    output_redraw,      // Sent when an output's content should be redrawn
+    output_frame,       // Sent when an output can accept a new frame of content
 };
 
 // -----------------------------------------------------------------------------

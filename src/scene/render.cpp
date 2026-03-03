@@ -25,6 +25,20 @@ void scene_render_init(scene_context* ctx)
     ctx->render.sampler = gpu_sampler_create(ctx->gpu, VK_FILTER_NEAREST, VK_FILTER_LINEAR);
 }
 
+auto scene_render(scene_context* ctx, scene_output* output, io_output* io_output) -> gpu_syncpoint
+{
+    scene_broadcast_event(ctx, ptr_to(scene_event {
+        .type = scene_event_type::output_frame,
+        .redraw = { .output = output },
+    }));
+
+    auto target = io_output->acquire(ctx->render.usage);
+    auto done = scene_render(ctx, target.get(), output->viewport);
+    io_output->present(target.get(), done);
+
+    return done;
+}
+
 auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint
 {
     auto& render = ctx->render;

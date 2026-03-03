@@ -4,7 +4,7 @@ static
 void request_frame(scene_context* ctx)
 {
     for (auto* output : ctx->outputs) {
-        output->io->request_frame();
+        scene_output_damage(output);
     }
 }
 

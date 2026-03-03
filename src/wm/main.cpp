@@ -16,6 +16,60 @@ int main()
     auto scene = scene_create(gpu.get(), io.get());
     auto wm = wm_create(scene.get());
 
+    // I/O event plumbing
+
+    auto output_client = scene_client_create(scene.get());
+    struct output {
+        ref<scene_output> scene;
+        io_output*        io;
+    };
+    std::vector<output> outputs;
+    auto reflow_outputs = [&] {
+        f32 x = 0;
+        for (auto& output : outputs) {
+            auto size = output.io->info().size;
+            scene_output_set_viewport(output.scene.get(), {{x, 0.f}, size, core_xywh});
+            x += f32(size.x);
+        }
+    };
+    io_set_event_handler(io.get(), [&](io_event* event) {
+        switch (event->type) {
+            // shutdown
+            break;case io_event_type::shutdown_requested:
+                io_stop(io.get());
+
+            // input
+            break;case io_event_type::input_added:
+                  case io_event_type::input_removed:
+                  case io_event_type::input_event:
+                scene_push_io_event(scene.get(), event);
+
+            // output
+            break;case io_event_type::output_added:
+                outputs.emplace_back(scene_output_create(output_client.get()), event->output.output);
+                reflow_outputs();
+            break;case io_event_type::output_configure:
+                reflow_outputs();
+            break;case io_event_type::output_removed:
+                std::erase_if(outputs, [&](auto& p) { return p.io == event->output.output; });
+                reflow_outputs();
+            break;case io_event_type::output_frame: {
+                auto output = std::ranges::find_if(outputs, [&](auto& p) { return p.io == event->output.output; });
+                scene_render(scene.get(), output->scene.get(), output->io);
+            }
+        }
+    });
+    scene_client_set_event_handler(output_client.get(), [&](scene_event* event) {
+        switch (event->type) {
+            break;case scene_event_type::output_damaged: {
+                auto output = std::ranges::find_if(outputs, [&](auto& p) { return p.scene.get() == event->output; });
+                output->io->request_frame();
+            }
+            break;default:
+                ;
+        }
+    });
+
     // Pointer driver
 
     scene_pointer_set_driver(scene.get(), [scene = scene.get()](scene_pointer_driver_in in) -> scene_pointer_driver_out {
@@ -172,7 +226,11 @@ int main()
                 scene_input_region_set_region(input.get(), {{{}, frame.extent, core_xywh}});
                 scene_window_set_frame(event->window.window, frame);
             }
-            break;case scene_event_type::redraw:
+            break;case scene_event_type::output_frame:
+                  case scene_event_type::output_added:
+                  case scene_event_type::output_removed:
+                  case scene_event_type::output_configured:
+                  case scene_event_type::output_damaged:
                   case scene_event_type::output_layout:
                   case scene_event_type::hotkey:
                 ;

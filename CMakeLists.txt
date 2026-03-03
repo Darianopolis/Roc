@@ -224,6 +224,7 @@ target_sources(scene PUBLIC
     src/scene/window.cpp
     src/scene/input.cpp
     src/scene/client.cpp
+    src/scene/output.cpp
     )
 target_link_libraries(scene PUBLIC io)
 

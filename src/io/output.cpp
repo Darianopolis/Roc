@@ -110,7 +110,7 @@ void io_output_try_redraw(io_output_base* output)
     output->frame_requested = false;
 
     io_post_event(output->ctx, ptr_to(io_event {
-        .type = io_event_type::output_redraw,
+        .type = io_event_type::output_frame,
         .output = {
             .output = output,
         }

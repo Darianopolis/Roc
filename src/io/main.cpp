@@ -35,7 +35,7 @@ void handle_event(io_context* io, gpu_context* gpu, io_event* event)
         break;case io_event_type::output_configure:
             log_info("io::output_configure{}", core_to_string(event->output.output->info().size));
             event->output.output->request_frame();
-        break;case io_event_type::output_redraw:
+        break;case io_event_type::output_frame:
             render(gpu, event->output.output);
         break;case io_event_type::input_added:
               case io_event_type::input_removed:
