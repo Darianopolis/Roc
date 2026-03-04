@@ -110,6 +110,10 @@ enum class way_surface_committed_state : u32
     buffer_transform,
     buffer_scale,
 
+    // wp_viewport
+    buffer_source,
+    buffer_destination,
+
     // wl_subsurface / xdg_toplevel / xdg_popup
     parent,
     parent_commit,
@@ -185,6 +189,8 @@ struct way_surface_state
         ref<way_buffer_lock> lock;
         wl_output_transform transform;
         i32 scale;
+        rect2f32 source;
+        vec2i32 destination;
     } buffer;
 
     struct {
@@ -265,6 +271,8 @@ struct way_surface : core_object
 };
 
 void way_surface_on_redraw(way_surface*);
+
+void way_viewport_apply(way_surface* surface, way_surface_state& from);
 
 // -----------------------------------------------------------------------------
 
@@ -514,6 +522,9 @@ WAY_INTERFACE_DECLARE(zwp_pointer_gestures_v1, 3);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_swipe_v1);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_pinch_v1);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_hold_v1);
+
+WAY_INTERFACE_DECLARE(wp_viewporter, 1);
+WAY_INTERFACE_DECLARE(wp_viewport);
 
 WAY_INTERFACE_DECLARE(xdg_wm_base, 7);
 WAY_INTERFACE_DECLARE(xdg_surface);

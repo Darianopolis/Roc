@@ -193,11 +193,14 @@ void apply(way_surface* surface, way_surface_state& from)
                 buffer->image.get(),
                 surface->client->server->sampler.get(),
                 gpu_blend_mode::premultiplied);
-            scene_texture_set_dst(surface->scene.texture.get(), {{}, buffer->extent, core_xywh});
         } else {
             scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu_blend_mode::none);
         }
     }
+
+    // Buffer source / destination
+
+    way_viewport_apply(surface, from);
 
     // Input regions
 

@@ -251,6 +251,7 @@ target_sources(way PUBLIC
     src/way/seat.cpp
     src/way/output.cpp
     src/way/data.cpp
+    src/way/viewport.cpp
     src/way/gestures.cpp
     )
 target_link_libraries(way PUBLIC scene)
