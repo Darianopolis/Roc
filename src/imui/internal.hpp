@@ -32,6 +32,10 @@ struct imui_context : core_object
 
     std::vector<std::move_only_function<imui_frame_fn>> frame_handlers;
 
+    struct {
+        std::string text;
+    } clipboard;
+
     ~imui_context();
 };
 

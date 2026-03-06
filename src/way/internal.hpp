@@ -18,6 +18,7 @@
 #include <wayland/server/linux-drm-syncobj-v1.h>
 
 struct way_client;
+struct way_surface;
 
 // -----------------------------------------------------------------------------
 
@@ -51,6 +52,11 @@ struct way_server : core_object
     struct {
         way_keymap keymap;
     } keyboard;
+
+    struct {
+        weak<way_surface> pointer;
+        weak<way_surface> keyboard;
+    } focus;
 
     ~way_server();
 };
@@ -306,6 +312,28 @@ void way_init_output(way_server*);
 
 // -----------------------------------------------------------------------------
 
+struct way_data_source : core_object
+{
+    way_client* client;
+
+    way_resource resource;
+
+    ref<scene_data_source> source;
+};
+
+struct way_data_offer : core_object
+{
+    way_client* client;
+
+    way_resource resource;
+
+    ref<scene_data_source> source;
+};
+
+void way_offer_selection(way_client*);
+
+// -----------------------------------------------------------------------------
+
 struct way_buffer : core_object
 {
     friend way_buffer_lock;
@@ -395,9 +423,9 @@ struct way_client : core_object
 
     way_resource_list keyboards;
     way_resource_list pointers;
+    way_resource_list data_devices;
 
-    weak<way_surface> pointer_focus;
-    weak<way_surface> keyboard_focus;
+    weak<way_surface> pending_keyboard_focus;
 };
 
 void way_on_client_create(wl_listener* listener, void* data);

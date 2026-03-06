@@ -140,6 +140,27 @@ void scene_pointer_set_driver(scene_context*, std::move_only_function<scene_poin
 
 // -----------------------------------------------------------------------------
 
+struct scene_data_source;
+CORE_OBJECT_EXPLICIT_DECLARE(scene_data_source);
+
+struct scene_data_source_ops
+{
+    std::move_only_function<void()>                 cancel = [] {};
+    std::move_only_function<void(const char*, int)> send;
+};
+
+auto scene_data_source_create(scene_client*, scene_data_source_ops&&) -> ref<scene_data_source>;
+
+void scene_data_source_offer(      scene_data_source*, const char* mime_type);
+auto scene_data_source_get_offered(scene_data_source*) -> std::span<const std::string>;
+
+void scene_data_source_send(scene_data_source*, const char* mime_type, int fd);
+
+void scene_set_selection(scene_context*, scene_data_source*);
+auto scene_get_selection(scene_context*) -> scene_data_source*;
+
+// -----------------------------------------------------------------------------
+
 enum class scene_node_type
 {
     transform,
@@ -379,6 +400,8 @@ enum class scene_event_type
     // Scene graph changes made directly in response to this event
     // will be applied immediately.
     output_frame,
+
+    selection,
 };
 
 struct scene_hotkey_event
@@ -447,6 +470,7 @@ struct scene_event
         scene_focus_event   focus;
         scene_redraw_event  redraw;
         scene_output*       output;
+        scene_data_source*  selection;
     };
 };
 

@@ -23,9 +23,9 @@ auto to_span(ImVector<T>& v) -> std::span<T>
 }
 
 static
-auto get_context() -> imui_context*
+auto get_context(ImGuiContext* ctx = ImGui::GetCurrentContext()) -> imui_context*
 {
-    return static_cast<imui_context*>(ImGui::GetIO().BackendPlatformUserData);
+    return static_cast<imui_context*>(ctx->IO.BackendPlatformUserData);
 }
 
 static
@@ -145,6 +145,68 @@ void Platform_SetWindowTitle(ImGuiViewport* vp, const char* title)
 
 // -----------------------------------------------------------------------------
 
+static
+const char* text_mime_types[] = {
+    "text/plain;charset=utf-8",
+    "text/plain",
+    "text/html",
+};
+
+static
+void Platform_SetClipboardTextFn(ImGuiContext* imctx, const char* text)
+{
+    auto* ctx = get_context(imctx);
+
+    auto data_source = scene_data_source_create(ctx->client.get(), {
+        .send = [message = std::string(text)](const char* mime, int fd) {
+            write(fd, message.data(), message.size());
+            close(fd);
+        }
+    });
+    for (auto* mime : text_mime_types) {
+        scene_data_source_offer(data_source.get(), mime);
+    }
+    scene_set_selection(ctx->scene, data_source.get());
+}
+
+static
+auto read_to_string(int fd) -> std::string
+{
+    std::string str;
+    for (;;) {
+        char buffer[4096];
+        auto[len, err] = unix_check(read(fd, buffer, sizeof(buffer)));
+        if (len <= 0) break;
+        str.append_range(std::span(buffer, len));
+    }
+    return str;
+}
+
+static
+auto Platform_GetClipboardTextFn(ImGuiContext* imctx) -> const char*
+{
+    auto* ctx = get_context(imctx);
+
+    if (auto* source = scene_get_selection(ctx->scene)) {
+        auto available = scene_data_source_get_offered(source);
+        for (auto mime : text_mime_types) {
+            if (std::ranges::contains(available, std::string_view(mime))) {
+                int fd[2] = {-1, -1};
+                unix_check(pipe(fd));
+                defer { close(fd[0]); };
+                scene_data_source_send(source, mime, fd[1]);
+
+                ctx->clipboard.text = read_to_string(fd[0]);
+                return ctx->clipboard.text.c_str();
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+// -----------------------------------------------------------------------------
+
 CORE_OBJECT_EXPLICIT_DEFINE(imui_context);
 
 imui_context::~imui_context()
@@ -206,6 +268,7 @@ void imui_init(imui_context* ctx)
     }
 
     auto& platform_io = ImGui::GetPlatformIO();
+
     platform_io.Platform_CreateWindow   = Platform_CreateWindow;
     platform_io.Platform_DestroyWindow  = Platform_DestroyWindow;
     platform_io.Platform_ShowWindow     = Platform_ShowWindow;
@@ -214,6 +277,9 @@ void imui_init(imui_context* ctx)
     platform_io.Platform_GetWindowSize  = Platform_GetWindowSize;
     platform_io.Platform_SetWindowSize  = Platform_SetWindowSize;
     platform_io.Platform_SetWindowTitle = Platform_SetWindowTitle;
+
+    platform_io.Platform_SetClipboardTextFn = Platform_SetClipboardTextFn;
+    platform_io.Platform_GetClipboardTextFn = Platform_GetClipboardTextFn;
 
     // Create dummy main viewport.
     // This will never be used to draw anything as it will be zero sized, but
@@ -379,6 +445,10 @@ auto imui_create(gpu_context* gpu, scene_context* scene) -> ref<imui_context>
 
             // hotkey
             break;case scene_event_type::hotkey:
+                ;
+
+            // selection
+            break;case scene_event_type::selection:
                 ;
         }
     });

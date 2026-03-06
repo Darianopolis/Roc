@@ -232,7 +232,10 @@ int main()
                   case scene_event_type::output_configured:
                   case scene_event_type::output_frame_request:
                   case scene_event_type::output_layout:
-                  case scene_event_type::hotkey:
+                ;
+            break;case scene_event_type::hotkey:
+                ;
+            break;case scene_event_type::selection:
                 ;
         }
     });
@@ -245,6 +248,7 @@ int main()
 
     // ImGui
 
+    std::string imui_text_edit = "Hello, world!";
     auto imui = imui_create(gpu.get(), scene.get());
     imui_add_frame_handler(imui.get(), [&] {
         ImGui::ShowDemoWindow();
@@ -303,6 +307,8 @@ int main()
                         return scene_iterate_action::next;
                     });
             }
+
+            ImGui::InputText("Text", &imui_text_edit);
         }
     });
     imui_request_frame(imui.get());
@@ -324,6 +330,22 @@ int main()
             log_debug("hotkey({} - {})", hotkeys.at(event->hotkey.hotkey), event->hotkey.pressed ? "pressed" : "released");
         }
     });
+
+    // Selection
+
+    auto data_client = scene_client_create(scene.get());
+    scene_client_set_event_handler(data_client.get(), [](scene_event*) {});
+    auto data_source = scene_data_source_create(data_client.get(), {
+        .send = [&](const char* mime, int fd) {
+            std::string message = "This is a test clipboard message.";
+            write(fd, message.data(), message.size());
+            close(fd);
+        }
+    });
+    scene_data_source_offer(data_source.get(), "text/plain;charset=utf-8");
+    scene_data_source_offer(data_source.get(), "text/plain");
+    scene_data_source_offer(data_source.get(), "text/html");
+    scene_set_selection(scene.get(), data_source.get());
 
     // Run
 

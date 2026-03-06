@@ -25,6 +25,7 @@ void handle_event(way_client* client, scene_event* event)
                 way_surface_on_redraw(surface);
             }
         }
+
         break;case scene_event_type::focus_keyboard:    way_seat_on_focus_keyboard(client, event);
         break;case scene_event_type::focus_pointer:     way_seat_on_focus_pointer( client, event);
         break;case scene_event_type::keyboard_key:      way_seat_on_key(           client, event);
@@ -32,14 +33,19 @@ void handle_event(way_client* client, scene_event* event)
         break;case scene_event_type::pointer_motion:    way_seat_on_motion(        client, event);
         break;case scene_event_type::pointer_button:    way_seat_on_button(        client, event);
         break;case scene_event_type::pointer_scroll:    way_seat_on_scroll(        client, event);
-        break;case scene_event_type::hotkey:
-            ;
+
         break;case scene_event_type::output_added:
               case scene_event_type::output_removed:
               case scene_event_type::output_configured:
               case scene_event_type::output_layout:
               case scene_event_type::output_frame_request:
             ;
+
+        break;case scene_event_type::hotkey:
+            ;
+
+        break;case scene_event_type::selection:
+            way_offer_selection(client);
     }
 }
 

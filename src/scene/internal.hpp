@@ -43,6 +43,8 @@ struct scene_context
         ankerl::unordered_dense::map<scene_hotkey, scene_client*> registered;
         ankerl::unordered_dense::map<scene_scancode, std::pair<flags<scene_modifier>, scene_client*>> pressed;
     } hotkey;
+
+    ref<scene_data_source> selection;
 };
 
 void scene_broadcast_event(scene_context*, scene_event*);
@@ -118,6 +120,21 @@ struct scene_pointer
 void scene_update_pointer_focus(scene_context*);
 
 auto scene_pointer_create(scene_context*) -> ref<scene_pointer>;
+
+// -----------------------------------------------------------------------------
+
+struct scene_data_source
+{
+    scene_client* client;
+
+    std::flat_set<std::string> offered;
+
+    scene_data_source_ops ops;
+
+    ~scene_data_source();
+};
+
+void scene_offer_selection(scene_client*, scene_data_source*);
 
 // -----------------------------------------------------------------------------
 

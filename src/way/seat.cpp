@@ -116,26 +116,39 @@ static
 void keyboard_leave(way_client* client, u32 serial, way_surface* surface)
 {
     if (!surface->wl_surface) return;
+
+    auto* server = client->server;
     for (auto* resource : client->keyboards) {
-        way_send(client->server, wl_keyboard_send_leave, resource, serial, surface->wl_surface);
+        way_send(server, wl_keyboard_send_leave, resource, serial, surface->wl_surface);
     }
+
+    core_assert(server->focus.keyboard.get() == surface, "Keyboard left surface that did not have focus");
+    server->focus.keyboard = nullptr;
 }
 
 static
 void keyboard_enter(way_client* client, u32 serial, way_surface* surface)
 {
     if (!surface->wl_surface) return;
+
+    auto* server = client->server;
+
     auto pressed = way_to_wl_array<const u32>(scene_keyboard_get_pressed(client->server->scene));
     for (auto* resource : client->keyboards) {
-        way_send(client->server, wl_keyboard_send_enter, resource, serial, surface->wl_surface, &pressed);
+        way_send(server, wl_keyboard_send_enter, resource, serial, surface->wl_surface, &pressed);
     }
+
+    server->focus.keyboard = surface;
+
+    way_offer_selection(client);
 }
 
 void way_seat_on_focus_keyboard(way_client* client, scene_event* event)
 {
+    auto* server = client->server;
     auto gained = event->focus.gained.client == client->scene.get();
 
-    auto* surface = client->keyboard_focus.get();
+    auto* surface = client->pending_keyboard_focus.get();
     if (!surface) return;
 
     u32 serial = way_next_serial(client->server);
@@ -146,7 +159,7 @@ void way_seat_on_focus_keyboard(way_client* client, scene_event* event)
         }
         keyboard_enter(client, serial, surface);
     } else {
-        keyboard_leave(client, serial, surface);
+        keyboard_leave(client, serial, server->focus.keyboard.get());
     }
 }
 
@@ -184,14 +197,16 @@ void pointer_leave(way_client* client, u32 serial, way_surface* surface)
 
 void way_seat_on_focus_pointer(way_client* client, scene_event* event)
 {
+    auto* server = client->server;
+
     auto lost = event->focus.gained.client != client->scene.get();
 
     auto* new_surface = find_surface(client, event->focus.gained.region);
 
-    u32 serial = way_next_serial(client->server);
+    u32 serial = way_next_serial(server);
 
-    if (client->pointer_focus && (new_surface || lost)) {
-        pointer_leave(client, serial, client->pointer_focus.get());
+    if (server->focus.pointer && server->focus.pointer->client == client && (new_surface || lost)) {
+        pointer_leave(client, serial, server->focus.pointer.get());
     }
 
     if (new_surface) {
@@ -199,9 +214,9 @@ void way_seat_on_focus_pointer(way_client* client, scene_event* event)
     }
 
     if (new_surface) {
-        client->pointer_focus = new_surface;
+        server->focus.pointer = new_surface;
     } else if (lost) {
-        client->pointer_focus = nullptr;
+        server->focus.pointer = nullptr;
     }
 }
 
@@ -209,22 +224,24 @@ void way_seat_on_focus_pointer(way_client* client, scene_event* event)
 
 void way_seat_on_key(way_client* client, scene_event* event)
 {
-    u32 serial = way_next_serial(client->server);
-    u32 time = elapsed_ms(client->server);
+    auto* server = client->server;
+    u32 serial = way_next_serial(server);
+    u32 time = elapsed_ms(server);
     auto state = event->key.pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED;
 
     for (auto* resource : client->keyboards) {
-        way_send(client->server, wl_keyboard_send_key, resource, serial, time, event->key.code, state);
+        way_send(server, wl_keyboard_send_key, resource, serial, time, event->key.code, state);
     }
 }
 
 void way_seat_on_modifier(way_client* client, scene_event* event)
 {
-    u32 serial = way_next_serial(client->server);
-    auto kb = scene_keyboard_get_info(client->server->scene);
+    auto* server = client->server;
+    u32 serial = way_next_serial(server);
+    auto kb = scene_keyboard_get_info(server->scene);
 
     for (auto* resource : client->keyboards) {
-        way_send(client->server, wl_keyboard_send_modifiers, resource, serial,
+        way_send(server, wl_keyboard_send_modifiers, resource, serial,
             xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_DEPRESSED),
             xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LATCHED),
             xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LOCKED),
@@ -244,51 +261,54 @@ void pointer_frame(way_server* server, wl_resource* resource)
 
 void way_seat_on_motion(way_client* client, scene_event* event)
 {
-    auto* surface = client->pointer_focus.get();
+    auto* server = client->server;
+    auto* surface = server->focus.pointer.get();
     if (!surface) return;
 
-    u32 time = elapsed_ms(client->server);
+    u32 time = elapsed_ms(server);
     auto[x, y] = get_fixed_pos(surface);
 
     for (auto* resource : client->pointers) {
-        way_send(client->server, wl_pointer_send_motion, resource, time, x, y);
-        pointer_frame(client->server, resource);
+        way_send(server, wl_pointer_send_motion, resource, time, x, y);
+        pointer_frame(server, resource);
     }
 }
 
 void way_seat_on_button(way_client* client, scene_event* event)
 {
-    u32 serial = way_next_serial(client->server);
-    u32 time = elapsed_ms(client->server);
+    auto* server = client->server;
+    u32 serial = way_next_serial(server);
+    u32 time = elapsed_ms(server);
     auto state = event->key.pressed ? WL_POINTER_BUTTON_STATE_PRESSED : WL_POINTER_BUTTON_STATE_RELEASED;
 
     for (auto* resource : client->pointers) {
-        way_send(client->server, wl_pointer_send_button, resource, serial, time, event->key.code, state);
-        pointer_frame(client->server, resource);
+        way_send(server, wl_pointer_send_button, resource, serial, time, event->key.code, state);
+        pointer_frame(server, resource);
     }
 
     if (event->key.pressed) {
-        client->keyboard_focus = client->pointer_focus;
+        client->pending_keyboard_focus = server->focus.pointer;
         scene_keyboard_grab(client->scene.get());
     }
 }
 
 void way_seat_on_scroll(way_client* client, scene_event* event)
 {
-    u32 time = elapsed_ms(client->server);
+    auto* server = client->server;
+    u32 time = elapsed_ms(server);
     auto delta = event->pointer.scroll.delta;
 
     static constexpr f32 axis_pixel_rate = 15.f;
 
     for (auto* resource : client->pointers) {
         if (delta.x) {
-            way_send(client->server, wl_pointer_send_axis, resource, time,
+            way_send(server, wl_pointer_send_axis, resource, time,
                 WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(delta.x * axis_pixel_rate));
         }
         if (delta.y) {
-            way_send(client->server, wl_pointer_send_axis, resource, time,
+            way_send(server, wl_pointer_send_axis, resource, time,
                 WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(delta.y * axis_pixel_rate));
         }
-        pointer_frame(client->server, resource);
+        pointer_frame(server, resource);
     }
 }
