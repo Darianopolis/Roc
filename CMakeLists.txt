@@ -140,6 +140,7 @@ target_sources(core PUBLIC
     src/core/shm.cpp
     src/core/format.cpp
     src/core/object.cpp
+    src/core/fd.cpp
     src/core/event.cpp
     src/core/stacktrace.cpp
     src/core/process.cpp

@@ -111,7 +111,7 @@ struct wroc_wayland_backend : wroc_backend
     ref<wroc_wayland_keyboard> keyboard = {};
     ref<wroc_wayland_pointer>  pointer = {};
 
-    ref<core_fd> wl_event_source_fd;
+    core_fd wl_event_source_fd;
 
     std::chrono::steady_clock::time_point current_dispatch_time;
 

@@ -10,7 +10,7 @@ void update_mapping(way_shm_pool* pool, usz size)
 {
     auto mapping = core_create<way_shm_mapping>();
     mapping->size = size;
-    mapping->data = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd->get(), 0);
+    mapping->data = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd.get(), 0);
     if (mapping->data == MAP_FAILED) {
         way_post_error(pool->server, pool->resource, WL_SHM_ERROR_INVALID_FD, "mmap failed");
         return;

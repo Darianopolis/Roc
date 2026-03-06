@@ -50,7 +50,7 @@ static constexpr libseat_seat_listener wroc_seat_listener {
 };
 
 static
-int handle_libseat_readable(wroc_direct_backend* backend, core_fd* fd, core_fd_event_bits events)
+int handle_libseat_readable(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
 {
     log_debug("SEAT DISPATCH");
     libseat_dispatch(backend->seat, 0);
@@ -99,7 +99,7 @@ static constexpr libinput_interface wroc_libinput_interface {
 };
 
 static
-int handle_libinput_readable(wroc_direct_backend* backend, core_fd* fd, core_fd_event_bits events)
+int handle_libinput_readable(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
 {
     unix_check(libinput_dispatch(backend->libinput));
 
@@ -159,8 +159,8 @@ void wroc_backend_init_session(wroc_direct_backend* backend)
     core_assert(seat_fd >= 0);
 
     backend->libseat_fd = core_fd_reference(seat_fd);
-    core_fd_set_listener(backend->libseat_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend](core_fd* fd, core_fd_event_bits events) {
+    core_fd_add_listener(backend->libseat_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
+        [backend](int fd, core_fd_event_bits events) {
             handle_libseat_readable(backend, fd, events);
         });
 
@@ -190,8 +190,8 @@ void wroc_backend_init_session(wroc_direct_backend* backend)
     }
 
     backend->libinput_fd = core_fd_reference(libinput_fd);
-    core_fd_set_listener(backend->libinput_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend](core_fd* fd, core_fd_event_bits events) {
+    core_fd_add_listener(backend->libinput_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
+        [backend](int fd, core_fd_event_bits events) {
             handle_libinput_readable(backend, fd, events);
         });
 

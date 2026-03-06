@@ -74,7 +74,7 @@ struct io_wayland
     IO_WL_INTERFACE(zwp_linux_dmabuf_v1);
     IO_WL_INTERFACE(wp_linux_drm_syncobj_manager_v1);
 
-    ref<core_fd> wl_display_fd = {};
+    core_fd wl_display_fd = {};
 
     std::vector<ref<io_output_wayland>> outputs;
 

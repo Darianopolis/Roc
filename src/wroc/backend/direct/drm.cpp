@@ -71,10 +71,10 @@ struct drm_property_map
     drm_property_map() = default;
 
     drm_property_map(wroc_direct_backend* backend, u32 object_id, u32 object_type)
-        : props(prop_ptr(drmModeObjectGetProperties(backend->drm_fd->get(), object_id, object_type)))
+        : props(prop_ptr(drmModeObjectGetProperties(backend->drm_fd.get(), object_id, object_type)))
     {
         for (u32 i = 0; i < props->count_props; ++i) {
-            auto* prop = drmModeGetProperty(backend->drm_fd->get(), props->props[i]);
+            auto* prop = drmModeGetProperty(backend->drm_fd.get(), props->props[i]);
             properties[prop->name] = prop;
         }
     }
@@ -82,7 +82,7 @@ struct drm_property_map
     drm_property_map(const drm_property_map& other)
     {
         for (auto[name, old_prop] : other.properties) {
-            auto* new_prop =  drmModeGetProperty(wroc_get_direct_backend()->drm_fd->get(), old_prop->prop_id);
+            auto* new_prop =  drmModeGetProperty(wroc_get_direct_backend()->drm_fd.get(), old_prop->prop_id);
             properties[new_prop->name] = new_prop;
         }
     }
@@ -158,7 +158,7 @@ gpu_format_set parse_plane_formats(wroc_direct_backend* backend, drm_resources* 
         return {};
     }
 
-    auto blob = drmModeGetPropertyBlob(backend->drm_fd->get(), blob_id);
+    auto blob = drmModeGetPropertyBlob(backend->drm_fd.get(), blob_id);
     defer { drmModeFreePropertyBlob(blob); };
 
     auto* header = static_cast<drm_format_modifier_blob*>(blob->data);
@@ -322,13 +322,13 @@ static
 void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, void* data);
 
 static
-void drm_handle_event(wroc_direct_backend* backend, core_fd* fd, core_fd_event_bits events)
+void drm_handle_event(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
 {
     drmEventContext handlers {
         .version = 3,
         .page_flip_handler2 = on_page_flip,
     };
-    drmHandleEvent(fd->get(), &handlers);
+    drmHandleEvent(fd, &handlers);
 }
 
 void wroc_backend_init_drm(wroc_direct_backend* backend)
@@ -348,8 +348,8 @@ void wroc_backend_init_drm(wroc_direct_backend* backend)
 
     backend->drm_fd = core_fd_adopt(drm_fd);
 
-    core_fd_set_listener(backend->drm_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend](core_fd* fd, core_fd_event_bits events) {
+    core_fd_add_listener(backend->drm_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
+        [backend](int fd, core_fd_event_bits events) {
             drm_handle_event(backend, fd, events);
         });
 
@@ -430,7 +430,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     std::optional<u32> found = std::nullopt;
     std::erase_if(backend->buffer_cache, [&](const auto& entry) {
         if (!entry.image) {
-            drmCloseBufferHandle(backend->drm_fd->get(), entry.fb2_handle);
+            drmCloseBufferHandle(backend->drm_fd.get(), entry.fb2_handle);
             return true;
         }
         if (entry.image.get() == image) found = entry.fb2_handle;
@@ -451,8 +451,8 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     u32 offsets[4] = {};
     u64 modifiers[4] = {};
     for (u32 i = 0; i < dma_params.planes.count; ++i) {
-        unix_check(drmPrimeFDToHandle(backend->drm_fd->get(), dma_params.planes[i].fd->get(), &handles[i]));
-        log_warn("  plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd->get(), handles[i]);
+        unix_check(drmPrimeFDToHandle(backend->drm_fd.get(), dma_params.planes[i].fd.get(), &handles[i]));
+        log_warn("  plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
         pitches[i] = dma_params.planes[i].stride;
         offsets[i] = dma_params.planes[i].offset;
         modifiers[i] = dma_params.modifier;
@@ -461,7 +461,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     // Import
 
     u32 fb2_handle = 0;
-    unix_check(drmModeAddFB2WithModifiers(backend->drm_fd->get(),
+    unix_check(drmModeAddFB2WithModifiers(backend->drm_fd.get(),
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
         &fb2_handle, DRM_MODE_FB_MODIFIERS));
@@ -470,7 +470,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
 
     std::flat_set<u32> unique_handles;
     unique_handles.insert_range(handles);
-    for (auto handle : unique_handles) drmCloseBufferHandle(backend->drm_fd->get(), handle);
+    for (auto handle : unique_handles) drmCloseBufferHandle(backend->drm_fd.get(), handle);
 
     log_warn("  FB2 id: {}", fb2_handle);
 
@@ -531,7 +531,7 @@ wroc_output_commit_id wroc_drm_output::commit(
 
     drmModeAtomicAddProperty(req, state->crtc_id, state->crtc_prop.get_prop_id("VRR_ENABLED"), true);
 
-    if (unix_check(drmModeAtomicCommit(backend->drm_fd->get(), req, flags, this)).err()) {
+    if (unix_check(drmModeAtomicCommit(backend->drm_fd.get(), req, flags, this)).err()) {
         // TODO: Configuration rollback
         gpu_semaphore_import_syncfile(release.semaphore, in_fence, release.value);
         frame_available = true;

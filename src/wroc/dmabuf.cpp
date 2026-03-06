@@ -84,7 +84,7 @@ void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u
     // Deduplicate file descriptors as we receieve them
 
     for (auto& p : params->params.planes) {
-        if (core_fd_are_same(p.fd->get(), fd->get())) {
+        if (core_fd_are_same(p.fd.get(), fd.get())) {
             plane.fd = p.fd;
             break;
         } else {
@@ -193,18 +193,18 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
         }
 
         for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-            if (unix_check(poll(ptr_to(pollfd { .fd = plane.fd->get(), .events = POLLIN }), 1, 0)).value > 0) {
+            if (unix_check(poll(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0)).value > 0) {
                 continue;
             }
 
             ready = false;
 
-            if (plane.fd->listener) {
+            if (core_fd_get_listener(plane.fd.get())) {
                 log_error("Can't register new DMA-BUF implicit listener - file descriptor already has listener registered");
             } else {
                 surface->apply_queued = true;
-                core_fd_set_listener(plane.fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-                    [surface = weak(surface)](core_fd*, core_fd_event_bits) {
+                core_fd_add_listener(plane.fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
+                    [surface = weak(surface)](int, core_fd_event_bits) {
                         if (surface) {
                             surface->apply_queued = false;
                             wroc_surface_flush_apply(surface.get());

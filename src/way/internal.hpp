@@ -24,8 +24,8 @@ struct way_surface;
 
 struct way_keymap
 {
-    ref<core_fd> fd;
-    u32          size;
+    core_fd fd;
+    u32     size;
 };
 
 // -----------------------------------------------------------------------------
@@ -39,8 +39,8 @@ struct way_server : core_object
     gpu_context* gpu;
     scene_context* scene;
 
-    wl_display*  wl_display;
-    ref<core_fd> wl_event_loop_fd;
+    wl_display* wl_display;
+    core_fd wl_event_loop_fd;
     std::string socket_name;
 
     ref<gpu_sampler> sampler;
@@ -385,7 +385,7 @@ struct way_shm_pool : core_object
 
     way_resource resource;
 
-    ref<core_fd> fd;
+    core_fd fd;
     ref<way_shm_mapping> mapping;
 
     ~way_shm_pool();

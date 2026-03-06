@@ -31,7 +31,7 @@ void core_event_loop_timer_expiry_impl(core_event_loop* loop, std::chrono::stead
 
     // log_trace("Next timeout in {}", core_duration_to_string(exp - std::chrono::steady_clock::now()));
 
-    unix_check(timerfd_settime(loop->timer_fd->get(), TFD_TIMER_ABSTIME, ptr_to(itimerspec {
+    unix_check(timerfd_settime(loop->timer_fd.get(), TFD_TIMER_ABSTIME, ptr_to(itimerspec {
         .it_value = core_steady_clock_to_timespec<CLOCK_MONOTONIC>(exp),
     }), nullptr));
 }
@@ -76,16 +76,16 @@ ref<core_event_loop> core_event_loop_create()
     loop->epoll_fd = unix_check(epoll_create1(EPOLL_CLOEXEC)).value;
 
     loop->task_fd = core_fd_adopt(unix_check(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)).value);
-    core_fd_set_listener(loop->task_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](core_fd* fd, core_fd_event_bits events) {
-        loop->tasks_available += core_eventfd_read(fd->get());
+    core_fd_add_listener(loop->task_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, core_fd_event_bits events) {
+        loop->tasks_available += core_eventfd_read(fd);
 
         // Don't double dip task event stats
         loop->stats.events_handled--;
     });
 
     loop->timer_fd = core_fd_adopt(unix_check(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)).value);
-    core_fd_set_listener(loop->timer_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](core_fd* fd, core_fd_event_bits events) {
-        handle_timer(loop, fd->get());
+    core_fd_add_listener(loop->timer_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, core_fd_event_bits events) {
+        handle_timer(loop, fd);
 
         // Don't double dip timer event stats
         loop->stats.events_handled--;
@@ -151,9 +151,9 @@ void core_event_loop_run(core_event_loop* loop)
         // Flush fd events
 
         if (count > 0) {
-            std::array<weak<core_fd>, max_epoll_events> sources;
+            std::array<core_fd, max_epoll_events> sources;
             for (i32 i = 0; i < count; ++i) {
-                sources[i] = static_cast<core_fd*>(events[i].data.ptr);
+                sources[i] = events[i].data.fd;
             }
 
             for (i32 i = 0; i < count; ++i) {
@@ -161,7 +161,7 @@ void core_event_loop_run(core_event_loop* loop)
 
                 loop->stats.events_handled++;
 
-                auto l = sources[i]->listener.get();
+                auto l = core_fd_get_listener(sources[i].get());
                 auto event_bits = from_epoll_events(events[i].events);
                 if (l->flags.contains(core_fd_listen_flag::oneshot)) {
                     ref listener = l;
@@ -196,8 +196,10 @@ void core_event_loop_run(core_event_loop* loop)
 
 // -----------------------------------------------------------------------------
 
-void core_fd_set_listener(
-    core_fd* fd,
+CORE_OBJECT_EXPLICIT_DEFINE(core_fd_listener);
+
+void core_fd_add_listener(
+    int fd,
     core_event_loop* loop,
     core_fd_listener* listener)
 {
@@ -205,26 +207,27 @@ void core_fd_set_listener(
 
     core_assert(events);
     core_assert(!listener->loop);
-    core_assert(!fd->listener);
+    core_assert(!core_fd_get_listener(fd));
 
     loop->listener_count++;
 
     listener->loop = loop;
-    fd->listener = listener;
+    core_fd_set_listener(fd, listener);
 
-    unix_check(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd->get(), ptr_to(epoll_event {
+    unix_check(epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, ptr_to(epoll_event {
         .events = to_epoll_events(events),
         .data {
-            .ptr = fd,
+            .fd = fd,
         }
     })));
 }
 
-void core_fd_remove_listener(core_fd* fd)
+void core_fd_remove_listener(int fd)
 {
-    fd->listener->loop->listener_count--;
+    auto* listener = core_fd_get_listener(fd);
+    core_fd_get_listener(fd)->loop->listener_count--;
 
-    unix_check(epoll_ctl(fd->listener->loop->epoll_fd, EPOLL_CTL_DEL, fd->get(), nullptr));
-    fd->listener->loop = nullptr;
-    fd->listener = nullptr;
+    unix_check(epoll_ctl(listener->loop->epoll_fd, EPOLL_CTL_DEL, fd, nullptr));
+    listener->loop = nullptr;
+    core_fd_set_listener(fd, nullptr);
 }

@@ -525,7 +525,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
         VkMemoryFdPropertiesKHR fd_props = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR,
         };
-        gpu_check(ctx->vk.GetMemoryFdPropertiesKHR(ctx->device, handle_type, fd->get(), &fd_props));
+        gpu_check(ctx->vk.GetMemoryFdPropertiesKHR(ctx->device, handle_type, fd.get(), &fd_props));
 
         VkMemoryRequirements2 mem_reqs = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
@@ -544,7 +544,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
         auto mem = gpu_find_vk_memory_type_index(ctx, mem_reqs.memoryRequirements.memoryTypeBits & fd_props.memoryTypeBits, 0);
 
         // Take a copy of the file descriptor, this will be owned by the bound vulkan memory
-        int vk_fd = core_fd_dup_unsafe(fd->get());
+        int vk_fd = core_fd_dup_unsafe(fd.get());
 
         log_trace("  mem[{}].fd   = {}", i, vk_fd);
         log_trace("  mem[{}].size = {}", i, core_byte_size_to_string(mem_reqs.memoryRequirements.size));

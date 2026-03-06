@@ -143,7 +143,7 @@ wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
     auto buffer_params = zwp_linux_dmabuf_v1_create_params(wl->zwp_linux_dmabuf_v1);
     for (u32 plane_idx = 0; plane_idx < dma_params.planes.count; ++plane_idx) {
         auto& plane = dma_params.planes[plane_idx];
-        zwp_linux_buffer_params_v1_add(buffer_params, plane.fd->get(), plane_idx, plane.offset, plane.stride, mod_hi, mod_lo);
+        zwp_linux_buffer_params_v1_add(buffer_params, plane.fd.get(), plane_idx, plane.offset, plane.stride, mod_hi, mod_lo);
     }
     auto buffer = zwp_linux_buffer_params_v1_create_immed(buffer_params, size.x, size.y, format->drm, 0);
     zwp_linux_buffer_params_v1_destroy(buffer_params);

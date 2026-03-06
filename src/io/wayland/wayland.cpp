@@ -103,8 +103,8 @@ void io_wayland_start(io_context* ctx)
     wl_display_roundtrip(wl->wl_display);
 
     wl->wl_display_fd = core_fd_reference(wl_display_get_fd(wl->wl_display));
-    core_fd_set_listener(wl->wl_display_fd.get(), ctx->event_loop, core_fd_event_bit::readable,
-        [ctx = weak(ctx)](core_fd*, core_fd_event_bits events) {
+    core_fd_add_listener(wl->wl_display_fd.get(), ctx->event_loop, core_fd_event_bit::readable,
+        [ctx = weak(ctx)](int, core_fd_event_bits events) {
             if (ctx) display_read(ctx.get(), events);
         });
 

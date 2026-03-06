@@ -142,7 +142,7 @@ u64 gpu_semaphore_get_value(gpu_semaphore* semaphore)
 static
 void handle_waits(gpu_semaphore* semaphore)
 {
-    auto count = core_eventfd_read(semaphore->wait_fd->get());
+    auto count = core_eventfd_read(semaphore->wait_fd.get());
 
     if (semaphore->ctx->features.contains(gpu_feature::validation)) {
         // Validation layers need to see the new semaphore value.
@@ -175,8 +175,8 @@ void gpu_semaphore_wait_value_impl(gpu_semaphore* semaphore, gpu_semaphore::wait
     if (!semaphore->wait_fd) {
         semaphore->wait_fd = core_fd_adopt(eventfd(0, EFD_CLOEXEC));
 
-        core_fd_set_listener(semaphore->wait_fd.get(), ctx->event_loop.get(), core_fd_event_bit::readable,
-            [semaphore](core_fd*, core_fd_event_bits) {
+        core_fd_add_listener(semaphore->wait_fd.get(), ctx->event_loop.get(), core_fd_event_bit::readable,
+            [semaphore](int, core_fd_event_bits) {
                 handle_waits(semaphore);
             });
     }
@@ -189,7 +189,7 @@ void gpu_semaphore_wait_value_impl(gpu_semaphore* semaphore, gpu_semaphore::wait
     unix_check(drmIoctl(ctx->drm.fd, DRM_IOCTL_SYNCOBJ_EVENTFD, ptr_to(drm_syncobj_eventfd {
         .handle = semaphore->syncobj,
         .point = wait->point,
-        .fd = semaphore->wait_fd->get(),
+        .fd = semaphore->wait_fd.get(),
     })));
 }
 

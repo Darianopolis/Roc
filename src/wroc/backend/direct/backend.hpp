@@ -56,7 +56,7 @@ struct wroc_input_device : core_object
 
 struct wroc_direct_backend : wroc_backend
 {
-    ref<core_fd> drm_fd;
+    core_fd drm_fd;
 
     struct libseat* seat;
     const char* seat_name;
@@ -71,8 +71,8 @@ struct wroc_direct_backend : wroc_backend
 
     std::vector<wroc_drm_buffer> buffer_cache;
 
-    ref<core_fd> libseat_fd = {};
-    ref<core_fd> libinput_fd = {};
+    core_fd libseat_fd = {};
+    core_fd libinput_fd = {};
 
     virtual void init() final override;
     virtual void start() final override;

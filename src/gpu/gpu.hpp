@@ -269,7 +269,7 @@ struct gpu_semaphore : core_object
     VkSemaphore semaphore;
     u32         syncobj;
 
-    ref<core_fd> wait_fd;
+    core_fd wait_fd;
     u64 wait_skips = 0;
     struct wait_item : core_intrusive_list_base<wait_item>
     {
@@ -512,7 +512,7 @@ constexpr static u32 gpu_dma_max_planes = 4;
 
 struct gpu_dma_plane
 {
-    ref<core_fd> fd;
+    core_fd fd;
     u32 offset;
     u32 stride;
 };
