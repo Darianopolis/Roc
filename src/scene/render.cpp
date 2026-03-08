@@ -52,19 +52,38 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
 
     aabb2f32 default_clip = viewport;
 
+    auto get_draw = [&draws, &vertices, &indices](
+        aabb2f32 clip, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend, scene_transform_state transform)
+    {
+        auto* draw = draws.empty() ? nullptr : &draws.back();
+        if (  !draw
+            || draw->clip      != clip
+            || draw->image     != image
+            || draw->sampler   != sampler
+            || draw->blend     != blend
+            || draw->transform != transform)
+        {
+            draw = &draws.emplace_back(scene_draw{
+                .first_vertex = u32(vertices.size()),
+                .first_index = u32(indices.size()),
+                .clip = clip,
+                .image = image,
+                .sampler = sampler,
+                .blend = blend,
+                .transform = transform,
+            });
+        }
+        return draw;
+    };
+
     auto visit_node = [&](scene_node* node) -> scene_iterate_action {
         switch (node->type) {
             break;case scene_node_type::mesh: {
                 auto* mesh = static_cast<scene_mesh*>(node);
 
-                u32 vtx = vertices.size();
-                u32 idx = indices.size();
-                vertices.insert_range(vertices.end(), mesh->vertices);
-                indices.insert_range(indices.end(), mesh->indices);
-
                 draws.emplace_back(scene_draw {
-                    .first_vertex = vtx,
-                    .first_index = idx,
+                    .first_vertex = u32(vertices.size()),
+                    .first_index = u32(indices.size()),
                     .num_indices = u32(mesh->indices.size()),
                     .clip = core_aabb_inner(default_clip, {
                         node->transform->global.translation + mesh->clip.min * node->transform->global.scale,
@@ -76,6 +95,9 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                     .blend = mesh->blend,
                     .transform = mesh->transform->global,
                 });
+
+                vertices.insert_range(vertices.end(), mesh->vertices);
+                indices.insert_range(indices.end(), mesh->indices);
             }
             break;case scene_node_type::texture: {
                 auto* texture = static_cast<scene_texture*>(node);
@@ -87,27 +109,29 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                 //  |  / b |  b = 1,2,3
                 //  2 ---- 3
 
-                u32 vtx = vertices.size();
-                u32 idx = indices.size();
+                auto* draw = get_draw(default_clip,
+                    texture->image.get()   ?: render.white.get(),
+                    texture->sampler.get() ?: render.sampler.get(),
+                    texture->blend,
+                    scene_get_root_transform(ctx)->global);
+
+                auto base_vtx = vertices.size() - draw->first_vertex;
+                draw->num_indices += 6;
+                for (auto idx : {0, 2, 1, 1, 2, 3}) {
+                    indices.emplace_back(base_vtx + idx);
+                }
+
                 auto push_vtx = [&](vec2f32 pos, vec2f32 uv = {}) {
-                    vertices.emplace_back(scene_vertex { .pos = pos, .uv = uv, .color = texture->tint });
+                    vertices.emplace_back(scene_vertex {
+                        .pos = texture->transform->global.to_global(pos),
+                        .uv = uv,
+                        .color = texture->tint
+                    });
                 };
                 push_vtx({dst.min.x, dst.min.y}, {src.min.x, src.min.y});
                 push_vtx({dst.max.x, dst.min.y}, {src.max.x, src.min.y});
                 push_vtx({dst.min.x, dst.max.y}, {src.min.x, src.max.y});
                 push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
-                indices.append_range(std::array{0, 2, 1, 1, 2, 3});
-
-                draws.emplace_back(scene_draw {
-                    .first_vertex = vtx,
-                    .first_index = idx,
-                    .num_indices = 6,
-                    .clip = default_clip,
-                    .image = texture->image.get() ?: render.white.get(),
-                    .sampler = texture->sampler.get() ?: render.sampler.get(),
-                    .blend = texture->blend,
-                    .transform = texture->transform->global,
-                });
             }
             break;default:
                 ;

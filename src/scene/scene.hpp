@@ -214,6 +214,8 @@ struct scene_transform_state
     {
         return (global - translation) / scale;
     }
+
+    constexpr bool operator==(const scene_transform_state&) const noexcept = default;
 };
 
 struct scene_transform : scene_node
