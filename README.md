@@ -7,22 +7,16 @@ An experiment in writing a simple opinionated independent Wayland compositor.
 The following are guiding principals and goals in the development of Roc. **Not** a list of currently supported features.
 
 - Independence from Wayland frameworks / libraries
-   - With an exception for libwayland implementing the Wayland wire protocol for now.
-- Modern Vulkan based Wayland compositor
-   - Consolidating on a single backend API and modern kernel version simplifies GPU allocation, buffer sharing and synchronization code paths
-- Move common desktop functionality into the compositor process via a plugin/applet system
-   - Removes overhead of cross-process buffer sharing and synchronization
-   - E.g.
-       - Desktop background (with support for internally compressed formats)
-       - System tray
-       - Notification daemon
-       - Output management (with support for screen size/refresh spoofing)
-       - Screenshare / screenshot / screenrecord / color picking
-       - Clipboard management
-- Universal input device remapping
-   - Keyboard, mouse, touchpad, drawing tablet, foot pedal, gamepad, joystick, etc..
-   - With support for routing global shortcut combinations to particular applications
-   - Compositor-aware input mapping (e.g. per-window rules)
+   - Only relies on the `libwayland` wire protocol implementation
+- Unified Vulkan compositing
+   - Consolidating on a single graphics API and modern kernel simplifies GPU allocation, buffer sharing and synchronization code paths
+- Protocol-independent display server
+   - Open to additional protocol support
+   - Minimal Wayland code to map protocol objects on to internal display server objects
+   - Internal clients to implement in-process shell components / behaviours
+      - Removes overhead of cross-process buffer sharing and synchronization
+- Live configuration through native code
+   - Extensions can be written to allow any preferred form of configuration
 
 ## Non-Goals
 
@@ -40,22 +34,36 @@ Roc is currently tested on the following:
 
 # Architecture
 
-The project is currently in a state of rewriting the old monolothic `wroc` compositor implementation into a more more modular layered approach.
+Roc is built around an internal protocol-independent "display server", with a separate "window manager" component providing high-level behaviours and styling.
 
-Points marked as **❗** have not been implemented in the rewrite yet.
+The Wayland protocol is then implemented as a set of internal clients, alongside other GUI shell components.
 
-#### Core Utillities - `core`
+> The project is currently in a state of rewriting the old monolothic `wroc` compositor implementation into a more more modular layered approach.
+>
+> Points marked as **❗** have not been implemented in the rewrite yet.
 
-- Common data structures, algorithms and systems
-- Event loop (timed dispatch, file descriptor events)
+### Core Utillities - `core`
+
+A collection of reusable components and helpers used throughout the project.
+
+- Common data structures, algorithms and helpers
+- Event loop (timed dispatch, file events)
+- File descriptor lifetime management
 - Object registry (intrusive allocation reference counting)
+- Logging (level-based filtering, with full stacktrace contexts)
+- Linear algebra (vectors, aabbs, rects)
 
-#### GPU Control - `gpu`
+### GPU Control - `gpu`
+
+Small layer wrapping GPU  allocation, synchronization, and command execution.
 
 - Vulkan object wrappers
+- Event based completion handlers
 - DMABUF / DRM syncobj interop
 
-#### Session I/O - `io`
+### Session I/O - `io`
+
+Manages I/O, including input devices and display outputs; implemented as a set of subsystems:
 
 - `process`  (child process management) **❗**
 - `udev`     (device discovery, hotplug events) **❗**
@@ -65,35 +73,49 @@ Points marked as **❗** have not been implemented in the rewrite yet.
 - `drm`      (atomic KMS display control) **❗**
 - `wayland`  (nested emulation of `libinput`, `drm`)
 
-#### Scene Compositor - `scene`
+### Scene Compositor - `scene`
 
-- Semi-opinionated "display server"
+An internal protocol-independent "display server".
+
 - Scene graph
-   - Damage tracking **❗**
-- Output layout
-- Internal windowing API
+- Viewports
+   - Per-viewport damage events **❗**
+- Internal display server API
    - Virtual clients
 - Per-client input routing
    - Implicit pointer focus based on input region nodes
    - Explicit keyboard/pointer focus based on client grabs
+- Data management
+   - Selection buffers
+   - Drag and drop **❗**
 
-#### Immediate Mode UI - `imui`
+### Immediate Mode UI - `imui`
+
+An internal layer for writing in-process GUI clients.
 
 - ImGui multi-viewport backend
-- First-class window layout integration
+   - First-class window layout integration
+- Double-pumped event based frames
+- Lazy per-`ImViewport` redraw on `ImDrawData` change **❗**
 
-#### Wayland Protocols - `way`
+### Wayland Protocols - `way`
 
-- Adapts Wayland client state to `scene` elements
-   - `wl_client` ⇾ `client`
-   - `xdg_toplevel` ⇾ `window` + `texture` + `input_region`
-   - `xdg_popup`, `wl_subsurface` ⇾ `texture` + `input_region` **❗**
+A thin layer adapting relevant Wayland protocols to `scene`'s internal API.
 
-#### Window Manager - `wm`
+- Isolates compositor logic from Wayland "protocol plumbing"
+- Maps `wl_client` to `scene.client`
+- Builds surface trees out of `scene.texture` and `scene.input_region`
+- Toplevels supplemented with `scene.window` for layout behaviour
 
+### Window Manager - `wm`
+
+Builds on `scene` to implement opinionated window management, styling, and behaviours.
+
+- Output layout
 - Mouse driver
    - Acceleration
    - Constraints **❗**
+- Window decorations **❗**
 - High-level window layout policy
    - Drag move/size
    - Grid based window placement **❗**
@@ -102,7 +124,7 @@ Points marked as **❗** have not been implemented in the rewrite yet.
 
 # Building
 
-#### System dependencies (build-time)
+### System dependencies (build-time)
 
 - python 3
 - cmake
@@ -112,7 +134,7 @@ Points marked as **❗** have not been implemented in the rewrite yet.
 - mold
 - clang (C++26 capable version at minimum)
 
-#### Quickstart
+### Quickstart
 
 Build in release mode and install to `.local/bin/wroc`
 
@@ -122,7 +144,7 @@ $ python build.py -BIR
 
 **NOTE:** Currently this will also install a git version of `xwayland-satellite` to `.local/bin`
 
-#### Global Queue Priority
+### Global Queue Priority
 
 Roc can take advantage of higher queue scheduling priority when given the NICE system capability.
 
@@ -130,7 +152,7 @@ Roc can take advantage of higher queue scheduling priority when given the NICE s
 # setcap cap_sys_nice+ep ~/.local/bin/wroc
 ```
 
-#### Build Options
+### Build Options
 
 - `-B` : Build project
 - `-I` : Install project
