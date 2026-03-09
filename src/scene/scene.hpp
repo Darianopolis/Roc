@@ -266,7 +266,7 @@ auto scene_texture_create(scene_context*) -> ref<scene_texture>;
 void scene_texture_set_image(scene_texture*, gpu_image*, gpu_sampler*, gpu_blend_mode);
 void scene_texture_set_tint( scene_texture*, vec4u8   tint);
 void scene_texture_set_src(  scene_texture*, aabb2f32 src);
-void scene_texture_set_dst(  scene_texture*, aabb2f32 dst);
+void scene_texture_set_dst(  scene_texture*, rect2f32 dst);
 void scene_texture_damage(   scene_texture*, aabb2f32 damage);
 
 struct scene_mesh : scene_node

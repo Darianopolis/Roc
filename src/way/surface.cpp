@@ -67,7 +67,14 @@ void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i3
     auto* pending = surface->pending;
 
     pending->buffer.lock = nullptr;
-    pending->buffer.handle = wl_buffer ? way_get_userdata<way_buffer>(wl_buffer) : nullptr;
+
+    if (!wl_buffer) {
+        pending->buffer.handle = nullptr;
+        pending->unset(way_surface_committed_state::buffer);
+        return;
+    }
+
+    pending->buffer.handle = way_get_userdata<way_buffer>(wl_buffer);
     pending->set(way_surface_committed_state::buffer);
 
     if (x || y) {
@@ -161,41 +168,34 @@ void update_map_state(way_surface* surface)
 static
 void apply(way_surface* surface, way_surface_state& from)
 {
-    surface->current.commit = from.commit;
+    auto& to = surface->current;
 
-    surface->current.committed.set |=  from.committed.set;
-    surface->current.committed.set &= ~from.committed.unset;
+    to.commit = from.commit;
+
+    to.committed.set |=  from.committed.set;
+    to.committed.set &= ~from.committed.unset;
 
     WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer.transform, buffer_transform);
     WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer.scale,     buffer_scale);
 
-    surface->current.surface.frame_callbacks.take_and_append_all(std::move(from.surface.frame_callbacks));
+    to.surface.frame_callbacks.take_and_append_all(std::move(from.surface.frame_callbacks));
 
     // Buffer state
 
     if (from.is_set(way_surface_committed_state::buffer)) {
-        if (from.buffer.handle && from.buffer.handle->resource) {
-            surface->current.buffer.handle = std::move(from.buffer.handle);
-            surface->current.buffer.lock   = std::move(from.buffer.lock);
-        } else {
-            if (from.buffer.handle) {
-                log_warn("Pending buffer was destroyed, surface contents will be cleared");
-            }
-            surface->current.buffer.handle = nullptr;
-            surface->current.buffer.lock = nullptr;
-        }
+        to.buffer.handle = std::move(from.buffer.handle);
+        to.buffer.lock   = std::move(from.buffer.lock);
 
-        from.buffer.handle = nullptr;
-        from.buffer.lock = nullptr;
+        scene_texture_set_image(surface->scene.texture.get(),
+            to.buffer.handle->image.get(),
+            surface->client->server->sampler.get(),
+            gpu_blend_mode::premultiplied);
 
-        if (auto buffer = surface->current.buffer.handle) {
-            scene_texture_set_image(surface->scene.texture.get(),
-                buffer->image.get(),
-                surface->client->server->sampler.get(),
-                gpu_blend_mode::premultiplied);
-        } else {
-            scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu_blend_mode::none);
-        }
+    } else if (from.is_unset(way_surface_committed_state::buffer)) {
+        to.buffer.handle = nullptr;
+        to.buffer.lock   = nullptr;
+
+        scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu_blend_mode::none);
     }
 
     // Buffer source / destination
@@ -205,14 +205,12 @@ void apply(way_surface* surface, way_surface_state& from)
     // Input regions
 
     if (from.is_set(way_surface_committed_state::input_region)) {
-        // TODO: Do we still need to clip set input_regions against surface bounds?
+        // TODO: Clip set input_regions against surface bounds?
         scene_input_region_set_region(surface->scene.input_region.get(), std::move(from.surface.input_region));
-    }
-
-    if (!surface->current.is_set(way_surface_committed_state::input_region) && surface->current.buffer.handle) {
+    } else if (!to.is_set(way_surface_committed_state::input_region) && to.buffer.handle) {
         // Unset input_region fills entire surface
         scene_input_region_set_region(surface->scene.input_region.get(),
-            {{{}, surface->current.buffer.handle->extent, core_xywh}});
+            {{{}, to.buffer.handle->extent, core_xywh}});
     }
 
     // Map state

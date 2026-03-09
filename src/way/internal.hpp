@@ -333,7 +333,7 @@ struct way_data_offer : core_object
 {
     way_client* client;
 
-    way_resource_list resources;
+    way_resource resource;
 
     ref<scene_data_source> source;
 };

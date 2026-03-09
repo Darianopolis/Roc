@@ -53,61 +53,37 @@ WAY_INTERFACE(wp_viewport) = {
 
 // -----------------------------------------------------------------------------
 
-#define WAY_NOISY_VIEWPORT 0
-
 void way_viewport_apply(way_surface* surface, way_surface_state& from)
 {
     auto& to = surface->current;
 
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer.source, buffer_source);
-
-#define   SET(Enum) from.is_set(  way_surface_committed_state::Enum)
-#define UNSET(Enum) from.is_unset(way_surface_committed_state::Enum)
-#define   HAS(Enum)   to.is_set(  way_surface_committed_state::Enum)
-
-#if WAY_NOISY_VIEWPORT
-#define LOG(...) log_debug(__VA_ARGS__)
-#else
-#define LOG(...)
-#endif
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer.source,      buffer_source);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer.destination, buffer_destination);
 
     auto* buffer = to.buffer.handle.get();
-    if (!buffer) return;
 
     // Source
 
-    if (SET(buffer_source) || (SET(buffer) && HAS(buffer_source))) {
+    if (buffer && to.is_set(way_surface_committed_state::buffer_source)) {
         auto src = to.buffer.source;
         src.origin /= vec2f32(buffer->extent);
         src.extent /= vec2f32(buffer->extent);
-        LOG("buffer.source SET {} -> {}", core_to_string(to.buffer.source), core_to_string(src));
         scene_texture_set_src(surface->scene.texture.get(), src);
 
-    } else if (UNSET(buffer_source)) {
-        LOG("buffer.source UNSET");
+    } else if (!to.is_set(way_surface_committed_state::buffer_source)) {
         scene_texture_set_src(surface->scene.texture.get(), {{}, {1, 1}, core_xywh});
     }
 
     // Destination
 
-    if (SET(buffer_destination)) {
-        LOG("buffer.destination SET {}", core_to_string(from.buffer.destination));
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, from.buffer.destination, core_xywh});
+    if (to.is_set(way_surface_committed_state::buffer_destination)) {
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer.destination, core_xywh});
 
-    } else if (!HAS(buffer_destination)) {
-        if (SET(buffer_source)) {
-            LOG("buffer.destination SET to buffer.source.extent {}", core_to_string(to.buffer.source.extent));
-            scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer.source.extent, core_xywh});
+    } else if (to.is_set(way_surface_committed_state::buffer_source)) {
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer.source.extent, core_xywh});
 
-        } else if (SET(buffer) && !HAS(buffer_source)) {
-            // Use buffer extent if destination and source have not been set before
-            LOG("buffer.destination DEFAULT to buffer.extent {}", core_to_string(buffer->extent));
-            scene_texture_set_dst(surface->scene.texture.get(), {{}, buffer->extent, core_xywh});
-        }
+    } else if (buffer) {
+        // Use buffer extent if destination and source have not been set before
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, buffer->extent, core_xywh});
     }
-
-#undef SET
-#undef UNSET
-#undef HAS
-#undef LOG
 }

@@ -74,6 +74,23 @@ WAY_INTERFACE(wl_data_source) = {
 // -----------------------------------------------------------------------------
 
 static
+void start_drag(
+    wl_client*   wl_client,
+    wl_resource* data_device,
+    wl_resource* data_source,
+    wl_resource* origin_surface,
+    wl_resource* icon_surface,
+    u32 serial)
+{
+    auto* client = way_get_userdata<way_client>(data_device);
+    log_error("TODO - wl_data_device{{{}}}::start_drag", (void*)data_device);
+    if (data_source) {
+        log_error("     - cancelling drag for wl_data_source{{{}}}", (void*)data_source);
+        way_send(client->server, wl_data_source_send_cancelled, data_source);
+    }
+}
+
+static
 void set_selection(wl_client* wl_client, wl_resource* resource, wl_resource* wl_data_source, u32 serial)
 {
     auto* source = way_get_userdata<way_data_source>(wl_data_source);
@@ -81,7 +98,7 @@ void set_selection(wl_client* wl_client, wl_resource* resource, wl_resource* wl_
 }
 
 WAY_INTERFACE(wl_data_device) = {
-    WAY_STUB(start_drag),
+    .start_drag = start_drag,
     .set_selection = set_selection,
     .release = way_simple_destroy,
 };
@@ -89,7 +106,7 @@ WAY_INTERFACE(wl_data_device) = {
 // -----------------------------------------------------------------------------
 
 static
-auto make_offer(way_client* client, scene_data_source* source) -> ref<way_data_offer>
+auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_source* source) -> ref<way_data_offer>
 {
     auto* server = client->server;
 
@@ -97,16 +114,13 @@ auto make_offer(way_client* client, scene_data_source* source) -> ref<way_data_o
     offer->client = client;
     offer->source = source;
 
+    offer->resource = way_resource_create_refcounted(wl_data_offer, client->wl_client, wl_data_device, 0, offer.get());
 
-    for (auto* device : client->data_devices) {
-        offer->resources.emplace_back(way_resource_create_refcounted(wl_data_offer, client->wl_client, device, 0, offer.get()));
-
-        way_send(server, wl_data_device_send_data_offer, device, device);
-        for (auto& mime : scene_data_source_get_offered(offer->source.get())) {
-            way_send(server, wl_data_offer_send_offer, device, mime.c_str());
-        }
-        way_send(server, wl_data_offer_send_source_actions, device, 0);
+    way_send(server, wl_data_device_send_data_offer, wl_data_device, offer->resource);
+    for (auto& mime : scene_data_source_get_offered(offer->source.get())) {
+        way_send(server, wl_data_offer_send_offer, offer->resource, mime.c_str());
     }
+    way_send(server, wl_data_offer_send_source_actions, offer->resource, 0);
 
     return offer;
 }
@@ -119,9 +133,8 @@ void way_data_offer_selection(way_client* client)
     if (!source) return;
     if (!server->focus.keyboard || !server->focus.keyboard->client) return;
 
-    auto offer = make_offer(client, source);
-
-    for (auto* device : client->data_devices) {
-        way_send(server, wl_data_device_send_selection, device, device);
+    for (auto* wl_data_device : client->data_devices) {
+        auto offer = make_offer(client, wl_data_device, source);
+        way_send(server, wl_data_device_send_selection, wl_data_device, offer->resource);
     }
 }

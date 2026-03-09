@@ -45,6 +45,10 @@ struct core_region
 
 // -----------------------------------------------------------------------------
 
+    constexpr bool operator==(const core_region& other) const noexcept = default;
+
+// -----------------------------------------------------------------------------
+
     void clear()
     {
         aabbs.clear();
