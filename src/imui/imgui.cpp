@@ -55,16 +55,6 @@ auto find_viewport_for_input_region(imui_context* ctx, scene_input_region* regio
 }
 
 static
-auto find_viewport_for_id(imui_context* ctx, ImGuiID id) -> ImGuiViewport*
-{
-    for (auto* vp : get_viewports()) {
-        if (vp->ID == id) return vp;
-    }
-
-    return nullptr;
-}
-
-static
 auto find_viewport_for_window(scene_window* window) -> ImGuiViewport*
 {
     for (auto* vp : get_viewports()) {
@@ -412,7 +402,7 @@ auto imui_create(gpu_context* gpu, scene_context* scene) -> ref<imui_context>
         switch (event->type) {
             // keyboard
             break;case scene_event_type::keyboard_enter:
-                imui_handle_keyboard_enter(ctx, event->keyboard.keyboard);
+                imui_handle_keyboard_enter(ctx, event->keyboard.keyboard, event->keyboard.focus.region);
             break;case scene_event_type::keyboard_leave:
                 imui_handle_keyboard_leave(ctx);
             break;case scene_event_type::keyboard_key:
@@ -467,9 +457,13 @@ void imui_add_frame_handler(imui_context* ctx, std::move_only_function<imui_fram
 
 // -----------------------------------------------------------------------------
 
-void imui_handle_keyboard_enter(imui_context* ctx, scene_keyboard* keyboard)
+void imui_handle_keyboard_enter(imui_context* ctx, scene_keyboard* keyboard, scene_input_region* region)
 {
     ctx->keyboard = keyboard;
+
+    if (auto* vp = find_viewport_for_input_region(ctx, region)) {
+        scene_window_raise(get_data(vp)->window.get());
+    }
 
     auto& io = ImGui::GetIO();
     io.AddFocusEvent(true);
@@ -533,16 +527,6 @@ void imui_handle_button(imui_context* ctx, scene_scancode code, bool pressed)
     }
 
     if (!handled) return;
-
-    if (pressed) {
-        scene_grab_keyboard(ctx->client.get());
-        scene_pointer_grab(ctx->pointer, ctx->client.get());
-        if (auto* vp = find_viewport_for_id(ctx, ImGui::GetIO().MouseHoveredViewport)) {
-            scene_window_raise(get_data(vp)->window.get());
-        }
-    } else {
-        scene_pointer_ungrab(ctx->pointer, ctx->client.get());
-    }
 
     imui_request_frame(ctx);
 }

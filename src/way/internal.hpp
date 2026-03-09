@@ -433,8 +433,6 @@ struct way_client : core_object
     way_resource_list pointers;
     way_resource_list data_devices;
 
-    weak<way_surface> pending_keyboard_focus;
-
     struct {
         ref<way_data_offer> offer;
     } drag;

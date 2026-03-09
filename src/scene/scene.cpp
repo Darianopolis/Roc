@@ -90,17 +90,3 @@ auto scene_get_keyboard(scene_context* ctx) -> scene_keyboard*
 {
     return ctx->seat.keyboard.get();
 }
-
-auto scene_grab_pointer(scene_client* client) -> scene_pointer*
-{
-    auto pointer = scene_get_pointer(client->ctx);
-    scene_pointer_grab(pointer, client);
-    return pointer;
-}
-
-auto scene_grab_keyboard(scene_client* client) -> scene_keyboard*
-{
-    auto keyboard = scene_get_keyboard(client->ctx);
-    scene_keyboard_grab(keyboard, client);
-    return keyboard;
-}

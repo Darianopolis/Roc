@@ -49,7 +49,7 @@ void imui_handle_mods(imui_context*);
 void imui_handle_motion(imui_context*);
 void imui_handle_button(imui_context*, scene_scancode, bool pressed);
 void imui_handle_wheel(imui_context*, vec2f32 delta);
-void imui_handle_keyboard_enter(imui_context*, scene_keyboard*);
+void imui_handle_keyboard_enter(imui_context*, scene_keyboard*, scene_input_region*);
 void imui_handle_keyboard_leave(imui_context*);
 void imui_handle_pointer_enter(imui_context*, scene_pointer*, scene_input_region*);
 void imui_handle_pointer_leave(imui_context*);

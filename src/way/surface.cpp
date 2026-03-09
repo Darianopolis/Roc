@@ -330,7 +330,7 @@ WAY_INTERFACE(wl_surface) = {
     .set_buffer_transform = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer.transform, buffer_transform, wl_output_transform(bt), i32 bt),
     .set_buffer_scale     = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer.scale,     buffer_scale,     scale,                   i32 scale),
     WAY_STUB_QUIET(damage_buffer),
-    WAY_STUB(offset),
+    WAY_STUB_QUIET(offset),
 };
 
 // -----------------------------------------------------------------------------

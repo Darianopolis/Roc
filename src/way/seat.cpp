@@ -64,7 +64,7 @@ void get_pointer(wl_client* wl_client, wl_resource* resource, u32 id)
 }
 
 WAY_INTERFACE(wl_pointer) = {
-    WAY_STUB(set_cursor),
+    WAY_STUB_QUIET(set_cursor),
     .release = way_simple_destroy,
 };
 
@@ -112,7 +112,8 @@ auto elapsed_ms(way_server* server) -> u32
 
 // -----------------------------------------------------------------------------
 
-void way_seat_on_keyboard_leave(way_client* client, scene_event* event)
+static
+void keyboard_leave(way_client* client)
 {
     auto* server = client->server;
     auto* surface = server->focus.keyboard.get();
@@ -121,20 +122,41 @@ void way_seat_on_keyboard_leave(way_client* client, scene_event* event)
     server->keyboard.scene = nullptr;
     u32 serial = way_next_serial(server);
 
-    for (auto* resource : client->keyboards) {
-        way_send(server, wl_keyboard_send_leave, resource, serial, surface->wl_surface);
+    if (surface->wl_surface) {
+        for (auto* resource : client->keyboards) {
+            way_send(server, wl_keyboard_send_leave, resource, serial, surface->wl_surface);
+        }
     }
 
     core_assert(server->focus.keyboard.get() == surface, "Keyboard left surface that did not have focus");
     server->focus.keyboard = nullptr;
 }
 
+void way_seat_on_keyboard_leave(way_client* client, scene_event* event)
+{
+    keyboard_leave(client);
+}
+
+static
+auto find_root_toplevel(way_surface* surface) -> way_surface*
+{
+    if (surface->role == way_surface_role::xdg_toplevel) return surface;
+    core_assert(surface->parent);
+    return find_root_toplevel(surface->parent.get());
+}
+
 void way_seat_on_keyboard_enter(way_client* client, scene_event* event)
 {
     auto* server = client->server;
 
-    auto* surface = client->pending_keyboard_focus.get();
-    if (!surface) return;
+    auto* surface = find_surface(client, event->keyboard.focus.region);
+
+    // xdg_popup and wl_subsurface cannot have keyboard focus
+    surface = find_root_toplevel(surface);
+    if (surface == server->focus.keyboard.get()) return;
+
+    // Leave previous window
+    keyboard_leave(client);
 
     if (surface->toplevel.window) {
         scene_window_raise(surface->toplevel.window.get());
@@ -280,11 +302,6 @@ void way_seat_on_button(way_client* client, scene_event* event)
     for (auto* resource : client->pointers) {
         way_send(server, wl_pointer_send_button, resource, serial, time, button.code, state);
         pointer_frame(server, resource);
-    }
-
-    if (button.pressed) {
-        client->pending_keyboard_focus = server->focus.pointer;
-        scene_grab_keyboard(client->scene.get());
     }
 }
 

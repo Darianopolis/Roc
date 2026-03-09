@@ -141,12 +141,6 @@ int main()
             vec2f32 image_size = background_image->extent;
             auto viewport = scene_output_get_viewport(output);
 
-            // Create input sink
-            auto input = scene_input_region_create(background_client.get());
-            scene_input_region_set_region(input.get(), {viewport});
-            scene_node_set_transform(input.get(), scene_get_root_transform(scene.get()));
-            scene_tree_place_above(background_layer.get(), nullptr, input.get());
-
             // Create texture node
             auto texture = scene_texture_create(scene.get());
             scene_texture_set_image(texture.get(), background_image.get(), sampler.get(), gpu_blend_mode::premultiplied);
@@ -160,11 +154,6 @@ int main()
 
     scene_client_set_event_handler(background_client.get(), [scene = scene.get(), &update_backgrounds](scene_event* event) {
         switch (event->type) {
-            break;case scene_event_type::pointer_button:
-                if (event->pointer.button.pressed) {
-                    log_warn("Background clicked, dropping keyboard grabs");
-                    scene_keyboard_clear_focus(scene_get_keyboard(scene));
-                }
             break;case scene_event_type::output_layout:
                 update_backgrounds();
             break;default:
@@ -218,7 +207,6 @@ int main()
                 log_trace("pointer_button({}, {})",
                     libevdev_event_code_get_name(EV_KEY, event->pointer.button.code),
                     event->pointer.button.pressed ? "pressed" : "released");
-                scene_grab_keyboard(client.get());
                 scene_window_raise(window.get());
             break;case scene_event_type::pointer_scroll:
                 log_trace("pointer_scroll(delta: {})", core_to_string(event->pointer.scroll.delta));

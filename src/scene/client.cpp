@@ -12,7 +12,11 @@ scene_client::~scene_client()
     }
 
     if (auto* kb = scene_get_keyboard(ctx); kb->focus.client == this) {
-        scene_keyboard_ungrab(kb, this);
+        scene_keyboard_set_focus(kb, {});
+    }
+
+    if (auto* ptr = scene_get_pointer(ctx); ptr->focus.client == this) {
+        scene_pointer_set_focus(ptr, {});
     }
 
     std::erase(ctx->clients, this);

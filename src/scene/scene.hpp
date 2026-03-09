@@ -96,6 +96,7 @@ auto scene_get_modifiers(scene_context*, flags<scene_modifier_flags> = {}) -> fl
 
 enum class scene_input_device_type
 {
+    invalid,
     keyboard,
     pointer,
 };
@@ -111,11 +112,7 @@ auto scene_input_device_get_keyboard(scene_input_device*) -> scene_keyboard*;
 auto scene_get_pointer( scene_context*) -> scene_pointer*;
 auto scene_get_keyboard(scene_context*) -> scene_keyboard*;
 
-auto scene_grab_pointer( scene_client*) -> scene_pointer*;
-auto scene_grab_keyboard(scene_client*) -> scene_keyboard*;
-
-void scene_pointer_grab(        scene_pointer*, scene_client*);
-void scene_pointer_ungrab(      scene_pointer*, scene_client*);
+void scene_pointer_focus(       scene_pointer*, scene_client*, scene_input_region* = nullptr);
 auto scene_pointer_get_position(scene_pointer*) -> vec2f32;
 auto scene_pointer_get_pressed( scene_pointer*) -> std::span<const scene_scancode>;
 
@@ -128,8 +125,6 @@ struct scene_keyboard_info
     i32          delay;
 };
 
-void scene_keyboard_grab(         scene_keyboard*, scene_client*);
-void scene_keyboard_ungrab(       scene_keyboard*, scene_client*);
 void scene_keyboard_clear_focus(  scene_keyboard*);
 auto scene_keyboard_get_modifiers(scene_keyboard*, flags<scene_modifier_flags> = {}) -> flags<scene_modifier>;
 auto scene_keyboard_get_pressed(  scene_keyboard*) -> std::span<const scene_scancode>;
@@ -441,6 +436,9 @@ struct scene_keyboard_event
             bool           pressed;
             bool           quiet;
         } key;
+        struct {
+            scene_input_region*  region;
+        } focus;
     };
 };
 

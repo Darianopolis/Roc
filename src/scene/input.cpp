@@ -127,13 +127,6 @@ bool try_send_hotkey(scene_input_device* device, scene_scancode code, bool press
 }
 
 static
-scene_client* apply_hotkey(scene_client* client, scene_input_device* device, scene_scancode code, bool pressed)
-{
-    if (try_send_hotkey(device, code, pressed)) return nullptr;
-    return client;
-}
-
-static
 xkb_keycode_t evdev_to_xkb(scene_scancode code)
 {
     return code + 8;
@@ -145,18 +138,20 @@ flags<xkb_state_component> handle_key(scene_keyboard* keyboard, scene_scancode c
     if (pressed ? keyboard->pressed.inc(code) : keyboard->pressed.dec(code)) {
         auto changed_components = xkb_state_update_key(keyboard->state, evdev_to_xkb(code), pressed ? XKB_KEY_DOWN : XKB_KEY_UP);
 
-        if (auto* client = apply_hotkey(keyboard->focus.client, keyboard, code, pressed)) {
-            scene_client_post_event(client, ptr_to(scene_event {
-                .type = scene_event_type::keyboard_key,
-                .keyboard = {
-                    .keyboard = keyboard,
-                    .key = {
-                        .code = code,
-                        .pressed = pressed,
-                        .quiet = quiet,
-                    },
-                }
-            }));
+        if (!try_send_hotkey(keyboard, code, pressed)) {
+            if (auto* client = keyboard->focus.client) {
+                scene_client_post_event(client, ptr_to(scene_event {
+                    .type = scene_event_type::keyboard_key,
+                    .keyboard = {
+                        .keyboard = keyboard,
+                        .key = {
+                            .code = code,
+                            .pressed = pressed,
+                            .quiet = quiet,
+                        },
+                    }
+                }));
+            }
         }
 
         return changed_components;
@@ -209,17 +204,16 @@ void handle_xkb_component_updates(scene_keyboard* keyboard, flags<xkb_state_comp
     if (changed & XKB_STATE_LEDS) update_leds(keyboard->ctx);
 }
 
-static
-void update_keyboard_focus(scene_keyboard* keyboard, scene_client* new_client)
+void scene_keyboard_set_focus(scene_keyboard* keyboard, scene_focus new_focus)
 {
-    auto* old_client = keyboard->focus.client;
+    auto old_focus = keyboard->focus;
 
-    keyboard->focus = { new_client };
+    keyboard->focus = new_focus;
 
-    if (old_client == new_client) return;
+    if (old_focus == new_focus) return;
 
-    if (old_client) {
-        scene_client_post_event(old_client, ptr_to(scene_event {
+    if (old_focus.client && (new_focus.client != old_focus.client)) {
+        scene_client_post_event(old_focus.client, ptr_to(scene_event {
             .type = scene_event_type::keyboard_leave,
             .keyboard = {
                 .keyboard = keyboard,
@@ -227,32 +221,22 @@ void update_keyboard_focus(scene_keyboard* keyboard, scene_client* new_client)
         }));
     }
 
-    if (new_client) {
-        scene_client_post_event(new_client, ptr_to(scene_event {
+    if (new_focus.client) {
+        scene_client_post_event(new_focus.client, ptr_to(scene_event {
             .type = scene_event_type::keyboard_enter,
             .keyboard = {
                 .keyboard = keyboard,
+                .focus = {
+                    .region = new_focus.region,
+                },
             },
         }));
     }
 }
 
-void scene_keyboard_grab(scene_keyboard*keyboard, scene_client* client)
-{
-    update_keyboard_focus(keyboard, client);
-}
-
-void scene_keyboard_ungrab(scene_keyboard* keyboard, scene_client* client)
-{
-    if (client == keyboard->focus.client) {
-        update_keyboard_focus(keyboard, nullptr);
-        // TODO: Offer focus to next most recently used keyboard grab
-    }
-}
-
 void scene_keyboard_clear_focus(scene_keyboard* keyboard)
 {
-    update_keyboard_focus(keyboard, nullptr);
+    scene_keyboard_set_focus(keyboard, {});
 }
 
 auto scene_keyboard_get_pressed(scene_keyboard* keyboard) -> std::span<const scene_scancode>
@@ -302,30 +286,11 @@ auto scene_find_input_region_at(scene_tree* tree, vec2f32 pos) -> scene_input_re
     return region;
 }
 
-static
-auto get_pointer_focus_client(scene_pointer* pointer) -> scene_client*
+void scene_pointer_set_focus(scene_pointer* pointer, scene_focus new_focus)
 {
-    return pointer->grab ?: pointer->focus.client;
-}
+    scene_focus old_focus = pointer->focus;
 
-static
-void update_pointer_focus(scene_pointer* pointer)
-{
-    auto pos = scene_pointer_get_position(pointer);
-
-    scene_pointer_focus old_focus = pointer->focus;
-    scene_pointer_focus new_focus = {};
-
-    if (pointer->grab) {
-        new_focus.client = pointer->grab;
-    } else if (auto* region = scene_find_input_region_at(pointer->ctx->root_tree.get(), pos)) {
-        new_focus.client = region->client;
-        new_focus.region = region;
-    }
-
-    if (old_focus.region == new_focus.region && old_focus.client == new_focus.client) {
-        return;
-    }
+    if (old_focus == new_focus) return;
 
     pointer->focus = new_focus;
 
@@ -349,6 +314,22 @@ void update_pointer_focus(scene_pointer* pointer)
             }
         }));
     }
+}
+
+static
+void update_pointer_focus(scene_pointer* pointer)
+{
+    scene_focus new_focus;
+
+    if (!scene_pointer_get_pressed(pointer).empty()) {
+        // Pointer retains old focus while any pointer buttons pressed
+        new_focus = pointer->focus;
+
+    } else if (auto* region = scene_find_input_region_at(pointer->ctx->root_tree.get(), scene_pointer_get_position(pointer))) {
+        new_focus = {region->client, region};
+    }
+
+    scene_pointer_set_focus(pointer, new_focus);
 }
 
 void scene_update_pointer_focus(scene_context* ctx)
@@ -399,18 +380,28 @@ static
 void handle_button(scene_pointer* pointer, scene_scancode code, bool pressed, bool quiet)
 {
     if (pressed ? pointer->pressed.inc(code) : pointer->pressed.dec(code)) {
-        if (auto* focus = apply_hotkey(get_pointer_focus_client(pointer), pointer, code, pressed)) {
-            scene_client_post_event(focus, ptr_to(scene_event {
-                .type = scene_event_type::pointer_button,
-                .pointer = {
-                    .pointer = pointer,
-                    .button = {
-                        .code    = code,
-                        .pressed = pressed,
-                        .quiet   = quiet,
-                    },
+        if (!try_send_hotkey(pointer, code, pressed)) {
+            if (auto* focus = pointer->focus.client) {
+                if (pressed) {
+                    scene_keyboard_set_focus(pointer->ctx->seat.keyboard.get(), {focus, pointer->focus.region});
                 }
-            }));
+                scene_client_post_event(focus, ptr_to(scene_event {
+                    .type = scene_event_type::pointer_button,
+                    .pointer = {
+                        .pointer = pointer,
+                        .button = {
+                            .code    = code,
+                            .pressed = pressed,
+                            .quiet   = quiet,
+                        },
+                    }
+                }));
+            } else if (pressed) {
+                scene_keyboard_set_focus(pointer->ctx->seat.keyboard.get(), {});
+            }
+        }
+        if (!pressed) {
+            update_pointer_focus(pointer);
         }
     }
 }
@@ -429,7 +420,7 @@ void handle_motion(scene_pointer* pointer, vec2f32 delta)
 
     update_pointer_focus(pointer);
 
-    if (auto* focus = get_pointer_focus_client(pointer)) {
+    if (auto* focus = pointer->focus.client) {
         scene_client_post_event(focus, ptr_to(scene_event {
             .type = scene_event_type::pointer_motion,
             .pointer = {
@@ -446,7 +437,7 @@ void handle_motion(scene_pointer* pointer, vec2f32 delta)
 static
 void handle_scroll(scene_pointer* pointer, vec2f32 delta)
 {
-    if (auto* focus = get_pointer_focus_client(pointer)) {
+    if (auto* focus = pointer->focus.client) {
         scene_client_post_event(focus, ptr_to(scene_event {
             .type = scene_event_type::pointer_scroll,
             .pointer = {
@@ -459,18 +450,9 @@ void handle_scroll(scene_pointer* pointer, vec2f32 delta)
     }
 }
 
-void scene_pointer_grab(scene_pointer* pointer, scene_client* client)
+void scene_pointer_focus(scene_pointer* pointer, scene_client* client, scene_input_region* region)
 {
-    pointer->grab = client;
-    update_pointer_focus(pointer);
-}
-
-void scene_pointer_ungrab(scene_pointer* pointer, scene_client* client)
-{
-    if (pointer->grab == client) {
-        pointer->grab = nullptr;
-        update_pointer_focus(pointer);
-    }
+    scene_pointer_set_focus(pointer, {client, region});
 }
 
 void scene_pointer_set_driver(scene_pointer* pointer, std::move_only_function<scene_pointer_driver_fn>&& driver)
@@ -493,25 +475,18 @@ void scene_handle_input_removed(scene_context* ctx, io_input_device* device)
     std::erase(ctx->seat.led_devices, device);
 }
 
-enum class scene_evkey_category
-{
-    unknown,
-    mouse,
-    keyboard,
-};
-
 static
-auto categorize_key(scene_scancode code) -> scene_evkey_category
+auto categorize_key(scene_scancode code) -> scene_input_device_type
 {
     switch (code) {
         break;case BTN_MOUSE ... BTN_TASK:
-            return scene_evkey_category::mouse;
+            return scene_input_device_type::pointer;
         break;case KEY_ESC        ... KEY_MICMUTE:
-                case KEY_OK         ... KEY_LIGHTS_TOGGLE:
-                case KEY_ALS_TOGGLE ... KEY_PERFORMANCE:
-            return scene_evkey_category::keyboard;
+              case KEY_OK         ... KEY_LIGHTS_TOGGLE:
+              case KEY_ALS_TOGGLE ... KEY_PERFORMANCE:
+            return scene_input_device_type::keyboard;
         break;default:
-            return scene_evkey_category::unknown;
+            return scene_input_device_type::invalid;
     }
 }
 
@@ -529,11 +504,11 @@ void scene_handle_input(scene_context* ctx, const io_input_event& event)
         switch (channel.type) {
             break;case EV_KEY:
                 switch (categorize_key(channel.code)) {
-                    break;case scene_evkey_category::mouse:
+                    break;case scene_input_device_type::pointer:
                         handle_button(pointer, channel.code, channel.value, event.quiet);
-                    break;case scene_evkey_category::keyboard:
+                    break;case scene_input_device_type::keyboard:
                         xkb_updates |= handle_key(keyboard, channel.code, channel.value, event.quiet);
-                    break;case scene_evkey_category::unknown:
+                    break;case scene_input_device_type::invalid:
                         log_warn("Unknown  {} = {}", libevdev_event_code_get_name(channel.type, channel.code), channel.value);
                 }
             break;case EV_REL:
@@ -560,9 +535,9 @@ static
 auto get_map_for_code(scene_context* ctx, scene_scancode code) -> scene_hotkey_map*
 {
     switch (categorize_key(code)) {
-        break;case scene_evkey_category::mouse:
+        break;case scene_input_device_type::pointer:
             return &scene_get_pointer(ctx)->hotkeys;
-        break;case scene_evkey_category::keyboard:
+        break;case scene_input_device_type::keyboard:
             return &scene_get_keyboard(ctx)->hotkeys;
         break;default:
             return nullptr;

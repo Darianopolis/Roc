@@ -103,6 +103,14 @@ struct scene_input_device
     scene_hotkey_map hotkeys;
 };
 
+struct scene_focus
+{
+    scene_client*       client = nullptr;
+    scene_input_region* region = nullptr;
+
+    constexpr bool operator==(const scene_focus&) const noexcept = default;
+};
+
 // -----------------------------------------------------------------------------
 
 struct scene_keyboard : scene_input_device, scene_keyboard_info
@@ -115,9 +123,7 @@ struct scene_keyboard : scene_input_device, scene_keyboard_info
 
     core_enum_map<scene_modifier, xkb_mod_mask_t> mod_masks;
 
-    struct {
-        scene_client* client;
-    } focus;
+    scene_focus focus;
 
     ~scene_keyboard();
 };
@@ -125,12 +131,6 @@ struct scene_keyboard : scene_input_device, scene_keyboard_info
 auto scene_keyboard_create(scene_context*) -> ref<scene_keyboard>;
 
 // -----------------------------------------------------------------------------
-
-struct scene_pointer_focus
-{
-    scene_client*       client;
-    scene_input_region* region;
-};
 
 struct scene_pointer : scene_input_device
 {
@@ -141,9 +141,7 @@ struct scene_pointer : scene_input_device
 
     std::move_only_function<scene_pointer_driver_fn> driver;
 
-    scene_client* grab;
-
-    scene_pointer_focus focus;
+    scene_focus focus;
 };
 
 void scene_update_pointer_focus(scene_context*);
@@ -178,3 +176,8 @@ void scene_output_request_frame(scene_output*);
 void scene_handle_input_added(  scene_context*, io_input_device*);
 void scene_handle_input_removed(scene_context*, io_input_device*);
 void scene_handle_input(        scene_context*, const io_input_event&);
+
+// -----------------------------------------------------------------------------
+
+void scene_keyboard_set_focus(scene_keyboard* keyboard, scene_focus new_focus);
+void scene_pointer_set_focus( scene_pointer*  pointer,  scene_focus new_focus);
