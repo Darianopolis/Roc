@@ -181,10 +181,7 @@ void way_seat_on_keyboard_enter(way_client* client, scene_event* event)
 static
 auto get_fixed_pos(way_surface* surface, scene_pointer* pointer) -> std::pair<wl_fixed_t, wl_fixed_t>
 {
-    auto* transform = surface->scene.transform.get();
-
-    auto global = scene_transform_get_global(transform);
-    auto local = global.to_local(scene_pointer_get_position(pointer));
+    auto local = scene_pointer_get_position(pointer) - scene_tree_get_position(surface->scene.tree.get());
 
     return {wl_fixed_from_double(local.x), wl_fixed_from_double(local.y)};
 }

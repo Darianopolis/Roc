@@ -273,7 +273,6 @@ struct way_surface : core_object
 
     // scene
     struct {
-        ref<scene_transform>    transform;
         ref<scene_tree>         tree;
         ref<scene_texture>      texture;
         ref<scene_input_region> input_region;

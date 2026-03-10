@@ -274,7 +274,7 @@ auto scene_find_input_region_at(scene_tree* tree, vec2f32 pos) -> scene_input_re
         [&](scene_node* node) {
             if (node->type == scene_node_type::input_region) {
                 auto* input_region = static_cast<scene_input_region*>(node);
-                if (input_region->region.contains(input_region->transform->global.to_local(pos))) {
+                if (input_region->region.contains(pos - scene_tree_get_position(input_region->parent))) {
                     region = input_region;
                     return scene_iterate_action::stop;
                 }
@@ -341,7 +341,7 @@ void scene_update_pointer_focus(scene_context* ctx)
 
 auto scene_pointer_get_position(scene_pointer* pointer) -> vec2f32
 {
-    return pointer->transform->global.translation;
+    return scene_tree_get_position(pointer->tree.get());
 }
 
 auto scene_pointer_get_pressed(scene_pointer* pointer) -> std::span<const scene_scancode>
@@ -357,8 +357,8 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
     pointer->ctx = ctx;
     pointer->type = scene_input_device_type::pointer;
 
-    pointer->transform = scene_transform_create(ctx);
-    scene_node_set_transform(pointer->transform.get(), scene_get_root_transform(ctx));
+    pointer->tree = scene_tree_create(ctx);
+    scene_tree_place_above(scene_get_layer(ctx, scene_layer::overlay), nullptr, pointer->tree .get());
 
     auto* cursor = XcursorLibraryLoadImage("default", "breeze_cursors", 24);
     defer { XcursorImageDestroy(cursor); };
@@ -366,12 +366,11 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
         gpu_image_usage::texture | gpu_image_usage::transfer);
     gpu_image_update_immed(image.get(), cursor->pixels);
 
-    pointer->visual = scene_texture_create(ctx);
-    scene_texture_set_image(pointer->visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);
-    scene_texture_set_dst(pointer->visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core_xywh});
-    scene_node_set_transform(pointer->visual.get(), pointer->transform.get());
+    auto visual = scene_texture_create(ctx);
+    scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);
+    scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core_xywh});
 
-    scene_tree_place_above(scene_get_layer(ctx, scene_layer::overlay), nullptr, pointer->visual.get());
+    scene_tree_place_above(pointer->tree.get(), nullptr, visual.get());
 
     return pointer;
 }
@@ -409,14 +408,14 @@ void handle_button(scene_pointer* pointer, scene_scancode code, bool pressed, bo
 static
 void handle_motion(scene_pointer* pointer, vec2f32 delta)
 {
-    auto cur = scene_transform_get_global(pointer->transform.get());
+    auto cur = scene_pointer_get_position(pointer);
 
     auto res = pointer->driver({
-        .position = cur.translation,
+        .position = cur,
         .delta    = delta,
     });
 
-    scene_transform_update(pointer->transform.get(), res.position, scene_transform_get_local(pointer->transform.get()).scale);
+    scene_tree_set_translation(pointer->tree.get(), res.position);
 
     update_pointer_focus(pointer);
 

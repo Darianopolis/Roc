@@ -11,7 +11,6 @@
 struct scene_output;
 struct scene_node;
 struct scene_tree;
-struct scene_transform;
 struct scene_texture;
 struct scene_input_region;
 
@@ -19,12 +18,6 @@ struct scene_context;
 CORE_OBJECT_EXPLICIT_DECLARE(scene_context);
 
 auto scene_create(gpu_context*, struct io_context*) -> ref<scene_context>;
-
-struct scene_scene
-{
-    scene_tree*      tree;
-    scene_transform* transform;
-};
 
 enum class scene_layer
 {
@@ -34,7 +27,6 @@ enum class scene_layer
 };
 
 auto scene_get_layer(scene_context*, scene_layer) -> scene_tree*;
-auto scene_get_root_transform(scene_context*) -> scene_transform*;
 
 // TODO: Requests should be handled per-output
 void scene_request_frame(scene_context*);
@@ -176,7 +168,6 @@ auto scene_get_selection(scene_context*) -> scene_data_source*;
 
 enum class scene_node_type
 {
-    transform,
     tree,
     texture,
     mesh,
@@ -185,52 +176,20 @@ enum class scene_node_type
 
 struct scene_node : core_object
 {
-    scene_node_type      type;      // Node type
-    scene_tree*          parent;    // Parent in the layer hierarchy, controls z-order and visibility
-    ref<scene_transform> transform; // Parent in the transform hierarhcy, controls xy positioning
+    scene_node_type type;
+
+    scene_tree* parent;
 
     ~scene_node();
 };
 
-void scene_node_unparent(     scene_node*);
-void scene_node_set_transform(scene_node*, scene_transform*);
-
-struct scene_transform_state
-{
-    vec2f32 translation;
-    f32     scale;
-
-    auto to_global(vec2f32 local) -> vec2f32
-    {
-        return local * scale + translation;
-    }
-
-    auto to_local(vec2f32 global) -> vec2f32
-    {
-        return (global - translation) / scale;
-    }
-
-    constexpr bool operator==(const scene_transform_state&) const noexcept = default;
-};
-
-struct scene_transform : scene_node
-{
-    scene_transform_state local;
-    scene_transform_state global; // TODO: Move this to `scene_node` and drop root transform?
-
-    std::vector<scene_node*> children;
-
-    ~scene_transform();
-};
-
-auto scene_transform_create(scene_context*) -> ref<scene_transform>;
-void scene_transform_update(scene_transform*, vec2f32 translation, f32 scale);
-auto scene_transform_get_local( scene_transform*) -> scene_transform_state;
-auto scene_transform_get_global(scene_transform*) -> scene_transform_state;
+void scene_node_unparent(scene_node*);
 
 struct scene_tree : scene_node
 {
     scene_context* ctx;
+
+    vec2f32 translation;
 
     bool enabled;
 
@@ -242,9 +201,18 @@ struct scene_tree : scene_node
 };
 
 auto scene_tree_create(scene_context*) -> ref<scene_tree>;
+
 void scene_tree_set_enabled(scene_tree*, bool enabled);
 void scene_tree_place_below(scene_tree*, scene_node* reference, scene_node* to_place);
 void scene_tree_place_above(scene_tree*, scene_node* reference, scene_node* to_place);
+
+void scene_tree_set_translation(scene_tree*, vec2f32 translation);
+
+inline
+auto scene_tree_get_position(scene_tree* tree) -> vec2f32
+{
+    return tree->translation + (tree->parent ? scene_tree_get_position(tree->parent) : vec2f32{});
+}
 
 struct scene_texture : scene_node
 {
@@ -305,8 +273,7 @@ void scene_window_map(  scene_window*);
 void scene_window_unmap(scene_window*);
 void scene_window_raise(scene_window*);
 
-auto scene_window_get_tree(     scene_window*) -> scene_tree*;
-auto scene_window_get_transform(scene_window*) -> scene_transform*;
+auto scene_window_get_tree(scene_window*) -> scene_tree*;
 
 void scene_window_request_reposition(scene_window*, rect2f32 frame, vec2f32 gravity);
 void scene_window_set_frame(scene_window*, rect2f32 frame);

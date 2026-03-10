@@ -20,10 +20,6 @@ static
 void damage_node(scene_node* node)
 {
     switch (node->type) {
-        break;case scene_node_type::transform:
-            for (auto* child : static_cast<scene_transform*>(node)->children) {
-                damage_node(child);
-            }
         break;case scene_node_type::tree:
             for (auto* child : static_cast<scene_tree*>(node)->children) {
                 damage_node(child);
@@ -44,77 +40,8 @@ void damage_node(scene_node* node)
 
 // -----------------------------------------------------------------------------
 
-scene_transform::~scene_transform()
-{
-    core_assert(children.empty());
-}
-
-auto scene_transform_create(scene_context*) -> ref<scene_transform>
-{
-    auto transform = core_create<scene_transform>();
-    transform->type = scene_node_type::transform;
-    transform->local.scale  = 1;
-    transform->global.scale = 1;
-    return transform;
-}
-
-static
-void update_transform_global(scene_transform* transform, const scene_transform_state& parent)
-{
-    transform->global.translation = parent.translation + transform->local.translation * parent.scale;
-    transform->global.scale       = parent.scale * transform->local.scale;
-    for (auto* child : transform->children) {
-        if (child->type == scene_node_type::transform) {
-            update_transform_global(static_cast<scene_transform*>(child), transform->global);
-        }
-    }
-}
-
-void scene_transform_update(scene_transform* transform, vec2f32 translation, f32 scale)
-{
-    if (   transform->local.translation == translation
-        && transform->local.scale       == scale) return;
-
-#if SCENE_NOISY_NODES
-    if (transform->local.translation != translation) NODE_LOG("scene.transform{{{}}}.set_translation{}", (void*)transform, core_to_string(translation));
-    if (transform->local.scale       != scale)       NODE_LOG("scene.transform{{{}}}.set_scale({})",     (void*)transform, scale);
-#endif
-
-    damage_node(transform);
-    transform->local.translation = translation;
-    transform->local.scale = scale;
-    auto* parent = transform->transform.get();
-    update_transform_global(transform, parent ? parent->global : scene_transform_state{});
-    damage_node(transform);
-}
-
-auto scene_transform_get_local(scene_transform* transform) -> scene_transform_state
-{
-    return transform->local;
-}
-
-auto scene_transform_get_global(scene_transform* transform) -> scene_transform_state
-{
-    return transform->global;
-}
-
-void scene_node_set_transform(scene_node* node, scene_transform* transform)
-{
-    if (node->transform.get() == transform) return;
-    if (node->transform) {
-        damage_node(node);
-        core_assert(std::erase(node->transform->children, node) == 1);
-    }
-    node->transform = transform;
-    if (transform) {
-        transform->children.emplace_back(node);
-        damage_node(node);
-    }
-}
-
 scene_node::~scene_node()
 {
-    scene_node_set_transform(this, nullptr);
     core_assert(!parent);
 }
 
@@ -204,6 +131,15 @@ void scene_tree_place_above(scene_tree* tree, scene_node* reference, scene_node*
 {
     tree_place(tree, reference, to_place, true);
     reparent_unsafe(to_place, tree);
+}
+
+void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
+{
+    if (tree->translation == position) return;
+
+    damage_node(tree);
+    tree->translation = position;
+    damage_node(tree);
 }
 
 // -----------------------------------------------------------------------------

@@ -35,14 +35,10 @@ void create_surface(wl_client* client, wl_resource* resource, u32 id)
     surface->scene.tree->userdata = surface.get();
     scene_tree_set_enabled(surface->scene.tree.get(), false);
 
-    surface->scene.transform = scene_transform_create(scene);
-
     surface->scene.texture = scene_texture_create(scene);
-    scene_node_set_transform(surface->scene.texture.get(), surface->scene.transform.get());
     scene_tree_place_above(surface->scene.tree.get(), nullptr, surface->scene.texture.get());
 
     surface->scene.input_region = scene_input_region_create(surface->client->scene.get());
-    scene_node_set_transform(surface->scene.input_region.get(), surface->scene.transform.get());
     scene_tree_place_above(surface->scene.tree.get(), nullptr, surface->scene.input_region.get());
 
     surface->wl_surface = way_resource_create_refcounted(wl_surface, client, resource, id, surface.get());
@@ -338,7 +334,6 @@ WAY_INTERFACE(wl_surface) = {
 way_surface::~way_surface()
 {
     scene_node_unparent(scene.tree.get());
-    scene_node_set_transform(scene.transform.get(), nullptr);
     scene.tree->userdata = nullptr;
     std::erase(client->surfaces, this);
 }

@@ -84,7 +84,6 @@ void Platform_CreateWindow(ImGuiViewport* vp)
     data->window = scene_window_create(ctx->client.get());
 
     data->input_plane = scene_input_region_create(ctx->client.get());
-    scene_node_set_transform(data->input_plane.get(), scene_window_get_transform(data->window.get()));
     scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->input_plane.get());
 
     vp->PlatformUserData = data;
@@ -299,26 +298,29 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
     data->draws = scene_tree_create(ctx->scene);
     scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->draws.get());
 
-    auto* root_transform = scene_get_root_transform(ctx->scene);
+    auto translation = from_imvec(vp->Pos);
 
     for (auto* list : to_span(vp->DrawData->CmdLists)) {
         for (auto& cmd : to_span(list->CmdBuffer)) {
             auto indices = to_span(list->IdxBuffer).subspan(cmd.IdxOffset, cmd.ElemCount);
-            auto max_vtx = std::ranges::max(indices);
+            auto vtx_count = std::ranges::max(indices) + 1;
 
-            static_assert(  sizeof(scene_vertex)        ==   sizeof(ImDrawVert));
-            static_assert( alignof(scene_vertex)        ==  alignof(ImDrawVert));
-            static_assert(offsetof(scene_vertex, pos  ) == offsetof(ImDrawVert, pos));
-            static_assert(offsetof(scene_vertex, uv   ) == offsetof(ImDrawVert, uv ));
-            static_assert(offsetof(scene_vertex, color) == offsetof(ImDrawVert, col));
-            auto vertices = std::span(reinterpret_cast<scene_vertex*>(list->VtxBuffer.Data) + cmd.VtxOffset, max_vtx + 1);
+            static std::vector<scene_vertex> vertices;
+            vertices.resize(vtx_count);
+            for (auto[i, imvert] : to_span(list->VtxBuffer).subspan(cmd.VtxOffset, vtx_count) | std::views::enumerate) {
+                vertices[i] = scene_vertex {
+                    .pos = from_imvec(imvert.pos) - translation,
+                    .uv = from_imvec(imvert.uv),
+                    .color = std::bit_cast<vec4u8>(imvert.col),
+                };
+            }
 
-            auto [image, sampler, blend] = ctx->textures[cmd.GetTexID()];
+            rect2f32 clip = {{cmd.ClipRect.x, cmd.ClipRect.y}, {cmd.ClipRect.z, cmd.ClipRect.w}, core_minmax};
+            clip.origin -= translation;
+
+            auto[image, sampler, blend] = ctx->textures[cmd.GetTexID()];
             auto mesh = scene_mesh_create(ctx->scene);
-            scene_mesh_update(mesh.get(), image.get(), sampler.get(), blend,
-                {{cmd.ClipRect.x, cmd.ClipRect.y}, {cmd.ClipRect.z, cmd.ClipRect.w}, core_minmax},
-                vertices, indices);
-            scene_node_set_transform(mesh.get(), root_transform);
+            scene_mesh_update(mesh.get(), image.get(), sampler.get(), blend, clip, vertices, indices);
             scene_tree_place_above(data->draws.get(), nullptr, mesh.get());
         }
     }
@@ -326,7 +328,7 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
     // Update visual frame
 
     {
-        rect2f32 rect {from_imvec(vp->Pos), from_imvec(vp->Size), core_xywh};
+        rect2f32 rect {translation, from_imvec(vp->Size), core_xywh};
         if (rect != scene_window_get_frame(data->window.get())) {
             scene_input_region_set_region(data->input_plane.get(), {{{}, rect.extent, core_xywh}});
             scene_window_set_frame(data->window.get(), rect);

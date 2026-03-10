@@ -41,11 +41,8 @@ auto scene_create(gpu_context* gpu, io_context* io) -> ref<scene_context>
 
     for (auto layer : magic_enum::enum_values<scene_layer>()) {
         auto* tree = (scene->layers[layer] = scene_tree_create(scene.get())).get();
-        scene_node_set_transform(tree, scene->root_transform.get());
         scene_tree_place_above(scene->root_tree.get(), nullptr, tree);
     }
-
-    scene->root_transform = scene_transform_create(scene.get());
 
     scene_render_init(scene.get());
 
@@ -58,11 +55,6 @@ auto scene_create(gpu_context* gpu, io_context* io) -> ref<scene_context>
 auto scene_get_layer(scene_context* ctx, scene_layer layer) -> scene_tree*
 {
     return ctx->layers[layer].get();
-}
-
-auto scene_get_root_transform(scene_context* ctx) -> scene_transform*
-{
-    return ctx->root_transform.get();
 }
 
 void scene_request_frame(scene_context* ctx)

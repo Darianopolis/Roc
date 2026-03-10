@@ -11,12 +11,12 @@ scene_client::~scene_client()
         core_assert(window->client != this);
     }
 
-    if (auto* kb = scene_get_keyboard(ctx); kb->focus.client == this) {
-        scene_keyboard_set_focus(kb, {});
+    if (auto* keyboard = scene_get_keyboard(ctx); keyboard->focus.client == this) {
+        scene_keyboard_set_focus(keyboard, {});
     }
 
-    if (auto* ptr = scene_get_pointer(ctx); ptr->focus.client == this) {
-        scene_pointer_set_focus(ptr, {});
+    if (auto* pointer = scene_get_pointer(ctx); pointer->focus.client == this) {
+        scene_pointer_set_focus(pointer, {});
     }
 
     std::erase(ctx->clients, this);

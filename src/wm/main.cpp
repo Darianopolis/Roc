@@ -131,8 +131,6 @@ int main()
     };
     defer { unparent_background(); };
     auto update_backgrounds = [&] {
-        auto root = scene_get_root_transform(scene.get());
-
         unparent_background();
         background_layer = scene_tree_create(scene.get());
         scene_tree_place_above(scene_get_layer(scene.get(), scene_layer::background), nullptr, background_layer.get());
@@ -147,7 +145,6 @@ int main()
             auto src = core_rect_fit<f32>(image_size, viewport.extent);
             scene_texture_set_src(texture.get(), {src.origin / image_size, src.extent / image_size, core_xywh});
             scene_texture_set_dst(texture.get(), viewport);
-            scene_node_set_transform(texture.get(), root);
             scene_tree_place_above(background_layer.get(), nullptr, texture.get());
         }
     };
@@ -172,23 +169,20 @@ int main()
     auto canvas = scene_texture_create(scene.get());
     scene_texture_set_tint(canvas.get(), {255, 0, 255, 255});
     scene_texture_set_dst(canvas.get(), {{}, initial_size, core_xywh});
-    scene_node_set_transform(canvas.get(), scene_window_get_transform(window.get()));
     scene_tree_place_below(scene_window_get_tree(window.get()), nullptr, canvas.get());
 
     auto input = scene_input_region_create(client.get());
     scene_input_region_set_region(input.get(), {{{}, initial_size, core_xywh}});
-    scene_node_set_transform(input.get(), scene_window_get_transform(window.get()));
     scene_tree_place_above(scene_window_get_tree(window.get()), nullptr, input.get());
 
-    auto transform = scene_transform_create(scene.get());
-    scene_node_set_transform(transform.get(), scene_window_get_transform(window.get()));
-    scene_transform_update(transform.get(), {64, 64}, 1);
+    auto inner = scene_tree_create(scene.get());
+    scene_tree_set_translation(inner.get(), {64, 64});
+    scene_tree_place_above(scene_window_get_tree(window.get()), nullptr, inner.get());
 
     auto square = scene_texture_create(scene.get());
     scene_texture_set_tint(square.get(), {0, 255, 255, 255});
     scene_texture_set_dst(square.get(), {{}, {128, 128}, core_xywh});
-    scene_node_set_transform(square.get(), transform.get());
-    scene_tree_place_above(scene_window_get_tree(window.get()), nullptr, square.get());
+    scene_tree_place_above(inner.get(), nullptr, square.get());
 
     scene_client_set_event_handler(client.get(), [&](scene_event* event) {
         switch (event->type) {

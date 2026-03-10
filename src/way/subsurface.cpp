@@ -14,7 +14,6 @@ void get_subsurface(wl_client* client, wl_resource* resource, u32 id, wl_resourc
     surface->subsurface.synchronized = true;
 
     // Place into parent's surface stack
-    scene_node_set_transform(surface->scene.transform.get(), parent->scene.transform.get());
     parent->pending->subsurface.places.emplace_back(way_subsurface_place {
         .reference = nullptr,
         .subsurface = surface,
@@ -95,7 +94,7 @@ void way_subsurface_apply(way_surface* surface, way_surface_state& from)
     // Arrange child subsurfaces
 
     for (auto& move : from.subsurface.moves) {
-        scene_transform_update(move.subsurface->scene.transform.get(), move.position, 1);
+        scene_tree_set_translation(move.subsurface->scene.tree.get(), move.position);
     }
     from.subsurface.moves.clear();
 

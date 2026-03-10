@@ -453,7 +453,7 @@ core_aabb<T> core_aabb_inner(const core_aabb<T>& a, const core_aabb<T>& b)
 template<typename T>
 bool core_aabb_intersects(const core_aabb<T>& a, const core_aabb<T>& b, core_aabb<T>* intersection = nullptr)
 {
-    core_aabb<T> i = {glm::max(a.min, b.min), glm::min(a.max, b.max), core_minmax};
+    auto i = core_aabb_inner(a, b);
 
     if (i.max.x <= i.min.x || i.max.y <= i.min.y) {
         if (intersection) *intersection = {};

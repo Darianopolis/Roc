@@ -43,7 +43,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         gpu_image* image;
         gpu_sampler* sampler;
         gpu_blend_mode blend;
-        scene_transform_state transform;
+        vec2f32 position;
     };
 
     std::vector<scene_vertex> vertices;
@@ -53,15 +53,15 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     aabb2f32 default_clip = viewport;
 
     auto get_draw = [&draws, &vertices, &indices](
-        aabb2f32 clip, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend, scene_transform_state transform)
+        aabb2f32 clip, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend, vec2f32 position)
     {
         auto* draw = draws.empty() ? nullptr : &draws.back();
         if (  !draw
-            || draw->clip      != clip
-            || draw->image     != image
-            || draw->sampler   != sampler
-            || draw->blend     != blend
-            || draw->transform != transform)
+            || draw->clip     != clip
+            || draw->image    != image
+            || draw->sampler  != sampler
+            || draw->blend    != blend
+            || draw->position != position)
         {
             draw = &draws.emplace_back(scene_draw{
                 .first_vertex = u32(vertices.size()),
@@ -70,7 +70,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                 .image = image,
                 .sampler = sampler,
                 .blend = blend,
-                .transform = transform,
+                .position = position,
             });
         }
         return draw;
@@ -81,19 +81,21 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
             break;case scene_node_type::mesh: {
                 auto* mesh = static_cast<scene_mesh*>(node);
 
+                auto pos = scene_tree_get_position(node->parent);
+
                 draws.emplace_back(scene_draw {
                     .first_vertex = u32(vertices.size()),
                     .first_index = u32(indices.size()),
                     .num_indices = u32(mesh->indices.size()),
                     .clip = core_aabb_inner(default_clip, {
-                        node->transform->global.translation + mesh->clip.min * node->transform->global.scale,
-                        node->transform->global.translation + mesh->clip.max * node->transform->global.scale,
+                        pos + mesh->clip.min,
+                        pos + mesh->clip.max,
                         core_minmax
                     }),
                     .image = mesh->image.get() ?: render.white.get(),
                     .sampler = mesh->sampler.get() ?: render.sampler.get(),
                     .blend = mesh->blend,
-                    .transform = mesh->transform->global,
+                    .position = pos,
                 });
 
                 vertices.insert_range(vertices.end(), mesh->vertices);
@@ -113,7 +115,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                     texture->image.get()   ?: render.white.get(),
                     texture->sampler.get() ?: render.sampler.get(),
                     texture->blend,
-                    scene_get_root_transform(ctx)->global);
+                    {});
 
                 auto base_vtx = vertices.size() - draw->first_vertex;
                 draw->num_indices += 6;
@@ -121,9 +123,10 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                     indices.emplace_back(base_vtx + idx);
                 }
 
+                auto translation = scene_tree_get_position(texture->parent);
                 auto push_vtx = [&](vec2f32 pos, vec2f32 uv = {}) {
                     vertices.emplace_back(scene_vertex {
-                        .pos = texture->transform->global.to_global(pos),
+                        .pos = translation + pos,
                         .uv = uv,
                         .color = texture->tint
                     });
@@ -208,8 +211,8 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         gpu_cmd_push_constants(cmd, 0, sizeof(scene_render_input),
             ptr_to(scene_render_input {
                 .vertices = gpu_vertices.device(),
-                .scale = draw_scale * draw.transform.scale,
-                .offset = (draw.transform.translation - viewport.origin) * draw_scale - 1.f,
+                .scale = draw_scale,
+                .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
                 .texture = {draw.image, render.sampler.get()},
             }));
 

@@ -26,8 +26,7 @@ struct scene_context
         ref<gpu_sampler>  sampler;
     } render;
 
-    ref<scene_transform> root_transform;
-    ref<scene_tree>      root_tree;
+    ref<scene_tree> root_tree;
     core_enum_map<scene_layer, ref<scene_tree>> layers;
 
     std::vector<scene_output*> outputs;
@@ -77,7 +76,6 @@ struct scene_window : core_object
     std::string title;
 
     ref<scene_tree> tree;
-    ref<scene_transform> transform;
 
     ~scene_window();
 };
@@ -136,8 +134,7 @@ struct scene_pointer : scene_input_device
 {
     core_counting_set<u32> pressed;
 
-    ref<scene_transform> transform;
-    ref<scene_texture>   visual;
+    ref<scene_tree> tree;
 
     std::move_only_function<scene_pointer_driver_fn> driver;
 

@@ -30,7 +30,6 @@ void get_toplevel(wl_client* client, wl_resource* resource, u32 id)
 
     surface->toplevel.window = scene_window_create(surface->client->scene.get());
 
-    scene_node_set_transform(surface->scene.transform.get(), scene_window_get_transform(surface->toplevel.window.get()));
     scene_tree_place_above(scene_window_get_tree(surface->toplevel.window.get()), nullptr, surface->scene.tree.get());
 }
 
@@ -161,7 +160,7 @@ void way_toplevel_apply(way_surface* surface, way_surface_state& from)
         frame.origin -= rel * (extent - anchor.extent);
 
         scene_window_set_frame(surface->toplevel.window.get(), frame);
-        scene_transform_update(surface->scene.transform.get(), -surface->current.xdg.geometry.origin, 1);
+        scene_tree_set_translation(surface->scene.tree.get(), -surface->current.xdg.geometry.origin);
 
         surface->toplevel.pending = false;
         if (surface->toplevel.queued) {
