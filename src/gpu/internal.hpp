@@ -53,6 +53,8 @@ VkFormatFeatureFlags gpu_get_required_format_features(gpu_format, flags<gpu_imag
 
 // -----------------------------------------------------------------------------
 
+auto gpu_image_usage_to_vk(flags<gpu_image_usage>) -> VkImageUsageFlags;
+
 struct gpu_image_base : gpu_image
 {
     gpu_context* gpu;
@@ -69,18 +71,14 @@ struct gpu_image_base : gpu_image
         flags<gpu_image_usage> usage;
     } base;
 
-    virtual auto context()    const -> gpu_context*           final override { return gpu;         };
-    virtual auto extent()     const -> vec2u32                final override { return base.extent; };
-    virtual auto format()     const -> gpu_format             final override { return base.format; };
-    virtual auto view()       const -> VkImageView            final override { return base.view;   };
-    virtual auto handle()     const -> VkImage                final override { return base.image;  };
-    virtual auto usage()      const -> flags<gpu_image_usage> final override { return base.usage;  };
-    virtual auto descriptor() const -> gpu_descriptor_id      final override { return base.id;     };
-
     virtual ~gpu_image_base();
+
+    virtual auto get_base() -> gpu_image_base* final override { return this; }
 };
 
 void gpu_image_init(gpu_image_base*);
+
+ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, const gpu_image_create_info&);
 
 // -----------------------------------------------------------------------------
 

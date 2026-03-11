@@ -440,7 +440,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
 
     log_warn("Importing new FB2 buffer");
 
-    auto dma_params = gpu_image_export_dmabuf(image);
+    auto dma_params = gpu_image_export(image);
     auto size = image->extent();
     auto format = image->format();
 

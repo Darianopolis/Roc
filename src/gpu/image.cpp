@@ -30,6 +30,7 @@ VkFormatFeatureFlags gpu_get_required_format_features(gpu_format format, flags<g
     return features;
 }
 
+static
 VkImageAspectFlagBits gpu_plane_to_aspect(u32 i)
 {
     return std::array {
@@ -47,13 +48,7 @@ struct gpu_image_lease : gpu_image
     ref<gpu_image_pool> pool;
     ref<gpu_image>      image;
 
-    virtual auto context()    const -> gpu_context*           final override { return image->context();    };
-    virtual auto extent()     const -> vec2u32                final override { return image->extent();     };
-    virtual auto format()     const -> gpu_format             final override { return image->format();     };
-    virtual auto view()       const -> VkImageView            final override { return image->view();       };
-    virtual auto handle()     const -> VkImage                final override { return image->handle();     };
-    virtual auto usage()      const -> flags<gpu_image_usage> final override { return image->usage();      };
-    virtual auto descriptor() const -> gpu_descriptor_id      final override { return image->descriptor(); };
+    virtual auto get_base() -> gpu_image_base* final override { return image->get_base(); }
 
     ~gpu_image_lease()
     {
@@ -75,6 +70,14 @@ gpu_image_base::~gpu_image_base()
 {
     gpu->image_descriptor_allocator.free(base.id);
 }
+
+auto gpu_image::context()    -> gpu_context*           { return get_base()->gpu;         }
+auto gpu_image::extent()     -> vec2u32                { return get_base()->base.extent; }
+auto gpu_image::format()     -> gpu_format             { return get_base()->base.format; }
+auto gpu_image::view()       -> VkImageView            { return get_base()->base.view;   }
+auto gpu_image::handle()     -> VkImage                { return get_base()->base.image;  }
+auto gpu_image::usage()      -> flags<gpu_image_usage> { return get_base()->base.usage;  }
+auto gpu_image::descriptor() -> gpu_descriptor_id      { return get_base()->base.id;     }
 
 // -----------------------------------------------------------------------------
 
@@ -421,9 +424,9 @@ ref<gpu_image> gpu_image_create_dmabuf(gpu_context* gpu, const gpu_image_create_
     return image;
 }
 
-gpu_dma_params gpu_image_export_dmabuf(gpu_image* _image)
+gpu_dma_params gpu_image_export(gpu_image* _image)
 {
-    auto* image = dynamic_cast<gpu_image_dmabuf*>(_image);
+    auto* image = dynamic_cast<gpu_image_dmabuf*>(_image->get_base());
     core_assert(image);
 
     auto* gpu = image->gpu;
@@ -475,7 +478,7 @@ gpu_dma_params gpu_image_export_dmabuf(gpu_image* _image)
     return params;
 }
 
-ref<gpu_image> gpu_image_import_dmabuf(gpu_context* gpu, const gpu_dma_params& params, flags<gpu_image_usage> usage)
+ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, flags<gpu_image_usage> usage)
 {
     core_assert(!usage.empty());
 

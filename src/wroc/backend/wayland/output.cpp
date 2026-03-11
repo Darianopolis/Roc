@@ -299,7 +299,7 @@ wl_buffer* get_image_proxy(wroc_wayland_backend* backend, gpu_image* image)
     auto size = image->extent();
     auto format = image->format();
 
-    auto dma_params = gpu_image_export_dmabuf(image);
+    auto dma_params = gpu_image_export(image);
     u32 mod_hi = dma_params.modifier >> 32;
     u32 mod_lo = dma_params.modifier & ~0u;
 

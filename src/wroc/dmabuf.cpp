@@ -135,7 +135,7 @@ wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* param
     buffer->extent = {width, height};
     log_debug("Importing DMA-BUF, size = {}, format = {}, mod = {}",
         core_to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
-    buffer->image = gpu_image_import_dmabuf(server->gpu, params, gpu_image_usage::texture);
+    buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
 
     dma_params->params = {};
     dma_params->planes_set = {};
@@ -189,7 +189,7 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
     } else {
         if (!params) {
             log_debug("First use of implicit sync with imported image, re-exporting DMA-BUF fds");
-            params = gpu_image_export_dmabuf(image.get());
+            params = gpu_image_export(image.get());
         }
 
         for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {

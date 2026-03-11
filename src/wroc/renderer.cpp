@@ -423,7 +423,7 @@ ref<gpu_image> acquire(wroc_renderer* renderer, wroc_output* output)
 
     auto* gpu = server->gpu;
 
-    auto image = gpu_image_create_dmabuf(gpu, {
+    auto image = gpu_image_create(gpu, {
         .extent = output->size,
         .format = renderer->output_format,
         .usage = gpu_image_usage::render,

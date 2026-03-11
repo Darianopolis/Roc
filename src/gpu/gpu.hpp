@@ -30,7 +30,7 @@ struct gpu_descriptor_id_allocator
     gpu_descriptor_id_allocator() = default;
     gpu_descriptor_id_allocator(u32 count);
 
-    gpu_descriptor_id allocate();
+    auto allocate() -> gpu_descriptor_id;
     void free(gpu_descriptor_id);
 };
 
@@ -62,7 +62,7 @@ struct gpu_format_info
     VKU_FORMAT_INFO info;
 };
 
-std::span<const gpu_format_info> gpu_get_format_infos();
+auto gpu_get_format_infos() -> std::span<const gpu_format_info>;
 
 struct gpu_format
 {
@@ -89,8 +89,8 @@ auto gpu_get_formats()
          | std::views::transform([](usz i) { return gpu_format(i); });
 }
 
-gpu_format gpu_format_from_drm(gpu_drm_format);
-gpu_format gpu_format_from_vk(VkFormat, flags<gpu_vk_format_flag> = {});
+auto gpu_format_from_drm(gpu_drm_format) -> gpu_format;
+auto gpu_format_from_vk(VkFormat, flags<gpu_vk_format_flag> = {}) -> gpu_format;
 
 struct gpu_format_modifier_props
 {
@@ -113,7 +113,7 @@ struct gpu_format_props
     std::vector<gpu_format_modifier_props> mod_props;
     gpu_format_modifier_set mods;
 
-    const gpu_format_modifier_props* for_mod(gpu_drm_modifier mod) const
+    auto for_mod(gpu_drm_modifier mod) const -> const gpu_format_modifier_props*
     {
         for (auto& p : mod_props) {
             if (p.modifier == mod) return &p;
@@ -143,7 +143,7 @@ struct gpu_format_set
 
     void clear() { entries.clear(); }
 
-    const gpu_format_modifier_set& get(gpu_format format) const noexcept
+    auto get(gpu_format format) const noexcept -> const gpu_format_modifier_set&
     {
         auto iter = entries.find(format);
         return iter == entries.end() ? gpu_empty_modifier_set : iter->second;
@@ -156,12 +156,12 @@ struct gpu_format_set
     auto   end() const { return entries.end(); }
 };
 
-gpu_format_modifier_set gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets);
-gpu_format_set gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets);
+auto gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets) -> gpu_format_modifier_set;
+auto gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets) -> gpu_format_set;
 
-const gpu_format_props* gpu_get_format_props(gpu_context*, gpu_format, flags<gpu_image_usage>);
+auto gpu_get_format_props(gpu_context*, gpu_format, flags<gpu_image_usage>) -> const gpu_format_props*;
 
-std::string gpu_drm_modifier_get_name(gpu_drm_modifier);
+auto gpu_drm_modifier_get_name(gpu_drm_modifier) -> std::string;
 
 // -----------------------------------------------------------------------------
 
@@ -227,7 +227,7 @@ struct gpu_context : core_object
     ~gpu_context();
 };
 
-ref<gpu_context> gpu_create(flags<gpu_feature>, core_event_loop*);
+auto gpu_create(flags<gpu_feature>, core_event_loop*) -> ref<gpu_context>;
 
 // -----------------------------------------------------------------------------
 
@@ -255,7 +255,7 @@ struct gpu_queue : core_object
     ~gpu_queue();
 };
 
-gpu_queue* gpu_get_queue(gpu_context*, gpu_queue_type);
+auto gpu_get_queue(gpu_context*, gpu_queue_type) -> gpu_queue*;
 
 // -----------------------------------------------------------------------------
 
@@ -290,9 +290,9 @@ struct gpu_syncpoint
     VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 };
 
-ref<gpu_semaphore> gpu_semaphore_create(gpu_context*);
-ref<gpu_semaphore> gpu_semaphore_import_syncobj(gpu_context*, int syncobj_fd);
-int gpu_semaphore_export_syncobj(gpu_semaphore*);
+auto gpu_semaphore_create(gpu_context*) -> ref<gpu_semaphore>;
+auto gpu_semaphore_import_syncobj(gpu_context*, int syncobj_fd) -> ref<gpu_semaphore>;
+int  gpu_semaphore_export_syncobj(gpu_semaphore*);
 
 void gpu_semaphore_import_syncfile(gpu_semaphore*, int sync_fd, u64 target_point);
 int  gpu_semaphore_export_syncfile(gpu_semaphore*, u64 source_point);
@@ -331,10 +331,10 @@ struct gpu_commands : core_object
     ~gpu_commands();
 };
 
-ref<gpu_commands> gpu_commands_begin(gpu_queue*);
+auto gpu_commands_begin(gpu_queue*) -> ref<gpu_commands>;
 
-void gpu_commands_protect_object(  gpu_commands*, core_object*);
-gpu_syncpoint gpu_commands_submit(gpu_commands*, std::span<const gpu_syncpoint> waits);
+void gpu_commands_protect_object(gpu_commands*, core_object*);
+auto gpu_commands_submit(        gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
 
 // TODO: This is a blocking operation and a temporary solution
 //       Replace with an asynchronous callback
@@ -373,7 +373,7 @@ enum class gpu_buffer_flag : u32
     host = 1 << 0,
 };
 
-ref<gpu_buffer> gpu_buffer_create(gpu_context*, usz size, flags<gpu_buffer_flag>);
+auto gpu_buffer_create(gpu_context*, usz size, flags<gpu_buffer_flag>) -> ref<gpu_buffer>;
 
 // -----------------------------------------------------------------------------
 
@@ -413,7 +413,7 @@ struct gpu_array
         return buffer->host<T>(byte_offset);
     }
 
-    gpu_array_element_proxy<T> operator[](usz index) const
+    auto operator[](usz index) const -> gpu_array_element_proxy<T>
     {
         return {buffer->host<T>(byte_offset) + index};
     }
@@ -431,19 +431,19 @@ enum class gpu_image_usage : u32
     storage      = 1 << 4,
 };
 
-VkImageUsageFlags gpu_image_usage_to_vk(flags<gpu_image_usage>);
-
 struct gpu_image : core_object
 {
     virtual ~gpu_image() = default;
 
-    virtual auto context()    const -> gpu_context*           = 0;
-    virtual auto extent()     const -> vec2u32                = 0;
-    virtual auto format()     const -> gpu_format             = 0;
-    virtual auto view()       const -> VkImageView            = 0;
-    virtual auto handle()     const -> VkImage                = 0;
-    virtual auto usage()      const -> flags<gpu_image_usage> = 0;
-    virtual auto descriptor() const -> gpu_descriptor_id      = 0;
+    virtual auto get_base() -> struct gpu_image_base* = 0;
+
+    auto context()    -> gpu_context*;
+    auto extent()     -> vec2u32;
+    auto format()     -> gpu_format;
+    auto view()       -> VkImageView;
+    auto handle()     -> VkImage;
+    auto usage()      -> flags<gpu_image_usage>;
+    auto descriptor() -> gpu_descriptor_id;
 };
 
 struct gpu_image_create_info
@@ -454,7 +454,7 @@ struct gpu_image_create_info
     const gpu_format_modifier_set* modifiers;
 };
 
-ref<gpu_image> gpu_image_create(gpu_context*, const gpu_image_create_info&);
+auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> ref<gpu_image>;
 
 void gpu_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
 void gpu_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*);
@@ -481,7 +481,7 @@ struct gpu_sampler_create_info
     VkFilter min;
 };
 
-ref<gpu_sampler> gpu_sampler_create(gpu_context*, const gpu_sampler_create_info&);
+auto gpu_sampler_create(gpu_context*, const gpu_sampler_create_info&) -> ref<gpu_sampler>;
 
 // -----------------------------------------------------------------------------
 
@@ -528,8 +528,8 @@ constexpr static u32 gpu_dma_max_planes = 4;
 struct gpu_dma_plane
 {
     core_fd fd;
-    u32 offset;
-    u32 stride;
+    u32     offset;
+    u32     stride;
 };
 
 struct gpu_dma_params
@@ -537,17 +537,13 @@ struct gpu_dma_params
     core_fixed_array<gpu_dma_plane, gpu_dma_max_planes> planes;
     bool disjoint;
 
-    vec2u32 extent;
-    gpu_format format;
+    vec2u32          extent;
+    gpu_format       format;
     gpu_drm_modifier modifier;
 };
 
-VkImageAspectFlagBits gpu_plane_to_aspect(u32 i);
-
-ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, const gpu_image_create_info&);
-ref<gpu_image> gpu_image_import_dmabuf(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>);
-
-gpu_dma_params gpu_image_export_dmabuf(gpu_image*);
+auto gpu_image_import(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>) -> ref<gpu_image>;
+auto gpu_image_export(gpu_image*) -> gpu_dma_params;
 
 // -----------------------------------------------------------------------------
 
