@@ -68,6 +68,35 @@ void gpu_transition(gpu_context* ctx, gpu_commands* commands, gpu_image* image,
 
 // -----------------------------------------------------------------------------
 
+struct gpu_image_lease : gpu_image
+{
+    ref<gpu_image_pool> pool;
+    ref<gpu_image>      image;
+
+    virtual auto context()    const -> gpu_context*           final override { return image->context();    };
+    virtual auto extent()     const -> vec2u32                final override { return image->extent();     };
+    virtual auto format()     const -> gpu_format             final override { return image->format();     };
+    virtual auto view()       const -> VkImageView            final override { return image->view();       };
+    virtual auto handle()     const -> VkImage                final override { return image->handle();     };
+    virtual auto usage()      const -> flags<gpu_image_usage> final override { return image->usage();      };
+    virtual auto descriptor() const -> gpu_descriptor_id      final override { return image->descriptor(); };
+
+    ~gpu_image_lease()
+    {
+        pool->release(std::move(image));
+    }
+};
+
+auto gpu_lease_image(gpu_image_pool* pool, ref<gpu_image> image) -> ref<gpu_image>
+{
+    auto leased = core_create<gpu_image_lease>();
+    leased->pool = pool;
+    leased->image = std::move(image);
+    return leased;
+}
+
+// -----------------------------------------------------------------------------
+
 gpu_image_base::~gpu_image_base()
 {
     ctx->image_descriptor_allocator.free(base.id);

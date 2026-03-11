@@ -548,3 +548,15 @@ struct gpu_image_handle
         , sampler(sampler ? std::to_underlying(sampler->id) : 0)
     {}
 };
+
+// -----------------------------------------------------------------------------
+
+struct gpu_image_pool
+{
+    virtual ~gpu_image_pool() = default;
+
+    virtual auto acquire(const gpu_image_create_info&) -> ref<gpu_image>;
+    virtual void release(ref<gpu_image>);
+};
+
+auto gpu_lease_image(gpu_image_pool*, ref<gpu_image>) -> ref<gpu_image>;
