@@ -362,8 +362,11 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
 
     auto* cursor = XcursorLibraryLoadImage("default", "breeze_cursors", 24);
     defer { XcursorImageDestroy(cursor); };
-    auto image = gpu_image_create(ctx->gpu, {cursor->width, cursor->height}, gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        gpu_image_usage::texture | gpu_image_usage::transfer);
+    auto image = gpu_image_create(ctx->gpu, {
+        .extent = {cursor->width, cursor->height},
+        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+    });
     gpu_image_update_immed(image.get(), cursor->pixels);
 
     auto visual = scene_texture_create(ctx);

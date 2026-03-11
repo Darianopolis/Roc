@@ -55,8 +55,11 @@ ref<wroc_renderer> wroc_renderer_create(flags<wroc_render_option> render_options
 
     log_info("Loaded image ({}, width = {}, height = {})", path.c_str(), w, h);
 
-    renderer->background = gpu_image_create(gpu, {w, h}, gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        gpu_image_usage::texture | gpu_image_usage::transfer);
+    renderer->background = gpu_image_create(gpu, {
+        .extent = {w, h},
+        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+    });
     gpu_image_update_immed(renderer->background.get(), data);
 
     renderer->sampler = gpu_sampler_create(gpu, VK_FILTER_NEAREST, VK_FILTER_LINEAR);
@@ -328,9 +331,11 @@ void wroc_screenshot(rect2f64 rect)
     auto start = std::chrono::steady_clock::now();
 
     vec2u32 extent = rect.extent;
-    auto image = gpu_image_create(gpu, extent,
-        gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        gpu_image_usage::render | gpu_image_usage::transfer);
+    auto image = gpu_image_create(gpu, {
+        .extent = extent,
+        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu_image_usage::render | gpu_image_usage::transfer
+    });
 
     auto byte_size = usz(4) * extent.x * extent.y;
     auto buffer = gpu_buffer_create(gpu, byte_size, gpu_buffer_flag::host);
@@ -407,8 +412,12 @@ ref<gpu_image> acquire(wroc_renderer* renderer, wroc_output* output)
 
     auto* gpu = server->gpu;
 
-    auto image = gpu_image_create_dmabuf(gpu, output->size, renderer->output_format,
-        gpu_image_usage::render, renderer->output_format_modifiers);
+    auto image = gpu_image_create_dmabuf(gpu, {
+        .extent = output->size,
+        .format = renderer->output_format,
+        .usage = gpu_image_usage::render,
+        .modifiers = &renderer->output_format_modifiers
+    });
 
     return image;
 }

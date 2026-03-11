@@ -106,8 +106,11 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
 
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_wl_buffer_impl, shm_buffer);
 
-    shm_buffer->image = gpu_image_create(server->gpu, shm_buffer->extent, shm_buffer->format,
-        gpu_image_usage::texture | gpu_image_usage::transfer);
+    shm_buffer->image = gpu_image_create(server->gpu, {
+        .extent = shm_buffer->extent,
+        .format = shm_buffer->format,
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+    });
 
     log_debug("Created shared buffer {}, format = {}", core_to_string(shm_buffer->extent), shm_buffer->format->name);
 }

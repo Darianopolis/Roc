@@ -87,8 +87,11 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
         return;
     }
 
-    buffer->image = gpu_image_create(server->gpu, buffer->extent, buffer->format,
-        gpu_image_usage::texture | gpu_image_usage::transfer);
+    buffer->image = gpu_image_create(server->gpu, {
+        .extent = buffer->extent,
+        .format = buffer->format,
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+    });
 }
 
 static

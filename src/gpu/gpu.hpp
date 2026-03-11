@@ -444,7 +444,15 @@ struct gpu_image : core_object
     virtual auto descriptor() const -> gpu_descriptor_id      = 0;
 };
 
-ref<gpu_image> gpu_image_create(gpu_context*, vec2u32 extent, gpu_format, flags<gpu_image_usage>);
+struct gpu_image_create_info
+{
+    vec2u32                        extent;
+    gpu_format                     format;
+    flags<gpu_image_usage>         usage;
+    const gpu_format_modifier_set* modifiers;
+};
+
+ref<gpu_image> gpu_image_create(gpu_context*, const gpu_image_create_info&);
 
 void gpu_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
 void gpu_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*);
@@ -520,7 +528,7 @@ struct gpu_dma_params
 
 VkImageAspectFlagBits gpu_plane_to_aspect(u32 i);
 
-ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, vec2u32 extent, gpu_format, flags<gpu_image_usage>, std::span<const gpu_drm_modifier>);
+ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, const gpu_image_create_info&);
 ref<gpu_image> gpu_image_import_dmabuf(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>);
 
 gpu_dma_params gpu_image_export_dmabuf(gpu_image*);

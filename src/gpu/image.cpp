@@ -95,34 +95,32 @@ gpu_image_vma::~gpu_image_vma()
     vmaDestroyImage(ctx->vma, handle(), vma_allocation);
 }
 
-#define GPU_FORCE_DMABUF_IMAGES 0
-
-ref<gpu_image> gpu_image_create(gpu_context* ctx, vec2u32 extent, gpu_format format, flags<gpu_image_usage> usage)
+ref<gpu_image> gpu_image_create(gpu_context* ctx, const gpu_image_create_info& info)
 {
-#if GPU_FORCE_DMABUF_IMAGES
-    auto* props = gpu_get_format_props(ctx, format, gpu_image_usage_to_vk(usage));
-    return gpu_image_create_dmabuf(ctx, extent, format, usage, props->mods);
-#else
+    if (info.modifiers) {
+        return gpu_image_create_dmabuf(ctx, info);
+    }
+
     auto image = core_create<gpu_image_vma>();
     image->ctx = ctx;
 
     ctx->stats.active_images++;
 
-    image->base.extent = extent;
-    image->base.format = format;
-    image->base.usage = usage;
+    image->base.extent = info.extent;
+    image->base.format = info.format;
+    image->base.usage = info.usage;
 
     VmaAllocationInfo alloc_info;
     gpu_check(vmaCreateImage(ctx->vma, ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
-        .format = format->vk,
-        .extent = {extent.x, extent.y, 1},
+        .format = info.format->vk,
+        .extent = {info.extent.x, info.extent.y, 1},
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = gpu_image_usage_to_vk(usage),
+        .usage = gpu_image_usage_to_vk(info.usage),
         .sharingMode = VK_SHARING_MODE_CONCURRENT,
         .queueFamilyIndexCount = 2,
         .pQueueFamilyIndices = std::array {
@@ -140,7 +138,6 @@ ref<gpu_image> gpu_image_create(gpu_context* ctx, vec2u32 extent, gpu_format for
     gpu_image_init(image.get());
 
     return image;
-#endif
 }
 
 void gpu_image_init(gpu_image_base* image)
@@ -318,16 +315,16 @@ gpu_image_dmabuf::~gpu_image_dmabuf()
     }
 }
 
-ref<gpu_image> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, gpu_format format, flags<gpu_image_usage> usage, std::span<const gpu_drm_modifier> modifiers)
+ref<gpu_image> gpu_image_create_dmabuf(gpu_context* ctx, const gpu_image_create_info& info)
 {
     auto image = core_create<gpu_image_dmabuf>();
     image->ctx = ctx;
 
-    image->base.extent = extent;
-    image->base.format = format;
-    image->base.usage = usage;
+    image->base.extent = info.extent;
+    image->base.format = info.format;
+    image->base.usage = info.usage;
 
-    auto vk_usage = gpu_image_usage_to_vk(usage);
+    auto vk_usage = gpu_image_usage_to_vk(info.usage);
 
     gpu_check(ctx->vk.CreateImage(ctx->device, ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -338,13 +335,13 @@ ref<gpu_image> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, gpu_for
             }),
             ptr_to(VkImageDrmFormatModifierListCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
-                .drmFormatModifierCount = u32(modifiers.size()),
-                .pDrmFormatModifiers = modifiers.data(),
+                .drmFormatModifierCount = u32(info.modifiers->size()),
+                .pDrmFormatModifiers = std::span(*info.modifiers).data(),
             }),
         }),
         .imageType = VK_IMAGE_TYPE_2D,
-        .format = format->vk,
-        .extent = {extent.x, extent.y, 1},
+        .format = info.format->vk,
+        .extent = {info.extent.x, info.extent.y, 1},
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,

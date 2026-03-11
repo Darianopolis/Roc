@@ -8,9 +8,11 @@ void scene_render_init(scene_context* ctx)
     ctx->render.vertex   = gpu_shader_create(ctx->gpu, VK_SHADER_STAGE_VERTEX_BIT,   scene_render_shader, "vertex");
     ctx->render.fragment = gpu_shader_create(ctx->gpu, VK_SHADER_STAGE_FRAGMENT_BIT, scene_render_shader, "fragment");
 
-    ctx->render.white = gpu_image_create(ctx->gpu, {1, 1},
-        gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        gpu_image_usage::texture | gpu_image_usage::transfer_dst);
+    ctx->render.white = gpu_image_create(ctx->gpu, {
+        .extent = {1, 1},
+        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer_dst
+    });
     gpu_image_update_immed(ctx->render.white.get(), ptr_to(vec4u8{255, 255, 255, 255}));
 
     ctx->render.sampler = gpu_sampler_create(ctx->gpu, VK_FILTER_NEAREST, VK_FILTER_LINEAR);

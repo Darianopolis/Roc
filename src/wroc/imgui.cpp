@@ -51,9 +51,11 @@ void wroc_imgui_init()
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        imgui->font_image = gpu_image_create(gpu, {width, height},
-            gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            gpu_image_usage::texture | gpu_image_usage::transfer);
+        imgui->font_image = gpu_image_create(gpu, {
+            .extent = {width, height},
+            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+        });
         gpu_image_update_immed(imgui->font_image.get(), pixels);
 
         io.Fonts->SetTexID(ImTextureID(wroc_imgui_texture(imgui->font_image.get(), server->renderer->sampler.get())));

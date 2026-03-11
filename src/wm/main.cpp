@@ -117,8 +117,11 @@ int main()
         log_info("Loaded background ({}, width = {}, height = {})", path.c_str(), w, h);
 
         // Create background texture node
-        auto image = gpu_image_create(gpu.get(), {w, h}, gpu_format_from_drm(DRM_FORMAT_XBGR8888),
-            gpu_image_usage::texture | gpu_image_usage::transfer);
+        auto image = gpu_image_create(gpu.get(), {
+            .extent = {w, h},
+            .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
+            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+        });
         gpu_image_update_immed(image.get(), data);
         return image;
     }();
@@ -266,7 +269,11 @@ int main()
                     gpu->renderdoc->SetCaptureTitle(std::format("Roc capture {}", ++capture).c_str());
                     for (auto* output : scene_list_outputs(scene.get())) {
                         auto viewport =  scene_output_get_viewport(output);
-                        auto texture = gpu_image_create(gpu.get(), viewport.extent, gpu_format_from_drm(DRM_FORMAT_ABGR8888), gpu_image_usage::render);
+                        auto texture = gpu_image_create(gpu.get(), {
+                            .extent = viewport.extent,
+                            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+                            .usage = gpu_image_usage::render
+                        });
                         scene_render(scene.get(), texture.get(), viewport);
                     }
                     gpu->renderdoc->EndFrameCapture(nullptr, nullptr);

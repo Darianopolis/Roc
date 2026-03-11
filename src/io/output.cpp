@@ -63,7 +63,12 @@ auto io_output_base::acquire(flags<gpu_image_usage> usage) -> ref<gpu_image>
 
     log_warn("Creating new swapchain image {}", core_to_string(size));
 
-    return gpu_image_create_dmabuf(ctx->gpu, size, swapchain.format.format, usage, swapchain.format.intersected);
+    return gpu_image_create_dmabuf(ctx->gpu, {
+        .extent = size,
+        .format = swapchain.format.format,
+        .usage = usage,
+        .modifiers = &swapchain.format.intersected
+    });
 }
 
 static

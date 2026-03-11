@@ -168,8 +168,11 @@ wroc_surface* wroc_cursor_get_shape(wroc_cursor* cursor, wp_cursor_shape_device_
     };
     log_info("  size ({}, {}) hotspot ({}, {})", image->width, image->height, image->xhot, image->yhot);
 
-    cursor_buffer->image = gpu_image_create(server->gpu, {image->width, image->height}, gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        gpu_image_usage::texture | gpu_image_usage::transfer);
+    cursor_buffer->image = gpu_image_create(server->gpu, {
+        .extent = {image->width, image->height},
+        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+    });
     gpu_image_update_immed(cursor_buffer->image.get(), image->pixels);
 
     surface->buffer_dst = {{-image->xhot, -image->yhot}, {image->width, image->height}, core_xywh};

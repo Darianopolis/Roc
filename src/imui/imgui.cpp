@@ -252,9 +252,11 @@ void imui_init(imui_context* ctx)
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        ctx->font_image = gpu_image_create(ctx->gpu, {width, height},
-            gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            gpu_image_usage::texture | gpu_image_usage::transfer);
+        ctx->font_image = gpu_image_create(ctx->gpu, {
+            .extent = {width, height},
+            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
+            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+        });
         gpu_image_update_immed(ctx->font_image.get(), pixels);
     }
 
