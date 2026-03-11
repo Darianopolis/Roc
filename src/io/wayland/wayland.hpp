@@ -114,7 +114,24 @@ struct io_output_wayland : io_output_base
         vec2u32 size;
     } configure;
 
-    virtual void commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, flags<io_output_commit_flag>) final override;
+    virtual auto info() -> io_output_info final override
+    {
+        return {
+            .size = size,
+            .formats = &ctx->wayland->format.set,
+        };
+    }
+
+    struct release_slot
+    {
+        ref<gpu_image>     image;
+        ref<gpu_semaphore> semaphore;
+        u64                point;
+    };
+
+    std::vector<release_slot> release_slots;
+
+    virtual void commit(gpu_image*, gpu_syncpoint done, flags<io_output_commit_flag>) final override;
 
     ~io_output_wayland();
 };

@@ -63,7 +63,7 @@ struct scene_find_output_result
 };
 auto scene_find_output_for_point(scene_context*, vec2f32 point) -> scene_find_output_result;
 
-void scene_frame(scene_context* ctx, scene_output*, struct io_output* output);
+void scene_frame(scene_context* ctx, scene_output*, struct io_output* output, gpu_image_pool* pool);
 
 // -----------------------------------------------------------------------------
 
@@ -404,7 +404,7 @@ struct scene_keyboard_event
             bool           quiet;
         } key;
         struct {
-            scene_input_region*  region;
+            scene_input_region* region;
         } focus;
     };
 };
@@ -426,7 +426,7 @@ struct scene_pointer_event
             vec2f32 delta;
         } scroll;
         struct {
-            scene_input_region*  region;
+            scene_input_region* region;
         } focus;
     };
 };

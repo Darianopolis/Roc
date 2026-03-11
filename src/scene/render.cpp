@@ -29,7 +29,7 @@ void scene_render_init(scene_context* ctx)
     });
 }
 
-void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output)
+void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output, gpu_image_pool* pool)
 {
     scene_broadcast_event(ctx, ptr_to(scene_event {
         .type = scene_event_type::output_frame,
@@ -38,9 +38,22 @@ void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output)
 
     // TODO: Only redraw with damage
 
-    auto target = io_output->acquire(gpu_image_usage::render);
+    auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
+    auto usage = gpu_image_usage::render;
+
+    auto target = pool->acquire({
+        .extent = io_output->info().size,
+        .format = format,
+        .usage = usage,
+        .modifiers = ptr_to(gpu_intersect_format_modifiers({
+            &gpu_get_format_props(ctx->gpu, format, usage)->mods,
+            &io_output->info().formats->get(format),
+        }))
+    });
+
     auto done = scene_render(ctx, target.get(), output->viewport);
-    io_output->present(target.get(), done);
+
+    io_output->commit(target.get(), done, io_output_commit_flag::vsync);
 }
 
 auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint

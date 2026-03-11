@@ -1,9 +1,19 @@
 #include "io.hpp"
 
 static
-void render(gpu_context* gpu, io_output* output)
+void render(gpu_context* gpu, io_output* output, gpu_image_pool* pool)
 {
-    auto image = output->acquire(gpu_image_usage::transfer_dst);
+    auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
+    auto usage = gpu_image_usage::transfer_dst;
+    auto image = pool->acquire({
+        .extent = output->info().size,
+        .format = format,
+        .usage = usage,
+        .modifiers = ptr_to(gpu_intersect_format_modifiers({
+            &gpu_get_format_props(gpu, format, usage)->mods,
+            &output->info().formats->get(format),
+        })),
+    });
 
     auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
     auto commands = gpu_commands_begin(queue);
@@ -13,11 +23,11 @@ void render(gpu_context* gpu, io_output* output)
         1, ptr_to(VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
 
     auto done = gpu_commands_submit(commands.get(), {});
-    output->present(image.get(), done);
+    output->commit(image.get(), done, io_output_commit_flag::vsync);
 }
 
 static
-void handle_event(io_context* io, gpu_context* gpu, io_event* event)
+void handle_event(io_context* io, gpu_context* gpu, gpu_image_pool* pool, io_event* event)
 {
     auto& input = event->input;
 
@@ -36,7 +46,7 @@ void handle_event(io_context* io, gpu_context* gpu, io_event* event)
             log_info("io::output_configure{}", core_to_string(event->output.output->info().size));
             event->output.output->request_frame();
         break;case io_event_type::output_frame:
-            render(gpu, event->output.output);
+            render(gpu, event->output.output, pool);
         break;case io_event_type::input_added:
               case io_event_type::input_removed:
               case io_event_type::output_added:
@@ -50,8 +60,9 @@ int main()
     auto event_loop = core_event_loop_create();
     auto gpu = gpu_create({}, event_loop.get());
     auto io = io_create(event_loop.get(), gpu.get());
-    io_set_event_handler(io.get(), [io = io.get(), gpu = gpu.get()](io_event* event) {
-        handle_event(io, gpu, event);
+    auto pool = gpu_image_pool_create(gpu.get());
+    io_set_event_handler(io.get(), [&](io_event* event) {
+        handle_event(io.get(), gpu.get(), pool.get(), event);
     });
     io_run(io.get());
 }

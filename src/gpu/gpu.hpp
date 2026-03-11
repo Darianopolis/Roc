@@ -435,11 +435,12 @@ struct gpu_image : core_object
 {
     virtual ~gpu_image() = default;
 
-    virtual auto get_base() -> struct gpu_image_base* = 0;
+    virtual auto base() -> gpu_image* = 0;
 
     auto context()    -> gpu_context*;
     auto extent()     -> vec2u32;
     auto format()     -> gpu_format;
+    auto modifier()   -> gpu_drm_modifier;
     auto view()       -> VkImageView;
     auto handle()     -> VkImage;
     auto usage()      -> flags<gpu_image_usage>;
@@ -563,12 +564,38 @@ struct gpu_image_handle
 
 // -----------------------------------------------------------------------------
 
+template<typename Lessor>
+struct gpu_image_lease : gpu_image
+{
+    ref<gpu_image> image;
+    Lessor         lessor;
+
+    gpu_image_lease(ref<gpu_image> image, Lessor&& lessor)
+        : image(std::move(image))
+        , lessor(std::move(lessor))
+    {}
+
+    virtual auto base() -> gpu_image* final override { return image->base(); }
+
+    ~gpu_image_lease()
+    {
+        lessor(std::move(image));
+    }
+};
+
+template<typename Lessor>
+auto gpu_lease_image(ref<gpu_image> image, Lessor&& lessor) -> ref<gpu_image_lease<Lessor>>
+{
+    return core_create<gpu_image_lease<Lessor>>(std::move(image), std::move(lessor));
+}
+
+// -----------------------------------------------------------------------------
+
 struct gpu_image_pool
 {
     virtual ~gpu_image_pool() = default;
 
-    virtual auto acquire(const gpu_image_create_info&) -> ref<gpu_image>;
-    virtual void release(ref<gpu_image>);
+    virtual auto acquire(const gpu_image_create_info&) -> ref<gpu_image> = 0;
 };
 
-auto gpu_lease_image(gpu_image_pool*, ref<gpu_image>) -> ref<gpu_image>;
+auto gpu_image_pool_create(gpu_context*) -> ref<gpu_image_pool>;

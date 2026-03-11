@@ -61,6 +61,7 @@ struct gpu_image_base : gpu_image
 
     struct {
         gpu_format format;
+        gpu_drm_modifier modifier = DRM_FORMAT_MOD_INVALID;
 
         VkImage     image;
         VkImageView view;
@@ -69,11 +70,11 @@ struct gpu_image_base : gpu_image
         gpu_descriptor_id id;
 
         flags<gpu_image_usage> usage;
-    } base;
+    } data;
 
     virtual ~gpu_image_base();
 
-    virtual auto get_base() -> gpu_image_base* final override { return this; }
+    virtual auto base() -> gpu_image* final override { return this; }
 };
 
 void gpu_image_init(gpu_image_base*);

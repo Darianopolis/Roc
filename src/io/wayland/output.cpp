@@ -132,9 +132,6 @@ void io_add_output(io_context* ctx)
     auto output = core_create<io_output_wayland>();
     output->ctx = ctx;
 
-    output->swapchain.format.format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-    output->swapchain.format.available = ctx->wayland->format.set.get(output->swapchain.format.format);
-
     wl->outputs.emplace_back(output);
 
     output->wl_surface = wl_compositor_create_surface(wl->wl_compositor);
@@ -177,6 +174,8 @@ static
 wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
 {
     auto* wl = ctx->wayland.get();
+
+    image = image->base();
 
     if (auto* found = wl->buffer_cache.find(image)) return found;
 
@@ -226,19 +225,35 @@ void on_present_frame(void* udata, wl_callback*, u32 time)
     }
 }
 
-void io_output_wayland::commit(gpu_image* image, gpu_syncpoint acquire, gpu_syncpoint release, flags<io_output_commit_flag> flags)
+void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, flags<io_output_commit_flag> flags)
 {
     core_assert(commit_available);
 
+    auto release = std::ranges::find_if(release_slots, [](auto& s) { return !s.image; });
+    if (release == release_slots.end()) {
+        release = release_slots.insert(release_slots.end(), release_slot {
+            .semaphore = gpu_semaphore_create(ctx->gpu),
+        });
+    }
+
+    release->point++;
+    release->image = image;
+
+    gpu_semaphore_wait_value(release->semaphore.get(), release->point, [output = weak(this), semaphore = release->semaphore.get()](u64 point) {
+        if (!output) return;
+        auto release = std::ranges::find_if(output->release_slots, [&](auto& s) { return s.semaphore.get() == semaphore; });
+        release->image = nullptr;
+    });
+
     auto* wl_buffer = get_image_proxy(ctx, image);
-    auto* acquire_syncpoint = get_semaphore_proxy(ctx, acquire.semaphore);
-    auto* release_syncpoint = get_semaphore_proxy(ctx, release.semaphore);
+    auto* acquire_syncpoint = get_semaphore_proxy(ctx, done.semaphore);
+    auto* release_syncpoint = get_semaphore_proxy(ctx, release->semaphore.get());
 
     wl_surface_attach(wl_surface, wl_buffer, 0, 0);
     wl_surface_damage_buffer(wl_surface, 0, 0, INT32_MAX, INT32_MAX);
 
-    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_syncpoint, acquire.value >> 32, acquire.value & ~0u);
-    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_syncpoint, release.value >> 32, release.value & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_syncpoint, done.value     >> 32, done.value     & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_syncpoint, release->point >> 32, release->point & ~0u);
 
     if (!frame_callback) {
         frame_callback = wl_surface_frame(wl_surface);

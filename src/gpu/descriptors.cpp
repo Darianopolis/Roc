@@ -115,7 +115,7 @@ void gpu_allocate_image_descriptor(gpu_image_base* image)
         return;
     }
 
-    image->base.id = id;
+    image->data.id = id;
 
     auto usage = gpu_image_usage_to_vk(image->usage());
 

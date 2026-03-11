@@ -20,6 +20,7 @@ int main()
 
     // I/O event plumbing
 
+    auto image_pool = gpu_image_pool_create(gpu.get());
     auto output_client = scene_client_create(scene.get());
     struct output {
         ref<scene_output> scene;
@@ -57,7 +58,7 @@ int main()
                 reflow_outputs();
             break;case io_event_type::output_frame: {
                 auto output = std::ranges::find_if(outputs, [&](auto& p) { return p.io == event->output.output; });
-                scene_frame(scene.get(), output->scene.get(), output->io);
+                scene_frame(scene.get(), output->scene.get(), output->io, image_pool.get());
             }
         }
     });

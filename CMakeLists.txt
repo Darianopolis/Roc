@@ -190,6 +190,7 @@ target_sources(gpu PUBLIC
     src/gpu/pipeline.cpp
     src/gpu/commands.cpp
     src/gpu/semaphore.cpp
+    src/gpu/image-pool.cpp
     )
 target_link_libraries(gpu PUBLIC core shaders)
 

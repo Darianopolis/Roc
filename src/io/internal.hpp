@@ -45,35 +45,6 @@ void io_request_shutdown(io_context* ctx, io_shutdown_reason reason);
 
 // -----------------------------------------------------------------------------
 
-enum class io_output_commit_flag : u32
-{
-    vsync = 1 << 0,
-};
-
-struct io_swapchain
-{
-    struct release_slot
-    {
-        ref<gpu_semaphore> semaphore;
-        ref<gpu_image> image;
-        u64 release_point;
-    };
-
-    std::vector<ref<gpu_image>> free_images;
-    std::vector<release_slot> release_slots;
-
-    struct {
-        gpu_format             format;
-        flags<gpu_image_usage> usage;
-
-        gpu_format_modifier_set available;
-        gpu_format_modifier_set intersected;
-    } format;
-
-    u32 max_images = 2;
-    u32 images_in_flight;
-};
-
 struct io_output_base : io_output
 {
     io_context* ctx;
@@ -82,20 +53,10 @@ struct io_output_base : io_output
 
     vec2u32 size;
 
-    io_swapchain swapchain;
-
     // True if commit will accept a new frame
     bool commit_available = true;
-    virtual void commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, flags<io_output_commit_flag>) = 0;
-
-    virtual auto info() -> io_output_info final override
-    {
-        return { .size = size };
-    }
 
     virtual void request_frame() final override;
-    virtual auto acquire(flags<gpu_image_usage>) -> ref<gpu_image> final override;
-    virtual void present(gpu_image*, gpu_syncpoint done) final override;
 
     virtual ~io_output_base();
 };

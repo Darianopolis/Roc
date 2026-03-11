@@ -35,9 +35,15 @@ struct io_input_device
 
 // -----------------------------------------------------------------------------
 
+enum class io_output_commit_flag : u32
+{
+    vsync = 1 << 0,
+};
+
 struct io_output_info
 {
     vec2u32 size;
+    const gpu_format_set* formats;
 };
 
 /**
@@ -53,8 +59,7 @@ struct io_output
 {
     virtual auto info() -> io_output_info = 0;
     virtual void request_frame() = 0;
-    virtual auto acquire(flags<gpu_image_usage>) -> ref<gpu_image> = 0;
-    virtual void present(gpu_image*, gpu_syncpoint done) = 0;
+    virtual void commit(gpu_image*, gpu_syncpoint done, flags<io_output_commit_flag>) = 0;
 };
 
 // -----------------------------------------------------------------------------
