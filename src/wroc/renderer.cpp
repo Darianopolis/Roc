@@ -74,11 +74,11 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
 
     wroc_coord_space space {
         .origin = scene_rect.origin,
-        .scale = scene_rect.extent / vec2f64(current->extent),
+        .scale = scene_rect.extent / vec2f64(current->extent()),
     };
 
-    VkExtent2D vk_extent = { current->extent.x, current->extent.y };
-    vec2f32 current_extent = current->extent;
+    VkExtent2D vk_extent = { current->extent().x, current->extent().y };
+    vec2f32 current_extent = current->extent();
 
     gpu->vk.CmdBeginRendering(cmd, ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -87,7 +87,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
         .colorAttachmentCount = 1,
         .pColorAttachments = ptr_to(VkRenderingAttachmentInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = current->view,
+            .imageView = current->view(),
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -99,7 +99,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
     gpu->vk.CmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
 
     auto start_draws = [&] {
-        gpu_cmd_set_scissors(commands, {{{}, current->extent, core_xywh}});
+        gpu_cmd_set_scissors(commands, {{{}, current->extent(), core_xywh}});
         gpu_cmd_bind_shaders(commands, {renderer->vertex.get(), renderer->fragment.get()});
         gpu_cmd_reset_graphics_state(commands);
         gpu_cmd_set_blend_state(commands, {gpu_blend_mode::premultiplied});
@@ -159,7 +159,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
     // Background
 
     for (auto& output : server->output_layout->outputs) {
-        auto src = core_rect_fit<f64>(server->renderer->background->extent, output->layout_rect.extent);
+        auto src = core_rect_fit<f64>(server->renderer->background->extent(), output->layout_rect.extent);
         draw(server->renderer->background.get(), output->layout_rect, src);
     }
 
@@ -240,7 +240,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
 
     {
         flush_draws();
-        wroc_imgui_render(server->imgui.get(), commands, scene_rect, current->extent);
+        wroc_imgui_render(server->imgui.get(), commands, scene_rect, current->extent());
         start_draws();
     }
 
@@ -306,7 +306,7 @@ void on_screenshot_ready(std::chrono::steady_clock::time_point start, gpu_image*
 
     auto save_path = "screenshot.png";
 
-    stbi_write_png(save_path, image->extent.x, image->extent.y, STBI_rgb_alpha, buffer->host_address, image->extent.x * 4);
+    stbi_write_png(save_path, image->extent().x, image->extent().y, STBI_rgb_alpha, buffer->host_address, image->extent().x * 4);
     auto save_end = std::chrono::steady_clock::now();
     log_info("Screenshot saved in {}", core_duration_to_string(save_end - save_start));
 
@@ -364,7 +364,7 @@ void wroc_screenshot(rect2f64 rect)
 
     // Transfer
 
-    auto transfer_queue = gpu_get_queue(image->ctx, gpu_queue_type::transfer);
+    auto transfer_queue = gpu_get_queue(gpu, gpu_queue_type::transfer);
     auto transfer_commands = gpu_commands_begin(transfer_queue);
     gpu_copy_image_to_buffer(transfer_commands.get(), buffer.get(), image.get());
     gpu_commands_protect_object(transfer_commands.get(), guard.get());
@@ -376,7 +376,7 @@ bool wroc_output_try_prepare_acquire(wroc_output* output)
     auto& swapchain = output->swapchain;
 
     // Clear out any incorrectly sized images
-    std::erase_if(swapchain.free_images, [&](auto& i) { return i->extent != output->size; });
+    std::erase_if(swapchain.free_images, [&](auto& i) { return i->extent() != output->size; });
 
     // Clear out any other free images if we have too many in flight
     auto total_images = swapchain.free_images.size() + swapchain.images_in_flight;

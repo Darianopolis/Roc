@@ -144,7 +144,7 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
     if (pending_transfer) {
         auto mapping = pool->mapping;
 
-        auto queue = gpu_get_queue(image->ctx, gpu_queue_type::graphics);
+        auto queue = gpu_get_queue(image->context(), gpu_queue_type::graphics);
         auto commands = gpu_commands_begin(queue);
 
         gpu_image_update(commands.get(), image.get(), static_cast<char*>(mapping->data) + offset);

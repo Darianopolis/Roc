@@ -104,7 +104,7 @@ void gpu_descriptor_id_allocator::free(gpu_descriptor_id id)
 
 // -----------------------------------------------------------------------------
 
-void gpu_allocate_image_descriptor(gpu_image* image)
+void gpu_allocate_image_descriptor(gpu_image_base* image)
 {
     auto* ctx = image->ctx;
     auto& vk = ctx->vk;
@@ -115,9 +115,9 @@ void gpu_allocate_image_descriptor(gpu_image* image)
         return;
     }
 
-    image->id = id;
+    image->base.id = id;
 
-    auto usage = gpu_image_usage_to_vk(image->usage);
+    auto usage = gpu_image_usage_to_vk(image->usage());
 
     if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
         vk.UpdateDescriptorSets(ctx->device, 1, std::array {
@@ -125,11 +125,11 @@ void gpu_allocate_image_descriptor(gpu_image* image)
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = ctx->set,
                 .dstBinding = 0,
-                .dstArrayElement = std::to_underlying(image->id),
+                .dstArrayElement = std::to_underlying(id),
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                 .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view,
+                    .imageView = image->view(),
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
             },
@@ -142,11 +142,11 @@ void gpu_allocate_image_descriptor(gpu_image* image)
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = ctx->set,
                 .dstBinding = 1,
-                .dstArrayElement = std::to_underlying(image->id),
+                .dstArrayElement = std::to_underlying(id),
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view,
+                    .imageView = image->view(),
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
             },

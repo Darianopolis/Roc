@@ -8,7 +8,7 @@ void render(gpu_context* gpu, io_output* output)
     auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
     auto commands = gpu_commands_begin(queue);
 
-    gpu->vk.CmdClearColorImage(commands->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL,
+    gpu->vk.CmdClearColorImage(commands->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL,
         ptr_to(VkClearColorValue{.float32{1,0,0,1}}),
         1, ptr_to(VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
 

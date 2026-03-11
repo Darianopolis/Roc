@@ -180,8 +180,8 @@ wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
 
     if (auto* found = wl->buffer_cache.find(image)) return found;
 
-    auto size = image->extent;
-    auto format = image->format;
+    auto size = image->extent();
+    auto format = image->format();
 
     auto dma_params = gpu_image_export_dmabuf(image);
     u32 mod_hi = dma_params.modifier >> 32;

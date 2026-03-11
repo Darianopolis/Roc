@@ -441,8 +441,8 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     log_warn("Importing new FB2 buffer");
 
     auto dma_params = gpu_image_export_dmabuf(image);
-    auto size = image->extent;
-    auto format = image->format;
+    auto size = image->extent();
+    auto format = image->format();
 
     // Acquire GEM handles and prepare for import
 
@@ -504,8 +504,8 @@ wroc_output_commit_id wroc_drm_output::commit(
     plane_set("IN_FENCE_FD", in_fence);
     plane_set("SRC_X", 0);
     plane_set("SRC_Y", 0);
-    plane_set("SRC_W", image->extent.x << 16);
-    plane_set("SRC_H", image->extent.y << 16);
+    plane_set("SRC_W", image->extent().x << 16);
+    plane_set("SRC_H", image->extent().y << 16);
     plane_set("CRTC_X", 0);
     plane_set("CRTC_Y", 0);
     plane_set("CRTC_W", size.x);

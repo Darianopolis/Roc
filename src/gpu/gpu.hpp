@@ -433,19 +433,15 @@ VkImageUsageFlags gpu_image_usage_to_vk(flags<gpu_image_usage>);
 
 struct gpu_image : core_object
 {
-    gpu_context* ctx;
+    virtual ~gpu_image() = default;
 
-    gpu_format format;
-
-    VkImage image;
-    VkImageView view;
-    vec2u32 extent;
-
-    gpu_descriptor_id id;
-
-    flags<gpu_image_usage> usage;
-
-    virtual ~gpu_image() = 0;
+    virtual auto context()    const -> gpu_context*           = 0;
+    virtual auto extent()     const -> vec2u32                = 0;
+    virtual auto format()     const -> gpu_format             = 0;
+    virtual auto view()       const -> VkImageView            = 0;
+    virtual auto handle()     const -> VkImage                = 0;
+    virtual auto usage()      const -> flags<gpu_image_usage> = 0;
+    virtual auto descriptor() const -> gpu_descriptor_id      = 0;
 };
 
 ref<gpu_image> gpu_image_create(gpu_context*, vec2u32 extent, gpu_format, flags<gpu_image_usage>);
@@ -522,22 +518,10 @@ struct gpu_dma_params
     gpu_drm_modifier modifier;
 };
 
-struct gpu_image_dmabuf : gpu_image
-{
-    core_fixed_array<VkDeviceMemory, gpu_dma_max_planes> memory;
-    gpu_drm_modifier modifier;
-
-    struct {
-        usz allocation_size;
-    } stats;
-
-    ~gpu_image_dmabuf();
-};
-
 VkImageAspectFlagBits gpu_plane_to_aspect(u32 i);
 
-ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context*, vec2u32 extent, gpu_format, flags<gpu_image_usage>, std::span<const gpu_drm_modifier>);
-ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>);
+ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, vec2u32 extent, gpu_format, flags<gpu_image_usage>, std::span<const gpu_drm_modifier>);
+ref<gpu_image> gpu_image_import_dmabuf(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>);
 
 gpu_dma_params gpu_image_export_dmabuf(gpu_image*);
 
@@ -552,7 +536,7 @@ struct gpu_image_handle
     gpu_image_handle() = default;
 
     gpu_image_handle(gpu_image* image, gpu_sampler* sampler)
-        : image(std::to_underlying(image->id))
+        : image(std::to_underlying(image->descriptor()))
         , sampler(sampler ? std::to_underlying(sampler->id) : 0)
     {}
 };

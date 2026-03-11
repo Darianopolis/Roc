@@ -176,8 +176,8 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
 
     // Record
 
-    VkExtent2D vk_extent = { target->extent.x, target->extent.y };
-    vec2f32 target_extent = target->extent;
+    VkExtent2D vk_extent = { target->extent().x, target->extent().y };
+    vec2f32 target_extent = target->extent();
 
     gpu_cmd_reset_graphics_state(cmd);
     gpu_cmd_set_viewports(cmd, {{{}, target_extent, core_xywh}});
@@ -190,7 +190,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         .colorAttachmentCount = 1,
         .pColorAttachments = ptr_to(VkRenderingAttachmentInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = target->view,
+            .imageView = target->view(),
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,

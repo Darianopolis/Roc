@@ -43,7 +43,7 @@ auto io_output_base::acquire(flags<gpu_image_usage> usage) -> ref<gpu_image>
 
     // Clear out any images that don't meet requirements
     std::erase_if(swapchain.free_images, [&](auto& i) {
-        return i->extent != size || i->usage != usage;
+        return i->extent() != size || i->usage() != usage;
     });
 
     // Clear out any other free images if we have too many in flight

@@ -60,7 +60,7 @@ void gpu_transition(gpu_context* ctx, gpu_commands* commands, gpu_image* image,
             .newLayout = new_layout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = image->image,
+            .image = image->handle(),
             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
         }),
     }));
@@ -68,14 +68,14 @@ void gpu_transition(gpu_context* ctx, gpu_commands* commands, gpu_image* image,
 
 // -----------------------------------------------------------------------------
 
-gpu_image::~gpu_image()
+gpu_image_base::~gpu_image_base()
 {
-    ctx->image_descriptor_allocator.free(id);
+    ctx->image_descriptor_allocator.free(base.id);
 }
 
 // -----------------------------------------------------------------------------
 
-struct gpu_image_vma : gpu_image
+struct gpu_image_vma : gpu_image_base
 {
     VmaAllocation vma_allocation;
 
@@ -91,8 +91,8 @@ gpu_image_vma::~gpu_image_vma()
     ctx->stats.active_images--;
     ctx->stats.active_image_memory -= stats.allocation_size;
 
-    ctx->vk.DestroyImageView(ctx->device, view, nullptr);
-    vmaDestroyImage(ctx->vma, image, vma_allocation);
+    ctx->vk.DestroyImageView(ctx->device, view(), nullptr);
+    vmaDestroyImage(ctx->vma, handle(), vma_allocation);
 }
 
 #define GPU_FORCE_DMABUF_IMAGES 0
@@ -108,9 +108,9 @@ ref<gpu_image> gpu_image_create(gpu_context* ctx, vec2u32 extent, gpu_format for
 
     ctx->stats.active_images++;
 
-    image->extent = extent;
-    image->format = format;
-    image->usage =  usage;
+    image->base.extent = extent;
+    image->base.format = format;
+    image->base.usage = usage;
 
     VmaAllocationInfo alloc_info;
     gpu_check(vmaCreateImage(ctx->vma, ptr_to(VkImageCreateInfo {
@@ -132,7 +132,7 @@ ref<gpu_image> gpu_image_create(gpu_context* ctx, vec2u32 extent, gpu_format for
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     }), ptr_to(VmaAllocationCreateInfo {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
-    }), &image->image, &image->vma_allocation, &alloc_info));
+    }), &image->base.image, &image->vma_allocation, &alloc_info));
 
     image->stats.allocation_size += alloc_info.size;
     ctx->stats.active_image_memory += alloc_info.size;
@@ -143,24 +143,24 @@ ref<gpu_image> gpu_image_create(gpu_context* ctx, vec2u32 extent, gpu_format for
 #endif
 }
 
-void gpu_image_init(gpu_image* image)
+void gpu_image_init(gpu_image_base* image)
 {
-    auto* ctx = image->ctx;
+    auto* ctx = image->context();
 
-    auto vk_usage = gpu_image_usage_to_vk(image->usage);
+    auto vk_usage = gpu_image_usage_to_vk(image->usage());
     if (vk_usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {
         gpu_check(ctx->vk.CreateImageView(ctx->device, ptr_to(VkImageViewCreateInfo {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = image->image,
+            .image = image->handle(),
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = image->format->vk,
+            .format = image->format()->vk,
             .components {
-                .a = image->format->vk_flags.contains(gpu_vk_format_flag::ignore_alpha)
+                .a = image->format()->vk_flags.contains(gpu_vk_format_flag::ignore_alpha)
                     ? VK_COMPONENT_SWIZZLE_ONE
                     : VK_COMPONENT_SWIZZLE_IDENTITY,
             },
             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-        }), nullptr, &image->view));
+        }), nullptr, &image->base.view));
 
         if (vk_usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)) {
             gpu_allocate_image_descriptor(image);
@@ -181,13 +181,13 @@ void gpu_image_init(gpu_image* image)
 
 void gpu_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_image* image)
 {
-    auto* ctx = image->ctx;
-    auto extent = image->extent;
+    auto* ctx = image->context();
+    auto extent = image->extent();
 
     gpu_commands_protect_object(cmd, image);
     gpu_commands_protect_object(cmd, buffer);
 
-    ctx->vk.CmdCopyImageToBuffer(cmd->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
+    ctx->vk.CmdCopyImageToBuffer(cmd->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
         .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
         .imageOffset = {},
@@ -197,13 +197,13 @@ void gpu_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_image* 
 
 void gpu_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffer* buffer)
 {
-    auto* ctx = image->ctx;
-    auto extent = image->extent;
+    auto* ctx = image->context();
+    auto extent = image->extent();
 
     gpu_commands_protect_object(cmd, image);
     gpu_commands_protect_object(cmd, buffer);
 
-    ctx->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL, 1, ptr_to(VkBufferImageCopy {
+    ctx->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
         .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
         .imageOffset = {},
@@ -213,11 +213,11 @@ void gpu_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffer* b
 
 void gpu_image_update(gpu_commands* cmd, gpu_image* image, const void* data)
 {
-    auto* ctx = image->ctx;
+    auto* ctx = image->context();
 
-    const auto& info = image->format->info;
-    usz block_w = (image->extent.x + info.block_extent.width  - 1) / info.block_extent.width;
-    usz block_h = (image->extent.y + info.block_extent.height - 1) / info.block_extent.height;
+    const auto& info = image->format()->info;
+    usz block_w = (image->extent().x + info.block_extent.width  - 1) / info.block_extent.width;
+    usz block_h = (image->extent().y + info.block_extent.height - 1) / info.block_extent.height;
     usz image_size = block_w * block_h * info.texel_block_size;
 
     // TODO: This should be stored persistently for transfers
@@ -230,7 +230,7 @@ void gpu_image_update(gpu_commands* cmd, gpu_image* image, const void* data)
 
 void gpu_image_update_immed(gpu_image* image, const void* data)
 {
-    auto queue = gpu_get_queue(image->ctx, gpu_queue_type::transfer);
+    auto queue = gpu_get_queue(image->context(), gpu_queue_type::transfer);
     auto commands = gpu_commands_begin(queue);
     gpu_image_update(commands.get(), image, data);
     auto done = gpu_commands_submit(commands.get(), {});
@@ -293,27 +293,39 @@ u32 gpu_find_vk_memory_type_index(gpu_context* ctx, u32 type_filter, VkMemoryPro
 
 // -----------------------------------------------------------------------------
 
+struct gpu_image_dmabuf : gpu_image_base
+{
+    core_fixed_array<VkDeviceMemory, gpu_dma_max_planes> memory;
+    gpu_drm_modifier modifier;
+
+    struct {
+        usz allocation_size;
+    } stats;
+
+    ~gpu_image_dmabuf();
+};
+
 gpu_image_dmabuf::~gpu_image_dmabuf()
 {
     ctx->stats.active_images--;
     ctx->stats.active_image_memory -= stats.allocation_size;
 
-    ctx->vk.DestroyImageView(ctx->device, view, nullptr);
-    ctx->vk.DestroyImage(ctx->device, image, nullptr);
+    ctx->vk.DestroyImageView(ctx->device, view(), nullptr);
+    ctx->vk.DestroyImage(ctx->device, handle(), nullptr);
 
     for (auto mem : memory) {
         ctx->vk.FreeMemory(ctx->device, mem, nullptr);
     }
 }
 
-ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, gpu_format format, flags<gpu_image_usage> usage, std::span<const gpu_drm_modifier> modifiers)
+ref<gpu_image> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, gpu_format format, flags<gpu_image_usage> usage, std::span<const gpu_drm_modifier> modifiers)
 {
     auto image = core_create<gpu_image_dmabuf>();
     image->ctx = ctx;
 
-    image->extent = extent;
-    image->format = format;
-    image->usage = usage;
+    image->base.extent = extent;
+    image->base.format = format;
+    image->base.usage = usage;
 
     auto vk_usage = gpu_image_usage_to_vk(usage);
 
@@ -345,13 +357,13 @@ ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, 
             ctx->transfer_queue->family,
         }.data(),
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    }), nullptr, &image->image));
-    core_assert(image->image);
+    }), nullptr, &image->base.image));
+    core_assert(image->handle());
 
     // Allocate memory
 
     VkMemoryRequirements mem_reqs;
-    ctx->vk.GetImageMemoryRequirements(ctx->device, image->image, &mem_reqs);
+    ctx->vk.GetImageMemoryRequirements(ctx->device, image->handle(), &mem_reqs);
 
     auto index = gpu_find_vk_memory_type_index(ctx, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     gpu_check(ctx->vk.AllocateMemory(ctx->device, ptr_to(VkMemoryAllocateInfo {
@@ -363,7 +375,7 @@ ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, 
             }),
             ptr_to(VkMemoryDedicatedAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
-                .image = image->image,
+                .image = image->handle(),
             })
         }),
         .allocationSize = mem_reqs.size,
@@ -372,7 +384,7 @@ ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, 
     core_assert(image->memory[0]);
     image->memory.count = 1;
 
-    gpu_check(ctx->vk.BindImageMemory(ctx->device, image->image, image->memory[0], 0));
+    gpu_check(ctx->vk.BindImageMemory(ctx->device, image->handle(), image->memory[0], 0));
 
     // Stats
 
@@ -386,7 +398,7 @@ ref<gpu_image_dmabuf> gpu_image_create_dmabuf(gpu_context* ctx, vec2u32 extent, 
     VkImageDrmFormatModifierPropertiesEXT image_drm_format_mod_props {
         .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_PROPERTIES_EXT,
     };
-    ctx->vk.GetImageDrmFormatModifierPropertiesEXT(ctx->device, image->image, &image_drm_format_mod_props);
+    ctx->vk.GetImageDrmFormatModifierPropertiesEXT(ctx->device, image->handle(), &image_drm_format_mod_props);
     image->modifier = image_drm_format_mod_props.drmFormatModifier;
 
     // Initialize
@@ -405,17 +417,17 @@ gpu_dma_params gpu_image_export_dmabuf(gpu_image* _image)
 
     gpu_dma_params params = {};
 
-    params.extent = image->extent;
-    params.format = image->format;
+    params.extent = image->extent();
+    params.format = image->format();
     params.modifier = image->modifier;
 
     // Query plane layouts
 
-    auto* mod_props = gpu_get_format_props(ctx, image->format, image->usage)->for_mod(params.modifier);
+    auto* mod_props = gpu_get_format_props(ctx, image->format(), image->usage())->for_mod(params.modifier);
     params.planes.count = mod_props->plane_count;
     for (u32 i = 0; i < mod_props->plane_count; ++i) {
         VkSubresourceLayout layout;
-        ctx->vk.GetImageSubresourceLayout(ctx->device, image->image,
+        ctx->vk.GetImageSubresourceLayout(ctx->device, image->handle(),
             ptr_to(VkImageSubresource{gpu_plane_to_aspect(i), 0, 0}),
             &layout);
 
@@ -450,7 +462,7 @@ gpu_dma_params gpu_image_export_dmabuf(gpu_image* _image)
     return params;
 }
 
-ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_params& params, flags<gpu_image_usage> usage)
+ref<gpu_image> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_params& params, flags<gpu_image_usage> usage)
 {
     core_assert(!usage.empty());
 
@@ -470,9 +482,9 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
 
     ctx->stats.active_images++;
 
-    image->extent = params.extent;
-    image->format = params.format;
-    image->usage = usage;
+    image->base.extent = params.extent;
+    image->base.format = params.format;
+    image->base.usage = usage;
     image->modifier = params.modifier;
 
     static constexpr auto handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
@@ -502,7 +514,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
         .flags = img_create_flags,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = params.format->vk,
-        .extent = {image->extent.x, image->extent.y, 1},
+        .extent = {image->extent().x, image->extent().y, 1},
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -510,7 +522,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
         .usage = gpu_image_usage_to_vk(usage),
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    }), nullptr, &image->image));
+    }), nullptr, &image->base.image));
 
     auto mem_count = params.disjoint ? params.planes.count : 1;
     image->memory.count = mem_count;
@@ -538,7 +550,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
                     .planeAspect = gpu_plane_to_aspect(i),
                 })
                 : nullptr,
-            .image = image->image,
+            .image = image->handle(),
         }), &mem_reqs);
 
         auto mem = gpu_find_vk_memory_type_index(ctx, mem_reqs.memoryRequirements.memoryTypeBits & fd_props.memoryTypeBits, 0);
@@ -565,7 +577,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
                 }),
                 ptr_to(VkMemoryDedicatedAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
-                    .image = image->image,
+                    .image = image->handle(),
                 }),
             }),
             .allocationSize = mem_reqs.memoryRequirements.size,
@@ -577,7 +589,7 @@ ref<gpu_image_dmabuf> gpu_image_import_dmabuf(gpu_context* ctx, const gpu_dma_pa
         }
 
         bind_info[i].sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO;
-        bind_info[i].image = image->image;
+        bind_info[i].image = image->handle();
         bind_info[i].memory = image->memory[i];
 
         if (params.disjoint) {

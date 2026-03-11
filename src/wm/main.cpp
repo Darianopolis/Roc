@@ -136,7 +136,7 @@ int main()
         scene_tree_place_above(scene_get_layer(scene.get(), scene_layer::background), nullptr, background_layer.get());
 
         for (auto* output : scene_list_outputs(scene.get())) {
-            vec2f32 image_size = background_image->extent;
+            vec2f32 image_size = background_image->extent();
             auto viewport = scene_output_get_viewport(output);
 
             // Create texture node
