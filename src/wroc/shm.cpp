@@ -150,7 +150,14 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
         auto queue = gpu_get_queue(image->context(), gpu_queue_type::graphics);
         auto commands = gpu_commands_begin(queue);
 
-        gpu_cmd_copy_memory_to_image(commands.get(), image.get(), static_cast<char*>(mapping->data) + offset);
+        const auto& info = image->format()->info;
+        usz block_w = (image->extent().x + info.block_extent.width  - 1) / info.block_extent.width;
+        usz block_h = (image->extent().y + info.block_extent.height - 1) / info.block_extent.height;
+        usz image_size = block_w * block_h * info.texel_block_size;
+
+        gpu_cmd_copy_memory_to_image(commands.get(), image.get(),
+            {core_byte_offset_pointer<void>(mapping->data, offset), image_size},
+            {{image->extent()}});
 
         struct shm_transfer_guard : core_object
         {

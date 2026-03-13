@@ -64,7 +64,7 @@ void wroc_imgui_init()
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
             .usage = gpu_image_usage::texture | gpu_image_usage::transfer
         });
-        gpu_image_update(imgui->font_image.get(), pixels);
+        gpu_copy_memory_to_image(imgui->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
 
         io.Fonts->SetTexID(ImTextureID(wroc_imgui_texture(imgui->font_image.get(), server->renderer->sampler.get())));
     }
@@ -425,13 +425,12 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
             gpu_cmd_set_scissors(commands, {{clip_min, clip_max, core_minmax}});
 
             auto draw_scale = 2.f / vec2f32(viewport.extent);
-            gpu_cmd_push_constants(commands, 0, sizeof(wroc_imgui_shader_in),
-                ptr_to(wroc_imgui_shader_in {
-                    .vertices = frame->vertices.device(),
-                    .scale = draw_scale,
-                    .offset = vec2f32(-1.f) - (vec2f32(viewport.origin) * draw_scale),
-                    .texture = std::bit_cast<wroc_imgui_texture>(im_cmd.GetTexID()).handle,
-                }));
+            gpu_cmd_push_constants(commands, 0, core_view_bytes(wroc_imgui_shader_in {
+                .vertices = frame->vertices.device(),
+                .scale = draw_scale,
+                .offset = vec2f32(-1.f) - (vec2f32(viewport.origin) * draw_scale),
+                .texture = std::bit_cast<wroc_imgui_texture>(im_cmd.GetTexID()).handle,
+            }));
             gpu->vk.CmdDrawIndexed(cmd, im_cmd.ElemCount, 1, index_offset + im_cmd.IdxOffset, vertex_offset + im_cmd.VtxOffset, 0);
         }
 

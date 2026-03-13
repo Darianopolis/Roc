@@ -178,7 +178,6 @@ void gpu_image_init(gpu_image_base* image)
     gpu_wait(done);
 }
 
-
 void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_image* image)
 {
     auto* gpu = image->context();
@@ -195,46 +194,57 @@ void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_ima
     }));
 }
 
-void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffer* buffer)
+void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffer* buffer, std::span<const gpu_buffer_image_copy> regions)
 {
     auto* gpu = image->context();
-    auto extent = image->extent();
 
     gpu_cmd_protect(cmd, image);
     gpu_cmd_protect(cmd, buffer);
 
-    gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, 1, ptr_to(VkBufferImageCopy {
-        .bufferOffset = 0,
-        .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-        .imageOffset = {},
-        .imageExtent = { extent.x, extent.y, 1 },
-    }));
+    std::vector<VkBufferImageCopy> copies(regions.size());
+    for (auto[i, region] : regions | std::views::enumerate) {
+        copies[i] = {
+            .bufferOffset = region.buffer_offset,
+            .bufferRowLength = region.buffer_row_length,
+            .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .imageOffset = { region.image_offset.x, region.image_offset.y },
+            .imageExtent = { region.image_extent.x, region.image_extent.y, 1 },
+        };
+    }
+
+    gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, copies.size(), copies.data());
 }
 
-void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, const void* data)
+void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto* gpu = image->context();
 
-    const auto& info = image->format()->info;
-    usz block_w = (image->extent().x + info.block_extent.width  - 1) / info.block_extent.width;
-    usz block_h = (image->extent().y + info.block_extent.height - 1) / info.block_extent.height;
-    usz image_size = block_w * block_h * info.texel_block_size;
-
     // TODO: This should be stored persistently for transfers
-    ref buffer = gpu_buffer_create(gpu, image_size, gpu_buffer_flag::host);
+    ref buffer = gpu_buffer_create(gpu, data.size, gpu_buffer_flag::host);
 
-    std::memcpy(buffer->host_address, data, image_size);
+    std::memcpy(buffer->host_address, data.data, data.size);
 
-    gpu_cmd_copy_buffer_to_image(cmd, image, buffer.get());
+    gpu_cmd_copy_buffer_to_image(cmd, image, buffer.get(), regions);
 }
 
-void gpu_image_update(gpu_image* image, const void* data)
+void gpu_copy_memory_to_image(gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto queue = gpu_get_queue(image->context(), gpu_queue_type::transfer);
     auto commands = gpu_commands_begin(queue);
-    gpu_cmd_copy_memory_to_image(commands.get(), image, data);
+    gpu_cmd_copy_memory_to_image(commands.get(), image, data, regions);
     auto done = gpu_submit(commands.get(), {});
     gpu_wait(done);
+}
+
+auto gpu_image_compute_linear_offset(gpu_format format, vec2u32 pos, u32 row_stride_bytes) -> u32
+{
+    auto& fmt = format->info;
+
+    u32 block_x = pos.x / fmt.block_extent.width;
+    u32 block_y = pos.y / fmt.block_extent.height;
+
+    return block_y * row_stride_bytes
+         + block_x * fmt.texel_block_size;
 }
 
 // -----------------------------------------------------------------------------

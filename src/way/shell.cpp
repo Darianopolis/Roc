@@ -71,7 +71,7 @@ void way_xdg_surface_apply(way_surface* surface, way_surface_state& from)
     WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.acked_serial, acked_serial);
 
     if (!surface->current.is_set(way_surface_committed_state::geometry) && surface->mapped) {
-        surface->current.xdg.geometry = { {}, surface->current.buffer.handle->extent, core_xywh };
+        surface->current.xdg.geometry = { {}, surface->current.buffer->extent, core_xywh };
     }
 }
 

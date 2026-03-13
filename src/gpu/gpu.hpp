@@ -464,11 +464,22 @@ struct gpu_image_create_info
 auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> ref<gpu_image>;
 
 void gpu_cmd_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
-void gpu_cmd_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*);
-void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, const void* data);
+
+struct gpu_buffer_image_copy
+{
+    vec2u32 image_extent;
+    vec2i32 image_offset;
+    u32 buffer_offset;
+    u32 buffer_row_length;
+};
+
+void gpu_cmd_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*, std::span<const gpu_buffer_image_copy> regions);
+void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
 
 // WARNING: Blocking
-void gpu_image_update(gpu_image*, const void* data);
+void gpu_copy_memory_to_image(gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
+
+auto gpu_image_compute_linear_offset(gpu_format, vec2u32 position, u32 stride) -> u32;
 
 // -----------------------------------------------------------------------------
 
@@ -518,7 +529,7 @@ enum class gpu_depth_enable
     write = 1 << 1,
 };
 
-void gpu_cmd_push_constants(   gpu_commands*, u64 offset, u64 size, const void* data);
+void gpu_cmd_push_constants(   gpu_commands*, u32 offset, core_byte_view data);
 void gpu_cmd_set_scissors(     gpu_commands*, std::span<const rect2i32> scissors);
 void gpu_cmd_set_viewports(    gpu_commands*, std::span<const rect2f32> viewports);
 void gpu_cmd_set_polygon_state(gpu_commands*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);

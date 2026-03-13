@@ -60,7 +60,7 @@ ref<wroc_renderer> wroc_renderer_create(flags<wroc_render_option> render_options
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer
     });
-    gpu_image_update(renderer->background.get(), data);
+    gpu_copy_memory_to_image(renderer->background.get(), {data, usz(w * h * 4)}, {{{w, h}}});
 
     renderer->sampler = gpu_sampler_create(gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -160,10 +160,10 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
             std::memcpy(frame->rects.host() + rect_id_start, renderer->rects_cpu.data() + rect_id_start, (rect_id - rect_id_start) * sizeof(wroc_shader_rect));
         }
 
-        wroc_shader_rect_input si = {};
-        si.rects = frame->rects.device();
-        si.output_size = current_extent;
-        gpu_cmd_push_constants(commands, 0, sizeof(si), &si);
+        gpu_cmd_push_constants(commands, 0, core_view_bytes(wroc_shader_rect_input {
+            .rects = frame->rects.device(),
+            .output_size = current_extent,
+        }));
         gpu->vk.CmdDraw(cmd, 6 * (rect_id - rect_id_start), 1, rect_id_start * 6, 0);
         rect_id_start = rect_id;
     };

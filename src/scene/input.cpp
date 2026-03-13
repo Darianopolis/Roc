@@ -367,7 +367,7 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer
     });
-    gpu_image_update(image.get(), cursor->pixels);
+    gpu_copy_memory_to_image(image.get(), {cursor->pixels, cursor->width * cursor->height * 4}, {{image->extent()}});
 
     auto visual = scene_texture_create(ctx);
     scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);

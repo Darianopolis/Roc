@@ -62,15 +62,15 @@ void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i3
     auto* surface = way_get_userdata<way_surface>(resource);
     auto* pending = surface->pending;
 
-    pending->buffer.lock = nullptr;
+    core_assert(!pending->image);
 
     if (!wl_buffer) {
-        pending->buffer.handle = nullptr;
+        pending->buffer = nullptr;
         pending->unset(way_surface_committed_state::buffer);
         return;
     }
 
-    pending->buffer.handle = way_get_userdata<way_buffer>(wl_buffer);
+    pending->buffer = way_get_userdata<way_buffer>(wl_buffer);
     pending->set(way_surface_committed_state::buffer);
 
     if (x || y) {
@@ -82,6 +82,24 @@ void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i3
             pending->set(way_surface_committed_state::offset);
         }
     }
+}
+
+static
+void damage(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
+{
+    auto* surface = way_get_userdata<way_surface>(resource);
+    auto* pending = surface->pending;
+
+    pending->surface.damage.damage({{x, y}, {width, height}, core_xywh});
+}
+
+static
+void damage_buffer(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
+{
+    auto* surface = way_get_userdata<way_surface>(resource);
+    auto* pending = surface->pending;
+
+    pending->buffer_damage.damage({{x, y}, {width, height}, core_xywh});
 }
 
 static
@@ -154,8 +172,8 @@ static
 void update_map_state(way_surface* surface)
 {
     bool can_be_mapped =
-           surface->current.buffer.handle
-        && surface->current.buffer.handle->image
+           surface->current.buffer
+        && surface->current.image
         && surface->wl_surface;
 
     surface_set_mapped(surface, can_be_mapped);
@@ -171,25 +189,28 @@ void apply(way_surface* surface, way_surface_state& from)
     to.committed.set |=  from.committed.set;
     to.committed.set &= ~from.committed.unset;
 
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer.transform, buffer_transform);
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer.scale,     buffer_scale);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer_transform, buffer_transform);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer_scale,     buffer_scale);
 
     to.surface.frame_callbacks.take_and_append_all(std::move(from.surface.frame_callbacks));
 
     // Buffer state
 
     if (from.is_set(way_surface_committed_state::buffer)) {
-        to.buffer.handle = std::move(from.buffer.handle);
-        to.buffer.lock   = std::move(from.buffer.lock);
+        to.buffer = std::move(from.buffer);
+        to.image  = std::move(from.image);
 
         scene_texture_set_image(surface->scene.texture.get(),
-            to.buffer.handle->image.get(),
+            to.image.get(),
             surface->client->server->sampler.get(),
             gpu_blend_mode::premultiplied);
 
+        if (from.buffer_damage) {
+            scene_texture_damage(surface->scene.texture.get(), from.buffer_damage.bounds());
+        }
+
     } else if (from.is_unset(way_surface_committed_state::buffer)) {
-        to.buffer.handle = nullptr;
-        to.buffer.lock   = nullptr;
+        to.buffer = nullptr;
 
         scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu_blend_mode::none);
     }
@@ -203,10 +224,11 @@ void apply(way_surface* surface, way_surface_state& from)
     if (from.is_set(way_surface_committed_state::input_region)) {
         // TODO: Clip set input_regions against surface bounds?
         scene_input_region_set_region(surface->scene.input_region.get(), std::move(from.surface.input_region));
-    } else if (!to.is_set(way_surface_committed_state::input_region) && to.buffer.handle) {
+
+    } else if (!to.is_set(way_surface_committed_state::input_region) && to.buffer) {
         // Unset input_region fills entire surface
         scene_input_region_set_region(surface->scene.input_region.get(),
-            {{{}, to.buffer.handle->extent, core_xywh}});
+            {{{}, to.buffer->extent, core_xywh}});
     }
 
     // Map state
@@ -260,8 +282,29 @@ void flush(way_surface* surface)
 
         if (is_blocked_by_parent(surface, packet)) break;
 
+        // Convert surface damage to buffer damage
+
+        if (packet.surface.damage) {
+            auto bounds = packet.surface.damage.bounds();
+
+            // Apply buffer transform
+            auto transform = packet.is_set(way_surface_committed_state::buffer_transform)
+                ? packet.buffer_transform
+                : surface->current.buffer_transform;
+            core_assert(transform == WL_OUTPUT_TRANSFORM_NORMAL, "TODO: Support buffer transforms");
+
+            // Apply buffer scale
+            bounds.min *= packet.buffer_scale;
+            bounds.max *= packet.buffer_scale;
+
+            packet.buffer_damage.damage(bounds);
+            packet.surface.damage.clear();
+        }
+
         // Check for buffer ready
-        if (packet.buffer.lock && !packet.buffer.lock->buffer->is_ready(surface)) {
+
+        core_assert(!packet.image);
+        if (packet.buffer && !(packet.image = packet.buffer->acquire(surface, packet))) {
             core_debugkill();
         }
 
@@ -305,9 +348,10 @@ void commit(wl_client* client, wl_resource* resource)
     // Begin acquisition process for buffers
 
     if (pending->is_set(way_surface_committed_state::buffer)) {
-        if (pending->buffer.handle) {
-            pending->buffer.lock = pending->buffer.handle->commit(surface);
-        }
+        pending->buffer->commit();
+    } else {
+        core_assert(!pending->buffer_damage,  "TODO: wl_surface::damage_buffer without attached buffer");
+        core_assert(!pending->surface.damage, "TODO: wl_surface::damage without attached buffer");
     }
 
     // Attempt to flush any state immediately
@@ -318,14 +362,14 @@ void commit(wl_client* client, wl_resource* resource)
 WAY_INTERFACE(wl_surface) = {
     .destroy = way_simple_destroy,
     .attach = attach,
-    WAY_STUB_QUIET(damage),
+    .damage = damage,
     .frame = frame,
     WAY_STUB_QUIET(set_opaque_region),
     .set_input_region = set_input_region,
     .commit = commit,
-    .set_buffer_transform = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer.transform, buffer_transform, wl_output_transform(bt), i32 bt),
-    .set_buffer_scale     = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer.scale,     buffer_scale,     scale,                   i32 scale),
-    WAY_STUB_QUIET(damage_buffer),
+    .set_buffer_transform = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer_transform, buffer_transform, wl_output_transform(bt), i32 bt),
+    .set_buffer_scale     = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer_scale,     buffer_scale,     scale,                   i32 scale),
+    .damage_buffer = damage_buffer,
     WAY_STUB_QUIET(offset),
 };
 
@@ -335,5 +379,5 @@ way_surface::~way_surface()
 {
     scene_node_unparent(scene.tree.get());
     scene.tree->userdata = nullptr;
-    std::erase(client->surfaces, this);
+    core_assert(std::erase(client->surfaces, this));
 }

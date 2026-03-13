@@ -173,7 +173,9 @@ wroc_surface* wroc_cursor_get_shape(wroc_cursor* cursor, wp_cursor_shape_device_
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer
     });
-    gpu_image_update(cursor_buffer->image.get(), image->pixels);
+    gpu_copy_memory_to_image(cursor_buffer->image.get(),
+        {image->pixels, image->width * image->height * 4},
+        {{{image->width, image->height}}});
 
     surface->buffer_dst = {{-image->xhot, -image->yhot}, {image->width, image->height}, core_xywh};
     surface->buffer_src = {{}, {image->width, image->height}, core_xywh};

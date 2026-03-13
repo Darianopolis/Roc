@@ -94,6 +94,54 @@ struct way_region : core_object
 
 // -----------------------------------------------------------------------------
 
+/**
+ * Represents accumulated damage for a surface or buffer.
+ *
+ * Accurate damage is not required for correctness, as reading from un-damaged parts of a buffer is valid.
+ *
+ * Taking advantage of this, and the fact that damage is usually localized, we only
+ * track the outer bounds of accumulated damage. This avoids relatively expensive region operations,
+ * and reduces the number of copies on transfer and clip regions during rendering; while remaining
+ * optimal or near optimal for all realistic scenarios.
+ */
+struct way_damage_region
+{
+    static constexpr aabb2i32 Empty = {{INT_MAX, INT_MAX}, {INT_MIN, INT_MIN}, core_minmax};
+
+private:
+    aabb2i32 region = Empty;
+
+public:
+    void damage(aabb2i32 damage)
+    {
+        region = core_aabb_outer(region, damage);
+    }
+
+    void clip_to(aabb2i32 limit)
+    {
+        region = core_aabb_inner(region, limit);
+    }
+
+    void clear()
+    {
+        region = Empty;
+    }
+
+    explicit operator bool() const
+    {
+        return region.max.x > region.min.x
+            && region.max.y > region.min.y;
+    }
+
+    aabb2i32 bounds()
+    {
+        core_assert(*this);
+        return region;
+    }
+};
+
+// -----------------------------------------------------------------------------
+
 struct way_surface;
 struct way_buffer;
 struct way_buffer_lock;
@@ -196,16 +244,16 @@ struct way_surface_state
         vec2i32 delta;
         region2f32 opaque_region;
         region2f32 input_region;
+        way_damage_region damage;
     } surface;
 
-    struct {
-        ref<way_buffer> handle;
-        ref<way_buffer_lock> lock;
-        wl_output_transform transform;
-        i32 scale;
-        rect2f32 source;
-        vec2i32 destination;
-    } buffer;
+    ref<way_buffer>     buffer;
+    ref<gpu_image>      image;
+    wl_output_transform buffer_transform;
+    i32                 buffer_scale = 1;
+    rect2f32            buffer_source;
+    vec2i32             buffer_destination;
+    way_damage_region   buffer_damage;
 
     struct {
         rect2i32 geometry;
@@ -343,48 +391,21 @@ void way_data_offer_selection(way_client*);
 
 struct way_buffer : core_object
 {
-    friend way_buffer_lock;
-
     way_server* server;
-
     way_resource resource;
 
     vec2u32 extent;
-    ref<gpu_image> image;
 
-    weak<way_buffer_lock> lock_guard;
-    [[nodiscard]] ref<way_buffer_lock> lock();
+    // Sent when a wl_surface::attach is committed
+    virtual void commit() = 0;
 
-    [[nodiscard]] ref<way_buffer_lock> commit(way_surface*);
-
-    bool released = true;
-    void release();
-
-    virtual bool is_ready(way_surface*) = 0;
-
-protected:
-    virtual void on_commit(way_surface*) = 0;
-    virtual void on_unlock() = 0;
-};
-
-struct way_buffer_lock : core_object
-{
-    ref<way_buffer> buffer;
-
-    ~way_buffer_lock();
+    // Sent on apply, should return a gpu_image when the buffer is ready to display
+    [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> ref<gpu_image> = 0;
 };
 
 // -----------------------------------------------------------------------------
 
 struct way_shm_pool;
-
-struct way_shm_mapping
-{
-    void* data;
-    i32 size;
-
-    ~way_shm_mapping();
-};
 
 struct way_shm_pool : core_object
 {
@@ -393,27 +414,10 @@ struct way_shm_pool : core_object
     way_resource resource;
 
     core_fd fd;
-    ref<way_shm_mapping> mapping;
+    void*   data;
+    usz     size;
 
     ~way_shm_pool();
-};
-
-// -----------------------------------------------------------------------------
-
-struct way_shm_buffer : way_buffer
-{
-    ref<way_shm_pool> pool;
-
-    i32 offset;
-    i32 stride;
-    gpu_format format;
-
-    bool pending_transfer;
-
-    virtual bool is_ready(way_surface*) final override;
-
-    virtual void on_commit(way_surface*) final override;
-    virtual void on_unlock() final override;
 };
 
 // -----------------------------------------------------------------------------
@@ -437,11 +441,11 @@ struct way_client : core_object
     } drag;
 };
 
-void way_on_client_create(wl_listener* listener, void* data);
+void way_on_client_create(wl_listener*, void* data);
 
 way_client* way_client_from(way_server*, const wl_client*);
 
-auto way_client_is_behind(way_client* client) -> bool;
+auto way_client_is_behind(way_client*) -> bool;
 
 // -----------------------------------------------------------------------------
 

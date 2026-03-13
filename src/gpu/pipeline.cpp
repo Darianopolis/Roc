@@ -51,10 +51,10 @@ auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> 
     return shader;
 }
 
-void gpu_cmd_push_constants(gpu_commands* cmd, u64 offset, u64 size, const void* data)
+void gpu_cmd_push_constants(gpu_commands* cmd, u32 offset, core_byte_view data)
 {
     auto* gpu = cmd->queue->gpu;
-    gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, size, data);
+    gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size, data.data);
 }
 
 void gpu_cmd_set_scissors(gpu_commands* cmd, std::span<const rect2i32> scissors)

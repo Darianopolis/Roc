@@ -109,6 +109,20 @@ std::string core_ascii_to_upper(std::string_view in)
 
 // -----------------------------------------------------------------------------
 
+struct core_byte_view
+{
+    const void* data;
+    usz         size;
+};
+
+inline
+auto core_view_bytes(auto&& object) -> core_byte_view
+{
+    return { &object, sizeof(object) };
+}
+
+// -----------------------------------------------------------------------------
+
 constexpr auto ptr_to(auto&& value) { return &value; }
 
 // -----------------------------------------------------------------------------

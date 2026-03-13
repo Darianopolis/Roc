@@ -22,7 +22,7 @@ static
 void set_destination(wl_client* client, wl_resource* resource, i32 width, i32 height)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    surface->pending->buffer.destination = {width, height};
+    surface->pending->buffer_destination = {width, height};
     surface->pending->set(way_surface_committed_state::buffer_destination);
 }
 
@@ -40,7 +40,7 @@ void set_source(wl_client* client, wl_resource* resource, wl_fixed_t x, wl_fixed
     if (src == rect2f32{{-1, -1}, {-1, -1}, core_xywh}) {
         surface->pending->unset(way_surface_committed_state::buffer_source);
     } else {
-        surface->pending->buffer.source = src;
+        surface->pending->buffer_source = src;
         surface->pending->set(way_surface_committed_state::buffer_source);
     }
 }
@@ -57,15 +57,15 @@ void way_viewport_apply(way_surface* surface, way_surface_state& from)
 {
     auto& to = surface->current;
 
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer.source,      buffer_source);
-    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer.destination, buffer_destination);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer_source,      buffer_source);
+    WAY_ADDON_SIMPLE_STATE_APPLY(from, to, buffer_destination, buffer_destination);
 
-    auto* buffer = to.buffer.handle.get();
+    auto* buffer = to.buffer.get();
 
     // Source
 
     if (buffer && to.is_set(way_surface_committed_state::buffer_source)) {
-        auto src = to.buffer.source;
+        auto src = to.buffer_source;
         src.origin /= vec2f32(buffer->extent);
         src.extent /= vec2f32(buffer->extent);
         scene_texture_set_src(surface->scene.texture.get(), src);
@@ -77,10 +77,10 @@ void way_viewport_apply(way_surface* surface, way_surface_state& from)
     // Destination
 
     if (to.is_set(way_surface_committed_state::buffer_destination)) {
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer.destination, core_xywh});
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_destination, core_xywh});
 
     } else if (to.is_set(way_surface_committed_state::buffer_source)) {
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer.source.extent, core_xywh});
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_source.extent, core_xywh});
 
     } else if (buffer) {
         // Use buffer extent if destination and source have not been set before

@@ -21,7 +21,7 @@ void scene_render_init(scene_context* ctx)
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer_dst
     });
-    gpu_image_update(ctx->render.white.get(), ptr_to(vec4u8{255, 255, 255, 255}));
+    gpu_copy_memory_to_image(ctx->render.white.get(), {ptr_to(vec4u8{255, 255, 255, 255}), 4}, {{{1, 1}}});
 
     ctx->render.sampler = gpu_sampler_create(ctx->gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -234,13 +234,12 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         gpu_cmd_set_scissors(cmd, {scissor});
 
         auto draw_scale = 2.f / viewport.extent;
-        gpu_cmd_push_constants(cmd, 0, sizeof(scene_render_input),
-            ptr_to(scene_render_input {
-                .vertices = gpu_vertices.device(),
-                .scale = draw_scale,
-                .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
-                .texture = {draw.image, render.sampler.get()},
-            }));
+        gpu_cmd_push_constants(cmd, 0, core_view_bytes(scene_render_input {
+            .vertices = gpu_vertices.device(),
+            .scale = draw_scale,
+            .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
+            .texture = {draw.image, render.sampler.get()},
+        }));
 
         gpu->vk.CmdDrawIndexed(cmd->buffer, draw.num_indices, 1, draw.first_index, draw.first_vertex, 0);
     }

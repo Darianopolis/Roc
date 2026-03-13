@@ -66,6 +66,9 @@ auto scene_tree_create(scene_context* ctx) -> ref<scene_tree>
 void scene_tree_set_enabled(scene_tree* tree, bool enabled)
 {
     if (tree->enabled == enabled) return;
+
+    NODE_LOG("scene.tree{{{}}}.set_enabled({})", (void*)tree, enabled);
+
     if (enabled) {
         tree->enabled = true;
         damage_node(tree);
@@ -78,6 +81,9 @@ void scene_tree_set_enabled(scene_tree* tree, bool enabled)
 void scene_node_unparent(scene_node* node)
 {
     if (!node->parent) return;
+
+    NODE_LOG("scene.node{{{}}}.unparent", (void*)node);
+
     damage_node(node);
     auto parent = std::exchange(node->parent, nullptr);
     core_assert(parent->children.erase(node) == 1);
@@ -116,6 +122,8 @@ void tree_place(scene_tree* tree, scene_node* reference, scene_node* node, bool 
         else           std::rotate(cur, cur + 1, ref + i32(above));
     }
 
+    NODE_LOG("scene.tree{{{}}}.place_{}({}, {})", (void*)tree, above ? "above" : "below", (void*)reference, (void*)node);
+
     // TODO: We only need to damage regions that were visually affected by the rotate
     damage_node(tree);
 }
@@ -136,6 +144,8 @@ void scene_tree_place_above(scene_tree* tree, scene_node* reference, scene_node*
 void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
 {
     if (tree->translation == position) return;
+
+    NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, core_to_string(position));
 
     damage_node(tree);
     tree->translation = position;
@@ -203,9 +213,11 @@ void scene_texture_set_dst(scene_texture* texture, rect2f32 extent)
     damage_node(texture);
 }
 
-void scene_texture_damage(scene_texture* texture, aabb2f32 damage)
+void scene_texture_damage(scene_texture* texture, aabb2i32 damage)
 {
-    core_assert_fail("scene_texture_damage", "TODO");
+    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, core_to_string(rect2i32(damage)));
+
+    damage_node(texture);
 }
 
 // -----------------------------------------------------------------------------

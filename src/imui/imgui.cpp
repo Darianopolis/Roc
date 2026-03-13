@@ -257,7 +257,7 @@ void imui_init(imui_context* ctx)
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
             .usage = gpu_image_usage::texture | gpu_image_usage::transfer
         });
-        gpu_image_update(ctx->font_image.get(), pixels);
+        gpu_copy_memory_to_image(ctx->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
     }
 
     auto& platform_io = ImGui::GetPlatformIO();

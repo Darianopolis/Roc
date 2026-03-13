@@ -126,7 +126,7 @@ int main()
             .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
             .usage = gpu_image_usage::texture | gpu_image_usage::transfer
         });
-        gpu_image_update(image.get(), data);
+        gpu_copy_memory_to_image(image.get(), {data, usz(w * h * 4)}, {{{image->extent()}}});
         return image;
     }();
 
