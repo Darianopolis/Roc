@@ -340,10 +340,10 @@ public:
         return erase_if([v](T* c) { return c == v; });
     }
 
-    bool empty()
-    {
-        return values.empty();
-    }
+    usz   size()  const { return values.size();  }
+    bool  empty() const { return values.empty(); }
+    auto& front() const { return values.front(); }
+    auto& back()  const { return values.back();  }
 
     auto insert(iterator i, T* v)
     {

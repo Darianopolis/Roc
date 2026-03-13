@@ -46,6 +46,8 @@ auto scene_create(gpu_context* gpu, io_context* io) -> ref<scene_context>
 
     scene_render_init(scene.get());
 
+    scene_cursor_manager_init(scene.get());
+
     scene->seat.keyboard = scene_keyboard_create(scene.get());
     scene->seat.pointer = scene_pointer_create(scene.get());
 

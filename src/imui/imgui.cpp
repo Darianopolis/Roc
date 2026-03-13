@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
-static ImGuiKey imgui_key_from_xkb_sym(xkb_keysym_t);
+static auto imgui_cursor_to_xcursor(ImGuiMouseCursor) -> const char*;
+static auto imgui_key_from_xkb_sym(xkb_keysym_t) -> ImGuiKey;
 
 // -----------------------------------------------------------------------------
 
@@ -366,6 +367,10 @@ void imui_frame(imui_context* ctx)
     for (auto& handler : ctx->frame_handlers) handler();
     ImGui::Render();
 
+    if (ctx->pointer) {
+        scene_pointer_set_xcursor(ctx->pointer, imgui_cursor_to_xcursor(ImGui::GetMouseCursor()));
+    }
+
     // Zero-sized main viewport should never contain draw data
     if (auto* main_draw_data = ImGui::GetDrawData()) {
         if (main_draw_data->TotalIdxCount) {
@@ -599,7 +604,28 @@ void imui_handle_output_layout(imui_context* ctx)
 // -----------------------------------------------------------------------------
 
 static
-ImGuiKey imgui_key_from_xkb_sym(xkb_keysym_t sym)
+auto imgui_cursor_to_xcursor(ImGuiMouseCursor cursor) -> const char*
+{
+    switch (cursor) {
+        break;case ImGuiMouseCursor_None:       return nullptr;
+        break;case ImGuiMouseCursor_Arrow:      return "arrow";
+        break;case ImGuiMouseCursor_TextInput:  return "text";
+        break;case ImGuiMouseCursor_ResizeAll:  return "all-resize";
+        break;case ImGuiMouseCursor_ResizeNS:   return "ns-resize";
+        break;case ImGuiMouseCursor_ResizeEW:   return "ew-resize";
+        break;case ImGuiMouseCursor_ResizeNESW: return "nesw-resize";
+        break;case ImGuiMouseCursor_ResizeNWSE: return "nwse-resize";
+        break;case ImGuiMouseCursor_Hand:       return "grab";
+        break;case ImGuiMouseCursor_Wait:       return "wait";
+        break;case ImGuiMouseCursor_Progress:   return "progress";
+        break;case ImGuiMouseCursor_NotAllowed: return "not-allowed";
+    }
+
+    core_unreachable();
+}
+
+static
+auto imgui_key_from_xkb_sym(xkb_keysym_t sym) -> ImGuiKey
 {
     switch (sym) {
         case XKB_KEY_Shift_L:   return ImGuiKey_LeftShift;

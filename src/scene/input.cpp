@@ -314,6 +314,10 @@ void scene_pointer_set_focus(scene_pointer* pointer, scene_focus new_focus)
             }
         }));
     }
+
+    if (!new_focus.client) {
+        scene_pointer_set_xcursor(pointer, "default");
+    }
 }
 
 static
@@ -359,21 +363,6 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
 
     pointer->tree = scene_tree_create(ctx);
     scene_tree_place_above(scene_get_layer(ctx, scene_layer::overlay), nullptr, pointer->tree .get());
-
-    auto* cursor = XcursorLibraryLoadImage("default", "breeze_cursors", 24);
-    defer { XcursorImageDestroy(cursor); };
-    auto image = gpu_image_create(ctx->gpu, {
-        .extent = {cursor->width, cursor->height},
-        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
-    });
-    gpu_copy_memory_to_image(image.get(), {cursor->pixels, cursor->width * cursor->height * 4}, {{image->extent()}});
-
-    auto visual = scene_texture_create(ctx);
-    scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);
-    scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core_xywh});
-
-    scene_tree_place_above(pointer->tree.get(), nullptr, visual.get());
 
     return pointer;
 }

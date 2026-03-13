@@ -42,6 +42,7 @@ auto way_create(core_event_loop* event_loop, gpu_context* gpu, scene_context* sc
     way_global(server.get(), wl_data_device_manager);
     way_global(server.get(), wp_viewporter);
     way_global(server.get(), zwp_pointer_gestures_v1);
+    way_global(server.get(), wp_cursor_shape_manager_v1);
     way_init_output(server.get());
 
     server->sampler = gpu_sampler_create(gpu, {

@@ -63,8 +63,28 @@ void get_pointer(wl_client* wl_client, wl_resource* resource, u32 id)
     client->pointers.emplace_back(way_resource_create_unsafe(wl_pointer, wl_client, resource, id, client));
 }
 
+static
+void set_cursor(wl_client* wl_client, wl_resource* resource, u32 serial, wl_resource* wl_surface, int hot_x, int hot_y)
+{
+    auto* client = way_get_userdata<way_client>(resource);
+    auto* surface = wl_surface ? way_get_userdata<way_surface>(wl_surface) : nullptr;
+
+    if (surface) {
+        scene_tree_set_translation(surface->scene.tree.get(), {-hot_x, -hot_y});
+
+        if (surface->role != way_surface_role::cursor) {
+            surface->role = way_surface_role::cursor;
+            scene_node_unparent(surface->scene.input_region.get());
+        }
+    }
+
+    if (client->server->pointer.scene) {
+        scene_pointer_set_cursor(client->server->pointer.scene, surface ? surface->scene.tree.get() : nullptr);
+    }
+}
+
 WAY_INTERFACE(wl_pointer) = {
-    WAY_STUB_QUIET(set_cursor),
+    .set_cursor = set_cursor,
     .release = way_simple_destroy,
 };
 

@@ -108,6 +108,9 @@ void scene_pointer_focus(       scene_pointer*, scene_client*, scene_input_regio
 auto scene_pointer_get_position(scene_pointer*) -> vec2f32;
 auto scene_pointer_get_pressed( scene_pointer*) -> std::span<const scene_scancode>;
 
+void scene_pointer_set_cursor( scene_pointer*, scene_node*);
+void scene_pointer_set_xcursor(scene_pointer*, const char* xcursor_semantic);
+
 struct scene_keyboard_info
 {
     xkb_context* context;

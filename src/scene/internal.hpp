@@ -15,6 +15,11 @@ struct scene_output {
 
 // -----------------------------------------------------------------------------
 
+struct scene_cursor_manager;
+CORE_OBJECT_EXPLICIT_DECLARE(scene_cursor_manager);
+
+void scene_cursor_manager_init(scene_context*);
+
 struct scene_context
 {
     gpu_context* gpu;
@@ -41,6 +46,8 @@ struct scene_context
     } seat;
 
     ref<scene_data_source> selection;
+
+    ref<scene_cursor_manager> cursor_manager;
 
     ~scene_context();
 };

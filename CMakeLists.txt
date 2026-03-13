@@ -233,6 +233,7 @@ target_sources(scene PUBLIC
     src/scene/node.cpp
     src/scene/window.cpp
     src/scene/input.cpp
+    src/scene/cursor.cpp
     src/scene/client.cpp
     src/scene/output.cpp
     src/scene/data.cpp
@@ -264,6 +265,7 @@ target_sources(way PUBLIC
     src/way/data.cpp
     src/way/viewport.cpp
     src/way/gestures.cpp
+    src/way/cursor-shape.cpp
     )
 target_link_libraries(way PUBLIC scene)
 

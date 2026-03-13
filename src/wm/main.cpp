@@ -73,7 +73,9 @@ int main()
         }
     });
 
-    // Pointer driver
+    // Pointer
+
+    scene_pointer_set_xcursor(scene_get_pointer(scene.get()), "default");
 
     scene_pointer_set_driver(scene_get_pointer(scene.get()), [scene = scene.get()](scene_pointer_driver_in in) -> scene_pointer_driver_out {
 

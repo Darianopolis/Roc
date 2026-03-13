@@ -57,7 +57,14 @@ WAY_BIND_GLOBAL(wl_compositor)
 // -----------------------------------------------------------------------------
 
 static
-void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i32 x, i32 y)
+void offset(wl_client* client, wl_resource* resource, i32 dx, i32 dy)
+{
+    auto* surface = way_get_userdata<way_surface>(resource);
+    surface->pending->surface.offset += vec2i32{dx, dy};
+}
+
+static
+void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i32 dx, i32 dy)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
     auto* pending = surface->pending;
@@ -73,15 +80,7 @@ void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i3
     pending->buffer = way_get_userdata<way_buffer>(wl_buffer);
     pending->set(way_surface_committed_state::buffer);
 
-    if (x || y) {
-        if (wl_resource_get_version(resource) >= WL_SURFACE_OFFSET_SINCE_VERSION) {
-            way_post_error(surface->client->server, resource, WL_SURFACE_ERROR_INVALID_OFFSET,
-                "Non-zero offset not allowed in wl_surface::attach since version {}", WL_SURFACE_OFFSET_SINCE_VERSION);
-        } else {
-            pending->surface.delta = { x, y };
-            pending->set(way_surface_committed_state::offset);
-        }
-    }
+    surface->pending->surface.offset += vec2i32{dx, dy};
 }
 
 static
@@ -193,6 +192,18 @@ void apply(way_surface* surface, way_surface_state& from)
     WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, buffer_scale,     buffer_scale);
 
     to.surface.frame_callbacks.take_and_append_all(std::move(from.surface.frame_callbacks));
+
+    // Offset
+
+    if (from.surface.offset.x || from.surface.offset.y) {
+        switch (surface->role) {
+            break;case way_surface_role::cursor:
+                  case way_surface_role::drag_icon:
+                scene_tree_set_translation(surface->scene.tree.get(), surface->scene.tree->translation + vec2f32(from.surface.offset));
+            break;default:
+                ;
+        }
+    }
 
     // Buffer state
 
@@ -370,7 +381,7 @@ WAY_INTERFACE(wl_surface) = {
     .set_buffer_transform = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer_transform, buffer_transform, wl_output_transform(bt), i32 bt),
     .set_buffer_scale     = WAY_ADDON_SIMPLE_STATE_REQUEST(way_surface, buffer_scale,     buffer_scale,     scale,                   i32 scale),
     .damage_buffer = damage_buffer,
-    WAY_STUB_QUIET(offset),
+    .offset = offset,
 };
 
 // -----------------------------------------------------------------------------

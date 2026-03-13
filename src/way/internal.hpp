@@ -166,7 +166,6 @@ enum class way_surface_committed_state : u32
 {
     // wl_surface
     buffer,
-    offset,
     opaque_region,
     input_region,
     buffer_transform,
@@ -241,11 +240,12 @@ struct way_surface_state
 
     struct {
         way_resource_list frame_callbacks;
-        vec2i32 delta;
+        vec2i32 offset;
         region2f32 opaque_region;
         region2f32 input_region;
         way_damage_region damage;
     } surface;
+
 
     ref<way_buffer>     buffer;
     ref<gpu_image>      image;
@@ -563,6 +563,9 @@ WAY_INTERFACE_DECLARE(zwp_pointer_gestures_v1, 3);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_swipe_v1);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_pinch_v1);
 WAY_INTERFACE_DECLARE(zwp_pointer_gesture_hold_v1);
+
+WAY_INTERFACE_DECLARE(wp_cursor_shape_manager_v1, 2);
+WAY_INTERFACE_DECLARE(wp_cursor_shape_device_v1);
 
 WAY_INTERFACE_DECLARE(wp_viewporter, 1);
 WAY_INTERFACE_DECLARE(wp_viewport);
