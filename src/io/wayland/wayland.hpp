@@ -11,6 +11,8 @@
 #include <wayland/client/linux-dmabuf-v1.h>
 #include <wayland/client/linux-drm-syncobj-v1.h>
 
+CORE_UNIX_ERROR_BEHAVIOUR(wl_display_dispatch_timeout, negative_one)
+
 // -----------------------------------------------------------------------------
 
 struct io_wayland;

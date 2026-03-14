@@ -4,7 +4,7 @@ static
 void pool_unmap(way_shm_pool* pool)
 {
     if (pool->data) {
-        unix_check(munmap(pool->data, pool->size));
+        unix_check<munmap>(pool->data, pool->size);
         pool->data = nullptr;
         pool->size = 0;
     }
@@ -15,7 +15,7 @@ void pool_map(way_shm_pool* pool, usz size)
 {
     pool_unmap(pool);
 
-    auto res = core_mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd.get(), 0);
+    auto res = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd.get(), 0);
     if (res.ok()) {
         pool->data = res.value;
         pool->size = size;

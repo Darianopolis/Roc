@@ -50,7 +50,7 @@ auto core_registry::allocate(usz size) -> core_allocation_header*
 
     core_allocation_header* header;
     if (bin.empty()) {
-        header = static_cast<core_allocation_header*>(::malloc(size));
+        header = static_cast<core_allocation_header*>(unix_check<malloc>(size).value);
         new (header) core_allocation_header {
             .bin = bin_idx,
         };

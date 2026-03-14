@@ -19,6 +19,8 @@
 #include <wayland/server/cursor-shape-v1.h>
 #include <wayland/server/linux-drm-syncobj-v1.h>
 
+CORE_UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)
+
 struct way_client;
 struct way_surface;
 

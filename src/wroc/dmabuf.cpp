@@ -195,7 +195,7 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
         }
 
         for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-            if (unix_check(poll(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0)).value > 0) {
+            if (unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0).value > 0) {
                 continue;
             }
 
@@ -342,7 +342,7 @@ void wroc_renderer_init_buffer_feedback(wroc_renderer* renderer)
         core_debugkill();
     }
 
-    void* dst = core_mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, rw, 0).value;
+    void* dst = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, rw, 0).value;
     close(rw);
     if (!dst) {
         log_error("mmap failed");

@@ -15,7 +15,7 @@ struct core_thread_stack_storage
     static constexpr usz size = usz(1) * 1024 * 1024;
 
     core_thread_stack_storage()
-        : head(static_cast<byte*>(core_mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
+        : head(static_cast<byte*>(unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
         , start(head)
         , end(head + size)
     {

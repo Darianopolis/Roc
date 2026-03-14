@@ -14,7 +14,7 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
 
     core_assert(size % sizeof(entry) == 0);
 
-    auto mapped = static_cast<entry*>(core_mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
+    auto mapped = static_cast<entry*>(unix_check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
     core_assert(mapped);
     defer { munmap(mapped, size); };
 

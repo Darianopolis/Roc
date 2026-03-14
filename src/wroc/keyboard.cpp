@@ -103,7 +103,7 @@ void wroc_seat_init_keyboard(wroc_seat* seat)
         return;
     }
 
-    void* dst = core_mmap(nullptr, keymap_size, PROT_READ | PROT_WRITE, MAP_SHARED, rw_fd, 0).value;
+    void* dst = unix_check<mmap>(nullptr, keymap_size, PROT_READ | PROT_WRITE, MAP_SHARED, rw_fd, 0).value;
     close(rw_fd);
     if (!dst) {
         log_error("mmap failed");

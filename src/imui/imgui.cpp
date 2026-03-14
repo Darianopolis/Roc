@@ -151,7 +151,7 @@ void Platform_SetClipboardTextFn(ImGuiContext* imctx, const char* text)
 
     auto data_source = scene_data_source_create(ctx->client.get(), {
         .send = [message = std::string(text)](const char* mime, int fd) {
-            write(fd, message.data(), message.size());
+            unix_check<write>(fd, message.data(), message.size());
         }
     });
     for (auto* mime : text_mime_types) {
@@ -166,7 +166,7 @@ auto read_to_string(int fd) -> std::string
     std::string str;
     for (;;) {
         char buffer[4096];
-        auto[len, err] = unix_check(read(fd, buffer, sizeof(buffer)));
+        auto[len, err] = unix_check<read>(fd, buffer, sizeof(buffer));
         if (len <= 0) break;
         str.append_range(std::span(buffer, len));
     }
@@ -184,7 +184,7 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imctx) -> const char*
             if (std::ranges::contains(available, std::string_view(mime))) {
                 auto[read, write] = [] {
                     int fd[2] = {-1, -1};
-                    unix_check(pipe(fd));
+                    unix_check<pipe>(fd);
                     return std::pair { core_fd_adopt(fd[0]), core_fd_adopt(fd[1]) };
                 }();
                 scene_data_source_send(source, mime, write.get());

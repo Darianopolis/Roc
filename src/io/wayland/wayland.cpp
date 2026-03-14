@@ -74,7 +74,7 @@ void display_read(io_context* ctx, core_fd_event_bits events)
     ctx->wayland->current_dispatch_time = std::chrono::steady_clock::now();
 
     timespec timeout = {};
-    if (unix_check(wl_display_dispatch_timeout(ctx->wayland->wl_display, &timeout)).err()) {
+    if (unix_check<wl_display_dispatch_timeout>(ctx->wayland->wl_display, &timeout).err()) {
         core_debugkill();
     }
 

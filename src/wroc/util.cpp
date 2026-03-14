@@ -15,7 +15,7 @@ int core_excl_shm_open(std::string& name)
 {
     for (int i = 0; i < 100; ++i) {
         name = core_random_shm_file_name();
-        auto[fd, error] = unix_check(shm_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600), EEXIST);
+        auto[fd, error] = unix_check<shm_open, EEXIST>(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
         if (fd >= 0) return fd;
         if (error != EEXIST) break;
     }
@@ -31,7 +31,7 @@ bool core_allocate_shm_file_pair(usz size, int* p_rw_fd, int* p_ro_fd)
         return false;
     }
 
-    int ro_fd = unix_check(shm_open(name.c_str(), O_RDONLY, 0)).value;
+    int ro_fd = unix_check<shm_open>(name.c_str(), O_RDONLY, 0).value;
     if (ro_fd < 0) {
         shm_unlink(name.c_str());
         close(rw_fd);

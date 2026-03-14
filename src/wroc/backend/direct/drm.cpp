@@ -13,14 +13,14 @@ struct drm_resources
 
     drm_resources(int drm_fd)
     {
-        auto mode_res = unix_check(drmModeGetResources(drm_fd)).value;
+        auto mode_res = unix_check<drmModeGetResources>(drm_fd).value;
         if (!mode_res) {
             log_warn("Failed to get mode resources");
             return;
         }
         defer { drmModeFreeResources(mode_res); };
 
-        auto plane_res = unix_check(drmModeGetPlaneResources(drm_fd)).value;
+        auto plane_res = unix_check<drmModeGetPlaneResources>(drm_fd).value;
         if (!plane_res) {
             log_warn("Failed to get plane resources");
             return;
@@ -358,22 +358,22 @@ void wroc_backend_init_drm(wroc_direct_backend* backend)
 
     drm_magic_t magic;
     log_debug("Getting magic");
-    unix_check(drmGetMagic(drm_fd, &magic));
+    unix_check<drmGetMagic>(drm_fd, &magic);
     log_debug("Authenticating magic");
-    unix_check(drmAuthMagic(drm_fd, magic));
+    unix_check<drmAuthMagic>(drm_fd, magic);
 
     log_debug("Setting universal planes capability");
-    unix_check(drmSetClientCap(drm_fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1));
+    unix_check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
     log_debug("Setting atomic capability");
-    unix_check(drmSetClientCap(drm_fd, DRM_CLIENT_CAP_ATOMIC, 1));
+    unix_check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_ATOMIC, 1);
 
     u64 cap = 0;
 
     log_debug("Checking for framebuffer modifier support");
-    core_assert(unix_check(drmGetCap(drm_fd, DRM_CAP_ADDFB2_MODIFIERS, &cap)).ok() && cap);
+    core_assert(unix_check<drmGetCap>(drm_fd, DRM_CAP_ADDFB2_MODIFIERS, &cap).ok() && cap);
 
     log_debug("Checking for monotonic timestamp support");
-    core_assert(unix_check(drmGetCap(drm_fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap)).ok() && cap);
+    core_assert(unix_check<drmGetCap>(drm_fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap).ok() && cap);
 
     drm_resources res(drm_fd);
 
@@ -454,7 +454,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     u32 offsets[4] = {};
     u64 modifiers[4] = {};
     for (u32 i = 0; i < dma_params.planes.count; ++i) {
-        unix_check(drmPrimeFDToHandle(backend->drm_fd.get(), dma_params.planes[i].fd.get(), &handles[i]));
+        unix_check<drmPrimeFDToHandle>(backend->drm_fd.get(), dma_params.planes[i].fd.get(), &handles[i]);
         log_warn("  plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
         pitches[i] = dma_params.planes[i].stride;
         offsets[i] = dma_params.planes[i].offset;
@@ -464,10 +464,10 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     // Import
 
     u32 fb2_handle = 0;
-    unix_check(drmModeAddFB2WithModifiers(backend->drm_fd.get(),
+    unix_check<drmModeAddFB2WithModifiers>(backend->drm_fd.get(),
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
-        &fb2_handle, DRM_MODE_FB_MODIFIERS));
+        &fb2_handle, DRM_MODE_FB_MODIFIERS);
 
     // Close GEM handles
 
@@ -534,7 +534,7 @@ wroc_output_commit_id wroc_drm_output::commit(
 
     drmModeAtomicAddProperty(req, state->crtc_id, state->crtc_prop.get_prop_id("VRR_ENABLED"), true);
 
-    if (unix_check(drmModeAtomicCommit(backend->drm_fd.get(), req, flags, this)).err()) {
+    if (unix_check<drmModeAtomicCommit>(backend->drm_fd.get(), req, flags, this).err()) {
         // TODO: Configuration rollback
         gpu_semaphore_import_syncfile(release.semaphore, in_fence, release.value);
         frame_available = true;

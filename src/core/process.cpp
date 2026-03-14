@@ -3,20 +3,20 @@
 
 bool core_capability_has(cap_value_t cap)
 {
-    cap_t caps = unix_check(cap_get_proc()).value;
+    cap_t caps = unix_check<cap_get_proc>().value;
     if (!caps) return false;
-    defer { cap_free(caps); };
+    defer { unix_check<cap_free>(caps); };
     cap_flag_value_t value = CAP_CLEAR;
-    unix_check(cap_get_flag(caps, cap, CAP_EFFECTIVE, &value));
+    unix_check<cap_get_flag>(caps, cap, CAP_EFFECTIVE, &value);
     return value == CAP_SET;
 }
 
 void core_capability_drop(cap_value_t cap)
 {
-    cap_t caps = unix_check(cap_get_proc()).value;
+    cap_t caps = unix_check<cap_get_proc>().value;
     if (!caps) return;
-    defer { cap_free(caps); };
-    unix_check(cap_set_flag(caps, CAP_EFFECTIVE, 1, &cap, CAP_CLEAR));
-    unix_check(cap_set_flag(caps, CAP_PERMITTED, 1, &cap, CAP_CLEAR));
-    unix_check(cap_set_proc(caps));
+    defer { unix_check<cap_free>(caps); };
+    unix_check<cap_set_flag>(caps, CAP_EFFECTIVE, 1, &cap, CAP_CLEAR);
+    unix_check<cap_set_flag>(caps, CAP_PERMITTED, 1, &cap, CAP_CLEAR);
+    unix_check<cap_set_proc>(caps);
 }

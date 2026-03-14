@@ -46,15 +46,15 @@ void way_dmabuf_init(way_server* server)
 
     usz size = entries.size() * sizeof(tranche_entry);
 
-    auto fd = core_fd_adopt(unix_check(memfd_create(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC)).value);
-    unix_check(ftruncate(fd.get(), size));
+    auto fd = core_fd_adopt(unix_check<memfd_create>(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
+    unix_check<ftruncate>(fd.get(), size);
 
-    auto mapped = core_mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
+    auto mapped = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
     std::memcpy(mapped, entries.data(), size);
     munmap(mapped, size);
 
     // Seal file to prevent further writes
-    unix_check(fcntl(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW));
+    unix_check<fcntl>(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW);
 
     // Generate indices
     // TODO: Move LINEAR modifiers into lower tranche?
@@ -305,7 +305,7 @@ auto way_dma_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
     }
 
     for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-        unix_check(poll(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1));
+        unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
     }
 
     return gpu_lease_image(image.get(), [buffer = weak(this)](ref<gpu_image>) {

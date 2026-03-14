@@ -3,10 +3,10 @@
 bool core_fd_are_same(int fd0, int fd1)
 {
     struct stat st0 = {};
-    if (unix_check(fstat(fd0, &st0)).err()) return false;
+    if (unix_check<fstat>(fd0, &st0).err()) return false;
 
     struct stat st1 = {};
-    if (unix_check(fstat(fd0, &st1)).err()) return false;
+    if (unix_check<fstat>(fd0, &st1).err()) return false;
 
     return st0.st_ino == st1.st_ino;
 }
@@ -15,7 +15,7 @@ int core_fd_dup_unsafe(int fd)
 {
     if (fd < 0) return {};
 
-    return unix_check(fcntl(fd, F_DUPFD_CLOEXEC, 0)).value;
+    return unix_check<fcntl>(fd, F_DUPFD_CLOEXEC, 0).value;
 }
 
 // -----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ void destroy_fd(int fd)
 
     if (!fds.no_close[fd]) {
         FD_LOG("  close({})", fd);
-        unix_check(close(fd));
+        unix_check<close>(fd);
     } else {
         // Next
         fds.no_close[fd] = false;

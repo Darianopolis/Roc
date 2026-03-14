@@ -3,6 +3,7 @@
 #include "core/types.hpp"
 #include "core/log.hpp"
 #include "core/util.hpp"
+#include "core/debug.hpp"
 
 // -----------------------------------------------------------------------------
 
@@ -19,6 +20,8 @@
 #include <wayland/server/server-decoration.h>
 #include <wayland/server/cursor-shape-v1.h>
 #include <wayland/server/linux-drm-syncobj-v1.h>
+
+CORE_UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)
 
 // -----------------------------------------------------------------------------
 

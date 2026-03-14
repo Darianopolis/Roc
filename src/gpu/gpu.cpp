@@ -99,7 +99,7 @@ bool open_drm(gpu_context* gpu, drmDevice* device)
     }
 
     log_debug("  drm path: {}", name);
-    gpu->drm.fd = open(name, O_RDWR | O_NONBLOCK | O_CLOEXEC);
+    gpu->drm.fd = unix_check<open>(name, O_RDWR | O_NONBLOCK | O_CLOEXEC).value;
     log_debug("  drm fd: {}", gpu->drm.fd);
 
     if (gpu->drm.fd) {
@@ -165,7 +165,7 @@ bool try_physical_device(gpu_context* gpu, VkPhysicalDevice phdev)
         }
 
         drmDevice* device;
-        unix_check(drmGetDeviceFromDevId(drm_props.hasRender ? render_dev_id : primary_dev_id, 0, &device));
+        unix_check<drmGetDeviceFromDevId>(drm_props.hasRender ? render_dev_id : primary_dev_id, 0, &device);
 
         if (!open_drm(gpu, device)) {
             drmFreeDevice(&device);

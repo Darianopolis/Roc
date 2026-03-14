@@ -101,7 +101,7 @@ static constexpr libinput_interface wroc_libinput_interface {
 static
 int handle_libinput_readable(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
 {
-    unix_check(libinput_dispatch(backend->libinput));
+    unix_check<libinput_dispatch>(backend->libinput);
 
     libinput_event* event;
     while ((event = libinput_get_event(backend->libinput))) {
@@ -146,7 +146,7 @@ void wroc_backend_init_session(wroc_direct_backend* backend)
 
     wroc_setenv("XDG_SESSION_TYPE", "wayland", wroc_setenv_option::system_wide);
 
-    backend->seat = libseat_open_seat(&wroc_seat_listener, nullptr);
+    backend->seat = unix_check<libseat_open_seat>(&wroc_seat_listener, nullptr).value;
     if (!backend->seat) {
         log_error("Failed to open seat");
         core_debugkill();
@@ -155,7 +155,7 @@ void wroc_backend_init_session(wroc_direct_backend* backend)
     backend->seat_name = libseat_seat_name(backend->seat);
     log_info("Seat name: {}", backend->seat_name);
 
-    int seat_fd = libseat_get_fd(backend->seat);
+    int seat_fd = unix_check<libseat_get_fd>(backend->seat).value;
     core_assert(seat_fd >= 0);
 
     backend->libseat_fd = core_fd_reference(seat_fd);
@@ -175,7 +175,7 @@ void wroc_backend_init_session(wroc_direct_backend* backend)
     libinput_log_set_handler(backend->libinput, log_libinput);
     libinput_log_set_priority(backend->libinput, LIBINPUT_LOG_PRIORITY_DEBUG);
 
-    if (unix_check(libinput_udev_assign_seat(backend->libinput, backend->seat_name)).err()) {
+    if (unix_check<libinput_udev_assign_seat>(backend->libinput, backend->seat_name).err()) {
         log_error("Libinput failed to acquire seat");
         core_debugkill();
     }

@@ -50,7 +50,7 @@ ref<gpu_semaphore> gpu_semaphore_create(gpu_context* gpu)
         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,
     }), &syncobj_fd));
 
-    unix_check(drmSyncobjFDToHandle(gpu->drm.fd, syncobj_fd, &semaphore->syncobj));
+    unix_check<drmSyncobjFDToHandle>(gpu->drm.fd, syncobj_fd, &semaphore->syncobj);
 
     close(syncobj_fd);
 
@@ -61,7 +61,7 @@ ref<gpu_semaphore> gpu_semaphore_import_syncobj(gpu_context* gpu, int syncobj_fd
 {
     auto semaphore = create_semaphore_base(gpu);
 
-    unix_check(drmSyncobjFDToHandle(gpu->drm.fd, syncobj_fd, &semaphore->syncobj));
+    unix_check<drmSyncobjFDToHandle>(gpu->drm.fd, syncobj_fd, &semaphore->syncobj);
 
     if (gpu_check(gpu->vk.ImportSemaphoreFdKHR(gpu->device, ptr_to(VkImportSemaphoreFdInfoKHR {
         .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
@@ -78,7 +78,7 @@ ref<gpu_semaphore> gpu_semaphore_import_syncobj(gpu_context* gpu, int syncobj_fd
 int gpu_semaphore_export_syncobj(gpu_semaphore* semaphore)
 {
     int fd = -1;
-    unix_check(drmSyncobjHandleToFD(semaphore->gpu->drm.fd, semaphore->syncobj, &fd));
+    unix_check<drmSyncobjHandleToFD>(semaphore->gpu->drm.fd, semaphore->syncobj, &fd);
     return fd;
 }
 
@@ -87,7 +87,7 @@ void gpu_semaphore_import_syncfile(gpu_semaphore* semaphore, int sync_fd, u64 ta
     auto* gpu = semaphore->gpu;
 
     if (sync_fd == -1) {
-        unix_check(drmSyncobjTimelineSignal(gpu->drm.fd, &semaphore->syncobj, &target_point, 1));
+        unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &semaphore->syncobj, &target_point, 1);
         return;
     }
 
@@ -95,10 +95,10 @@ void gpu_semaphore_import_syncfile(gpu_semaphore* semaphore, int sync_fd, u64 ta
     // and then transfer to our target point from that.
 
     u32 syncobj = {};
-    unix_check(drmSyncobjCreate(gpu->drm.fd, 0, &syncobj));
-    defer { unix_check(drmSyncobjDestroy(gpu->drm.fd, syncobj)); };
-    unix_check(drmSyncobjImportSyncFile(gpu->drm.fd, syncobj, sync_fd));
-    unix_check(drmSyncobjTransfer(gpu->drm.fd, semaphore->syncobj, target_point, syncobj, 0, 0));
+    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0, &syncobj);
+    defer { unix_check<drmSyncobjDestroy>(gpu->drm.fd, syncobj); };
+    unix_check<drmSyncobjImportSyncFile>(gpu->drm.fd, syncobj, sync_fd);
+    unix_check<drmSyncobjTransfer>(gpu->drm.fd, semaphore->syncobj, target_point, syncobj, 0, 0);
 }
 
 int gpu_semaphore_export_syncfile(gpu_semaphore* semaphore, u64 source_point)
@@ -109,11 +109,11 @@ int gpu_semaphore_export_syncfile(gpu_semaphore* semaphore, u64 source_point)
     // and then export the syncfile from that.
 
     u32 syncobj = {};
-    unix_check(drmSyncobjCreate(gpu->drm.fd, 0, &syncobj));
-    defer { unix_check(drmSyncobjDestroy(gpu->drm.fd, syncobj)); };
-    unix_check(drmSyncobjTransfer(gpu->drm.fd, syncobj, 0, semaphore->syncobj, source_point, 0));
+    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0, &syncobj);
+    defer { unix_check<drmSyncobjDestroy>(gpu->drm.fd, syncobj); };
+    unix_check<drmSyncobjTransfer>(gpu->drm.fd, syncobj, 0, semaphore->syncobj, source_point, 0);
     int sync_fd = -1;
-    unix_check(drmSyncobjExportSyncFile(gpu->drm.fd, syncobj, &sync_fd));
+    unix_check<drmSyncobjExportSyncFile>(gpu->drm.fd, syncobj, &sync_fd);
 
     return sync_fd;
 }
@@ -126,7 +126,7 @@ gpu_semaphore::~gpu_semaphore()
     }
 
     gpu->vk.DestroySemaphore(gpu->device, semaphore, nullptr);
-    unix_check(drmSyncobjDestroy(gpu->drm.fd, syncobj));
+    unix_check<drmSyncobjDestroy>(gpu->drm.fd, syncobj);
 }
 
 u64 gpu_semaphore_get_value(gpu_semaphore* semaphore)
@@ -186,11 +186,11 @@ void gpu_semaphore_wait(gpu_semaphore* semaphore, gpu_wait_fn* wait)
     for (; cur != semaphore->wait.list.end() && cur->point > wait->point; cur = cur.prev());
     cur.insert_after(wait);
 
-    unix_check(drmIoctl(gpu->drm.fd, DRM_IOCTL_SYNCOBJ_EVENTFD, ptr_to(drm_syncobj_eventfd {
+    unix_check<drmIoctl>(gpu->drm.fd, DRM_IOCTL_SYNCOBJ_EVENTFD, ptr_to(drm_syncobj_eventfd {
         .handle = semaphore->syncobj,
         .point = wait->point,
         .fd = semaphore->wait.fd.get(),
-    })));
+    }));
 }
 
 void gpu_wait(gpu_syncpoint syncpoint)

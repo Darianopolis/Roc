@@ -31,7 +31,7 @@ void core_assert_fail(std::string_view expr, std::string_view reason = {});
     (static_cast<bool>(Expr) ? void() : core_assert_fail(#Expr __VA_OPT__(, std::format(__VA_ARGS__))))
 
 // -----------------------------------------------------------------------------
-//      UNIX error checking
+//      Error Checking
 // -----------------------------------------------------------------------------
 
 void core_log_unix_error(std::string_view message, int err = 0);
@@ -46,50 +46,59 @@ struct core_unix_result
     bool err() const noexcept { return  error; }
 };
 
-template<typename T>
-    requires std::is_integral_v<T> || std::is_pointer_v<T>
-auto core_unix_check(T value, auto... quiet) -> core_unix_result<T>
+enum class unix_error_behaviour
 {
-    static constexpr int fallback_error_code = INT_MAX;
-    int error_code = 0;
-    if constexpr (std::is_signed_v<T>) {
-        if (value < 0) {
-            if (value == -1 && errno) {
-                // TODO: This has a failure case where `errno` is set spuriously when
-                //       EPERM was the intended error code
-                error_code = errno;
-            } else {
-                error_code = -int(value);
-            }
-        }
-    } else if (!value) {
-        error_code = errno ?: fallback_error_code;
+    negative_one,
+    negative_errno,
+    positive_errno,
+    check_errno,
+    null,
+};
+
+template<auto Function>
+struct unix_error_behaviour_helper { static_assert(false); };
+
+template<auto Function, int... Quiet>
+auto unix_check(auto... args) -> core_unix_result<decltype(Function(args...))>
+{
+    static constexpr auto behaviour = unix_error_behaviour_helper<Function>::behaviour;
+
+    if constexpr (behaviour == unix_error_behaviour::check_errno) {
+        errno = 0;
     }
 
-    if (!error_code || (... || (error_code == quiet))) [[likely]] {
-        return { value, error_code };
+    auto res = Function(args...);
+
+    int err;
+    if constexpr (behaviour == unix_error_behaviour::negative_one) {
+        if (res != decltype(res)(-1)) [[likely]] return { res };
+        err = errno;
+
+    } else if constexpr (behaviour == unix_error_behaviour::negative_errno) {
+        if (res >= 0) [[likely]] return { res };
+        err = -res;
+
+    } else if constexpr (behaviour == unix_error_behaviour::positive_errno) {
+        if (res <= 0) [[likely]] return { res };
+        err = res;
+
+    } else if constexpr (behaviour == unix_error_behaviour::null) {
+        if (res) [[likely]] return { res };
+        err = errno;
+
+    } else if constexpr (behaviour == unix_error_behaviour::check_errno) {
+        if (!errno) [[likely]] return { res };
+        err = errno;
     }
 
-    core_log_unix_error("core_unix_check", error_code);
-
-    return { value, error_code };
+    if (!(... || (err == Quiet))) core_log_unix_error("unix_check", err);
+    return { res, err };
 }
 
-#define unix_check(Expr, ...) \
-    core_unix_check((errno = 0, (Expr)) __VA_OPT__(,) __VA_ARGS__)
+#define CORE_UNIX_ERROR_BEHAVIOUR(Function, Behaviour) \
+    template<> struct unix_error_behaviour_helper<Function> { \
+        static constexpr auto behaviour = unix_error_behaviour::Behaviour; \
+    };
 
-/**
- * Custom error checking logic is required for `mmap` as it doesn't follow the usual
- * error cases (-1 for integer types, falsey for unsigned / pointers).
- * Failed maps instead return `MAP_FAILED` : `((void*)-1)`
- */
-inline
-auto core_mmap(void* addr, size_t len, int prot, int flags, int fd, __off_t offset) -> core_unix_result<void*>
-{
-    auto map = mmap(addr, len, prot, flags, fd, offset);
-    if (map != MAP_FAILED) return { map, 0 };
 
-    auto error_code = errno;
-    core_log_unix_error("core_mmap", error_code);
-    return { nullptr, error_code };
-}
+#include "unix-check.inl"
