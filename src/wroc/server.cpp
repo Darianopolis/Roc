@@ -64,7 +64,7 @@ void wroc_run(int argc, char* argv[])
 {
     core::log_set_history_enabled(true);
 
-    core::Flags<gpu_feature> gpu_features = {};
+    core::Flags<gpu::Feature> gpu_features = {};
 
     core::Flags<wroc_render_option> render_options = {};
     wroc_backend_type backend_type = getenv("WAYLAND_DISPLAY")
@@ -97,7 +97,7 @@ void wroc_run(int argc, char* argv[])
         } else if (arg == "--csd") {
             show_csd = true;
         } else if (arg == "--validation") {
-            gpu_features |= gpu_feature::validation;
+            gpu_features |= gpu::Feature::validation;
         } else {
             log_error("Unrecognized flag: {}", arg);
             return;
@@ -157,7 +157,7 @@ void wroc_run(int argc, char* argv[])
     // GPU
 
     log_info("Initializing gpu");
-    auto gpu = gpu_create(gpu_features, event_loop.get());
+    auto gpu = gpu::create(gpu_features, event_loop.get());
     server->gpu = gpu.get();
 
     // Backend
@@ -244,7 +244,7 @@ void wroc_run(int argc, char* argv[])
     log_info("Compositor shutting down");
 
     log_info("Flushing gpu submissions");
-    gpu_wait_idle(gpu.get());
+    gpu::wait_idle(gpu.get());
 
     log_info("Destroying: backend");
     server->backend = nullptr;

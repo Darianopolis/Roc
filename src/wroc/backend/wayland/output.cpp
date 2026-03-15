@@ -36,7 +36,7 @@ void dma_feedback_format_table(void* data, struct zwp_linux_dmabuf_feedback_v1* 
     backend->format_table.clear();
     backend->format_set.clear();
     for (auto& entry : formats) {
-        if (auto format = gpu_format_from_drm(entry.format)) {
+        if (auto format = gpu::format::from_drm(entry.format)) {
             backend->format_table.emplace_back(format, entry.modifier);
         }
     }
@@ -63,7 +63,7 @@ const zwp_linux_dmabuf_feedback_v1_listener wroc_zwp_linux_dmabuf_feedback_v1_li
     WROC_STUB_QUIET(tranche_flags),
 };
 
-const gpu_format_set& wroc_wayland_backend::get_output_format_set()
+const gpu::FormatSet& wroc_wayland_backend::get_output_format_set()
 {
     return format_set;
 }
@@ -292,14 +292,14 @@ void wroc_wayland_backend::create_output()
 }
 
 static
-wl_buffer* get_image_proxy(wroc_wayland_backend* backend, gpu_image* image)
+wl_buffer* get_image_proxy(wroc_wayland_backend* backend, gpu::Image* image)
 {
     if (auto* found = backend->buffer_cache.find(image)) return found;
 
     auto size = image->extent();
     auto format = image->format();
 
-    auto dma_params = gpu_image_export(image);
+    auto dma_params = gpu::image::export_dmabuf(image);
     u32 mod_hi = dma_params.modifier >> 32;
     u32 mod_lo = dma_params.modifier & ~0u;
 
@@ -315,11 +315,11 @@ wl_buffer* get_image_proxy(wroc_wayland_backend* backend, gpu_image* image)
 }
 
 static
-wp_linux_drm_syncobj_timeline_v1* get_semaphore_proxy(wroc_wayland_backend* backend, gpu_semaphore* semaphore)
+wp_linux_drm_syncobj_timeline_v1* get_semaphore_proxy(wroc_wayland_backend* backend, gpu::Semaphore* semaphore)
 {
     if (auto* found = backend->syncobj_cache.find(semaphore)) return found;
 
-    auto fd = gpu_semaphore_export_syncobj(semaphore);
+    auto fd = gpu::semaphore::export_syncobj(semaphore);
     auto syncobj = wp_linux_drm_syncobj_manager_v1_import_timeline(backend->wp_linux_drm_syncobj_manager_v1, fd);
     close(fd);
 
@@ -362,9 +362,9 @@ void on_present_frame(void* data, wl_callback*, u32 time)
 }
 
 wroc_output_commit_id wroc_wayland_output::commit(
-    gpu_image* image,
-    gpu_syncpoint acquire,
-    gpu_syncpoint release,
+    gpu::Image* image,
+    gpu::Syncpoint acquire,
+    gpu::Syncpoint release,
     core::Flags<wroc_output_commit_flag> flags)
 {
     core_assert(frame_available);

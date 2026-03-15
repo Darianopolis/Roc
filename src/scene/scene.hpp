@@ -17,7 +17,7 @@ struct scene_window;
 
 struct scene_context;
 
-auto scene_create(gpu_context*, struct io_context*) -> core::Ref<scene_context>;
+auto scene_create(gpu::Context*, struct io_context*) -> core::Ref<scene_context>;
 
 enum class scene_layer
 {
@@ -37,7 +37,7 @@ void scene_push_io_event(scene_context* ctx, struct io_event*);
 
 // -----------------------------------------------------------------------------
 
-auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint;
+auto scene_render(scene_context* ctx, gpu::Image* target, rect2f32 viewport) -> gpu::Syncpoint;
 
 // -----------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ struct scene_find_output_result
 };
 auto scene_find_output_for_point(scene_context*, vec2f32 point) -> scene_find_output_result;
 
-void scene_frame(scene_context* ctx, scene_output*, struct io_output* output, gpu_image_pool* pool);
+void scene_frame(scene_context* ctx, scene_output*, struct io_output* output, gpu::ImagePool* pool);
 
 // -----------------------------------------------------------------------------
 
@@ -221,9 +221,9 @@ auto scene_tree_get_position(scene_tree* tree) -> vec2f32
 
 struct scene_texture : scene_node
 {
-    core::Ref<gpu_image>   image;
-    core::Ref<gpu_sampler> sampler;
-    gpu_blend_mode   blend;
+    core::Ref<gpu::Image>   image;
+    core::Ref<gpu::Sampler> sampler;
+    gpu::BlendMode   blend;
 
     vec4u8   tint;
     aabb2f32 src;
@@ -231,7 +231,7 @@ struct scene_texture : scene_node
 };
 
 auto scene_texture_create(scene_context*) -> core::Ref<scene_texture>;
-void scene_texture_set_image(scene_texture*, gpu_image*, gpu_sampler*, gpu_blend_mode);
+void scene_texture_set_image(scene_texture*, gpu::Image*, gpu::Sampler*, gpu::BlendMode);
 void scene_texture_set_tint( scene_texture*, vec4u8   tint);
 void scene_texture_set_src(  scene_texture*, aabb2f32 src);
 void scene_texture_set_dst(  scene_texture*, rect2f32 dst);
@@ -239,9 +239,9 @@ void scene_texture_damage(   scene_texture*, aabb2i32 damage);
 
 struct scene_mesh : scene_node
 {
-    core::Ref<gpu_image>   image;
-    core::Ref<gpu_sampler> sampler;
-    gpu_blend_mode   blend;
+    core::Ref<gpu::Image>   image;
+    core::Ref<gpu::Sampler> sampler;
+    gpu::BlendMode   blend;
 
     aabb2f32 clip;
 
@@ -250,7 +250,7 @@ struct scene_mesh : scene_node
 };
 
 auto scene_mesh_create(scene_context*) -> core::Ref<scene_mesh>;
-void scene_mesh_update(scene_mesh*, gpu_image*, gpu_sampler*, gpu_blend_mode, aabb2f32 clip, std::span<const scene_vertex> vertices, std::span<const u16> indices);
+void scene_mesh_update(scene_mesh*, gpu::Image*, gpu::Sampler*, gpu::BlendMode, aabb2f32 clip, std::span<const scene_vertex> vertices, std::span<const u16> indices);
 
 struct scene_input_region : scene_node
 {

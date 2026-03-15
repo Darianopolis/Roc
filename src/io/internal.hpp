@@ -25,7 +25,7 @@ struct io_context
     bool stop_requested = false;
 
     core::EventLoop* event_loop;
-    gpu_context*     gpu;
+    gpu::Context*     gpu;
 
     std::vector<io_input_device_base*> input_devices;
     std::vector<io_output_base*>       outputs;

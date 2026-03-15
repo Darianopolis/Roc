@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const gpu_syncpoint& syncpoint)
+VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const gpu::Syncpoint& syncpoint)
 {
     return {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -11,9 +11,9 @@ VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const gpu_syncpoint& syncpoin
 }
 
 static
-core::Ref<gpu_semaphore> create_semaphore_base(gpu_context* gpu)
+core::Ref<gpu::Semaphore> create_semaphore_base(gpu::Context* gpu)
 {
-    auto semaphore = core::create<gpu_semaphore>();
+    auto semaphore = core::create<gpu::Semaphore>();
     semaphore->gpu = gpu;
 
     gpu_check(gpu->vk.CreateSemaphore(gpu->device, core::ptr_to(VkSemaphoreCreateInfo {
@@ -31,7 +31,7 @@ core::Ref<gpu_semaphore> create_semaphore_base(gpu_context* gpu)
     return semaphore;
 }
 
-core::Ref<gpu_semaphore> gpu_semaphore_create(gpu_context* gpu)
+core::Ref<gpu::Semaphore> gpu::semaphore::create(gpu::Context* gpu)
 {
     // Here we are creating a timeline sempahore, and exporting a persistent syncobj
     // handle to it that we can use for importing/exporting syncobj files for interop.
@@ -57,7 +57,7 @@ core::Ref<gpu_semaphore> gpu_semaphore_create(gpu_context* gpu)
     return semaphore;
 }
 
-core::Ref<gpu_semaphore> gpu_semaphore_import_syncobj(gpu_context* gpu, int syncobj_fd)
+core::Ref<gpu::Semaphore> gpu::semaphore::import_syncobj(gpu::Context* gpu, int syncobj_fd)
 {
     auto semaphore = create_semaphore_base(gpu);
 
@@ -75,14 +75,14 @@ core::Ref<gpu_semaphore> gpu_semaphore_import_syncobj(gpu_context* gpu, int sync
     return semaphore;
 }
 
-int gpu_semaphore_export_syncobj(gpu_semaphore* semaphore)
+int gpu::semaphore::export_syncobj(gpu::Semaphore* semaphore)
 {
     int fd = -1;
     core::check<drmSyncobjHandleToFD>(semaphore->gpu->drm.fd, semaphore->syncobj, &fd);
     return fd;
 }
 
-void gpu_semaphore_import_syncfile(gpu_semaphore* semaphore, int sync_fd, u64 target_point)
+void gpu::semaphore::import_syncfile(gpu::Semaphore* semaphore, int sync_fd, u64 target_point)
 {
     auto* gpu = semaphore->gpu;
 
@@ -101,7 +101,7 @@ void gpu_semaphore_import_syncfile(gpu_semaphore* semaphore, int sync_fd, u64 ta
     core::check<drmSyncobjTransfer>(gpu->drm.fd, semaphore->syncobj, target_point, syncobj, 0, 0);
 }
 
-int gpu_semaphore_export_syncfile(gpu_semaphore* semaphore, u64 source_point)
+int gpu::semaphore::export_syncfile(gpu::Semaphore* semaphore, u64 source_point)
 {
     auto* gpu = semaphore->gpu;
 
@@ -118,7 +118,7 @@ int gpu_semaphore_export_syncfile(gpu_semaphore* semaphore, u64 source_point)
     return sync_fd;
 }
 
-gpu_semaphore::~gpu_semaphore()
+gpu::Semaphore::~Semaphore()
 {
     while (!wait.list.empty()) {
         wait.skips++;
@@ -129,7 +129,7 @@ gpu_semaphore::~gpu_semaphore()
     core::check<drmSyncobjDestroy>(gpu->drm.fd, syncobj);
 }
 
-u64 gpu_semaphore_get_value(gpu_semaphore* semaphore)
+u64 gpu::semaphore::get_value(gpu::Semaphore* semaphore)
 {
     auto* gpu = semaphore->gpu;
 
@@ -140,13 +140,13 @@ u64 gpu_semaphore_get_value(gpu_semaphore* semaphore)
 }
 
 static
-void handle_waits(gpu_semaphore* semaphore)
+void handle_waits(gpu::Semaphore* semaphore)
 {
     auto count = core::eventfd_read(semaphore->wait.fd.get());
 
-    if (semaphore->gpu->features.contains(gpu_feature::validation)) {
+    if (semaphore->gpu->features.contains(gpu::Feature::validation)) {
         // Validation layers need to see the new semaphore value.
-        auto _ = gpu_semaphore_get_value(semaphore);
+        auto _ = gpu::semaphore::get_value(semaphore);
     }
 
     if (count > semaphore->wait.skips) {
@@ -168,7 +168,7 @@ void handle_waits(gpu_semaphore* semaphore)
     }
 }
 
-void gpu_semaphore_wait(gpu_semaphore* semaphore, gpu_wait_fn* wait)
+void gpu::semaphore::wait(gpu::Semaphore* semaphore, gpu::WaitFn* wait)
 {
     auto* gpu = semaphore->gpu;
 
@@ -193,7 +193,7 @@ void gpu_semaphore_wait(gpu_semaphore* semaphore, gpu_wait_fn* wait)
     }));
 }
 
-void gpu_wait(gpu_syncpoint syncpoint)
+void gpu::wait(gpu::Syncpoint syncpoint)
 {
     auto[semaphore, value, stages] = syncpoint;
     auto* gpu = semaphore->gpu;
@@ -215,7 +215,7 @@ void gpu_wait(gpu_syncpoint syncpoint)
     }
 }
 
-void gpu_semaphore_signal_value(gpu_semaphore* semaphore, u64 value)
+void gpu::semaphore::signal_value(gpu::Semaphore* semaphore, u64 value)
 {
     auto* gpu = semaphore->gpu;
 

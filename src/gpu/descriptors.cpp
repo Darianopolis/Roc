@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-void gpu_init_descriptors(gpu_context* gpu)
+void gpu_init_descriptors(gpu::Context* gpu)
 {
     auto& vk = gpu->vk;
 
@@ -10,8 +10,8 @@ void gpu_init_descriptors(gpu_context* gpu)
     constexpr auto num_image_descriptors_each = 65536;
     constexpr auto num_sampler_descriptors    =    16;
 
-    gpu->image_descriptor_allocator   = gpu_descriptor_id_allocator(num_image_descriptors_each);
-    gpu->sampler_descriptor_allocator = gpu_descriptor_id_allocator(num_sampler_descriptors);
+    gpu->image_descriptor_allocator   = gpu::DescriptorIdAllocator(num_image_descriptors_each);
+    gpu->sampler_descriptor_allocator = gpu::DescriptorIdAllocator(num_sampler_descriptors);
 
     gpu_check(vk.CreateDescriptorSetLayout(gpu->device, core::ptr_to(VkDescriptorSetLayoutCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -77,12 +77,12 @@ void gpu_init_descriptors(gpu_context* gpu)
 
 // -----------------------------------------------------------------------------
 
-gpu_descriptor_id_allocator::gpu_descriptor_id_allocator(u32 count)
+gpu::DescriptorIdAllocator::DescriptorIdAllocator(u32 count)
     : next_id(1)
     , capacity(count)
 {}
 
-gpu_descriptor_id gpu_descriptor_id_allocator::allocate()
+gpu::DescriptorId gpu::DescriptorIdAllocator::allocate()
 {
     if (!freelist.empty()) {
         auto id = freelist.back();
@@ -90,14 +90,14 @@ gpu_descriptor_id gpu_descriptor_id_allocator::allocate()
         return id;
     }
 
-    if (next_id >= capacity) return gpu_descriptor_id::invalid;
+    if (next_id >= capacity) return gpu::DescriptorId::invalid;
 
-    return gpu_descriptor_id(next_id++);
+    return gpu::DescriptorId(next_id++);
 }
 
-void gpu_descriptor_id_allocator::free(gpu_descriptor_id id)
+void gpu::DescriptorIdAllocator::free(gpu::DescriptorId id)
 {
-    if (id != gpu_descriptor_id::invalid) {
+    if (id != gpu::DescriptorId::invalid) {
         freelist.emplace_back(id);
     }
 }
@@ -110,7 +110,7 @@ void gpu_allocate_image_descriptor(gpu_image_base* image)
     auto& vk = gpu->vk;
 
     auto id = gpu->image_descriptor_allocator.allocate();
-    if (id == gpu_descriptor_id::invalid) {
+    if (id == gpu::DescriptorId::invalid) {
         log_error("No more available image descriptors ids");
         return;
     }
@@ -156,13 +156,13 @@ void gpu_allocate_image_descriptor(gpu_image_base* image)
 
 // -----------------------------------------------------------------------------
 
-void gpu_allocate_sampler_descriptor(gpu_sampler* sampler)
+void gpu_allocate_sampler_descriptor(gpu::Sampler* sampler)
 {
     auto* gpu = sampler->gpu;
     auto& vk = gpu->vk;
 
     auto id = gpu->sampler_descriptor_allocator.allocate();
-    if (id == gpu_descriptor_id::invalid) {
+    if (id == gpu::DescriptorId::invalid) {
         log_error("No more available image descriptors ids");
         return;
     }

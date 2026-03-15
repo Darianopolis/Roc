@@ -46,7 +46,7 @@ struct wroc_backend : wroc_object
     virtual void init() = 0;
     virtual void start() = 0;
 
-    virtual const gpu_format_set& get_output_format_set() = 0;
+    virtual const gpu::FormatSet& get_output_format_set() = 0;
 
     virtual void create_output() = 0;
     virtual void destroy_output(wroc_output*) = 0;
@@ -145,12 +145,12 @@ struct wroc_output : wroc_object
 
     struct release_slot
     {
-        core::Ref<gpu_semaphore> semaphore;
-        core::Ref<gpu_image> image;
+        core::Ref<gpu::Semaphore> semaphore;
+        core::Ref<gpu::Image> image;
         u64 release_point;
     };
     struct {
-        std::vector<core::Ref<gpu_image>> free_images;
+        std::vector<core::Ref<gpu::Image>> free_images;
         std::vector<release_slot> release_slots;
         u32 images_in_flight;
     } swapchain;
@@ -163,7 +163,7 @@ struct wroc_output : wroc_object
 
     bool frame_requested = true;
 
-    virtual wroc_output_commit_id commit(gpu_image* image, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) = 0;
+    virtual wroc_output_commit_id commit(gpu::Image* image, gpu::Syncpoint acquire, gpu::Syncpoint release, core::Flags<wroc_output_commit_flag>) = 0;
 };
 
 wroc_coord_space wroc_output_get_coord_space(wroc_output*);
@@ -630,7 +630,7 @@ struct wroc_buffer : wroc_object
 
     vec2u32 extent;
 
-    core::Ref<gpu_image> image;
+    core::Ref<gpu::Image> image;
 
     core::Weak<wroc_buffer_lock> lock_guard;
     [[nodiscard]] core::Ref<wroc_buffer_lock> lock();
@@ -682,7 +682,7 @@ struct wroc_shm_buffer : wroc_buffer
 
     i32 offset;
     i32 stride;
-    gpu_format format;
+    gpu::Format format;
 
     bool pending_transfer;
 
@@ -698,20 +698,20 @@ struct wroc_dma_buffer_params : wroc_object
 {
     wroc_resource resource;
 
-    gpu_dma_params params;
+    gpu::DmaParams params;
     u32 planes_set;
 };
 
 struct wroc_dma_buffer : wroc_buffer
 {
-    std::optional<gpu_dma_params> params;
+    std::optional<gpu::DmaParams> params;
 
     bool needs_wait = false;
 
-    core::Ref<gpu_semaphore> acquire_timeline;
+    core::Ref<gpu::Semaphore> acquire_timeline;
     u64 acquire_point;
 
-    core::Ref<gpu_semaphore> release_timeline;
+    core::Ref<gpu::Semaphore> release_timeline;
     u64 release_point;
 
     virtual bool is_ready(wroc_surface*) final override;
@@ -724,7 +724,7 @@ struct wroc_dma_buffer : wroc_buffer
 
 struct wroc_syncobj_timeline : wroc_object
 {
-    core::Ref<gpu_semaphore> syncobj;
+    core::Ref<gpu::Semaphore> syncobj;
 
     wroc_resource resource;
 };
@@ -735,10 +735,10 @@ struct wroc_syncobj_surface : wroc_surface_addon
 
     wroc_resource resource;
 
-    core::Ref<gpu_semaphore> release_timeline;
+    core::Ref<gpu::Semaphore> release_timeline;
     u64 release_point;
 
-    core::Ref<gpu_semaphore> acquire_timeline;
+    core::Ref<gpu::Semaphore> acquire_timeline;
     u64 acquire_point;
 
     virtual void commit(wroc_commit_id) final override {};
@@ -1005,13 +1005,13 @@ struct wroc_cursor_surface : wroc_surface_addon
 
 struct wroc_cursor_shape
 {
-    core::Ref<gpu_image> image;
+    core::Ref<gpu::Image> image;
     vec2i32         hotspot;
 };
 
 struct wroc_cursor_texture
 {
-    gpu_image* image;
+    gpu::Image* image;
     vec2i32     hotspot;
 };
 
@@ -1035,7 +1035,7 @@ enum class wroc_render_option : u32 { };
 
 struct wroc_renderer_frame_data
 {
-    gpu_array<struct wroc_shader_rect> rects;
+    gpu::Array<struct wroc_shader_rect> rects;
 };
 
 struct wroc_renderer : wroc_object
@@ -1048,20 +1048,20 @@ struct wroc_renderer : wroc_object
 
     core::Flags<wroc_render_option> options;
 
-    gpu_format output_format;
-    gpu_format_modifier_set output_format_modifiers;
+    gpu::Format output_format;
+    gpu::FormatModifierSet output_format_modifiers;
 
-    core::Ref<gpu_shader> fragment;
-    core::Ref<gpu_shader> vertex;
+    core::Ref<gpu::Shader> fragment;
+    core::Ref<gpu::Shader> vertex;
 
     std::vector<wroc_renderer_frame_data> available_frames;
     std::vector<struct wroc_shader_rect> rects_cpu;
 
-    core::Ref<gpu_image> background;
-    core::Ref<gpu_sampler> sampler;
+    core::Ref<gpu::Image> background;
+    core::Ref<gpu::Sampler> sampler;
 
-    gpu_format_set shm_formats;
-    gpu_format_set dmabuf_formats;
+    gpu::FormatSet shm_formats;
+    gpu::FormatSet dmabuf_formats;
 
     bool vsync = true;
 
@@ -1089,8 +1089,8 @@ void wroc_screenshot(rect2f64 rect);
 
 struct wroc_imgui_frame_data
 {
-    gpu_array<ImDrawIdx> indices;
-    gpu_array<ImDrawVert> vertices;
+    gpu::Array<ImDrawIdx> indices;
+    gpu::Array<ImDrawVert> vertices;
 };
 
 struct wroc_imgui : wroc_object
@@ -1101,14 +1101,14 @@ struct wroc_imgui : wroc_object
 
     rect2f64 layout_rect;
 
-    core::Ref<gpu_shader> fragment;
-    core::Ref<gpu_shader> vertex;
+    core::Ref<gpu::Shader> fragment;
+    core::Ref<gpu::Shader> vertex;
 
-    gpu_array<ImDrawIdx> indices;
-    gpu_array<ImDrawVert> vertices;
+    gpu::Array<ImDrawIdx> indices;
+    gpu::Array<ImDrawVert> vertices;
     std::vector<wroc_imgui_frame_data> available_frames;
 
-    core::Ref<gpu_image> font_image;
+    core::Ref<gpu::Image> font_image;
 
     bool wants_mouse;
     bool wants_keyboard;
@@ -1120,9 +1120,9 @@ struct wroc_imgui : wroc_object
 
 struct alignas(ImTextureID) wroc_imgui_texture
 {
-    gpu_image_handle<vec4f32> handle;
+    gpu::ImageHandle<vec4f32> handle;
 
-    wroc_imgui_texture(gpu_image* image, gpu_sampler* sampler)
+    wroc_imgui_texture(gpu::Image* image, gpu::Sampler* sampler)
         : handle(image, sampler)
     {}
 
@@ -1137,7 +1137,7 @@ void ImGui_Text(std::format_string<Args...> fmt, Args&&... args)
 
 void wroc_imgui_init();
 void wroc_imgui_frame(wroc_imgui*, rect2f64 layout_rect);
-void wroc_imgui_render(wroc_imgui*, gpu_commands*, rect2f64 viewport, vec2u32 framebuffer_extent);
+void wroc_imgui_render(wroc_imgui*, gpu::Commands*, rect2f64 viewport, vec2u32 framebuffer_extent);
 bool wroc_imgui_handle_event(wroc_imgui*, const struct wroc_event&);
 
 // -----------------------------------------------------------------------------
@@ -1205,7 +1205,7 @@ enum class wroc_direction : u32
 struct wroc_server : wroc_object
 {
     core::Ref<wroc_backend>  backend;
-    gpu_context*      gpu;
+    gpu::Context*      gpu;
     core::Ref<wroc_renderer> renderer;
     core::Ref<wroc_seat>     seat;
 

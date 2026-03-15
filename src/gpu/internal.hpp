@@ -47,52 +47,52 @@ auto gpu_vk_make_chain_in(std::span<void* const> structures)
 
 // -----------------------------------------------------------------------------
 
-u32 gpu_find_vk_memory_type_index(gpu_context*, u32 type_filter, VkMemoryPropertyFlags properties);
+u32 gpu_find_vk_memory_type_index(gpu::Context*, u32 type_filter, VkMemoryPropertyFlags properties);
 
-VkFormatFeatureFlags gpu_get_required_format_features(gpu_format, core::Flags<gpu_image_usage>);
+VkFormatFeatureFlags gpu_get_required_format_features(gpu::Format, core::Flags<gpu::ImageUsage>);
 
 // -----------------------------------------------------------------------------
 
-auto gpu_image_usage_to_vk(core::Flags<gpu_image_usage>) -> VkImageUsageFlags;
+auto gpu_image_usage_to_vk(core::Flags<gpu::ImageUsage>) -> VkImageUsageFlags;
 
-struct gpu_image_base : gpu_image
+struct gpu_image_base : gpu::Image
 {
-    gpu_context* gpu;
+    gpu::Context* gpu;
 
     struct {
-        gpu_format format;
-        gpu_drm_modifier modifier = DRM_FORMAT_MOD_INVALID;
+        gpu::Format format;
+        gpu::DrmModifier modifier = DRM_FORMAT_MOD_INVALID;
 
         VkImage     image;
         VkImageView view;
         vec2u32     extent;
 
-        gpu_descriptor_id id;
+        gpu::DescriptorId id;
 
-        core::Flags<gpu_image_usage> usage;
+        core::Flags<gpu::ImageUsage> usage;
     } data;
 
     virtual ~gpu_image_base();
 
-    virtual auto base() -> gpu_image* final override { return this; }
+    virtual auto base() -> gpu::Image* final override { return this; }
 };
 
 void gpu_image_init(gpu_image_base*);
 
-core::Ref<gpu_image> gpu_image_create_dmabuf(gpu_context*, const gpu_image_create_info&);
+core::Ref<gpu::Image> gpu_image_create_dmabuf(gpu::Context*, const gpu::ImageCreateInfo&);
 
 // -----------------------------------------------------------------------------
 
 static constexpr u32 gpu_push_constant_size = 256;
 
-void gpu_init_descriptors(gpu_context*);
+void gpu_init_descriptors(gpu::Context*);
 void gpu_allocate_image_descriptor(gpu_image_base*);
-void gpu_allocate_sampler_descriptor(gpu_sampler*);
+void gpu_allocate_sampler_descriptor(gpu::Sampler*);
 
 // -----------------------------------------------------------------------------
 
-core::Ref<gpu_queue> gpu_queue_init(gpu_context*, gpu_queue_type, u32 family);
+core::Ref<gpu::Queue> gpu_queue_init(gpu::Context*, gpu::QueueType, u32 family);
 
 // -----------------------------------------------------------------------------
 
-VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const gpu_syncpoint& syncpoint);
+VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const gpu::Syncpoint& syncpoint);

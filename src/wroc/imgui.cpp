@@ -32,12 +32,12 @@ void wroc_imgui_init()
     server->imgui = core::create<wroc_imgui>();
     auto* imgui = server->imgui.get();
 
-    imgui->vertex = gpu_shader_create(gpu, {
+    imgui->vertex = gpu::shader::create(gpu, {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .code = wroc_imgui_shader,
         .entry = "vertex"
     });
-    imgui->fragment = gpu_shader_create(gpu, {
+    imgui->fragment = gpu::shader::create(gpu, {
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
         .code = wroc_imgui_shader,
         .entry = "fragment"
@@ -59,12 +59,12 @@ void wroc_imgui_init()
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        imgui->font_image = gpu_image_create(gpu, {
+        imgui->font_image = gpu::image::create(gpu, {
             .extent = {width, height},
-            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+            .format = gpu::format::from_drm(DRM_FORMAT_ABGR8888),
+            .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer
         });
-        gpu_copy_memory_to_image(imgui->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
+        gpu::copy_memory_to_image(imgui->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
 
         io.Fonts->SetTexID(ImTextureID(wroc_imgui_texture(imgui->font_image.get(), server->renderer->sampler.get())));
     }
@@ -338,7 +338,7 @@ void wroc_imgui_frame(wroc_imgui* imgui, rect2f64 layout_rect)
     imgui->on_render.clear();
 }
 
-void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewport, vec2u32 framebuffer_extent)
+void wroc_imgui_render(wroc_imgui* imgui, gpu::Commands* commands, rect2f64 viewport, vec2u32 framebuffer_extent)
 {
     auto data = ImGui::GetDrawData();
     if (!data || !data->TotalIdxCount) return;
@@ -370,7 +370,7 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
     };
     auto guard = core::create<frame_guard>();
     guard->imgui = imgui;
-    gpu_cmd_protect(commands, guard.get());
+    gpu::commands::protect(commands, guard.get());
 
     wroc_imgui_frame_data* frame = &guard->frame_data;
     if (!imgui->available_frames.empty()) {
@@ -383,21 +383,21 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
     if (frame->vertices.count < usz(data->TotalVtxCount)) {
         auto new_size = core::compute_geometric_growth(frame->vertices.count, data->TotalVtxCount);
         log_debug("ImGui - reallocating vertex buffer, size: {}", new_size);
-        frame->vertices = {gpu_buffer_create(gpu, new_size * sizeof(ImDrawVert), {}), usz(new_size)};
+        frame->vertices = {gpu::buffer::create(gpu, new_size * sizeof(ImDrawVert), {}), usz(new_size)};
     }
 
     if (frame->indices.count < usz(data->TotalIdxCount)) {
         auto new_size = core::compute_geometric_growth(frame->indices.count, data->TotalIdxCount);
         log_debug("ImGui - reallocating index buffer, size: {}", new_size);
-        frame->indices = {gpu_buffer_create(gpu, new_size * sizeof(ImDrawIdx), {}), usz(new_size)};
+        frame->indices = {gpu::buffer::create(gpu, new_size * sizeof(ImDrawIdx), {}), usz(new_size)};
     }
 
     // TODO: Protect images
     auto cmd = commands->buffer;
 
-    gpu_cmd_bind_shaders(commands, {imgui->vertex.get(), imgui->fragment.get()});
-    gpu_cmd_reset_graphics_state(commands);
-    gpu_cmd_set_blend_state(commands, {gpu_blend_mode::postmultiplied});
+    gpu::commands::bind_shaders(commands, {imgui->vertex.get(), imgui->fragment.get()});
+    gpu::commands::reset_graphics_state(commands);
+    gpu::commands::set_blend_state(commands, {gpu::BlendMode::postmultiplied});
     gpu->vk.CmdBindIndexBuffer(cmd,
         frame->indices.buffer->buffer, frame->indices.byte_offset,
         sizeof(ImDrawIdx) == sizeof(u16) ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
@@ -422,10 +422,10 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
                 continue;
             }
 
-            gpu_cmd_set_scissors(commands, {{clip_min, clip_max, core::minmax}});
+            gpu::commands::set_scissors(commands, {{clip_min, clip_max, core::minmax}});
 
             auto draw_scale = 2.f / vec2f32(viewport.extent);
-            gpu_cmd_push_constants(commands, 0, core::view_bytes(wroc_imgui_shader_in {
+            gpu::commands::push_constants(commands, 0, core::view_bytes(wroc_imgui_shader_in {
                 .vertices = frame->vertices.device(),
                 .scale = draw_scale,
                 .offset = vec2f32(-1.f) - (vec2f32(viewport.origin) * draw_scale),

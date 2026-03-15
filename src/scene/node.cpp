@@ -157,14 +157,14 @@ void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
 auto scene_texture_create(scene_context*) -> core::Ref<scene_texture>
 {
     auto texture = core::create<scene_texture>();
-    texture->blend = gpu_blend_mode::postmultiplied;
+    texture->blend = gpu::BlendMode::postmultiplied;
     texture->type = scene_node_type::texture;
     texture->tint = {255, 255, 255, 255};
     texture->src = {{}, {1, 1}, core::minmax};
     return texture;
 }
 
-void scene_texture_set_image(scene_texture* texture, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend)
+void scene_texture_set_image(scene_texture* texture, gpu::Image* image, gpu::Sampler* sampler, gpu::BlendMode blend)
 {
     if (   texture->image.get()   == image
         && texture->sampler.get() == sampler
@@ -229,7 +229,7 @@ auto scene_mesh_create(scene_context* ctx) -> core::Ref<scene_mesh>
     return mesh;
 }
 
-void scene_mesh_update(scene_mesh* mesh, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend, aabb2f32 clip, std::span<const scene_vertex> vertices, std::span<const u16> indices)
+void scene_mesh_update(scene_mesh* mesh, gpu::Image* image, gpu::Sampler* sampler, gpu::BlendMode blend, aabb2f32 clip, std::span<const scene_vertex> vertices, std::span<const u16> indices)
 {
 #if SCENE_NOISY_NODES
     if (mesh->image.get()   != image)   NODE_LOG("scene.mesh{{{}}}.set_image({})",   (void*)mesh, (void*)image);

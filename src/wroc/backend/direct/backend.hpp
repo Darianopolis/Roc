@@ -17,7 +17,7 @@ struct wroc_drm_output_state;
 
 struct wroc_drm_buffer
 {
-    core::Weak<gpu_image> image;
+    core::Weak<gpu::Image> image;
     u32 fb2_handle;
 };
 
@@ -27,7 +27,7 @@ struct wroc_drm_output : wroc_output
 
     ~wroc_drm_output();
 
-    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
+    virtual wroc_output_commit_id commit(gpu::Image*, gpu::Syncpoint acquire, gpu::Syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
 };
 
 struct wroc_libinput_keyboard : wroc_keyboard
@@ -77,9 +77,9 @@ struct wroc_direct_backend : wroc_backend
     virtual void init() final override;
     virtual void start() final override;
 
-    gpu_format_set format_set;
+    gpu::FormatSet format_set;
 
-    virtual const gpu_format_set& get_output_format_set() final override
+    virtual const gpu::FormatSet& get_output_format_set() final override
     {
         return format_set;
     }

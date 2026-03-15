@@ -42,7 +42,7 @@ enum class io_output_commit_flag : u32
 struct io_output_info
 {
     vec2u32 size;
-    const gpu_format_set* formats;
+    const gpu::FormatSet* formats;
 };
 
 /**
@@ -58,7 +58,7 @@ struct io_output
 {
     virtual auto info() -> io_output_info = 0;
     virtual void request_frame() = 0;
-    virtual void commit(gpu_image*, gpu_syncpoint done, core::Flags<io_output_commit_flag>) = 0;
+    virtual void commit(gpu::Image*, gpu::Syncpoint done, core::Flags<io_output_commit_flag>) = 0;
 };
 
 // -----------------------------------------------------------------------------
@@ -144,7 +144,7 @@ using io_event_handler = void(io_event*);
 
 // -----------------------------------------------------------------------------
 
-auto io_create(core::EventLoop*, gpu_context*) -> core::Ref<io_context>;
+auto io_create(core::EventLoop*, gpu::Context*) -> core::Ref<io_context>;
 void io_set_event_handler(io_context*, std::move_only_function<io_event_handler>&&);
 void io_run( io_context*);
 void io_stop(io_context*);

@@ -216,7 +216,7 @@ void apply(way_surface* surface, way_surface_state& from)
         scene_texture_set_image(surface->scene.texture.get(),
             to.image.get(),
             surface->client->server->sampler.get(),
-            gpu_blend_mode::premultiplied);
+            gpu::BlendMode::premultiplied);
 
         if (from.buffer_damage) {
             scene_texture_damage(surface->scene.texture.get(), from.buffer_damage.bounds());
@@ -225,7 +225,7 @@ void apply(way_surface* surface, way_surface_state& from)
     } else if (from.is_unset(way_surface_committed_state::buffer)) {
         to.buffer = nullptr;
 
-        scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu_blend_mode::none);
+        scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, gpu::BlendMode::none);
     }
 
     // Buffer source / destination

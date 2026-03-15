@@ -55,7 +55,7 @@ void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u
 
     auto* params = wroc_get_userdata<wroc_dma_buffer_params>(resource);
 
-    if (plane_idx >= gpu_dma_max_planes) {
+    if (plane_idx >= gpu::max_dma_planes) {
         wroc_post_error(resource, ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_PLANE_IDX, "Invalid plane index");
         return;
     }
@@ -78,7 +78,7 @@ void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u
     params->planes_set |= (1 << plane_idx);
 
     auto& plane = params->params.planes[plane_idx];
-    plane = gpu_dma_plane {
+    plane = gpu::DmaPlane {
         .offset = offset,
         .stride = stride,
     };
@@ -101,7 +101,7 @@ void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u
 static
 wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* params_resource, u32 buffer_id, i32 width, i32 height, u32 drm_format, u32 flags)
 {
-    auto format = gpu_format_from_drm(drm_format);
+    auto format = gpu::format::from_drm(drm_format);
 
     if (!format) {
         wroc_post_error(params_resource, ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_FORMAT, "Invalid format");
@@ -136,8 +136,8 @@ wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* param
 
     buffer->extent = {width, height};
     log_debug("Importing DMA-BUF, size = {}, format = {}, mod = {}",
-        core::to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
-    buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
+        core::to_string(buffer->extent), format->name, gpu::drm_modifier_get_name(params.modifier));
+    buffer->image = gpu::image::import_dmabuf(server->gpu, params, gpu::ImageUsage::texture);
 
     dma_params->params = {};
     dma_params->planes_set = {};
@@ -178,10 +178,10 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
 
     bool ready = true;
     if (acquire_timeline) {
-        ready = gpu_semaphore_get_value(acquire_timeline.get()) >= acquire_point;
+        ready = gpu::semaphore::get_value(acquire_timeline.get()) >= acquire_point;
         if (!ready) {
             surface->apply_queued = true;
-            gpu_wait({acquire_timeline.get(), acquire_point}, [surface = core::Weak(surface)](u64)  {
+            gpu::wait({acquire_timeline.get(), acquire_point}, [surface = core::Weak(surface)](u64)  {
                 if (surface) {
                     surface->apply_queued = false;
                     wroc_surface_flush_apply(surface.get());
@@ -191,7 +191,7 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
     } else {
         if (!params) {
             log_debug("First use of implicit sync with imported image, re-exporting DMA-BUF fds");
-            params = gpu_image_export(image.get());
+            params = gpu::image::export_dmabuf(image.get());
         }
 
         for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
@@ -304,7 +304,7 @@ void wroc_dma_buffer::on_unlock()
 {
     release();
     if (release_timeline) {
-        gpu_semaphore_signal_value(release_timeline.get(), release_point);
+        gpu::semaphore::signal_value(release_timeline.get(), release_point);
 
         release_timeline = nullptr;
     }

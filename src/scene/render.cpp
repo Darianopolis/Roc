@@ -7,31 +7,31 @@
 
 void scene_render_init(scene_context* ctx)
 {
-    ctx->render.vertex   = gpu_shader_create(ctx->gpu, {
+    ctx->render.vertex   = gpu::shader::create(ctx->gpu, {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .code = scene_render_shader,
         .entry = "vertex"
     });
-    ctx->render.fragment = gpu_shader_create(ctx->gpu, {
+    ctx->render.fragment = gpu::shader::create(ctx->gpu, {
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
         .code = scene_render_shader,
         .entry = "fragment"
     });
 
-    ctx->render.white = gpu_image_create(ctx->gpu, {
+    ctx->render.white = gpu::image::create(ctx->gpu, {
         .extent = {1, 1},
-        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = gpu_image_usage::texture | gpu_image_usage::transfer_dst
+        .format = gpu::format::from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer_dst
     });
-    gpu_copy_memory_to_image(ctx->render.white.get(), {core::ptr_to(vec4u8{255, 255, 255, 255}), 4}, {{{1, 1}}});
+    gpu::copy_memory_to_image(ctx->render.white.get(), {core::ptr_to(vec4u8{255, 255, 255, 255}), 4}, {{{1, 1}}});
 
-    ctx->render.sampler = gpu_sampler_create(ctx->gpu, {
+    ctx->render.sampler = gpu::sampler::create(ctx->gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
 }
 
-void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output, gpu_image_pool* pool)
+void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output, gpu::ImagePool* pool)
 {
     scene_broadcast_event(ctx, core::ptr_to(scene_event {
         .type = scene_event_type::output_frame,
@@ -40,15 +40,15 @@ void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output,
 
     // TODO: Only redraw with damage
 
-    auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-    auto usage = gpu_image_usage::render;
+    auto format = gpu::format::from_drm(DRM_FORMAT_ABGR8888);
+    auto usage = gpu::ImageUsage::render;
 
     auto target = pool->acquire({
         .extent = io_output->info().size,
         .format = format,
         .usage = usage,
-        .modifiers = core::ptr_to(gpu_intersect_format_modifiers({
-            &gpu_get_format_props(ctx->gpu, format, usage)->mods,
+        .modifiers = core::ptr_to(gpu::intersect_format_modifiers({
+            &gpu::get_format_props(ctx->gpu, format, usage)->mods,
             &io_output->info().formats->get(format),
         }))
     });
@@ -58,7 +58,7 @@ void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output,
     io_output->commit(target.get(), done, io_output_commit_flag::vsync);
 }
 
-auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint
+auto scene_render(scene_context* ctx, gpu::Image* target, rect2f32 viewport) -> gpu::Syncpoint
 {
     auto& render = ctx->render;
 
@@ -68,9 +68,9 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         u32 first_index;
         u32 num_indices;
         aabb2f32 clip;
-        gpu_image* image;
-        gpu_sampler* sampler;
-        gpu_blend_mode blend;
+        gpu::Image* image;
+        gpu::Sampler* sampler;
+        gpu::BlendMode blend;
         vec2f32 position;
     };
 
@@ -81,7 +81,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     aabb2f32 default_clip = viewport;
 
     auto get_draw = [&draws, &vertices, &indices](
-        aabb2f32 clip, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend, vec2f32 position)
+        aabb2f32 clip, gpu::Image* image, gpu::Sampler* sampler, gpu::BlendMode blend, vec2f32 position)
     {
         auto* draw = draws.empty() ? nullptr : &draws.back();
         if (  !draw
@@ -179,7 +179,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     auto gpu = ctx->gpu;
 
     auto make_gpu = [&]<typename T>(std::span<T> data) {
-        gpu_array<T> arr{gpu_buffer_create(gpu, data.size_bytes(), {}), 0};
+        gpu::Array<T> arr{gpu::buffer::create(gpu, data.size_bytes(), {}), 0};
         std::memcpy(arr.host(), data.data(), data.size_bytes());
         return arr;
     };
@@ -187,19 +187,19 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     auto gpu_vertices = make_gpu(std::span(vertices));
     auto gpu_indices  = make_gpu(std::span(indices));
 
-    auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-    auto commands = gpu_commands_begin(queue);
+    auto queue = gpu::queue::get(gpu, gpu::QueueType::graphics);
+    auto commands = gpu::commands::begin(queue);
     auto cmd = commands.get();
-    gpu_cmd_protect(cmd, gpu_vertices.buffer.get());
-    gpu_cmd_protect(cmd, gpu_indices.buffer.get());
+    gpu::commands::protect(cmd, gpu_vertices.buffer.get());
+    gpu::commands::protect(cmd, gpu_indices.buffer.get());
 
     // Protect images
 
-    gpu_cmd_protect(cmd, target);
+    gpu::commands::protect(cmd, target);
 
-    gpu_cmd_protect(cmd, render.white.get());
+    gpu::commands::protect(cmd, render.white.get());
     for (auto& draw : draws) {
-        gpu_cmd_protect(cmd, draw.image);
+        gpu::commands::protect(cmd, draw.image);
     }
 
     // Record
@@ -207,9 +207,9 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     VkExtent2D vk_extent = { target->extent().x, target->extent().y };
     vec2f32 target_extent = target->extent();
 
-    gpu_cmd_reset_graphics_state(cmd);
-    gpu_cmd_set_viewports(cmd, {{{}, target_extent, core::xywh}});
-    gpu_cmd_bind_shaders(cmd, {ctx->render.vertex.get(), ctx->render.fragment.get()});
+    gpu::commands::reset_graphics_state(cmd);
+    gpu::commands::set_viewports(cmd, {{{}, target_extent, core::xywh}});
+    gpu::commands::bind_shaders(cmd, {ctx->render.vertex.get(), ctx->render.fragment.get()});
 
     gpu->vk.CmdBeginRendering(cmd->buffer, core::ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -229,14 +229,14 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     gpu->vk.CmdBindIndexBuffer(cmd->buffer, gpu_indices.buffer->buffer, 0, VK_INDEX_TYPE_UINT32);
 
     for (auto& draw : draws) {
-        gpu_cmd_set_blend_state(cmd, {draw.blend});
+        gpu::commands::set_blend_state(cmd, {draw.blend});
 
         rect2f32 scissor = draw.clip;
         scissor.origin -= viewport.origin;
-        gpu_cmd_set_scissors(cmd, {scissor});
+        gpu::commands::set_scissors(cmd, {scissor});
 
         auto draw_scale = 2.f / viewport.extent;
-        gpu_cmd_push_constants(cmd, 0, core::view_bytes(scene_render_input {
+        gpu::commands::push_constants(cmd, 0, core::view_bytes(scene_render_input {
             .vertices = gpu_vertices.device(),
             .scale = draw_scale,
             .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
@@ -248,5 +248,5 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
 
     gpu->vk.CmdEndRendering(cmd->buffer);
 
-    return gpu_submit(cmd, {});
+    return gpu::submit(cmd, {});
 }

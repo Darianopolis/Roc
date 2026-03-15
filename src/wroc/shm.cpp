@@ -5,7 +5,7 @@
 const u32 wroc_wl_shm_version = 2;
 
 inline
-wl_shm_format from_drm(gpu_drm_format drm)
+wl_shm_format from_drm(gpu::DrmFormat drm)
 {
     switch (drm) {
         break;case DRM_FORMAT_XRGB8888: return WL_SHM_FORMAT_XRGB8888;
@@ -15,12 +15,12 @@ wl_shm_format from_drm(gpu_drm_format drm)
 }
 
 inline
-gpu_drm_format to_drm(wl_shm_format shm)
+gpu::DrmFormat to_drm(wl_shm_format shm)
 {
     switch (shm) {
         break;case WL_SHM_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;
         break;case WL_SHM_FORMAT_ARGB8888: return DRM_FORMAT_ARGB8888;
-        break;default:                  return gpu_drm_format(shm);
+        break;default:                  return gpu::DrmFormat(shm);
     }
 }
 
@@ -78,7 +78,7 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
 {
     auto* pool = wroc_get_userdata<wroc_shm_pool>(resource);
 
-    auto format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
+    auto format = gpu::format::from_drm(to_drm(wl_shm_format(_format)));
     if (!format) {
         wroc_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", core::to_string(wl_shm_format(_format)));
         return;
@@ -108,10 +108,10 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
 
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_wl_buffer_impl, shm_buffer);
 
-    shm_buffer->image = gpu_image_create(server->gpu, {
+    shm_buffer->image = gpu::image::create(server->gpu, {
         .extent = shm_buffer->extent,
         .format = shm_buffer->format,
-        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+        .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer
     });
 
     log_debug("Created shared buffer {}, format = {}", core::to_string(shm_buffer->extent), shm_buffer->format->name);
@@ -149,15 +149,15 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
     if (pending_transfer) {
         auto mapping = pool->mapping;
 
-        auto queue = gpu_get_queue(image->context(), gpu_queue_type::graphics);
-        auto commands = gpu_commands_begin(queue);
+        auto queue = gpu::queue::get(image->context(), gpu::QueueType::graphics);
+        auto commands = gpu::commands::begin(queue);
 
         const auto& info = image->format()->info;
         usz block_w = (image->extent().x + info.block_extent.width  - 1) / info.block_extent.width;
         usz block_h = (image->extent().y + info.block_extent.height - 1) / info.block_extent.height;
         usz image_size = block_w * block_h * info.texel_block_size;
 
-        gpu_cmd_copy_memory_to_image(commands.get(), image.get(),
+        gpu::commands::copy_memory_to_image(commands.get(), image.get(),
             {core::byte_offset_pointer<void>(mapping->data, offset), image_size},
             {{image->extent()}});
 
@@ -177,9 +177,9 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
         auto transfer_guard = core::create<shm_transfer_guard>();
         transfer_guard->lock = lock();
         transfer_guard->mapping = mapping;
-        gpu_cmd_protect(commands.get(), transfer_guard.get());
+        gpu::commands::protect(commands.get(), transfer_guard.get());
 
-        gpu_submit(commands.get(), {});
+        gpu::submit(commands.get(), {});
 
         pending_transfer = false;
     }

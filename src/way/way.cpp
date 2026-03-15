@@ -7,7 +7,7 @@ way_server::~way_server()
     wl_display_destroy(wl_display);
 }
 
-auto way_create(core::EventLoop* event_loop, gpu_context* gpu, scene_context* scene) -> core::Ref<way_server>
+auto way_create(core::EventLoop* event_loop, gpu::Context* gpu, scene_context* scene) -> core::Ref<way_server>
 {
     auto server = core::create<way_server>();
 
@@ -45,7 +45,7 @@ auto way_create(core::EventLoop* event_loop, gpu_context* gpu, scene_context* sc
     way_output_init(server.get());
     way_dmabuf_init(server.get());
 
-    server->sampler = gpu_sampler_create(gpu, {
+    server->sampler = gpu::sampler::create(gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });

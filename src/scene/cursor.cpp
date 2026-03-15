@@ -68,15 +68,15 @@ auto get_xcursor(scene_context* ctx, const char* semantic) -> scene_node*
     }
 
     defer { XcursorImageDestroy(cursor); };
-    auto image = gpu_image_create(ctx->gpu, {
+    auto image = gpu::image::create(ctx->gpu, {
         .extent = {cursor->width, cursor->height},
-        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+        .format = gpu::format::from_drm(DRM_FORMAT_ABGR8888),
+        .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer
     });
-    gpu_copy_memory_to_image(image.get(), {cursor->pixels, cursor->width * cursor->height * 4}, {{image->extent()}});
+    gpu::copy_memory_to_image(image.get(), {cursor->pixels, cursor->width * cursor->height * 4}, {{image->extent()}});
 
     auto visual = scene_texture_create(ctx);
-    scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);
+    scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu::BlendMode::premultiplied);
     scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core::xywh});
 
     manager->cache.insert({semantic, visual});

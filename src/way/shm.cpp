@@ -50,7 +50,7 @@ WAY_BIND_GLOBAL(wl_shm, bind)
 // -----------------------------------------------------------------------------
 
 inline
-wl_shm_format from_drm(gpu_drm_format drm)
+wl_shm_format from_drm(gpu::DrmFormat drm)
 {
     switch (drm) {
         break;case DRM_FORMAT_XRGB8888: return WL_SHM_FORMAT_XRGB8888;
@@ -60,12 +60,12 @@ wl_shm_format from_drm(gpu_drm_format drm)
 }
 
 inline
-gpu_drm_format to_drm(wl_shm_format shm)
+gpu::DrmFormat to_drm(wl_shm_format shm)
 {
     switch (shm) {
         break;case WL_SHM_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;
         break;case WL_SHM_FORMAT_ARGB8888: return DRM_FORMAT_ARGB8888;
-        break;default:                     return gpu_drm_format(shm);
+        break;default:                     return gpu::DrmFormat(shm);
     }
 }
 
@@ -79,9 +79,9 @@ struct way_shm_buffer : way_buffer
 
     i32 offset;
     i32 stride;
-    gpu_format format;
+    gpu::Format format;
 
-    virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu_image> final override;
+    virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu::Image> final override;
 };
 
 static
@@ -93,7 +93,7 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     auto buffer = core::create<way_shm_buffer>();
     buffer->resource = way_resource_create_refcounted(wl_buffer, client, resource, id, buffer.get());
 
-    buffer->format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
+    buffer->format = gpu::format::from_drm(to_drm(wl_shm_format(_format)));
     buffer->extent = {width, height};
     buffer->pool = pool;
     buffer->stride = stride;
@@ -128,7 +128,7 @@ way_shm_pool::~way_shm_pool()
 #define NOISY_SHM_BUFFER_IMAGES 1
 
 static
-auto try_steal(way_shm_buffer* buffer, way_surface* surface) -> gpu_image*
+auto try_steal(way_shm_buffer* buffer, way_surface* surface) -> gpu::Image*
 {
     // If the last attached buffer is a wl_shm buffer...
     auto* shm_buffer = dynamic_cast<way_shm_buffer*>(surface->current.buffer.get());
@@ -149,7 +149,7 @@ auto try_steal(way_shm_buffer* buffer, way_surface* surface) -> gpu_image*
     return candidate;
 }
 
-auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) -> core::Ref<gpu_image>
+auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) -> core::Ref<gpu::Image>
 {
     core::Ref image = try_steal(this, surface);
 
@@ -158,10 +158,10 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
     auto* server = pool->server;
 
     if (!image) {
-        image = gpu_image_create(server->gpu, {
+        image = gpu::image::create(server->gpu, {
             .extent = extent,
             .format = format,
-            .usage = gpu_image_usage::transfer_dst | gpu_image_usage::texture,
+            .usage = gpu::ImageUsage::transfer_dst | gpu::ImageUsage::texture,
         });
 
         damage.damage({{}, extent, core::minmax});
@@ -182,26 +182,26 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
 
         auto* gpu = server->gpu;
 
-        auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-        auto commands = gpu_commands_begin(queue);
+        auto queue = gpu::queue::get(gpu, gpu::QueueType::graphics);
+        auto commands = gpu::commands::begin(queue);
 
         auto& info = format->info;
-        auto min_offset = gpu_image_compute_linear_offset(format, aabb.min,     stride);
-        auto max_offset = gpu_image_compute_linear_offset(format, aabb.max - 1, stride) + info.texel_block_size;
+        auto min_offset = gpu::image::compute_linear_offset(format, aabb.min,     stride);
+        auto max_offset = gpu::image::compute_linear_offset(format, aabb.max - 1, stride) + info.texel_block_size;
 
         auto size = max_offset - min_offset;
-        auto staging = gpu_buffer_create(gpu, size, gpu_buffer_flag::host);
+        auto staging = gpu::buffer::create(gpu, size, gpu::BufferFlag::host);
         core_assert((offset + max_offset) <= pool->size, "accessed {} > available {}", offset + max_offset, pool->size);
         std::memcpy(staging->host_address, core::byte_offset_pointer<void>(pool->data, offset + min_offset), size);
 
-        gpu_cmd_copy_buffer_to_image(commands.get(), image.get(), staging.get(),
+        gpu::commands::copy_buffer_to_image(commands.get(), image.get(), staging.get(),
             {{
                 .image_extent = rect.extent,
                 .image_offset = rect.origin,
                 .buffer_row_length = u32(stride) / info.texel_block_size,
             }});
 
-        gpu_submit(commands.get(), {});
+        gpu::submit(commands.get(), {});
     }
 #if NOISY_SHM_BUFFER_IMAGES
     else {

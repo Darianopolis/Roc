@@ -78,8 +78,8 @@ struct io_wayland
     IO_WL_INTERFACE(wp_linux_drm_syncobj_manager_v1);
 
     struct {
-        std::vector<std::pair<gpu_format, gpu_drm_modifier>> table;
-        gpu_format_set set;
+        std::vector<std::pair<gpu::Format, gpu::DrmModifier>> table;
+        gpu::FormatSet set;
     } format;
 
     core::Fd wl_display_fd = {};
@@ -93,8 +93,8 @@ struct io_wayland
 
     bool in_keyboard_enter;
 
-    io_wl_proxy_cache<gpu_semaphore, wp_linux_drm_syncobj_timeline_v1> syncobj_cache { wp_linux_drm_syncobj_timeline_v1_destroy };
-    io_wl_proxy_cache<gpu_image, wl_buffer> buffer_cache  { wl_buffer_destroy };
+    io_wl_proxy_cache<gpu::Semaphore, wp_linux_drm_syncobj_timeline_v1> syncobj_cache { wp_linux_drm_syncobj_timeline_v1_destroy };
+    io_wl_proxy_cache<gpu::Image, wl_buffer> buffer_cache  { wl_buffer_destroy };
 
     ~io_wayland();
 };
@@ -127,14 +127,14 @@ struct io_output_wayland : io_output_base
 
     struct release_slot
     {
-        core::Ref<gpu_image>     image;
-        core::Ref<gpu_semaphore> semaphore;
+        core::Ref<gpu::Image>     image;
+        core::Ref<gpu::Semaphore> semaphore;
         u64                point;
     };
 
     std::vector<release_slot> release_slots;
 
-    virtual void commit(gpu_image*, gpu_syncpoint done, core::Flags<io_output_commit_flag>) final override;
+    virtual void commit(gpu::Image*, gpu::Syncpoint done, core::Flags<io_output_commit_flag>) final override;
 
     ~io_output_wayland();
 };

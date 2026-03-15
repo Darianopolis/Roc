@@ -152,7 +152,7 @@ struct drm_property_map
 // -----------------------------------------------------------------------------
 
 static
-gpu_format_set parse_plane_formats(wroc_direct_backend* backend, drm_resources* resources, drmModePlane* plane)
+gpu::FormatSet parse_plane_formats(wroc_direct_backend* backend, drm_resources* resources, drmModePlane* plane)
 {
     drm_property_map props{backend, plane->plane_id, DRM_MODE_OBJECT_PLANE};
     auto blob_id = props.get_prop_value("IN_FORMATS");
@@ -166,17 +166,17 @@ gpu_format_set parse_plane_formats(wroc_direct_backend* backend, drm_resources* 
 
     auto* header = static_cast<drm_format_modifier_blob*>(blob->data);
 
-    auto formats = core::byte_offset_pointer<gpu_drm_format>(blob->data, header->formats_offset);
+    auto formats = core::byte_offset_pointer<gpu::DrmFormat>(blob->data, header->formats_offset);
     auto modifiers = core::byte_offset_pointer<drm_format_modifier>(blob->data, header->modifiers_offset);
 
-    gpu_format_set set;
+    gpu::FormatSet set;
     for (auto mod : std::span(modifiers, header->count_modifiers)) {
         u32 index = mod.offset;
         while (mod.formats) {
             auto bit_idx = std::countr_zero(mod.formats);
             index += bit_idx;
 
-            auto format = gpu_format_from_drm(formats[index]);
+            auto format = gpu::format::from_drm(formats[index]);
             if (format) set.add(format, mod.modifier);
 
             mod.formats >>= bit_idx + 1;
@@ -200,13 +200,13 @@ struct wroc_drm_output_state
     drm_property_map plane_prop;
     drm_property_map crtc_prop;
 
-    core::Ref<gpu_semaphore> last_release_semaphore = {};
+    core::Ref<gpu::Semaphore> last_release_semaphore = {};
     u64 last_release_point;
 
-    gpu_format_set format_set;
+    gpu::FormatSet format_set;
 
 #if WROC_DRM_EXPERIMENTAL_BROKEN_TEARING_SUPPORT
-    core::Ref<gpu_semaphore> pending_release_semaphore = {};
+    core::Ref<gpu::Semaphore> pending_release_semaphore = {};
     u64 pending_release_point;
 #endif
 
@@ -383,11 +383,11 @@ void wroc_backend_init_drm(wroc_direct_backend* backend)
 
     // Intersect format sets for all outputs
 
-    std::vector<const gpu_format_set*> format_sets;
+    std::vector<const gpu::FormatSet*> format_sets;
     for (auto& output : backend->outputs) {
         format_sets.emplace_back(&output->state->format_set);
     }
-    backend->format_set = gpu_intersect_format_sets(format_sets);
+    backend->format_set = gpu::intersect_format_sets(format_sets);
 }
 
 // -----------------------------------------------------------------------------
@@ -404,7 +404,7 @@ void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, vo
 
 #if WROC_DRM_EXPERIMENTAL_BROKEN_TEARING_SUPPORT
     if (output->state->pending_release_semaphore) {
-        gpu_semaphore_signal_value(output->state->pending_release_semaphore.get(), output->state->pending_release_point);
+        gpu::semaphore::signal_value(output->state->pending_release_semaphore.get(), output->state->pending_release_point);
         output->state->pending_release_semaphore = nullptr;
     }
 #endif
@@ -428,7 +428,7 @@ void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, vo
 }
 
 static
-u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
+u32 get_image_fb2(wroc_direct_backend* backend, gpu::Image* image)
 {
     std::optional<u32> found = std::nullopt;
     std::erase_if(backend->buffer_cache, [&](const auto& entry) {
@@ -443,7 +443,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
 
     log_warn("Importing new FB2 buffer");
 
-    auto dma_params = gpu_image_export(image);
+    auto dma_params = gpu::image::export_dmabuf(image);
     auto size = image->extent();
     auto format = image->format();
 
@@ -481,9 +481,9 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
 }
 
 wroc_output_commit_id wroc_drm_output::commit(
-    gpu_image* image,
-    gpu_syncpoint acquire,
-    gpu_syncpoint release,
+    gpu::Image* image,
+    gpu::Syncpoint acquire,
+    gpu::Syncpoint release,
     core::Flags<wroc_output_commit_flag> in_flags)
 {
     core_assert(frame_available);
@@ -500,7 +500,7 @@ wroc_output_commit_id wroc_drm_output::commit(
         drmModeAtomicAddProperty(req, state->primary_plane_id, state->plane_prop.get_prop_id(name), value);
     };
 
-    auto in_fence = gpu_semaphore_export_syncfile(acquire.semaphore, acquire.value);
+    auto in_fence = gpu::semaphore::export_syncfile(acquire.semaphore, acquire.value);
     defer { close(in_fence); };
 
     plane_set("FB_ID", fb2_handle);
@@ -536,13 +536,13 @@ wroc_output_commit_id wroc_drm_output::commit(
 
     if (core::check<drmModeAtomicCommit>(backend->drm_fd.get(), req, flags, this).err()) {
         // TODO: Configuration rollback
-        gpu_semaphore_import_syncfile(release.semaphore, in_fence, release.value);
+        gpu::semaphore::import_syncfile(release.semaphore, in_fence, release.value);
         frame_available = true;
         return {};
     }
 
     if (state->last_release_semaphore) {
-        gpu_semaphore_import_syncfile(state->last_release_semaphore.get(), out_fence, state->last_release_point);
+        gpu::semaphore::import_syncfile(state->last_release_semaphore.get(), out_fence, state->last_release_point);
     }
 
     state->last_commit_time = std::chrono::steady_clock::now();

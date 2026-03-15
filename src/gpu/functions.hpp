@@ -115,8 +115,11 @@
 
 #define GPU_DECLARE_FUNCTION(funcName, ...) PFN_vk##funcName funcName;
 
-struct gpu_context;
+namespace gpu
+{
+    struct Context;
+}
 
-void gpu_init_functions(gpu_context*, PFN_vkGetInstanceProcAddr);
-void gpu_load_instance_functions(gpu_context*);
-void gpu_load_device_functions(gpu_context*);
+void gpu_init_functions(gpu::Context*, PFN_vkGetInstanceProcAddr);
+void gpu_load_instance_functions(gpu::Context*);
+void gpu_load_device_functions(gpu::Context*);

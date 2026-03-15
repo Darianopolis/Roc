@@ -4,7 +4,7 @@
 
 struct imui_context;
 
-auto imui_create(gpu_context*, scene_context*) -> core::Ref<imui_context>;
+auto imui_create(gpu::Context*, scene_context*) -> core::Ref<imui_context>;
 
 // -----------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ using imui_frame_fn = void();
 
 void imui_request_frame(imui_context*);
 void imui_add_frame_handler(imui_context*, std::move_only_function<imui_frame_fn>&&);
-auto imui_get_texture(imui_context*, gpu_image*, gpu_sampler*, gpu_blend_mode) -> ImTextureID;
+auto imui_get_texture(imui_context*, gpu::Image*, gpu::Sampler*, gpu::BlendMode) -> ImTextureID;
 
 auto imui_get_window(ImGuiWindow*) -> scene_window*;
 

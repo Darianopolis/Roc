@@ -40,7 +40,7 @@ struct way_server
 
     std::chrono::steady_clock::time_point epoch;
 
-    gpu_context* gpu;
+    gpu::Context* gpu;
     scene_context*  scene;
     scene_system_id scene_system;
 
@@ -49,7 +49,7 @@ struct way_server
     std::string socket_name;
 
 
-    core::Ref<gpu_sampler> sampler;
+    core::Ref<gpu::Sampler> sampler;
 
     struct {
         way_listener created;
@@ -264,7 +264,7 @@ struct way_surface_state
 
 
     core::Ref<way_buffer>     buffer;
-    core::Ref<gpu_image>      image;
+    core::Ref<gpu::Image>      image;
     wl_output_transform buffer_transform;
     i32                 buffer_scale = 1;
     rect2f32            buffer_source;
@@ -409,8 +409,8 @@ struct way_buffer
 {
     vec2u32 extent;
 
-    // Sent on apply, should return a gpu_image when the buffer is ready to display
-    [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu_image> = 0;
+    // Sent on apply, should return a gpu::Image when the buffer is ready to display
+    [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu::Image> = 0;
 
 protected:
     ~way_buffer() = default;

@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-auto io_create(core::EventLoop* event_loop, gpu_context* gpu) -> core::Ref<io_context>
+auto io_create(core::EventLoop* event_loop, gpu::Context* gpu) -> core::Ref<io_context>
 {
     auto ctx = core::create<io_context>();
 

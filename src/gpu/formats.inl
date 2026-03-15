@@ -1,11 +1,11 @@
 #include "internal.hpp"
 
-using enum gpu_vk_format_flag;
+using enum gpu::vk::FormatFlag;
 
 struct gpu_drm_vk_format_pair {
-    gpu_drm_format  drm;
+    gpu::DrmFormat  drm;
     VkFormat         vk;
-    core::Flags<gpu_vk_format_flag> flags;
+    core::Flags<gpu::vk::FormatFlag> flags;
 };
 
 gpu_drm_vk_format_pair drm_to_vk[] {

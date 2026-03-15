@@ -1,8 +1,8 @@
 #include "internal.hpp"
 
-core::Ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, core::Flags<gpu_buffer_flag> flags)
+core::Ref<gpu::Buffer> gpu::buffer::create(gpu::Context* gpu, usz size, core::Flags<gpu::BufferFlag> flags)
 {
-    auto buffer = core::create<gpu_buffer>();
+    auto buffer = core::create<gpu::Buffer>();
     buffer->gpu = gpu;
 
     buffer->size = size;
@@ -25,7 +25,7 @@ core::Ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, core::Flags<
                 gpu->transfer_queue->family,
             }.data(),
         }),
-        flags.contains(gpu_buffer_flag::host)
+        flags.contains(gpu::BufferFlag::host)
             ? core::ptr_to(VmaAllocationCreateInfo {
                 .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
@@ -49,7 +49,7 @@ core::Ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, core::Flags<
     return buffer;
 }
 
-gpu_buffer::~gpu_buffer()
+gpu::Buffer::~Buffer()
 {
     gpu->stats.active_buffers--;
 

@@ -13,14 +13,14 @@ int main()
     // Systems
 
     auto event_loop = core::event_loop::create();
-    auto gpu = gpu_create({}, event_loop.get());
+    auto gpu = gpu::create({}, event_loop.get());
     auto io = io_create(event_loop.get(), gpu.get());
     auto scene = scene_create(gpu.get(), io.get());
     auto wm = wm_create(scene.get());
 
     // I/O event plumbing
 
-    auto image_pool = gpu_image_pool_create(gpu.get());
+    auto image_pool = gpu::image_pool::create(gpu.get());
     auto output_client = scene_client_create(scene.get());
     struct output {
         core::Ref<scene_output> scene;
@@ -109,7 +109,7 @@ int main()
 
     // Background
 
-    auto sampler = gpu_sampler_create(gpu.get(), {
+    auto sampler = gpu::sampler::create(gpu.get(), {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
@@ -123,12 +123,12 @@ int main()
         log_info("Loaded background ({}, width = {}, height = {})", path.c_str(), w, h);
 
         // Create background texture node
-        auto image = gpu_image_create(gpu.get(), {
+        auto image = gpu::image::create(gpu.get(), {
             .extent = {w, h},
-            .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
-            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+            .format = gpu::format::from_drm(DRM_FORMAT_XBGR8888),
+            .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer
         });
-        gpu_copy_memory_to_image(image.get(), {data, usz(w * h * 4)}, {{{image->extent()}}});
+        gpu::copy_memory_to_image(image.get(), {data, usz(w * h * 4)}, {{{image->extent()}}});
         return image;
     }();
 
@@ -150,7 +150,7 @@ int main()
 
             // Create texture node
             auto texture = scene_texture_create(scene.get());
-            scene_texture_set_image(texture.get(), background_image.get(), sampler.get(), gpu_blend_mode::premultiplied);
+            scene_texture_set_image(texture.get(), background_image.get(), sampler.get(), gpu::BlendMode::premultiplied);
             auto src = core::rect::fit<f32>(image_size, viewport.extent);
             scene_texture_set_src(texture.get(), {src.origin / image_size, src.extent / image_size, core::xywh});
             scene_texture_set_dst(texture.get(), viewport);
@@ -275,10 +275,10 @@ int main()
                     gpu->renderdoc->SetCaptureTitle(std::format("Roc capture {}", ++capture).c_str());
                     for (auto* output : scene_list_outputs(scene.get())) {
                         auto viewport =  scene_output_get_viewport(output);
-                        auto texture = gpu_image_create(gpu.get(), {
+                        auto texture = gpu::image::create(gpu.get(), {
                             .extent = viewport.extent,
-                            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-                            .usage = gpu_image_usage::render
+                            .format = gpu::format::from_drm(DRM_FORMAT_ABGR8888),
+                            .usage = gpu::ImageUsage::render
                         });
                         scene_render(scene.get(), texture.get(), viewport);
                     }

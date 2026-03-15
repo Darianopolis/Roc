@@ -21,13 +21,13 @@ void scene_cursor_manager_init(scene_context*);
 
 struct scene_context
 {
-    gpu_context* gpu;
+    gpu::Context* gpu;
 
     struct {
-        core::Ref<gpu_shader> vertex;
-        core::Ref<gpu_shader> fragment;
-        core::Ref<gpu_image>    white;
-        core::Ref<gpu_sampler>  sampler;
+        core::Ref<gpu::Shader> vertex;
+        core::Ref<gpu::Shader> fragment;
+        core::Ref<gpu::Image>    white;
+        core::Ref<gpu::Sampler>  sampler;
     } render;
 
     scene_system_id prev_system_id = {};

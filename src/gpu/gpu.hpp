@@ -12,609 +12,731 @@
 
 // -----------------------------------------------------------------------------
 
-struct gpu_image;
-struct gpu_buffer;
-struct gpu_sampler;
-struct gpu_semaphore;
-struct gpu_commands;
-struct gpu_queue;
-
-enum class gpu_image_usage : u32;
-
-// -----------------------------------------------------------------------------
-
-enum class gpu_descriptor_id : u32 { invalid = 0 };
-
-struct gpu_descriptor_id_allocator
+namespace gpu
 {
-    std::vector<gpu_descriptor_id> freelist;
-    u32 next_id;
-    u32 capacity;
+    struct Image;
+    struct Buffer;
+    struct Sampler;
+    struct Semaphore;
+    struct Commands;
+    struct Queue;
+    struct Context;
 
-    gpu_descriptor_id_allocator() = default;
-    gpu_descriptor_id_allocator(u32 count);
-
-    auto allocate() -> gpu_descriptor_id;
-    void free(gpu_descriptor_id);
-};
-
-// -----------------------------------------------------------------------------
-
-using gpu_drm_format   = u32;
-using gpu_drm_modifier = u64;
-
-// Additional core::Flags required to uniquely identify a format when paired with a VkFormat
-enum class gpu_vk_format_flag : u32
-{
-    // DRM FourCC codes have format variants to ignore alpha channels (E.g. XRGB|ARGB).
-    // Vulkan handles these in image view channel swizzles, instead of formats.
-    ignore_alpha = 1 << 0,
-};
-
-struct gpu_format_info
-{
-    std::string name;
-
-    bool is_ycbcr;
-
-    gpu_drm_format drm;
-
-    VkFormat vk;
-    VkFormat vk_srgb;
-    core::Flags<gpu_vk_format_flag> vk_flags;
-
-    VKU_FORMAT_INFO info;
-};
-
-auto gpu_get_format_infos() -> std::span<const gpu_format_info>;
-
-struct gpu_format
-{
-    // Formats are stored as indices into the static format_infos table.
-    u8 index;
-
-    constexpr bool operator==(const gpu_format&) const noexcept = default;
-
-    constexpr explicit operator bool() const noexcept { return index; }
-
-    constexpr const gpu_format_info* operator->() const noexcept
-    {
-        return &gpu_get_format_infos()[index];
-    }
-};
-
-CORE_MAKE_STRUCT_HASHABLE(gpu_format, v.index);
-
-inline
-auto gpu_get_formats()
-{
-    return std::views::iota(0)
-         | std::views::take(gpu_get_format_infos().size())
-         | std::views::transform([](usz i) { return gpu_format(i); });
+    enum class ImageUsage : u32;
 }
 
-auto gpu_format_from_drm(gpu_drm_format) -> gpu_format;
-auto gpu_format_from_vk(VkFormat, core::Flags<gpu_vk_format_flag> = {}) -> gpu_format;
-
-struct gpu_format_modifier_props
-{
-    gpu_drm_modifier modifier;
-    VkFormatFeatureFlags2 features;
-    u32 plane_count;
-
-    VkExternalMemoryProperties ext_mem_props;
-
-    vec2u32 max_extent;
-    bool has_mutable_srgb;
-};
-
-using gpu_format_modifier_set = core::FlatSet<gpu_drm_modifier>;
-inline const gpu_format_modifier_set gpu_empty_modifier_set;
-
-struct gpu_format_props
-{
-    std::unique_ptr<gpu_format_modifier_props> opt_props;
-    std::vector<gpu_format_modifier_props> mod_props;
-    gpu_format_modifier_set mods;
-
-    auto for_mod(gpu_drm_modifier mod) const -> const gpu_format_modifier_props*
-    {
-        for (auto& p : mod_props) {
-            if (p.modifier == mod) return &p;
-        }
-        return nullptr;
-    }
-};
-
-struct gpu_format_props_key
-{
-    VkFormat format;
-    VkImageUsageFlags usage;
-
-    constexpr bool operator==(const gpu_format_props_key&) const noexcept = default;
-};
-CORE_MAKE_STRUCT_HASHABLE(gpu_format_props_key, v.format, v.usage);
-
-
-struct gpu_format_set
-{
-    core::Map<gpu_format, gpu_format_modifier_set> entries;
-
-    void add(gpu_format format, gpu_drm_modifier modifier)
-    {
-        entries[format].insert(modifier);
-    }
-
-    void clear() { entries.clear(); }
-
-    auto get(gpu_format format) const noexcept -> const gpu_format_modifier_set&
-    {
-        auto iter = entries.find(format);
-        return iter == entries.end() ? gpu_empty_modifier_set : iter->second;
-    }
-
-    usz   size() const { return entries.size(); }
-    bool empty() const { return !entries.empty(); }
-
-    auto begin() const { return entries.begin(); }
-    auto   end() const { return entries.end(); }
-};
-
-auto gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets) -> gpu_format_modifier_set;
-auto gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets) -> gpu_format_set;
-
-auto gpu_get_format_props(gpu_context*, gpu_format, core::Flags<gpu_image_usage>) -> const gpu_format_props*;
-
-auto gpu_drm_modifier_get_name(gpu_drm_modifier) -> std::string;
-
 // -----------------------------------------------------------------------------
 
-enum class gpu_feature : u32
+namespace gpu
 {
-    validation = 1 << 0,
-};
+    enum class DescriptorId : u32 { invalid = 0 };
 
-struct gpu_context
-{
-    core::Flags<gpu_feature> features;
-
-    struct {
-        GPU_DECLARE_FUNCTION(GetInstanceProcAddr)
-        GPU_DECLARE_FUNCTION(CreateInstance)
-        GPU_INSTANCE_FUNCTIONS(GPU_DECLARE_FUNCTION)
-        GPU_DEVICE_FUNCTIONS(  GPU_DECLARE_FUNCTION)
-    } vk;
-
-    void* loader;
-
-    RENDERDOC_API_1_7_0* renderdoc;
-
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debug_messenger;
-    VkPhysicalDevice physical_device;
-    VkDevice device;
-
-    struct {
-        drmDevice* device;
-        dev_t      id;
-        int        fd;
-    } drm;
-
-    VmaAllocator vma;
-
-    struct {
-        u32 active_images;
-        usz active_image_memory;
-
-        u32 active_buffers;
-        usz active_buffer_memory;
-
-        u32 active_samplers;
-    } stats;
-
-    core::Ref<gpu_queue> graphics_queue;
-    core::Ref<gpu_queue> transfer_queue;
-    core::Ref<core::EventLoop> event_loop;
-
-    std::vector<VkSemaphore> free_binary_semaphores;
-
-    VkDescriptorSetLayout set_layout;
-    VkPipelineLayout pipeline_layout;
-    VkDescriptorPool pool;
-    VkDescriptorSet set;
-
-    gpu_descriptor_id_allocator image_descriptor_allocator;
-    gpu_descriptor_id_allocator sampler_descriptor_allocator;
-
-    core::SegmentedMap<gpu_format_props_key, gpu_format_props> format_props;
-
-    ~gpu_context();
-};
-
-auto gpu_create(core::Flags<gpu_feature>, core::EventLoop*) -> core::Ref<gpu_context>;
-
-// -----------------------------------------------------------------------------
-
-enum class gpu_queue_type : u32
-{
-    graphics,
-    transfer,
-};
-
-struct gpu_queue
-{
-    gpu_context* gpu;
-
-    gpu_queue_type type;
-    u32 family;
-    VkQueue queue;
-
-    VkCommandPool cmd_pool;
-    VkCommandBuffer cmd;
-
-    core::Ref<gpu_semaphore> queue_sema;
-
-    u64 submitted;
-
-    ~gpu_queue();
-};
-
-auto gpu_get_queue(gpu_context*, gpu_queue_type) -> gpu_queue*;
-
-// -----------------------------------------------------------------------------
-
-struct gpu_wait_fn : core::IntrusiveListBase<gpu_wait_fn>
-{
-    u64 point;
-
-    virtual void handle(u64 point) = 0;
-    virtual ~gpu_wait_fn() = default;
-};
-
-struct gpu_semaphore
-{
-    gpu_context* gpu;
-
-    VkSemaphore semaphore;
-    u32         syncobj;
-
-    struct {
-        core::Fd fd;
-        u64 skips = 0;
-        core::IntrusiveList<gpu_wait_fn> list;
-    } wait;
-
-    ~gpu_semaphore();
-};
-
-struct gpu_syncpoint
-{
-    gpu_semaphore* semaphore;
-    u64 value = 0;
-    VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-};
-
-auto gpu_semaphore_create(gpu_context*) -> core::Ref<gpu_semaphore>;
-auto gpu_semaphore_import_syncobj(gpu_context*, int syncobj_fd) -> core::Ref<gpu_semaphore>;
-int  gpu_semaphore_export_syncobj(gpu_semaphore*);
-
-void gpu_semaphore_import_syncfile(gpu_semaphore*, int sync_fd, u64 target_point);
-int  gpu_semaphore_export_syncfile(gpu_semaphore*, u64 source_point);
-
-u64  gpu_semaphore_get_value(   gpu_semaphore*);
-void gpu_semaphore_signal_value(gpu_semaphore*, u64 value);
-
-void gpu_semaphore_wait(gpu_semaphore*, gpu_wait_fn*);
-
-// WARNING: Blocking
-void gpu_wait(gpu_syncpoint);
-
-template<typename Fn>
-void gpu_wait(gpu_syncpoint sync, Fn&& fn)
-{
-    struct wait_item : gpu_wait_fn
+    struct DescriptorIdAllocator
     {
-        Fn fn;
-        wait_item(Fn&& fn): fn(std::move(fn)) {}
-        virtual void handle(u64 value) final override { fn(value); }
+        std::vector<gpu::DescriptorId> freelist;
+        u32 next_id;
+        u32 capacity;
+
+        DescriptorIdAllocator() = default;
+        DescriptorIdAllocator(u32 count);
+
+        auto allocate() -> gpu::DescriptorId;
+        void free(gpu::DescriptorId);
     };
-    auto wait = new wait_item(std::move(fn));
-    wait->point = sync.value;
-    gpu_semaphore_wait(sync.semaphore, wait);
 }
 
 // -----------------------------------------------------------------------------
 
-struct gpu_commands
+namespace gpu
 {
-    gpu_queue* queue;
+    using DrmFormat   = u32;
+    using DrmModifier = u64;
+}
 
-    VkCommandBuffer buffer;
-    std::vector<core::Ref<void>> objects;
-
-    u64 submitted_value;
-
-    ~gpu_commands();
-};
-
-auto gpu_commands_begin(gpu_queue*) -> core::Ref<gpu_commands>;
-
-void gpu_cmd_protect(gpu_commands*, core::Ref<void>);
-
-auto gpu_submit(gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
-
-// WARNING: Blocking
-void gpu_wait_idle(gpu_context*);
-
-// WARNING: Blocking
-void gpu_wait_idle(gpu_queue*);
-
-// -----------------------------------------------------------------------------
-
-struct gpu_buffer
+namespace gpu::vk
 {
-    gpu_context* gpu;
-
-    VkBuffer buffer;
-    VmaAllocation vma_allocation;
-    VkDeviceAddress device_address;
-    void* host_address;
-    usz size;
-
-    template<typename T>
-    T* device(usz byte_offset = 0) const
+    // Additional core::Flags required to uniquely identify a format when paired with a VkFormat
+    enum class FormatFlag : u32
     {
-        return reinterpret_cast<T*>(device_address + byte_offset);
-    }
+        // DRM FourCC codes have format variants to ignore alpha channels (E.g. XRGB|ARGB).
+        // Vulkan handles these in image view channel swizzles, instead of formats.
+        ignore_alpha = 1 << 0,
+    };
+}
 
-    template<typename T>
-    T* host(usz byte_offset = 0) const
+namespace gpu
+{
+    struct FormatInfo
     {
-        return core::byte_offset_pointer<T>(host_address, byte_offset);
-    }
+        std::string name;
 
-    ~gpu_buffer();
-};
+        bool is_ycbcr;
 
-enum class gpu_buffer_flag : u32
-{
-    host = 1 << 0,
-};
+        gpu::DrmFormat drm;
 
-auto gpu_buffer_create(gpu_context*, usz size, core::Flags<gpu_buffer_flag>) -> core::Ref<gpu_buffer>;
+        VkFormat vk;
+        VkFormat vk_srgb;
+        core::Flags<gpu::vk::FormatFlag> vk_flags;
 
-// -----------------------------------------------------------------------------
+        VKU_FORMAT_INFO info;
+    };
 
-template<typename T>
-struct gpu_array_element_proxy
-{
-    T* host_value;
+    auto get_format_infos() -> std::span<const gpu::FormatInfo>;
 
-    void operator=(const T& value)
+    struct Format
     {
-        std::memcpy(host_value, &value, sizeof(value));
-    }
-};
+        // Formats are stored as indices into the static format_infos table.
+        u8 index;
 
-template<typename T>
-struct gpu_array
+        constexpr bool operator==(const gpu::Format&) const noexcept = default;
+
+        constexpr explicit operator bool() const noexcept { return index; }
+
+        constexpr const gpu::FormatInfo* operator->() const noexcept
+        {
+            return &gpu::get_format_infos()[index];
+        }
+    };
+}
+
+CORE_MAKE_STRUCT_HASHABLE(gpu::Format, v.index);
+
+namespace gpu
 {
-    core::Ref<gpu_buffer> buffer;
-    usz count = 0;
-    usz byte_offset = 0;
-
-    gpu_array() = default;
-
-    gpu_array(const auto& buffer, usz count, usz byte_offset = {})
-        : buffer(buffer)
-        , count(count)
-        , byte_offset(byte_offset)
-    {}
-
-    T* device() const
+    inline
+    auto get_formats()
     {
-        return buffer->device<T>(byte_offset);
+        return std::views::iota(0)
+            | std::views::take(gpu::get_format_infos().size())
+            | std::views::transform([](usz i) { return gpu::Format(i); });
     }
+}
 
-    T* host() const
+namespace gpu::format
+{
+    auto from_drm(gpu::DrmFormat) -> gpu::Format;
+    auto from_vk(VkFormat, core::Flags<gpu::vk::FormatFlag> = {}) -> gpu::Format;
+}
+
+namespace gpu
+{
+    struct FormatModifierProps
     {
-        return buffer->host<T>(byte_offset);
-    }
+        gpu::DrmModifier modifier;
+        VkFormatFeatureFlags2 features;
+        u32 plane_count;
 
-    auto operator[](usz index) const -> gpu_array_element_proxy<T>
+        VkExternalMemoryProperties ext_mem_props;
+
+        vec2u32 max_extent;
+        bool has_mutable_srgb;
+    };
+
+    using FormatModifierSet = core::FlatSet<gpu::DrmModifier>;
+    inline const gpu::FormatModifierSet empty_modifier_set;
+
+    struct FormatProps
     {
-        return {buffer->host<T>(byte_offset) + index};
-    }
-};
+        std::unique_ptr<gpu::FormatModifierProps> opt_props;
+        std::vector<gpu::FormatModifierProps> mod_props;
+        gpu::FormatModifierSet mods;
 
-// -----------------------------------------------------------------------------
+        auto for_mod(gpu::DrmModifier mod) const -> const gpu::FormatModifierProps*
+        {
+            for (auto& p : mod_props) {
+                if (p.modifier == mod) return &p;
+            }
+            return nullptr;
+        }
+    };
 
-enum class gpu_image_usage : u32
-{
-    transfer_src = 1 << 0,
-    transfer_dst = 1 << 1,
-    transfer     = transfer_dst | transfer_src,
-    texture      = 1 << 2,
-    render       = 1 << 3,
-    storage      = 1 << 4,
-};
-
-struct gpu_image
-{
-    virtual ~gpu_image() = default;
-
-    virtual auto base() -> gpu_image* = 0;
-
-    auto context()    -> gpu_context*;
-    auto extent()     -> vec2u32;
-    auto format()     -> gpu_format;
-    auto modifier()   -> gpu_drm_modifier;
-    auto view()       -> VkImageView;
-    auto handle()     -> VkImage;
-    auto usage()      -> core::Flags<gpu_image_usage>;
-    auto descriptor() -> gpu_descriptor_id;
-};
-
-struct gpu_image_create_info
-{
-    vec2u32                        extent;
-    gpu_format                     format;
-    core::Flags<gpu_image_usage>         usage;
-    const gpu_format_modifier_set* modifiers;
-};
-
-auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> core::Ref<gpu_image>;
-
-void gpu_cmd_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
-
-struct gpu_buffer_image_copy
-{
-    vec2u32 image_extent;
-    vec2i32 image_offset;
-    u32 buffer_offset;
-    u32 buffer_row_length;
-};
-
-void gpu_cmd_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*, std::span<const gpu_buffer_image_copy> regions);
-void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, core::ByteView data, std::span<const gpu_buffer_image_copy> regions);
-
-// WARNING: Blocking
-void gpu_copy_memory_to_image(gpu_image*, core::ByteView data, std::span<const gpu_buffer_image_copy> regions);
-
-auto gpu_image_compute_linear_offset(gpu_format, vec2u32 position, u32 stride) -> u32;
-
-// -----------------------------------------------------------------------------
-
-struct gpu_sampler
-{
-    gpu_context* gpu;
-
-    VkSampler sampler;
-
-    gpu_descriptor_id id;
-
-    ~gpu_sampler();
-};
-
-struct gpu_sampler_create_info
-{
-    VkFilter mag;
-    VkFilter min;
-};
-
-auto gpu_sampler_create(gpu_context*, const gpu_sampler_create_info&) -> core::Ref<gpu_sampler>;
-
-// -----------------------------------------------------------------------------
-
-enum class gpu_blend_mode : u32
-{
-    none,
-    premultiplied,
-    postmultiplied,
-};
-
-struct gpu_shader;
-
-struct gpu_shader_create_info
-{
-    VkShaderStageFlagBits stage;
-    std::span<const u32>  code;
-    const char*           entry;
-};
-
-auto gpu_shader_create(gpu_context*, const gpu_shader_create_info&) -> core::Ref<gpu_shader>;
-
-enum class gpu_depth_enable
-{
-    test  = 1 << 0,
-    write = 1 << 1,
-};
-
-void gpu_cmd_push_constants(   gpu_commands*, u32 offset, core::ByteView data);
-void gpu_cmd_set_scissors(     gpu_commands*, std::span<const rect2i32> scissors);
-void gpu_cmd_set_viewports(    gpu_commands*, std::span<const rect2f32> viewports);
-void gpu_cmd_set_polygon_state(gpu_commands*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
-void gpu_cmd_set_cull_state(   gpu_commands*, VkCullModeFlagBits, VkFrontFace);
-void gpu_cmd_set_depth_state(  gpu_commands*, core::Flags<gpu_depth_enable> enabled, VkCompareOp);
-void gpu_cmd_set_blend_state(  gpu_commands*, std::span<const gpu_blend_mode>);
-void gpu_cmd_bind_shaders(     gpu_commands*, std::span<gpu_shader* const>);
-
-void gpu_cmd_reset_graphics_state(gpu_commands*);
-
-// -----------------------------------------------------------------------------
-
-constexpr static u32 gpu_dma_max_planes = 4;
-
-struct gpu_dma_plane
-{
-    core::Fd fd;
-    u32     offset;
-    u32     stride;
-};
-
-struct gpu_dma_params
-{
-    core::FixedArray<gpu_dma_plane, gpu_dma_max_planes> planes;
-    bool disjoint;
-
-    vec2u32          extent;
-    gpu_format       format;
-    gpu_drm_modifier modifier;
-};
-
-auto gpu_image_import(gpu_context*, const gpu_dma_params&, core::Flags<gpu_image_usage>) -> core::Ref<gpu_image>;
-auto gpu_image_export(gpu_image*) -> gpu_dma_params;
-
-// -----------------------------------------------------------------------------
-
-template<typename T>
-struct gpu_image_handle
-{
-    u32 image   : 20 = {};
-    u32 sampler : 12 = {};
-
-    gpu_image_handle() = default;
-
-    gpu_image_handle(gpu_image* image, gpu_sampler* sampler)
-        : image(std::to_underlying(image->descriptor()))
-        , sampler(sampler ? std::to_underlying(sampler->id) : 0)
-    {}
-};
-
-// -----------------------------------------------------------------------------
-
-template<typename Lessor>
-struct gpu_image_lease : gpu_image
-{
-    core::Ref<gpu_image> image;
-    Lessor         lessor;
-
-    gpu_image_lease(core::Ref<gpu_image> image, Lessor&& lessor)
-        : image(std::move(image))
-        , lessor(std::move(lessor))
-    {}
-
-    virtual auto base() -> gpu_image* final override { return image->base(); }
-
-    ~gpu_image_lease()
+    struct FormatPropsKeys
     {
-        lessor(std::move(image));
-    }
-};
+        VkFormat format;
+        VkImageUsageFlags usage;
 
-template<typename Lessor>
-auto gpu_lease_image(core::Ref<gpu_image> image, Lessor&& lessor) -> core::Ref<gpu_image_lease<Lessor>>
+        constexpr bool operator==(const gpu::FormatPropsKeys&) const noexcept = default;
+    };
+}
+
+CORE_MAKE_STRUCT_HASHABLE(gpu::FormatPropsKeys, v.format, v.usage);
+
+namespace gpu
 {
-    return core::create<gpu_image_lease<Lessor>>(std::move(image), std::move(lessor));
+    struct FormatSet
+    {
+        core::Map<gpu::Format, gpu::FormatModifierSet> entries;
+
+        void add(gpu::Format format, gpu::DrmModifier modifier)
+        {
+            entries[format].insert(modifier);
+        }
+
+        void clear() { entries.clear(); }
+
+        auto get(gpu::Format format) const noexcept -> const gpu::FormatModifierSet&
+        {
+            auto iter = entries.find(format);
+            return iter == entries.end() ? gpu::empty_modifier_set : iter->second;
+        }
+
+        usz   size() const { return entries.size(); }
+        bool empty() const { return !entries.empty(); }
+
+        auto begin() const { return entries.begin(); }
+        auto   end() const { return entries.end(); }
+    };
+
+    auto intersect_format_modifiers(std::span<const gpu::FormatModifierSet* const> sets) -> gpu::FormatModifierSet;
+    auto intersect_format_sets(std::span<const gpu::FormatSet* const> sets) -> gpu::FormatSet;
+
+    auto get_format_props(gpu::Context*, gpu::Format, core::Flags<gpu::ImageUsage>) -> const gpu::FormatProps*;
+
+    auto drm_modifier_get_name(gpu::DrmModifier) -> std::string;
 }
 
 // -----------------------------------------------------------------------------
 
-struct gpu_image_pool
+namespace gpu
 {
-    virtual ~gpu_image_pool() = default;
+    enum class Feature : u32
+    {
+        validation = 1 << 0,
+    };
 
-    virtual auto acquire(const gpu_image_create_info&) -> core::Ref<gpu_image> = 0;
-};
+    struct Context
+    {
+        core::Flags<gpu::Feature> features;
 
-auto gpu_image_pool_create(gpu_context*) -> core::Ref<gpu_image_pool>;
+        struct {
+            GPU_DECLARE_FUNCTION(GetInstanceProcAddr)
+            GPU_DECLARE_FUNCTION(CreateInstance)
+            GPU_INSTANCE_FUNCTIONS(GPU_DECLARE_FUNCTION)
+            GPU_DEVICE_FUNCTIONS(  GPU_DECLARE_FUNCTION)
+        } vk;
+
+        void* loader;
+
+        RENDERDOC_API_1_7_0* renderdoc;
+
+        VkInstance instance;
+        VkDebugUtilsMessengerEXT debug_messenger;
+        VkPhysicalDevice physical_device;
+        VkDevice device;
+
+        struct {
+            drmDevice* device;
+            dev_t      id;
+            int        fd;
+        } drm;
+
+        VmaAllocator vma;
+
+        struct {
+            u32 active_images;
+            usz active_image_memory;
+
+            u32 active_buffers;
+            usz active_buffer_memory;
+
+            u32 active_samplers;
+        } stats;
+
+        core::Ref<gpu::Queue> graphics_queue;
+        core::Ref<gpu::Queue> transfer_queue;
+        core::Ref<core::EventLoop> event_loop;
+
+        std::vector<VkSemaphore> free_binary_semaphores;
+
+        VkDescriptorSetLayout set_layout;
+        VkPipelineLayout pipeline_layout;
+        VkDescriptorPool pool;
+        VkDescriptorSet set;
+
+        gpu::DescriptorIdAllocator image_descriptor_allocator;
+        gpu::DescriptorIdAllocator sampler_descriptor_allocator;
+
+        core::SegmentedMap<gpu::FormatPropsKeys, gpu::FormatProps> format_props;
+
+        ~Context();
+    };
+
+    auto create(core::Flags<gpu::Feature>, core::EventLoop*) -> core::Ref<gpu::Context>;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    enum class QueueType : u32
+    {
+        graphics,
+        transfer,
+    };
+
+    struct Queue
+    {
+        gpu::Context* gpu;
+
+        gpu::QueueType type;
+        u32 family;
+        VkQueue queue;
+
+        VkCommandPool cmd_pool;
+        VkCommandBuffer cmd;
+
+        core::Ref<gpu::Semaphore> queue_sema;
+
+        u64 submitted;
+
+        ~Queue();
+    };
+}
+
+namespace gpu::queue
+{
+    auto get(gpu::Context*, gpu::QueueType) -> gpu::Queue*;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    struct WaitFn : core::IntrusiveListBase<gpu::WaitFn>
+    {
+        u64 point;
+
+        virtual void handle(u64 point) = 0;
+        virtual ~WaitFn() = default;
+    };
+
+    struct Semaphore
+    {
+        gpu::Context* gpu;
+
+        VkSemaphore semaphore;
+        u32         syncobj;
+
+        struct {
+            core::Fd fd;
+            u64 skips = 0;
+            core::IntrusiveList<gpu::WaitFn> list;
+        } wait;
+
+        ~Semaphore();
+    };
+
+    struct Syncpoint
+    {
+        gpu::Semaphore* semaphore;
+        u64 value = 0;
+        VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    };
+}
+
+namespace gpu::semaphore
+{
+    auto create(gpu::Context*) -> core::Ref<gpu::Semaphore>;
+    auto import_syncobj(gpu::Context*, int syncobj_fd) -> core::Ref<gpu::Semaphore>;
+    int  export_syncobj(gpu::Semaphore*);
+
+    void import_syncfile(gpu::Semaphore*, int sync_fd, u64 target_point);
+    int  export_syncfile(gpu::Semaphore*, u64 source_point);
+
+    u64  get_value(   gpu::Semaphore*);
+    void signal_value(gpu::Semaphore*, u64 value);
+
+    void wait(gpu::Semaphore*, gpu::WaitFn*);
+}
+
+namespace gpu
+{
+    // WARNING: Blocking
+    void wait(gpu::Syncpoint);
+
+    template<typename Fn>
+    void wait(gpu::Syncpoint sync, Fn&& fn)
+    {
+        struct wait_item : gpu::WaitFn
+        {
+            Fn fn;
+            wait_item(Fn&& fn): fn(std::move(fn)) {}
+            virtual void handle(u64 value) final override { fn(value); }
+        };
+        auto wait = new wait_item(std::move(fn));
+        wait->point = sync.value;
+        gpu::semaphore::wait(sync.semaphore, wait);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    struct Commands
+    {
+        gpu::Queue* queue;
+
+        VkCommandBuffer buffer;
+        std::vector<core::Ref<void>> objects;
+
+        u64 submitted_value;
+
+        ~Commands();
+    };
+}
+
+namespace gpu::commands
+{
+    auto begin(gpu::Queue*) -> core::Ref<gpu::Commands>;
+
+    void protect(gpu::Commands*, core::Ref<void>);
+}
+
+namespace gpu
+{
+    auto submit(gpu::Commands*, std::span<const gpu::Syncpoint> waits) -> gpu::Syncpoint;
+
+    // WARNING: Blocking
+    void wait_idle(gpu::Context*);
+
+    // WARNING: Blocking
+    void wait_idle(gpu::Queue*);
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    struct Buffer
+    {
+        gpu::Context* gpu;
+
+        VkBuffer buffer;
+        VmaAllocation vma_allocation;
+        VkDeviceAddress device_address;
+        void* host_address;
+        usz size;
+
+        template<typename T>
+        T* device(usz byte_offset = 0) const
+        {
+            return reinterpret_cast<T*>(device_address + byte_offset);
+        }
+
+        template<typename T>
+        T* host(usz byte_offset = 0) const
+        {
+            return core::byte_offset_pointer<T>(host_address, byte_offset);
+        }
+
+        ~Buffer();
+    };
+
+    enum class BufferFlag : u32
+    {
+        host = 1 << 0,
+    };
+}
+
+namespace gpu::buffer
+{
+    auto create(gpu::Context*, usz size, core::Flags<gpu::BufferFlag>) -> core::Ref<gpu::Buffer>;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    template<typename T>
+    struct ArrayElementProxy
+    {
+        T* host_value;
+
+        void operator=(const T& value)
+        {
+            std::memcpy(host_value, &value, sizeof(value));
+        }
+    };
+
+    template<typename T>
+    struct Array
+    {
+        core::Ref<gpu::Buffer> buffer;
+        usz count = 0;
+        usz byte_offset = 0;
+
+        Array() = default;
+
+        Array(const auto& buffer, usz count, usz byte_offset = {})
+            : buffer(buffer)
+            , count(count)
+            , byte_offset(byte_offset)
+        {}
+
+        T* device() const
+        {
+            return buffer->device<T>(byte_offset);
+        }
+
+        T* host() const
+        {
+            return buffer->host<T>(byte_offset);
+        }
+
+        auto operator[](usz index) const -> gpu::ArrayElementProxy<T>
+        {
+            return {buffer->host<T>(byte_offset) + index};
+        }
+    };
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    enum class ImageUsage : u32
+    {
+        transfer_src = 1 << 0,
+        transfer_dst = 1 << 1,
+        transfer     = transfer_dst | transfer_src,
+        texture      = 1 << 2,
+        render       = 1 << 3,
+        storage      = 1 << 4,
+    };
+
+    struct Image
+    {
+        virtual ~Image() = default;
+
+        virtual auto base() -> gpu::Image* = 0;
+
+        auto context()    -> gpu::Context*;
+        auto extent()     -> vec2u32;
+        auto format()     -> gpu::Format;
+        auto modifier()   -> gpu::DrmModifier;
+        auto view()       -> VkImageView;
+        auto handle()     -> VkImage;
+        auto usage()      -> core::Flags<gpu::ImageUsage>;
+        auto descriptor() -> gpu::DescriptorId;
+    };
+
+    struct ImageCreateInfo
+    {
+        vec2u32                        extent;
+        gpu::Format                     format;
+        core::Flags<gpu::ImageUsage>         usage;
+        const gpu::FormatModifierSet* modifiers;
+    };
+}
+
+namespace gpu::image
+{
+    auto create(gpu::Context*, const gpu::ImageCreateInfo&) -> core::Ref<gpu::Image>;
+}
+
+namespace gpu
+{
+    struct BufferImageCopy
+    {
+        vec2u32 image_extent;
+        vec2i32 image_offset;
+        u32 buffer_offset;
+        u32 buffer_row_length;
+    };
+}
+
+namespace gpu::commands
+{
+    void copy_image_to_buffer(gpu::Commands*, gpu::Buffer*, gpu::Image*);
+
+    void copy_buffer_to_image(gpu::Commands*, gpu::Image*, gpu::Buffer*, std::span<const gpu::BufferImageCopy> regions);
+    void copy_memory_to_image(gpu::Commands*, gpu::Image*, core::ByteView data, std::span<const gpu::BufferImageCopy> regions);
+}
+
+namespace gpu
+{
+    // WARNING: Blocking
+    void copy_memory_to_image(gpu::Image*, core::ByteView data, std::span<const gpu::BufferImageCopy> regions);
+}
+
+namespace gpu::image
+{
+    auto compute_linear_offset(gpu::Format, vec2u32 position, u32 stride) -> u32;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    struct Sampler
+    {
+        gpu::Context* gpu;
+
+        VkSampler sampler;
+
+        gpu::DescriptorId id;
+
+        ~Sampler();
+    };
+
+    struct SamplerCreateInfo
+    {
+        VkFilter mag;
+        VkFilter min;
+    };
+}
+
+namespace gpu::sampler
+{
+    auto create(gpu::Context*, const gpu::SamplerCreateInfo&) -> core::Ref<gpu::Sampler>;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    enum class BlendMode : u32
+    {
+        none,
+        premultiplied,
+        postmultiplied,
+    };
+
+    struct Shader;
+
+    struct ShaderCreateInfo
+    {
+        VkShaderStageFlagBits stage;
+        std::span<const u32>  code;
+        const char*           entry;
+    };
+}
+
+namespace gpu::shader
+{
+    auto create(gpu::Context*, const gpu::ShaderCreateInfo&) -> core::Ref<gpu::Shader>;
+}
+
+namespace gpu
+{
+    enum class DepthEnable
+    {
+        test  = 1 << 0,
+        write = 1 << 1,
+    };
+}
+
+namespace gpu::commands
+{
+    void push_constants(   gpu::Commands*, u32 offset, core::ByteView data);
+    void set_scissors(     gpu::Commands*, std::span<const rect2i32> scissors);
+    void set_viewports(    gpu::Commands*, std::span<const rect2f32> viewports);
+    void set_polygon_state(gpu::Commands*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
+    void set_cull_state(   gpu::Commands*, VkCullModeFlagBits, VkFrontFace);
+    void set_depth_state(  gpu::Commands*, core::Flags<gpu::DepthEnable> enabled, VkCompareOp);
+    void set_blend_state(  gpu::Commands*, std::span<const gpu::BlendMode>);
+    void bind_shaders(     gpu::Commands*, std::span<gpu::Shader* const>);
+
+    void reset_graphics_state(gpu::Commands*);
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    constexpr static u32 max_dma_planes = 4;
+
+    struct DmaPlane
+    {
+        core::Fd fd;
+        u32     offset;
+        u32     stride;
+    };
+
+    struct DmaParams
+    {
+        core::FixedArray<gpu::DmaPlane, gpu::max_dma_planes> planes;
+        bool disjoint;
+
+        vec2u32          extent;
+        gpu::Format       format;
+        gpu::DrmModifier modifier;
+    };
+}
+
+namespace gpu::image
+{
+    auto import_dmabuf(gpu::Context*, const gpu::DmaParams&, core::Flags<gpu::ImageUsage>) -> core::Ref<gpu::Image>;
+    auto export_dmabuf(gpu::Image*) -> gpu::DmaParams;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    template<typename T>
+    struct ImageHandle
+    {
+        u32 image   : 20 = {};
+        u32 sampler : 12 = {};
+
+        ImageHandle() = default;
+
+        ImageHandle(gpu::Image* image, gpu::Sampler* sampler)
+            : image(std::to_underlying(image->descriptor()))
+            , sampler(sampler ? std::to_underlying(sampler->id) : 0)
+        {}
+    };
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    template<typename Lessor>
+    struct ImageLease : gpu::Image
+    {
+        core::Ref<gpu::Image> image;
+        Lessor         lessor;
+
+        ImageLease(core::Ref<gpu::Image> image, Lessor&& lessor)
+            : image(std::move(image))
+            , lessor(std::move(lessor))
+        {}
+
+        virtual auto base() -> gpu::Image* final override { return image->base(); }
+
+        ~ImageLease()
+        {
+            lessor(std::move(image));
+        }
+    };
+}
+
+
+namespace gpu::image
+{
+    template<typename Lessor>
+    auto lease(core::Ref<gpu::Image> image, Lessor&& lessor) -> core::Ref<gpu::ImageLease<Lessor>>
+    {
+        return core::create<gpu::ImageLease<Lessor>>(std::move(image), std::move(lessor));
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+namespace gpu
+{
+    struct ImagePool
+    {
+        virtual ~ImagePool() = default;
+
+        virtual auto acquire(const gpu::ImageCreateInfo&) -> core::Ref<gpu::Image> = 0;
+    };
+}
+
+namespace gpu::image_pool
+{
+    auto create(gpu::Context*) -> core::Ref<gpu::ImagePool>;
+}

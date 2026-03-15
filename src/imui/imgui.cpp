@@ -219,7 +219,7 @@ void reset_frame_textures(imui_context* ctx)
     ctx->textures.emplace_back();
 }
 
-auto imui_get_texture(imui_context* ctx, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend) -> ImTextureID
+auto imui_get_texture(imui_context* ctx, gpu::Image* image, gpu::Sampler* sampler, gpu::BlendMode blend) -> ImTextureID
 {
     auto idx = ctx->textures.size();
     ctx->textures.emplace_back(image, sampler, blend);
@@ -253,12 +253,12 @@ void imui_init(imui_context* ctx)
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-        ctx->font_image = gpu_image_create(ctx->gpu, {
+        ctx->font_image = gpu::image::create(ctx->gpu, {
             .extent = {width, height},
-            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            .usage = gpu_image_usage::texture | gpu_image_usage::transfer
+            .format = gpu::format::from_drm(DRM_FORMAT_ABGR8888),
+            .usage = gpu::ImageUsage::texture | gpu::ImageUsage::transfer
         });
-        gpu_copy_memory_to_image(ctx->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
+        gpu::copy_memory_to_image(ctx->font_image.get(), {pixels, usz(width * height * 4)}, {{{width, height}}});
     }
 
     auto& platform_io = ImGui::GetPlatformIO();
@@ -362,7 +362,7 @@ void imui_frame(imui_context* ctx)
 
     reset_frame_textures(ctx);
     io.Fonts->SetTexID(imui_get_texture(ctx, ctx->font_image.get(), ctx->sampler.get(),
-                                        gpu_blend_mode::postmultiplied));
+                                        gpu::BlendMode::postmultiplied));
 
     ImGui::NewFrame();
     for (auto& handler : ctx->frame_handlers) handler();
@@ -397,12 +397,12 @@ void handle_reposition(imui_context* ctx, scene_window* window, rect2f32 frame)
     }
 }
 
-auto imui_create(gpu_context* gpu, scene_context* scene) -> core::Ref<imui_context>
+auto imui_create(gpu::Context* gpu, scene_context* scene) -> core::Ref<imui_context>
 {
     auto ctx = core::create<imui_context>();
     ctx->scene   = scene;
     ctx->gpu     = gpu;
-    ctx->sampler = gpu_sampler_create(ctx->gpu, {
+    ctx->sampler = gpu::sampler::create(ctx->gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });

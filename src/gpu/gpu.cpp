@@ -11,7 +11,7 @@ const char* gpu_result_to_string(VkResult res)
     return string_VkResult(res);
 }
 
-gpu_context::~gpu_context()
+gpu::Context::~Context()
 {
     log_info("GPU context destroyed");
 
@@ -41,7 +41,7 @@ gpu_context::~gpu_context()
 }
 
 static
-void load_renderdoc(gpu_context* gpu)
+void load_renderdoc(gpu::Context* gpu)
 {
     log_debug("Loading RenderDoc API");
 
@@ -82,7 +82,7 @@ std::array required_device_extensions = {
 };
 
 static
-bool open_drm(gpu_context* gpu, drmDevice* device)
+bool open_drm(gpu::Context* gpu, drmDevice* device)
 {
     // Prefer to open the render node for normal render operations,
     // even the requested drm was opened from a primary node
@@ -114,7 +114,7 @@ bool open_drm(gpu_context* gpu, drmDevice* device)
 }
 
 static
-bool try_physical_device(gpu_context* gpu, VkPhysicalDevice phdev)
+bool try_physical_device(gpu::Context* gpu, VkPhysicalDevice phdev)
 {
     {
         VkPhysicalDeviceProperties2 props { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -286,9 +286,9 @@ VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
-core::Ref<gpu_context> gpu_create(core::Flags<gpu_feature> _features, core::EventLoop* event_loop)
+core::Ref<gpu::Context> gpu::create(core::Flags<gpu::Feature> _features, core::EventLoop* event_loop)
 {
-    auto gpu = core::create<gpu_context>();
+    auto gpu = core::create<gpu::Context>();
     gpu->features = _features;
 
     gpu->event_loop = event_loop;
@@ -374,7 +374,7 @@ core::Ref<gpu_context> gpu_create(core::Flags<gpu_feature> _features, core::Even
         for (auto& tool : tools) {
             if (tool.layer == "VK_LAYER_KHRONOS_validation"sv) {
                 log_warn("Detected validation layers, enabling validation support");
-                gpu->features |= gpu_feature::validation;
+                gpu->features |= gpu::Feature::validation;
 
             } else if (tool.name == "RenderDoc"sv) {
                 load_renderdoc(gpu.get());
@@ -497,8 +497,8 @@ core::Ref<gpu_context> gpu_create(core::Flags<gpu_feature> _features, core::Even
 
     gpu_load_device_functions(gpu.get());
 
-    gpu->graphics_queue = gpu_queue_init(gpu.get(), gpu_queue_type::graphics, graphics_queue_family);
-    gpu->transfer_queue = gpu_queue_init(gpu.get(), gpu_queue_type::transfer, transfer_queue_family);
+    gpu->graphics_queue = gpu_queue_init(gpu.get(), gpu::QueueType::graphics, graphics_queue_family);
+    gpu->transfer_queue = gpu_queue_init(gpu.get(), gpu::QueueType::transfer, transfer_queue_family);
 
     // VMA allocator
 

@@ -3,9 +3,9 @@
 #include "core/enum.hpp"
 #include "core/stack.hpp"
 
-core::Ref<gpu_queue> gpu_queue_init(gpu_context* gpu, gpu_queue_type type, u32 family)
+core::Ref<gpu::Queue> gpu_queue_init(gpu::Context* gpu, gpu::QueueType type, u32 family)
 {
-    auto queue = core::create<gpu_queue>();
+    auto queue = core::create<gpu::Queue>();
     queue->gpu = gpu;
     queue->type = type;
     queue->family = family;
@@ -20,24 +20,24 @@ core::Ref<gpu_queue> gpu_queue_init(gpu_context* gpu, gpu_queue_type type, u32 f
         .queueFamilyIndex = queue->family,
     }), nullptr, &queue->cmd_pool));
 
-    queue->queue_sema = gpu_semaphore_create(gpu);
+    queue->queue_sema = gpu::semaphore::create(gpu);
 
     return queue;
 }
 
-gpu_queue::~gpu_queue()
+gpu::Queue::~Queue()
 {
     queue_sema = nullptr;
 
     gpu->vk.DestroyCommandPool(gpu->device, cmd_pool, nullptr);
 }
 
-gpu_queue* gpu_get_queue(gpu_context* gpu, gpu_queue_type type)
+gpu::Queue* gpu::queue::get(gpu::Context* gpu, gpu::QueueType type)
 {
     switch (type) {
-        break;case gpu_queue_type::graphics:
+        break;case gpu::QueueType::graphics:
             return gpu->graphics_queue.get();
-        break;case gpu_queue_type::transfer:
+        break;case gpu::QueueType::transfer:
             return gpu->transfer_queue.get();
     }
 
@@ -46,16 +46,16 @@ gpu_queue* gpu_get_queue(gpu_context* gpu, gpu_queue_type type)
 
 // -----------------------------------------------------------------------------
 
-gpu_commands::~gpu_commands()
+gpu::Commands::~Commands()
 {
     auto* gpu = queue->gpu;
     gpu->vk.FreeCommandBuffers(gpu->device, queue->cmd_pool, 1, &buffer);
 }
 
-core::Ref<gpu_commands> gpu_commands_begin(gpu_queue* queue)
+core::Ref<gpu::Commands> gpu::commands::begin(gpu::Queue* queue)
 {
     auto* gpu = queue->gpu;
-    auto commands = core::create<gpu_commands>();
+    auto commands = core::create<gpu::Commands>();
     commands->queue = queue;
 
     gpu_check(gpu->vk.AllocateCommandBuffers(gpu->device, core::ptr_to(VkCommandBufferAllocateInfo {
@@ -74,7 +74,7 @@ core::Ref<gpu_commands> gpu_commands_begin(gpu_queue* queue)
 
 // -----------------------------------------------------------------------------
 
-void gpu_cmd_protect(gpu_commands* commands, core::Ref<void> object)
+void gpu::commands::protect(gpu::Commands* commands, core::Ref<void> object)
 {
     if (!object) return;
     commands->objects.emplace_back(std::move(object));
@@ -82,21 +82,21 @@ void gpu_cmd_protect(gpu_commands* commands, core::Ref<void> object)
 
 // -----------------------------------------------------------------------------
 
-void gpu_wait_idle(gpu_context* gpu)
+void gpu::wait_idle(gpu::Context* gpu)
 {
-    gpu_wait_idle(gpu->graphics_queue.get());
-    gpu_wait_idle(gpu->transfer_queue.get());
+    gpu::wait_idle(gpu->graphics_queue.get());
+    gpu::wait_idle(gpu->transfer_queue.get());
 }
 
-void gpu_wait_idle(gpu_queue* queue)
+void gpu::wait_idle(gpu::Queue* queue)
 {
     queue->gpu->vk.QueueWaitIdle(queue->queue);
-    gpu_wait({queue->queue_sema.get(), queue->submitted});
+    gpu::wait({queue->queue_sema.get(), queue->submitted});
 }
 
 // -----------------------------------------------------------------------------
 
-gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> waits)
+gpu::Syncpoint gpu::submit(gpu::Commands* commands, std::span<const gpu::Syncpoint> waits)
 {
     auto* queue = commands->queue;
     auto* gpu = queue->gpu;
@@ -107,7 +107,7 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
 
     commands->submitted_value = ++queue->submitted;
 
-    gpu_syncpoint target_syncpoint {
+    gpu::Syncpoint target_syncpoint {
         .semaphore = queue->queue_sema.get(),
         .value = commands->submitted_value,
     };
@@ -115,7 +115,7 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
     auto* wait_infos = stack.allocate<VkSemaphoreSubmitInfo>(waits.size());
     for (auto[i, wait] : waits | std::views::enumerate) {
         wait_infos[i] = gpu_syncpoint_to_submit_info(wait);
-        gpu_cmd_protect(commands, wait.semaphore);
+        gpu::commands::protect(commands, wait.semaphore);
     }
 
     gpu_check(gpu->vk.QueueSubmit2(queue->queue, 1, core::ptr_to(VkSubmitInfo2 {
@@ -131,7 +131,7 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
         .pSignalSemaphoreInfos = core::ptr_to(gpu_syncpoint_to_submit_info(target_syncpoint)),
     }), nullptr));
 
-    gpu_wait({queue->queue_sema.get(), queue->submitted}, [commands = core::Ref(commands)](u64) {});
+    gpu::wait({queue->queue_sema.get(), queue->submitted}, [commands = core::Ref(commands)](u64) {});
 
     return target_syncpoint;
 }

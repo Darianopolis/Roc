@@ -14,21 +14,21 @@ struct imui_viewport_data {
 
 struct imui_context
 {
-    gpu_context*   gpu;
+    gpu::Context*   gpu;
     scene_context* scene;
 
-    core::Ref<gpu_sampler>  sampler;
+    core::Ref<gpu::Sampler>  sampler;
     core::Ref<scene_client> client;
     ImGuiContext*     context;
     u32 frames_requested = 0;
 
     struct texture {
-        core::Ref<gpu_image>   image;
-        core::Ref<gpu_sampler> sampler;
-        gpu_blend_mode   blend;
+        core::Ref<gpu::Image>   image;
+        core::Ref<gpu::Sampler> sampler;
+        gpu::BlendMode   blend;
     };
     std::vector<texture> textures;
-    core::Ref<gpu_image> font_image;
+    core::Ref<gpu::Image> font_image;
 
     std::vector<std::move_only_function<imui_frame_fn>> frame_handlers;
 

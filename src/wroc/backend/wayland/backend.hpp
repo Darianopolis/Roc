@@ -65,7 +65,7 @@ struct wroc_wayland_output : wroc_output
 
     ~wroc_wayland_output();
 
-    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
+    virtual wroc_output_commit_id commit(gpu::Image*, gpu::Syncpoint acquire, gpu::Syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
 };
 
 struct wroc_wayland_keyboard : wroc_keyboard
@@ -97,12 +97,12 @@ struct wroc_wayland_backend : wroc_backend
     struct zwp_pointer_constraints_v1* zwp_pointer_constraints_v1 = {};
 
     struct zwp_linux_dmabuf_v1* zwp_linux_dmabuf_v1 = {};
-    std::vector<std::pair<gpu_format, gpu_drm_modifier>> format_table = {};
-    gpu_format_set format_set;
+    std::vector<std::pair<gpu::Format, gpu::DrmModifier>> format_table = {};
+    gpu::FormatSet format_set;
 
     struct wp_linux_drm_syncobj_manager_v1* wp_linux_drm_syncobj_manager_v1 = {};
-    wroc_wl_proxy_cache<gpu_semaphore, wp_linux_drm_syncobj_timeline_v1> syncobj_cache { wp_linux_drm_syncobj_timeline_v1_destroy };
-    wroc_wl_proxy_cache<gpu_image, wl_buffer> buffer_cache { wl_buffer_destroy };
+    wroc_wl_proxy_cache<gpu::Semaphore, wp_linux_drm_syncobj_timeline_v1> syncobj_cache { wp_linux_drm_syncobj_timeline_v1_destroy };
+    wroc_wl_proxy_cache<gpu::Image, wl_buffer> buffer_cache { wl_buffer_destroy };
 
     struct wl_seat* wl_seat = {};
 
@@ -119,7 +119,7 @@ struct wroc_wayland_backend : wroc_backend
     virtual void init() final override;
     virtual void start() final override;
 
-    virtual const gpu_format_set& get_output_format_set() final override;
+    virtual const gpu::FormatSet& get_output_format_set() final override;
 
     virtual void create_output() final override;
     virtual void destroy_output(wroc_output*) final override;

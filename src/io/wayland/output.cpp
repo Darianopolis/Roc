@@ -24,7 +24,7 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
     ctx->wayland->format.table.clear();
     ctx->wayland->format.set.clear();
     for (auto& entry : formats) {
-        if (auto format = gpu_format_from_drm(entry.format)) {
+        if (auto format = gpu::format::from_drm(entry.format)) {
             ctx->wayland->format.table.emplace_back(format, entry.modifier);
         }
     }
@@ -171,7 +171,7 @@ void io_add_output(io_context* ctx)
 // -----------------------------------------------------------------------------
 
 static
-wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
+wl_buffer* get_image_proxy(io_context* ctx, gpu::Image* image)
 {
     auto* wl = ctx->wayland.get();
 
@@ -182,7 +182,7 @@ wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
     auto size = image->extent();
     auto format = image->format();
 
-    auto dma_params = gpu_image_export(image);
+    auto dma_params = gpu::image::export_dmabuf(image);
     u32 mod_hi = dma_params.modifier >> 32;
     u32 mod_lo = dma_params.modifier & ~0u;
 
@@ -198,13 +198,13 @@ wl_buffer* get_image_proxy(io_context* ctx, gpu_image* image)
 }
 
 static
-wp_linux_drm_syncobj_timeline_v1* get_semaphore_proxy(io_context* ctx, gpu_semaphore* semaphore)
+wp_linux_drm_syncobj_timeline_v1* get_semaphore_proxy(io_context* ctx, gpu::Semaphore* semaphore)
 {
     auto* wl = ctx->wayland.get();
 
     if (auto* found = wl->syncobj_cache.find(semaphore)) return found;
 
-    auto fd = gpu_semaphore_export_syncobj(semaphore);
+    auto fd = gpu::semaphore::export_syncobj(semaphore);
     auto syncobj = wp_linux_drm_syncobj_manager_v1_import_timeline(wl->wp_linux_drm_syncobj_manager_v1, fd);
     close(fd);
 
@@ -225,21 +225,21 @@ void on_present_frame(void* udata, wl_callback*, u32 time)
     }
 }
 
-void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, core::Flags<io_output_commit_flag> flags)
+void io_output_wayland::commit(gpu::Image* image, gpu::Syncpoint done, core::Flags<io_output_commit_flag> flags)
 {
     core_assert(commit_available);
 
     auto release = std::ranges::find_if(release_slots, [](auto& s) { return !s.image; });
     if (release == release_slots.end()) {
         release = release_slots.insert(release_slots.end(), release_slot {
-            .semaphore = gpu_semaphore_create(ctx->gpu),
+            .semaphore = gpu::semaphore::create(ctx->gpu),
         });
     }
 
     release->point++;
     release->image = image;
 
-    gpu_wait({release->semaphore.get(), release->point}, [output = core::Weak(this), semaphore = release->semaphore.get()](u64 point) {
+    gpu::wait({release->semaphore.get(), release->point}, [output = core::Weak(this), semaphore = release->semaphore.get()](u64 point) {
         if (!output) return;
         auto release = std::ranges::find_if(output->release_slots, [&](auto& s) { return s.semaphore.get() == semaphore; });
         release->image = nullptr;
