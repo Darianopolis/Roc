@@ -12,7 +12,7 @@
         },
         "imgui": {
             "branch": "docking",
-            "commit": "aeaaee8090a7f9751ee9684de979a0ea673c935f",
+            "commit": "60d7fb207eeb46d6363dd4bde10b35991bae0ce7",
             "repo": "https://github.com/ocornut/imgui.git"
         },
         "kde-protocols": {
@@ -27,17 +27,17 @@
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "c2147b0233ce4b3346b241f555937de909e49463",
+            "commit": "ecfa3f2eb3bb52b3ae72996c8a9f04fda0ef3fb8",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "slang": {
             "branch": "master",
-            "commit": "99e2a4fa8cd90ed476046743fff984365d208f5f",
+            "commit": "475396e4211a54ccef58a90785c0ad75eb5ab411",
             "repo": "https://github.com/shader-slang/slang.git"
         },
         "stb": {
             "branch": "master",
-            "commit": "2fb8c5a3deb2110c89669f8d6f36e5833b556b44",
+            "commit": "904aa67e1e2d1dec92959df63e700b166d5c1022",
             "repo": "https://github.com/nothings/stb.git"
         },
         "unordered-dense": {
@@ -47,7 +47,7 @@
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "74d8a6cb930c68ef617b202c3ff3c59d919e086b",
+            "commit": "29184b98984f6169a5e83e97557a77cff1e5b0ca",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         },
         "vulkan-memory-allocator": {
@@ -57,12 +57,12 @@
         },
         "vulkan-utility-libraries": {
             "branch": "main",
-            "commit": "56773a2b578bb5831a1d8eb1927cd9ea92dddc65",
+            "commit": "c15a1ac31670cb2ce61c235f070fb40ec6e42612",
             "repo": "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
         },
         "xwayland-satellite": {
             "branch": "main",
-            "commit": "10f985b84cdbcc3bbf35b3e7e43d1b2a84fa9ce2",
+            "commit": "309d8e2a29953f7465dc14c939e2afe4682c0aa9",
             "repo": "https://github.com/Supreeeme/xwayland-satellite.git"
         }
     }
