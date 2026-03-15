@@ -46,15 +46,15 @@ void way_dmabuf_init(way_server* server)
 
     usz size = entries.size() * sizeof(tranche_entry);
 
-    auto fd = core_fd_adopt(unix_check<memfd_create>(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
-    unix_check<ftruncate>(fd.get(), size);
+    auto fd = core::fd::adopt(core::check<memfd_create>(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
+    core::check<ftruncate>(fd.get(), size);
 
-    auto mapped = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
+    auto mapped = core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
     std::memcpy(mapped, entries.data(), size);
     munmap(mapped, size);
 
     // Seal file to prevent further writes
-    unix_check<fcntl>(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW);
+    core::check<fcntl>(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW);
 
     // Generate indices
     // TODO: Move LINEAR modifiers into lower tranche?
@@ -84,7 +84,7 @@ void send_feedback(way_server* server, wl_resource* resource)
 
     way_send(server, zwp_linux_dmabuf_feedback_v1_send_tranche_target_device, resource, &dev_id);
     way_send(server, zwp_linux_dmabuf_feedback_v1_send_tranche_flags,   resource, 0);
-    way_send(server, zwp_linux_dmabuf_feedback_v1_send_tranche_formats, resource, ptr_to(way_to_wl_array<u16>(feedback.tranche_formats)));
+    way_send(server, zwp_linux_dmabuf_feedback_v1_send_tranche_formats, resource, core::ptr_to(way_to_wl_array<u16>(feedback.tranche_formats)));
     way_send(server, zwp_linux_dmabuf_feedback_v1_send_tranche_done,    resource);
 
     way_send(server, zwp_linux_dmabuf_feedback_v1_send_done, resource);
@@ -155,7 +155,7 @@ struct way_dma_params
 static
 void create_params(wl_client* client, wl_resource* resource, u32 params_id)
 {
-    auto params = core_create<way_dma_params>();
+    auto params = core::create<way_dma_params>();
     params->server = way_get_userdata<way_server>(resource);
     params->resource = way_resource_create_refcounted(zwp_linux_buffer_params_v1, client, resource, params_id, params.get());
 }
@@ -163,7 +163,7 @@ void create_params(wl_client* client, wl_resource* resource, u32 params_id)
 static
 void params_add(wl_client* client, wl_resource* resource, int _fd, u32 plane_idx, u32 offset, u32 stride, u32 modifier_hi, u32 modifier_lo)
 {
-    auto fd = core_fd_adopt(_fd);
+    auto fd = core::fd::adopt(_fd);
 
     auto* params = way_get_userdata<way_dma_params>(resource);
     auto* server = params->server;
@@ -199,7 +199,7 @@ void params_add(wl_client* client, wl_resource* resource, int _fd, u32 plane_idx
     // Deduplicate file descriptors as we receive them
 
     for (auto& p : params->params.planes) {
-        if (core_fd_are_same(p.fd.get(), fd.get())) {
+        if (core::fd::are_same(p.fd.get(), fd.get())) {
             plane.fd = p.fd;
             break;
         } else {
@@ -216,16 +216,16 @@ struct way_dma_buffer : way_buffer
     way_server* server;
     way_resource resource;
 
-    ref<gpu_image> image;
+    core::Ref<gpu_image> image;
 
     std::optional<gpu_dma_params> params;
 
-    virtual auto acquire(way_surface*, way_surface_state& from) -> ref<gpu_image> final override;
+    virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu_image> final override;
 };
 
 static
 auto create_buffer(way_dma_params* dma_params, u32 buffer_id, vec2u32 extent, gpu_format format,
-                   flags<zwp_linux_buffer_params_v1_flags> flags) -> way_dma_buffer*
+                   core::Flags<zwp_linux_buffer_params_v1_flags> flags) -> way_dma_buffer*
 {
     auto* server = dma_params->server;
 
@@ -247,7 +247,7 @@ auto create_buffer(way_dma_params* dma_params, u32 buffer_id, vec2u32 extent, gp
 
     params.planes.count = std::popcount(dma_params->planes_set);
 
-    auto buffer = core_create<way_dma_buffer>();
+    auto buffer = core::create<way_dma_buffer>();
     buffer->server = server;
     buffer->resource = way_resource_create_refcounted(wl_buffer,
         wl_resource_get_client(dma_params->resource), dma_params->resource, buffer_id, buffer.get());
@@ -259,7 +259,7 @@ auto create_buffer(way_dma_params* dma_params, u32 buffer_id, vec2u32 extent, gp
     params.extent = extent;
 
     log_debug("DMA-BUF {} - {} : {}",
-        core_to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
+        core::to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
     buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
 
     dma_params->params = {};
@@ -298,17 +298,17 @@ WAY_INTERFACE(zwp_linux_buffer_params_v1) = {
 
 // -----------------------------------------------------------------------------
 
-auto way_dma_buffer::acquire(way_surface* surface, way_surface_state& packet) -> ref<gpu_image>
+auto way_dma_buffer::acquire(way_surface* surface, way_surface_state& packet) -> core::Ref<gpu_image>
 {
     if (!params) {
         params = gpu_image_export(image.get());
     }
 
     for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-        unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
+        core::check<poll>(core::ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
     }
 
-    return gpu_lease_image(image.get(), [buffer = weak(this)](ref<gpu_image>) {
+    return gpu_lease_image(image.get(), [buffer = core::Weak(this)](core::Ref<gpu_image>) {
         if (buffer) {
             way_send(buffer->server, wl_buffer_send_release, buffer->resource);
         }

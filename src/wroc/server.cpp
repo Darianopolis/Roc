@@ -19,7 +19,7 @@ void wroc_queue_client_flush()
 {
     if (server->client_flushes_pending) return;
     server->client_flushes_pending++;
-    core_event_loop_enqueue(server->event_loop.get(), [] {
+    core::event_loop::enqueue(server->event_loop.get(), [] {
         if (server->client_flushes_pending) {
             wl_display_flush_clients(server->display);
             server->client_flushes_pending = 0;
@@ -36,7 +36,7 @@ void signal_handler(int sig)
     }
 
     // TODO: Dedicated stop eventfd for signal safe handling
-    core_event_loop_enqueue(server->event_loop.get(), [sig] {
+    core::event_loop::enqueue(server->event_loop.get(), [sig] {
         const char* name = "Unknown";
         switch (sig) {
             break;case SIGTERM: name = "Terminate";
@@ -55,18 +55,18 @@ void wroc_terminate()
 {
     // TODO: Proper termination will require further event handling (e.g. waiting for GPU jobs to complete)
     //       Send event to start termination, then close event loop only after all subsystems have closed.
-    core_event_loop_stop(server->event_loop.get());
+    core::event_loop::stop(server->event_loop.get());
 }
 
 wroc_server* server;
 
 void wroc_run(int argc, char* argv[])
 {
-    core_log_set_history_enabled(true);
+    core::log_set_history_enabled(true);
 
-    flags<gpu_feature> gpu_features = {};
+    core::Flags<gpu_feature> gpu_features = {};
 
-    flags<wroc_render_option> render_options = {};
+    core::Flags<wroc_render_option> render_options = {};
     wroc_backend_type backend_type = getenv("WAYLAND_DISPLAY")
         ? wroc_backend_type::layered
         : wroc_backend_type::direct;
@@ -104,11 +104,11 @@ void wroc_run(int argc, char* argv[])
         }
     }
 
-    core_init_log(core_log_level::trace, log_file ? log_file->c_str() : nullptr);
+    core::init_log(core::LogLevel::trace, log_file ? log_file->c_str() : nullptr);
 
-    auto server_ref = core_create<wroc_server>();
+    auto server_ref = core::create<wroc_server>();
     server = server_ref.get();
-    auto event_loop = core_event_loop_create();
+    auto event_loop = core::event_loop::create();
     server->event_loop = event_loop;
     log_info("Server = {}", (void*)server);
 
@@ -141,11 +141,11 @@ void wroc_run(int argc, char* argv[])
     server->socket = wl_display_add_socket_auto(server->display);
 
     auto wl_event_loop = wl_display_get_event_loop(server->display);
-    auto wl_event_loop_fd = core_fd_reference(wl_event_loop_get_fd(wl_event_loop));
-    core_fd_add_listener(wl_event_loop_fd.get(), event_loop.get(), core_fd_event_bit::readable,
-        [&](int fd, core_fd_event_bits events) {
+    auto wl_event_loop_fd = core::fd::reference(wl_event_loop_get_fd(wl_event_loop));
+    core::fd::add_listener(wl_event_loop_fd.get(), event_loop.get(), core::FdEventBit::readable,
+        [&](int fd, core::Flags<core::FdEventBit> events) {
             server->client_flushes_pending++;
-            unix_check<wl_event_loop_dispatch>(wl_event_loop, 0);
+            core::check<wl_event_loop_dispatch>(wl_event_loop, 0);
             wl_display_flush_clients(server->display);
             server->client_flushes_pending--;
         });
@@ -234,7 +234,7 @@ void wroc_run(int argc, char* argv[])
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    core_event_loop_run(event_loop.get());
+    core::event_loop::run(event_loop.get());
 
     signal(SIGINT, SIG_DFL);
     signal(SIGTERM, SIG_IGN);

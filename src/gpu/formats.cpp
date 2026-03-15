@@ -27,7 +27,7 @@ std::vector<gpu_format_info> generate_formats()
         // Find matching _SRGB VkFormat if present
         if (auto vk_name = std::string_view(string_VkFormat(vk)); vk_name.ends_with("_UNORM")) {
             auto vk_formats = magic_enum::enum_values<VkFormat>();
-            auto srgb = std::ranges::find(vk_formats, core_replace_suffix(vk_name, "_UNORM", "_SRGB"), string_VkFormat);
+            auto srgb = std::ranges::find(vk_formats, core::replace_suffix(vk_name, "_UNORM", "_SRGB"), string_VkFormat);
             if (srgb != vk_formats.end()) info.vk_srgb = *srgb;
         }
     }
@@ -55,7 +55,7 @@ gpu_format gpu_format_from_drm(gpu_drm_format drm_format)
     return {};
 }
 
-gpu_format gpu_format_from_vk(VkFormat vk_format, flags<gpu_vk_format_flag> vk_flags)
+gpu_format gpu_format_from_vk(VkFormat vk_format, core::Flags<gpu_vk_format_flag> vk_flags)
 {
     for (auto[i, f] : gpu_format_infos | std::views::enumerate) {
         if (f.vk == vk_format && f.vk_flags == vk_flags) return gpu_format(i);
@@ -178,7 +178,7 @@ std::vector<VkDrmFormatModifierProperties2EXT> get_drm_modifiers(gpu_context* gp
 }
 
 static
-const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& props, gpu_format format, flags<gpu_image_usage> usage)
+const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& props, gpu_format format, core::Flags<gpu_image_usage> usage)
 {
     auto vk_usage = gpu_image_usage_to_vk(usage);
     auto required_features = gpu_get_required_format_features(format, usage);
@@ -226,7 +226,7 @@ const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& pr
     return &props;
 }
 
-const gpu_format_props* gpu_get_format_props(gpu_context* gpu, gpu_format format, flags<gpu_image_usage> usage)
+const gpu_format_props* gpu_get_format_props(gpu_context* gpu, gpu_format format, core::Flags<gpu_image_usage> usage)
 {
     core_assert(!usage.empty());
 

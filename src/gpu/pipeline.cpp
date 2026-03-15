@@ -17,13 +17,13 @@ gpu_shader::~gpu_shader()
     gpu->vk.DestroyShaderEXT(gpu->device, shader, nullptr);
 }
 
-auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> ref<gpu_shader>
+auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> core::Ref<gpu_shader>
 {
-    auto shader = core_create<gpu_shader>();
+    auto shader = core::create<gpu_shader>();
     shader->gpu = gpu;
     shader->stage = info.stage;
 
-    flags<VkShaderStageFlagBits> next_stages = {};
+    core::Flags<VkShaderStageFlagBits> next_stages = {};
     switch (info.stage) {
         break;case VK_SHADER_STAGE_VERTEX_BIT:
             next_stages = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -31,7 +31,7 @@ auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> 
             ;
     }
 
-    gpu_check(gpu->vk.CreateShadersEXT(gpu->device, 1, ptr_to(VkShaderCreateInfoEXT {
+    gpu_check(gpu->vk.CreateShadersEXT(gpu->device, 1, core::ptr_to(VkShaderCreateInfoEXT {
         .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
         .stage = info.stage,
         .nextStage = next_stages.get(),
@@ -42,7 +42,7 @@ auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> 
         .setLayoutCount = 1,
         .pSetLayouts = &gpu->set_layout,
         .pushConstantRangeCount = 1,
-        .pPushConstantRanges = ptr_to(VkPushConstantRange {
+        .pPushConstantRanges = core::ptr_to(VkPushConstantRange {
             .stageFlags = VK_SHADER_STAGE_ALL,
             .size = gpu_push_constant_size,
         }),
@@ -51,7 +51,7 @@ auto gpu_shader_create(gpu_context* gpu, const gpu_shader_create_info& info) -> 
     return shader;
 }
 
-void gpu_cmd_push_constants(gpu_commands* cmd, u32 offset, core_byte_view data)
+void gpu_cmd_push_constants(gpu_commands* cmd, u32 offset, core::ByteView data)
 {
     auto* gpu = cmd->queue->gpu;
     gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size, data.data);
@@ -61,7 +61,7 @@ void gpu_cmd_set_scissors(gpu_commands* cmd, std::span<const rect2i32> scissors)
 {
     auto* gpu = cmd->queue->gpu;
 
-    core_thread_stack stack;
+    core::ThreadStack stack;
 
     auto* vk_scissors = stack.allocate<VkRect2D>(scissors.size());
     for (u32 i = 0; i < scissors.size(); ++i) {
@@ -80,7 +80,7 @@ void gpu_cmd_set_viewports(gpu_commands* cmd, std::span<const rect2f32> viewport
 {
     auto* gpu = cmd->queue->gpu;
 
-    core_thread_stack stack;
+    core::ThreadStack stack;
 
     auto* vk_viewports = stack.allocate<VkViewport>(viewports.size());
     for (u32 i = 0; i < viewports.size(); ++i) {
@@ -113,7 +113,7 @@ void gpu_cmd_set_cull_state(gpu_commands* cmd, VkCullModeFlagBits cull_mode, VkF
     gpu->vk.CmdSetFrontFace(cmd->buffer, front_face);
 }
 
-void gpu_cmd_set_depth_state(gpu_commands* cmd, flags<gpu_depth_enable> enabled, VkCompareOp compare_op)
+void gpu_cmd_set_depth_state(gpu_commands* cmd, core::Flags<gpu_depth_enable> enabled, VkCompareOp compare_op)
 {
     auto* gpu = cmd->queue->gpu;
 
@@ -128,7 +128,7 @@ void gpu_cmd_set_blend_state(gpu_commands* cmd, std::span<const gpu_blend_mode> 
 
     auto count = u32(blends.size());
 
-    core_thread_stack stack;
+    core::ThreadStack stack;
 
     auto* components         = stack.allocate<VkColorComponentFlags>(  count);
     auto* blend_enable_bools = stack.allocate<VkBool32>(               count);
@@ -181,7 +181,7 @@ void gpu_cmd_bind_shaders(gpu_commands* cmd, std::span<gpu_shader* const> shader
 
     u32 count = u32(shaders.size());
 
-    core_thread_stack stack;
+    core::ThreadStack stack;
 
     auto* stage_flags    = stack.allocate<VkShaderStageFlagBits>(count);
     auto* shader_objects = stack.allocate<VkShaderEXT>(count);
@@ -199,7 +199,7 @@ void gpu_cmd_reset_graphics_state(gpu_commands* cmd)
     auto* gpu = cmd->queue->gpu;
 
     gpu->vk.CmdSetAlphaToCoverageEnableEXT(cmd->buffer, false);
-    gpu->vk.CmdSetSampleMaskEXT(           cmd->buffer, VK_SAMPLE_COUNT_1_BIT, ptr_to<VkSampleMask>(0xFFFF'FFFF));
+    gpu->vk.CmdSetSampleMaskEXT(           cmd->buffer, VK_SAMPLE_COUNT_1_BIT, core::ptr_to<VkSampleMask>(0xFFFF'FFFF));
     gpu->vk.CmdSetRasterizationSamplesEXT( cmd->buffer, VK_SAMPLE_COUNT_1_BIT);
     gpu->vk.CmdSetVertexInputEXT(          cmd->buffer, 0, nullptr, 0, nullptr);
 

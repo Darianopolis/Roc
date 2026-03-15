@@ -71,7 +71,7 @@ static
 void wroc_listen_wl_pointer_axis_value120(void* data, wl_pointer*, u32 axis, i32 value120)
 {
 #if WROC_WAYLAND_BACKEND_NOISY_POINTER_AXIS
-    log_debug("pointer_axis_value120(axis = {}, value = {})", core_to_string(wl_pointer_axis(axis)), value120);
+    log_debug("pointer_axis_value120(axis = {}, value = {})", core::to_string(wl_pointer_axis(axis)), value120);
 #endif
 
     auto* pointer = static_cast<wroc_wayland_pointer*>(data);
@@ -87,8 +87,8 @@ void wroc_listen_wl_pointer_axis_relative_direction(void* data, wl_pointer*, u32
 {
 #if WROC_WAYLAND_BACKEND_NOISY_POINTER_AXIS
     log_debug("pointer_axis_relative_direction(axis = {}, direction = {})",
-        core_to_string(wl_pointer_axis(axis)),
-        core_to_string(wl_pointer_axis_relative_direction(direction)));
+        core::to_string(wl_pointer_axis(axis)),
+        core::to_string(wl_pointer_axis_relative_direction(direction)));
 #endif
 }
 
@@ -146,7 +146,7 @@ void wroc_pointer_set(wroc_wayland_backend* backend, struct wl_pointer* wl_point
         return;
     }
 
-    auto* pointer = (backend->pointer = core_create<wroc_wayland_pointer>()).get();
+    auto* pointer = (backend->pointer = core::create<wroc_wayland_pointer>()).get();
     pointer->wl_pointer = wl_pointer;
 
     wl_pointer_add_listener(wl_pointer, &wroc_wl_pointer_listener, pointer);
@@ -221,7 +221,7 @@ void wroc_keyboard_set(wroc_wayland_backend* backend, struct wl_keyboard* wl_key
         return;
     }
 
-    auto* keyboard = (backend->keyboard = core_create<wroc_wayland_keyboard>()).get();
+    auto* keyboard = (backend->keyboard = core::create<wroc_wayland_keyboard>()).get();
     keyboard->wl_keyboard = wl_keyboard;
 
     wl_keyboard_add_listener(wl_keyboard, &wroc_wl_keyboard_listener, keyboard);

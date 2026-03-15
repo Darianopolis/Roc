@@ -28,102 +28,106 @@ using f64 = double;
 
 // -----------------------------------------------------------------------------
 
-template<glm::length_t L, typename T>
-using core_vec = glm::vec<L, T>;
-
-using vec2u32 = core_vec<2, u32>;
-using vec2i32 = core_vec<2, i32>;
-using vec2f32 = core_vec<2, f32>;
-using vec2f64 = core_vec<2, f64>;
-
-using vec3f32 = core_vec<3, f32>;
-
-using vec4f32 = core_vec<4, f32>;
-using vec4u8  = core_vec<4,  u8>;
-
-// -----------------------------------------------------------------------------
-
-template<typename T>
-struct core_aabb;
-
-// -----------------------------------------------------------------------------
-
-namespace detail {
-    struct core_xywh_tag   {};
-    struct core_minmax_tag {};
+namespace core
+{
+    template<glm::length_t L, typename T>
+    using Vec = glm::vec<L, T>;
 }
 
-static constexpr detail::core_xywh_tag   core_xywh;
-static constexpr detail::core_minmax_tag core_minmax;
+using vec2u32 = core::Vec<2, u32>;
+using vec2i32 = core::Vec<2, i32>;
+using vec2f32 = core::Vec<2, f32>;
+using vec2f64 = core::Vec<2, f64>;
 
-template<typename T>
-struct core_rect
+using vec3f32 = core::Vec<3, f32>;
+
+using vec4f32 = core::Vec<4, f32>;
+using vec4u8  = core::Vec<4,  u8>;
+
+// -----------------------------------------------------------------------------
+
+namespace core
 {
-    core_vec<2, T> origin, extent;
+    template<typename T>
+    struct Aabb;
 
-    constexpr core_rect() = default;
+    namespace detail {
+        struct xywh_tag   {};
+        struct minmax_tag {};
+    }
 
-    constexpr core_rect(core_vec<2, T> origin, core_vec<2, T> extent, detail::core_xywh_tag)
-        : origin(origin)
-        , extent(extent)
-    {}
+    static constexpr detail::xywh_tag   xywh;
+    static constexpr detail::minmax_tag minmax;
 
-    constexpr core_rect(core_vec<2, T> min, core_vec<2, T> max, detail::core_minmax_tag)
-        : origin(min)
-        , extent(max - min)
-    {}
+    template<typename T>
+    struct Rect
+    {
+        core::Vec<2, T> origin, extent;
 
-    template<typename T2>
-        requires (!std::same_as<T2, T>)
-    constexpr core_rect(const core_rect<T2>& other)
-        : core_rect(other.origin, other.extent, core_xywh)
-    {}
+        constexpr Rect() = default;
 
-    template<typename T2>
-    constexpr core_rect(const core_aabb<T2>& other)
-        : core_rect(other.min, other.max, core_minmax)
-    {}
+        constexpr Rect(core::Vec<2, T> origin, core::Vec<2, T> extent, detail::xywh_tag)
+            : origin(origin)
+            , extent(extent)
+        {}
 
-    constexpr bool operator==(const core_rect<T>& other) const = default;
-};
+        constexpr Rect(core::Vec<2, T> min, core::Vec<2, T> max, detail::minmax_tag)
+            : origin(min)
+            , extent(max - min)
+        {}
 
-using rect2i32 = core_rect<i32>;
-using rect2f32 = core_rect<f32>;
-using rect2f64 = core_rect<f64>;
+        template<typename T2>
+            requires (!std::same_as<T2, T>)
+        constexpr Rect(const core::Rect<T2>& other)
+            : Rect(other.origin, other.extent, xywh)
+        {}
+
+        template<typename T2>
+        constexpr Rect(const core::Aabb<T2>& other)
+            : Rect(other.min, other.max, minmax)
+        {}
+
+        constexpr bool operator==(const core::Rect<T>& other) const = default;
+    };
+}
+
+using rect2i32 = core::Rect<i32>;
+using rect2f32 = core::Rect<f32>;
+using rect2f64 = core::Rect<f64>;
 
 // -----------------------------------------------------------------------------
 
 template<typename T>
-struct core_aabb
+struct core::Aabb
 {
-    core_vec<2, T> min, max;
+    core::Vec<2, T> min, max;
 
-    constexpr core_aabb() = default;
+    constexpr Aabb() = default;
 
-    constexpr core_aabb(core_vec<2, T> origin, core_vec<2, T> extent, detail::core_xywh_tag)
+    constexpr Aabb(core::Vec<2, T> origin, core::Vec<2, T> extent, detail::xywh_tag)
         : min(origin)
         , max(origin + extent)
     {}
 
-    constexpr core_aabb(core_vec<2, T> min, core_vec<2, T> max, detail::core_minmax_tag)
+    constexpr Aabb(core::Vec<2, T> min, core::Vec<2, T> max, detail::minmax_tag)
         : min(min)
         , max(max)
     {}
 
     template<typename T2>
         requires (!std::same_as<T2, T>)
-    constexpr core_aabb(const core_aabb<T2>& other)
-        : core_aabb(other.min, other.max, core_minmax)
+    constexpr Aabb(const core::Aabb<T2>& other)
+        : Aabb(other.min, other.max, minmax)
     {}
 
     template<typename T2>
-    constexpr core_aabb(const core_rect<T2>& other)
-        : core_aabb(other.origin, other.extent, core_xywh)
+    constexpr Aabb(const core::Rect<T2>& other)
+        : Aabb(other.origin, other.extent, xywh)
     {}
 
-    constexpr bool operator==(const core_aabb<T>& other) const = default;
+    constexpr bool operator==(const core::Aabb<T>& other) const = default;
 };
 
-using aabb2i32 = core_aabb<i32>;
-using aabb2f32 = core_aabb<f32>;
-using aabb2f64 = core_aabb<f64>;
+using aabb2i32 = core::Aabb<i32>;
+using aabb2f32 = core::Aabb<f32>;
+using aabb2f64 = core::Aabb<f64>;

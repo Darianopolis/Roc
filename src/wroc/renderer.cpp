@@ -31,9 +31,9 @@ void register_format(wroc_renderer* renderer, gpu_format format)
     }
 }
 
-ref<wroc_renderer> wroc_renderer_create(flags<wroc_render_option> render_options)
+core::Ref<wroc_renderer> wroc_renderer_create(core::Flags<wroc_render_option> render_options)
 {
-    auto renderer = core_create<wroc_renderer>();
+    auto renderer = core::create<wroc_renderer>();
     renderer->options = render_options;
 
     for (auto format : gpu_get_formats()) {
@@ -96,12 +96,12 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
     VkExtent2D vk_extent = { current->extent().x, current->extent().y };
     vec2f32 current_extent = current->extent();
 
-    gpu->vk.CmdBeginRendering(cmd, ptr_to(VkRenderingInfo {
+    gpu->vk.CmdBeginRendering(cmd, core::ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea = { {}, vk_extent },
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = ptr_to(VkRenderingAttachmentInfo {
+        .pColorAttachments = core::ptr_to(VkRenderingAttachmentInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = current->view(),
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -111,11 +111,11 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
         }),
     }));
 
-    gpu_cmd_set_viewports(commands, {{{}, current_extent, core_xywh}});
+    gpu_cmd_set_viewports(commands, {{{}, current_extent, core::xywh}});
     gpu->vk.CmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
 
     auto start_draws = [&] {
-        gpu_cmd_set_scissors(commands, {{{}, current->extent(), core_xywh}});
+        gpu_cmd_set_scissors(commands, {{{}, current->extent(), core::xywh}});
         gpu_cmd_bind_shaders(commands, {renderer->vertex.get(), renderer->fragment.get()});
         gpu_cmd_reset_graphics_state(commands);
         gpu_cmd_set_blend_state(commands, {gpu_blend_mode::premultiplied});
@@ -128,11 +128,11 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
 
     auto draw = [&](gpu_image* image, rect2f64 dest, rect2f64 source, vec4f32 color = {1, 1, 1, 1}) {
 
-        // log_debug("draw(dest = {}, source = {})", core_to_string(dest), core_to_string(source));
+        // log_debug("draw(dest = {}, source = {})", core::to_string(dest), core::to_string(source));
 
         gpu_cmd_protect(commands, image);
 
-        auto pixel_dst = core_round<i32, f64>(space.from_global(dest));
+        auto pixel_dst = core::round<i32, f64>(space.from_global(dest));
 
         rect_id++;
         renderer->rects_cpu.emplace_back(wroc_shader_rect {
@@ -148,7 +148,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
         if (rect_id_start == rect_id) return;
 
         if (frame->rects.count < rect_id) {
-            auto new_size = core_compute_geometric_growth(frame->rects.count, rect_id);
+            auto new_size = core::compute_geometric_growth(frame->rects.count, rect_id);
             log_debug("Renderer - reallocating rect buffer, size: {}", new_size);
             if (frame->rects.buffer && rect_id_start) {
                 // Previous draws using this buffer, keep alive until all draws complete
@@ -162,7 +162,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
             std::memcpy(frame->rects.host() + rect_id_start, renderer->rects_cpu.data() + rect_id_start, (rect_id - rect_id_start) * sizeof(wroc_shader_rect));
         }
 
-        gpu_cmd_push_constants(commands, 0, core_view_bytes(wroc_shader_rect_input {
+        gpu_cmd_push_constants(commands, 0, core::view_bytes(wroc_shader_rect_input {
             .rects = frame->rects.device(),
             .output_size = current_extent,
         }));
@@ -175,7 +175,7 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
     // Background
 
     for (auto& output : server->output_layout->outputs) {
-        auto src = core_rect_fit<f64>(server->renderer->background->extent(), output->layout_rect.extent);
+        auto src = core::rect::fit<f64>(server->renderer->background->extent(), output->layout_rect.extent);
         draw(server->renderer->background.get(), output->layout_rect, src);
     }
 
@@ -239,10 +239,10 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
                 color *= opacity;
 
                 aabb2f64 r = wroc_toplevel_get_layout_rect(toplevel);
-                draw(nullptr, /* left   */ { r.min - width,     {r.min.x, r.max.y + width}, core_minmax}, {}, color);
-                draw(nullptr, /* right  */ {{r.max.x, r.min.y - width},  r.max + width,     core_minmax}, {}, color);
-                draw(nullptr, /* top    */ {{r.min.x, r.min.y - width}, {r.max.x, r.min.y}, core_minmax}, {}, color);
-                draw(nullptr, /* bottom */ {{r.min.x, r.max.y}, {r.max.x, r.max.y + width}, core_minmax}, {}, color);
+                draw(nullptr, /* left   */ { r.min - width,     {r.min.x, r.max.y + width}, core::minmax}, {}, color);
+                draw(nullptr, /* right  */ {{r.max.x, r.min.y - width},  r.max + width,     core::minmax}, {}, color);
+                draw(nullptr, /* top    */ {{r.min.x, r.min.y - width}, {r.max.x, r.min.y}, core::minmax}, {}, color);
+                draw(nullptr, /* bottom */ {{r.min.x, r.max.y}, {r.max.x, r.max.y + width}, core::minmax}, {}, color);
             }
         }
     };
@@ -303,8 +303,8 @@ void render(wroc_renderer* renderer, gpu_commands* commands, wroc_renderer_frame
         auto hlength = length / 2;
         auto hwidth = width / 2;
 
-        draw(nullptr, {pos - vec2f64{hwidth, hlength}, vec2f64{width, length}, core_xywh}, {}, color);
-        draw(nullptr, {pos - vec2f64{hlength, hwidth}, vec2f64{length, width}, core_xywh}, {}, color);
+        draw(nullptr, {pos - vec2f64{hwidth, hlength}, vec2f64{width, length}, core::xywh}, {}, color);
+        draw(nullptr, {pos - vec2f64{hlength, hwidth}, vec2f64{length, width}, core::xywh}, {}, color);
     }
 
     // Finish
@@ -318,19 +318,19 @@ static
 void on_screenshot_ready(std::chrono::steady_clock::time_point start, gpu_image* image, gpu_buffer* buffer)
 {
     auto save_start = std::chrono::steady_clock::now();
-    log_info("Screenshot captured in {}, saving...", core_to_string(save_start - start));
+    log_info("Screenshot captured in {}, saving...", core::to_string(save_start - start));
 
     auto save_path = "screenshot.png";
 
     stbi_write_png(save_path, image->extent().x, image->extent().y, STBI_rgb_alpha, buffer->host_address, image->extent().x * 4);
     auto save_end = std::chrono::steady_clock::now();
-    log_info("Screenshot saved in {}", core_to_string(save_end - save_start));
+    log_info("Screenshot saved in {}", core::to_string(save_end - save_start));
 
-    core_event_loop_enqueue(server->event_loop.get(), [image, buffer] {
+    core::event_loop::enqueue(server->event_loop.get(), [image, buffer] {
         log_debug("Deleting screenshot resources");
         server->renderer->screenshot_queued = false;
-        core_remove_ref(image);
-        core_remove_ref(buffer);
+        core::remove_ref(image);
+        core::remove_ref(buffer);
     });
 }
 
@@ -339,7 +339,7 @@ void wroc_screenshot(rect2f64 rect)
     auto* renderer = server->renderer.get();
     auto* gpu = server->gpu;
 
-    log_info("Taking screenshot of region {}", core_to_string(rect));
+    log_info("Taking screenshot of region {}", core::to_string(rect));
 
     auto start = std::chrono::steady_clock::now();
 
@@ -359,15 +359,15 @@ void wroc_screenshot(rect2f64 rect)
     {
         wroc_renderer_frame_data frame = {};
         std::chrono::steady_clock::time_point start;
-        ref<gpu_image> image;
-        ref<gpu_buffer> buffer;
+        core::Ref<gpu_image> image;
+        core::Ref<gpu_buffer> buffer;
 
         ~screenshot_guard()
         {
-            std::thread{on_screenshot_ready, start, core_add_ref(image.get()), core_add_ref(buffer.get())}.detach();
+            std::thread{on_screenshot_ready, start, core::add_ref(image.get()), core::add_ref(buffer.get())}.detach();
         }
     };
-    auto guard = core_create<screenshot_guard>();
+    auto guard = core::create<screenshot_guard>();
     guard->start = start;
     guard->image = image;
     guard->buffer = buffer;
@@ -408,7 +408,7 @@ bool wroc_output_try_prepare_acquire(wroc_output* output)
 }
 
 static
-ref<gpu_image> acquire(wroc_renderer* renderer, wroc_output* output)
+core::Ref<gpu_image> acquire(wroc_renderer* renderer, wroc_output* output)
 {
     auto& swapchain = output->swapchain;
 
@@ -420,7 +420,7 @@ ref<gpu_image> acquire(wroc_renderer* renderer, wroc_output* output)
         return image;
     }
 
-    log_warn("Creating new swapchain image {}", core_to_string(output->size));
+    log_warn("Creating new swapchain image {}", core::to_string(output->size));
     core_assert(swapchain.images_in_flight <= renderer->max_swapchain_images);
 
     auto* gpu = server->gpu;
@@ -463,13 +463,13 @@ void present(wroc_output* output, gpu_image* image, gpu_syncpoint acquire)
     slot->image = image;
     slot->release_point++;
 
-    flags<wroc_output_commit_flag> flags = {};
+    core::Flags<wroc_output_commit_flag> flags = {};
     if (server->renderer->vsync) flags |= wroc_output_commit_flag::vsync;
     output->commit(image, acquire, {slot->semaphore.get(), slot->release_point}, flags);
 
     auto slot_idx = std::distance(swapchain.release_slots.begin(), slot);
     gpu_wait({slot->semaphore.get(), slot->release_point},
-        [output = weak(output), slot_idx](u64 signalled) {
+        [output = core::Weak(output), slot_idx](u64 signalled) {
             if (output) release(output.get(), slot_idx,signalled);
         });
 }
@@ -493,7 +493,7 @@ void wroc_render_frame(wroc_output* output)
     struct frame_guard : wroc_object
     {
         wroc_renderer_frame_data frame_data;
-        weak<wroc_output> output;
+        core::Weak<wroc_output> output;
 
         ~frame_guard()
         {
@@ -505,7 +505,7 @@ void wroc_render_frame(wroc_output* output)
             }
         }
     };
-    auto guard = core_create<frame_guard>();
+    auto guard = core::create<frame_guard>();
     guard->output = output;
     gpu_cmd_protect(commands.get(), guard.get());
 

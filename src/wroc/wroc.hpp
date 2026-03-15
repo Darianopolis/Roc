@@ -52,7 +52,7 @@ struct wroc_backend : wroc_object
     virtual void destroy_output(wroc_output*) = 0;
 };
 
-ref<wroc_backend> wroc_backend_create(wroc_backend_type);
+core::Ref<wroc_backend> wroc_backend_create(wroc_backend_type);
 
 // -----------------------------------------------------------------------------
 
@@ -73,12 +73,12 @@ struct wroc_coord_space
 
     constexpr rect2f64 from_global(rect2f64 global_rect) const
     {
-        return { from_global(global_rect.origin), global_rect.extent / scale, core_xywh };
+        return { from_global(global_rect.origin), global_rect.extent / scale, core::xywh };
     }
 
     constexpr rect2f64 to_global(rect2f64 global_rect) const
     {
-        return { to_global(global_rect.origin), global_rect.extent * scale, core_xywh };
+        return { to_global(global_rect.origin), global_rect.extent * scale, core::xywh };
     }
 };
 
@@ -145,12 +145,12 @@ struct wroc_output : wroc_object
 
     struct release_slot
     {
-        ref<gpu_semaphore> semaphore;
-        ref<gpu_image> image;
+        core::Ref<gpu_semaphore> semaphore;
+        core::Ref<gpu_image> image;
         u64 release_point;
     };
     struct {
-        std::vector<ref<gpu_image>> free_images;
+        std::vector<core::Ref<gpu_image>> free_images;
         std::vector<release_slot> release_slots;
         u32 images_in_flight;
     } swapchain;
@@ -163,7 +163,7 @@ struct wroc_output : wroc_object
 
     bool frame_requested = true;
 
-    virtual wroc_output_commit_id commit(gpu_image* image, gpu_syncpoint acquire, gpu_syncpoint release, flags<wroc_output_commit_flag>) = 0;
+    virtual wroc_output_commit_id commit(gpu_image* image, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) = 0;
 };
 
 wroc_coord_space wroc_output_get_coord_space(wroc_output*);
@@ -177,8 +177,8 @@ void wroc_output_request_frame(wroc_output*);
 struct wroc_output_layout : wroc_object
 {
     // TODO: Support multi output description for clients
-    ref<wroc_wl_output> primary;
-    std::vector<weak<wroc_output>> outputs;
+    core::Ref<wroc_wl_output> primary;
+    std::vector<core::Weak<wroc_output>> outputs;
 };
 
 void wroc_output_layout_init();
@@ -259,7 +259,7 @@ enum class wroc_surface_role : u32
 
 struct wroc_surface_addon : wroc_object
 {
-    weak<wroc_surface> surface;
+    core::Weak<wroc_surface> surface;
 
     // Enqueue new state packet with the given commit id
     virtual void commit(wroc_commit_id) = 0;
@@ -287,16 +287,16 @@ enum class wroc_surface_committed_state : u32
 
 struct wroc_surface_stack_element
 {
-    weak<wroc_surface> surface;
+    core::Weak<wroc_surface> surface;
     vec2i32 position;
 };
 
 struct wroc_surface_state
 {
-    flags<wroc_surface_committed_state> committed;
+    core::Flags<wroc_surface_committed_state> committed;
 
-    ref<wroc_buffer> buffer;
-    ref<wroc_buffer_lock> buffer_lock;
+    core::Ref<wroc_buffer> buffer;
+    core::Ref<wroc_buffer_lock> buffer_lock;
     wroc_resource_list frame_callbacks;
     vec2i32 delta;
     region2i32 opaque_region;
@@ -319,10 +319,10 @@ struct wroc_surface : wroc_object, wroc_surface_state_queue_base<wroc_surface_st
     wroc_commit_id applied = 0;
 
     wroc_surface_role role = wroc_surface_role::none;
-    weak<wroc_surface_addon> role_addon;
-    std::vector<ref<wroc_surface_addon>> addons;
+    core::Weak<wroc_surface_addon> role_addon;
+    std::vector<core::Ref<wroc_surface_addon>> addons;
 
-    weak<wroc_surface> cursor;
+    core::Weak<wroc_surface> cursor;
 
     // In surface coordinates, origin represents "offset" surface property
     rect2i32 buffer_dst;
@@ -378,7 +378,7 @@ T* wroc_surface_get_or_create_addon(wroc_surface* surface, bool* created = nullp
     if (created) *created = false;
     auto* existing = wroc_surface_get_addon<T>(surface);
     if (existing) return existing;
-    auto addon = core_create<T>();
+    auto addon = core::create<T>();
     if (!wroc_surface_put_addon(surface, addon.get())) return nullptr;
     if (created) *created = true;
     return addon.get();
@@ -394,7 +394,7 @@ enum class wroc_viewport_committed_state : u32
 
 struct wroc_viewport_state
 {
-    flags<wroc_viewport_committed_state> committed;
+    core::Flags<wroc_viewport_committed_state> committed;
     rect2f64 source;
     vec2i32 destination;
 };
@@ -403,7 +403,7 @@ struct wroc_viewport : wroc_surface_addon, wroc_surface_state_queue_base<wroc_vi
 {
     static constexpr wroc_surface_role role = wroc_surface_role::none;
 
-    weak<wroc_surface> parent;
+    core::Weak<wroc_surface> parent;
 
     wroc_resource resource;
 
@@ -419,7 +419,7 @@ struct wroc_subsurface : wroc_surface_addon
 {
     static constexpr wroc_surface_role role = wroc_surface_role::subsurface;
 
-    weak<wroc_surface> parent;
+    core::Weak<wroc_surface> parent;
 
     wroc_resource resource;
 
@@ -445,7 +445,7 @@ enum class wroc_xdg_surface_committed_state : u32
 
 struct wrox_xdg_surface_state
 {
-    flags<wroc_xdg_surface_committed_state> committed = {};
+    core::Flags<wroc_xdg_surface_committed_state> committed = {};
 
     rect2i32 geometry;
     u32 acked_serial;
@@ -492,9 +492,9 @@ enum class wroc_xdg_toplevel_committed_state : u32
 
 struct wroc_xdg_toplevel_state
 {
-    flags<wroc_xdg_toplevel_committed_state> committed = {};
+    core::Flags<wroc_xdg_toplevel_committed_state> committed = {};
 
-    weak<wroc_toplevel> parent;
+    core::Weak<wroc_toplevel> parent;
     std::string title;
     std::string app_id;
 };
@@ -512,7 +512,7 @@ struct wroc_toplevel : wroc_xdg_shell_role_addon, wroc_surface_state_queue_base<
         vec2i32 bounds;
         vec2i32 size;
         std::vector<xdg_toplevel_state> states;
-        flags<wroc_xdg_toplevel_configure_state> pending = {};
+        core::Flags<wroc_xdg_toplevel_configure_state> pending = {};
     } configure;
 
     struct {
@@ -524,7 +524,7 @@ struct wroc_toplevel : wroc_xdg_shell_role_addon, wroc_surface_state_queue_base<
 
     struct {
         vec2i32 prev_size;
-        weak<wroc_output> output;
+        core::Weak<wroc_output> output;
     } fullscreen;
 
     struct {
@@ -576,7 +576,7 @@ struct wroc_positioner_rules
     rect2i32 anchor_rect;
     xdg_positioner_anchor anchor;
     xdg_positioner_gravity gravity;
-    flags<xdg_positioner_constraint_adjustment> constraint_adjustment;
+    core::Flags<xdg_positioner_constraint_adjustment> constraint_adjustment;
     vec2i32 offset;
     bool reactive = false;
     vec2i32 parent_size;
@@ -598,11 +598,11 @@ struct wroc_popup : wroc_xdg_shell_role_addon
 
     wroc_resource resource;
 
-    ref<wroc_positioner> positioner;
+    core::Ref<wroc_positioner> positioner;
     std::optional<u32> reposition_token;
 
-    weak<wroc_xdg_surface> parent;
-    weak<wroc_toplevel> root_toplevel;
+    core::Weak<wroc_xdg_surface> parent;
+    core::Weak<wroc_toplevel> root_toplevel;
     bool initial_configure_complete;
 
     // Position of popup, in surface coordinates, relative to parent surface origin
@@ -630,12 +630,12 @@ struct wroc_buffer : wroc_object
 
     vec2u32 extent;
 
-    ref<gpu_image> image;
+    core::Ref<gpu_image> image;
 
-    weak<wroc_buffer_lock> lock_guard;
-    [[nodiscard]] ref<wroc_buffer_lock> lock();
+    core::Weak<wroc_buffer_lock> lock_guard;
+    [[nodiscard]] core::Ref<wroc_buffer_lock> lock();
 
-    [[nodiscard]] ref<wroc_buffer_lock> commit(wroc_surface*);
+    [[nodiscard]] core::Ref<wroc_buffer_lock> commit(wroc_surface*);
 
     bool released = true;
     void release();
@@ -649,7 +649,7 @@ protected:
 
 struct wroc_buffer_lock : wroc_object
 {
-    ref<wroc_buffer> buffer;
+    core::Ref<wroc_buffer> buffer;
 
     ~wroc_buffer_lock();
 };
@@ -671,14 +671,14 @@ struct wroc_shm_pool : wroc_object
     wroc_resource resource;
 
     int fd;
-    ref<wroc_shm_mapping> mapping;
+    core::Ref<wroc_shm_mapping> mapping;
 
     ~wroc_shm_pool();
 };
 
 struct wroc_shm_buffer : wroc_buffer
 {
-    ref<wroc_shm_pool> pool;
+    core::Ref<wroc_shm_pool> pool;
 
     i32 offset;
     i32 stride;
@@ -708,10 +708,10 @@ struct wroc_dma_buffer : wroc_buffer
 
     bool needs_wait = false;
 
-    ref<gpu_semaphore> acquire_timeline;
+    core::Ref<gpu_semaphore> acquire_timeline;
     u64 acquire_point;
 
-    ref<gpu_semaphore> release_timeline;
+    core::Ref<gpu_semaphore> release_timeline;
     u64 release_point;
 
     virtual bool is_ready(wroc_surface*) final override;
@@ -724,7 +724,7 @@ struct wroc_dma_buffer : wroc_buffer
 
 struct wroc_syncobj_timeline : wroc_object
 {
-    ref<gpu_semaphore> syncobj;
+    core::Ref<gpu_semaphore> syncobj;
 
     wroc_resource resource;
 };
@@ -735,10 +735,10 @@ struct wroc_syncobj_surface : wroc_surface_addon
 
     wroc_resource resource;
 
-    ref<gpu_semaphore> release_timeline;
+    core::Ref<gpu_semaphore> release_timeline;
     u64 release_point;
 
-    ref<gpu_semaphore> acquire_timeline;
+    core::Ref<gpu_semaphore> acquire_timeline;
     u64 acquire_point;
 
     virtual void commit(wroc_commit_id) final override {};
@@ -749,8 +749,8 @@ struct wroc_syncobj_surface : wroc_surface_addon
 
 struct wroc_seat : wroc_object
 {
-    ref<wroc_seat_keyboard> keyboard;
-    ref<wroc_seat_pointer>  pointer;
+    core::Ref<wroc_seat_keyboard> keyboard;
+    core::Ref<wroc_seat_pointer>  pointer;
 
     std::string name;
 
@@ -790,9 +790,9 @@ enum class wroc_key_action : u32
  */
 struct wroc_keyboard : wroc_object
 {
-    std::flat_set<u32> pressed = {};
+    core::FlatSet<u32> pressed = {};
 
-    weak<wroc_seat_keyboard> target;
+    core::Weak<wroc_seat_keyboard> target;
 
     void enter(std::span<const u32>);
     void leave();
@@ -818,16 +818,16 @@ struct wroc_seat_keyboard : wroc_object
     std::vector<wroc_keyboard*> sources;
 
     // Aggregate of sources[...]->pressed
-    core_counting_set<u32> pressed;
+    core::CountingSet<u32> pressed;
 
     wroc_resource_list resources;
-    weak<wroc_surface> focused_surface;
+    core::Weak<wroc_surface> focused_surface;
 
     struct xkb_context* context;
     struct xkb_state*   state;
     struct xkb_keymap*  keymap;
 
-    core_enum_map<wroc_modifier, xkb_mod_mask_t> mod_masks;
+    core::EnumMap<wroc_modifier, xkb_mod_mask_t> mod_masks;
 
     int keymap_fd = -1;
     i32 keymap_size;
@@ -845,7 +845,7 @@ struct wroc_seat_keyboard : wroc_object
 
 void wroc_seat_keyboard_send_configuration(wroc_seat_keyboard*, wl_client*, wl_resource*);
 
-flags<wroc_modifier> wroc_keyboard_get_active_modifiers(wroc_seat_keyboard*);
+core::Flags<wroc_modifier> wroc_keyboard_get_active_modifiers(wroc_seat_keyboard*);
 
 void wroc_keyboard_clear_focus(wroc_seat_keyboard*);
 void wroc_keyboard_enter(wroc_seat_keyboard*, wroc_surface*);
@@ -854,9 +854,9 @@ void wroc_keyboard_enter(wroc_seat_keyboard*, wroc_surface*);
 
 struct wroc_pointer : wroc_object
 {
-    std::flat_set<u32> pressed = {};
+    core::FlatSet<u32> pressed = {};
 
-    weak<wroc_seat_pointer> target;
+    core::Weak<wroc_seat_pointer> target;
 
     vec2f64 rel_remainder;
 
@@ -878,20 +878,20 @@ struct wroc_seat_pointer : wroc_object
     wroc_seat* seat;
 
     // For translating mouse buttons to key presses
-    ref<wroc_keyboard> keyboard;
+    core::Ref<wroc_keyboard> keyboard;
 
     std::vector<wroc_pointer*> sources;
 
     // Aggregate of sources[...]->pressed
-    core_counting_set<u32> pressed;
+    core::CountingSet<u32> pressed;
 
     wroc_resource_list resources;
     wroc_resource_list relative_pointers;
-    weak<wroc_surface> focused_surface;
+    core::Weak<wroc_surface> focused_surface;
 
     vec2f64 position;
 
-    weak<wroc_pointer_constraint> active_constraint;
+    core::Weak<wroc_pointer_constraint> active_constraint;
 
     void attach(wroc_pointer*);
 };
@@ -907,7 +907,7 @@ enum class wroc_pointer_constraint_committed_state : u32
 
 struct wroc_pointer_constraint_state
 {
-    flags<wroc_pointer_constraint_committed_state> committed;
+    core::Flags<wroc_pointer_constraint_committed_state> committed;
     vec2f64 position_hint;
     region2i32 region;
 };
@@ -925,7 +925,7 @@ struct wroc_pointer_constraint : wroc_surface_addon, wroc_surface_state_queue_ba
     wroc_resource resource;
 
     wroc_pointer_constraint_type type;
-    weak<wroc_seat_pointer> pointer;
+    core::Weak<wroc_seat_pointer> pointer;
     zwp_pointer_constraints_v1_lifetime lifetime;
 
     bool has_been_deactivated = false;
@@ -946,7 +946,7 @@ void wroc_update_pointer_constraint_state();
 struct wroc_data_source : wroc_object
 {
     std::vector<std::string> mime_types;
-    flags<wl_data_device_manager_dnd_action> dnd_actions;
+    core::Flags<wl_data_device_manager_dnd_action> dnd_actions;
     bool cancelled = false;
 
     wroc_resource resource;
@@ -961,8 +961,8 @@ struct wroc_data_offer : wroc_object
 {
     wroc_resource resource;
 
-    weak<wroc_data_source> source;
-    weak<wroc_data_device> device;
+    core::Weak<wroc_data_source> source;
+    core::Weak<wroc_data_device> device;
 
     wl_data_device_manager_dnd_action action = WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE;
     std::string mime_type;
@@ -1005,7 +1005,7 @@ struct wroc_cursor_surface : wroc_surface_addon
 
 struct wroc_cursor_shape
 {
-    ref<gpu_image> image;
+    core::Ref<gpu_image> image;
     vec2i32         hotspot;
 };
 
@@ -1020,7 +1020,7 @@ struct wroc_cursor : wroc_object
     const char* theme;
     int size;
 
-    core_enum_map<wp_cursor_shape_device_v1_shape, ref<wroc_surface>> shapes;
+    core::EnumMap<wp_cursor_shape_device_v1_shape, core::Ref<wroc_surface>> shapes;
 };
 
 void wroc_cursor_create();
@@ -1046,19 +1046,19 @@ struct wroc_renderer : wroc_object
         std::vector<u16> tranche_formats;
     } buffer_feedback;
 
-    flags<wroc_render_option> options;
+    core::Flags<wroc_render_option> options;
 
     gpu_format output_format;
     gpu_format_modifier_set output_format_modifiers;
 
-    ref<gpu_shader> fragment;
-    ref<gpu_shader> vertex;
+    core::Ref<gpu_shader> fragment;
+    core::Ref<gpu_shader> vertex;
 
     std::vector<wroc_renderer_frame_data> available_frames;
     std::vector<struct wroc_shader_rect> rects_cpu;
 
-    ref<gpu_image> background;
-    ref<gpu_sampler> sampler;
+    core::Ref<gpu_image> background;
+    core::Ref<gpu_sampler> sampler;
 
     gpu_format_set shm_formats;
     gpu_format_set dmabuf_formats;
@@ -1080,7 +1080,7 @@ struct wroc_renderer : wroc_object
     ~wroc_renderer();
 };
 
-ref<wroc_renderer> wroc_renderer_create(flags<wroc_render_option>);
+core::Ref<wroc_renderer> wroc_renderer_create(core::Flags<wroc_render_option>);
 void wroc_renderer_init_buffer_feedback(wroc_renderer*);
 void wroc_render_frame(wroc_output*);
 void wroc_screenshot(rect2f64 rect);
@@ -1101,14 +1101,14 @@ struct wroc_imgui : wroc_object
 
     rect2f64 layout_rect;
 
-    ref<gpu_shader> fragment;
-    ref<gpu_shader> vertex;
+    core::Ref<gpu_shader> fragment;
+    core::Ref<gpu_shader> vertex;
 
     gpu_array<ImDrawIdx> indices;
     gpu_array<ImDrawVert> vertices;
     std::vector<wroc_imgui_frame_data> available_frames;
 
-    ref<gpu_image> font_image;
+    core::Ref<gpu_image> font_image;
 
     bool wants_mouse;
     bool wants_keyboard;
@@ -1175,9 +1175,9 @@ enum class wroc_edge : u32
 };
 
 inline
-flags<wroc_edge> wroc_edges_inverse(flags<wroc_edge> edges)
+core::Flags<wroc_edge> wroc_edges_inverse(core::Flags<wroc_edge> edges)
 {
-    flags<wroc_edge> out = {};
+    core::Flags<wroc_edge> out = {};
     if      (edges.contains(wroc_edge::left))   out |= wroc_edge::right;
     else if (edges.contains(wroc_edge::right))  out |= wroc_edge::left;
     if      (edges.contains(wroc_edge::top))    out |= wroc_edge::bottom;
@@ -1186,7 +1186,7 @@ flags<wroc_edge> wroc_edges_inverse(flags<wroc_edge> edges)
 }
 
 inline
-vec2f64 wroc_edges_to_relative(flags<wroc_edge> edges)
+vec2f64 wroc_edges_to_relative(core::Flags<wroc_edge> edges)
 {
     vec2f64 rel{0.5, 0.5};
     if      (edges.contains(wroc_edge::left))   rel.x = 0;
@@ -1204,21 +1204,21 @@ enum class wroc_direction : u32
 
 struct wroc_server : wroc_object
 {
-    ref<wroc_backend>  backend;
+    core::Ref<wroc_backend>  backend;
     gpu_context*      gpu;
-    ref<wroc_renderer> renderer;
-    ref<wroc_seat>     seat;
+    core::Ref<wroc_renderer> renderer;
+    core::Ref<wroc_seat>     seat;
 
-    ref<wroc_imgui> imgui;
-    ref<wroc_debug_gui> debug_gui;
-    ref<wroc_launcher> launcher;
+    core::Ref<wroc_imgui> imgui;
+    core::Ref<wroc_debug_gui> debug_gui;
+    core::Ref<wroc_launcher> launcher;
 
     wroc_modifier main_mod;
     u32 main_mod_evdev;
 
     std::chrono::steady_clock::time_point epoch;
 
-    ref<core_event_loop> event_loop;
+    core::Ref<core::EventLoop> event_loop;
 
     u32 client_flushes_pending = 0;
 
@@ -1226,29 +1226,29 @@ struct wroc_server : wroc_object
     std::string socket;
     std::string x11_socket;
 
-    ref<wroc_output_layout> output_layout;
+    core::Ref<wroc_output_layout> output_layout;
     std::vector<wroc_surface*> surfaces;
 
-    weak<wroc_surface>  implicit_grab_surface;
+    core::Weak<wroc_surface>  implicit_grab_surface;
 
     wroc_interaction_mode interaction_mode;
 
     // TODO: We should track these per client-pointer
-    ref<wroc_cursor> cursor;
+    core::Ref<wroc_cursor> cursor;
 
     struct {
         bool noisy_frames = false;
     } debug;
 
     struct {
-        weak<wroc_toplevel> grabbed_toplevel;
+        core::Weak<wroc_toplevel> grabbed_toplevel;
         vec2f64 pointer_grab;
         vec2f64 surface_grab;
         vec2f64 relative;
     } movesize;
 
     struct {
-        weak<wroc_surface> cycled;
+        core::Weak<wroc_surface> cycled;
     } focus;
 
     struct {
@@ -1266,7 +1266,7 @@ struct wroc_server : wroc_object
             vec4f32 color_selected = {0.4, 0.4, 1.0, 0.6};
         } config;
 
-        weak<wroc_toplevel> toplevel;
+        core::Weak<wroc_toplevel> toplevel;
         aabb2f64 initial_zone;
         aabb2f64 final_zone;
         bool selecting = false;
@@ -1275,14 +1275,14 @@ struct wroc_server : wroc_object
     struct {
         std::vector<wroc_data_device*> devices;
         std::vector<wroc_data_source*> sources;
-        weak<wroc_data_source> selection;
+        core::Weak<wroc_data_source> selection;
 
         struct {
-            weak<wroc_data_device> device;
-            weak<wroc_data_source> source;
-            weak<wroc_drag_icon>   icon;
-            weak<wroc_surface>     offered_surface;
-            weak<wroc_data_offer>  offer;
+            core::Weak<wroc_data_device> device;
+            core::Weak<wroc_data_source> source;
+            core::Weak<wroc_drag_icon>   icon;
+            core::Weak<wroc_surface>     offered_surface;
+            core::Weak<wroc_data_offer>  offer;
         } drag;
     } data_manager;
 };
@@ -1294,10 +1294,10 @@ wl_global* wroc_global(const wl_interface*, i32 version, wl_global_bind_func_t, 
     wroc_global(&Interface##_interface, wroc_##Interface##_version, wroc_##Interface##_bind_global __VA_OPT__(,) __VA_ARGS__)
 
 u32 wroc_get_elapsed_milliseconds();
-flags<wroc_modifier> wroc_get_active_modifiers();
+core::Flags<wroc_modifier> wroc_get_active_modifiers();
 
-void wroc_begin_move_interaction(wroc_toplevel*, wroc_seat_pointer*, flags<wroc_direction>);
-void wroc_begin_resize_interaction(wroc_toplevel*, wroc_seat_pointer*, flags<wroc_edge>);
+void wroc_begin_move_interaction(wroc_toplevel*, wroc_seat_pointer*, core::Flags<wroc_direction>);
+void wroc_begin_resize_interaction(wroc_toplevel*, wroc_seat_pointer*, core::Flags<wroc_edge>);
 
 wroc_surface* wroc_get_surface_under_cursor(wroc_toplevel** toplevel = nullptr);
 
@@ -1314,4 +1314,4 @@ enum class wroc_setenv_option : u32
     system_wide = 1 << 0,
 };
 
-void wroc_setenv(const char* name, const char* value, flags<wroc_setenv_option> options = {});
+void wroc_setenv(const char* name, const char* value, core::Flags<wroc_setenv_option> options = {});

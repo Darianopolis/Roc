@@ -12,7 +12,7 @@ void get_xdg_surface(wl_client* client, wl_resource* resource, u32 id, wl_resour
 {
     auto* new_resource = wroc_resource_create(client, &xdg_surface_interface, wl_resource_get_version(resource), id);
     auto* surface = wroc_get_userdata<wroc_surface>(wl_surface);;
-    auto* xdg_surface = core_create_unsafe<wroc_xdg_surface>();
+    auto* xdg_surface = core::create_unsafe<wroc_xdg_surface>();
     xdg_surface->resource = new_resource;
     wroc_surface_put_addon(surface, xdg_surface);
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_xdg_surface_impl, xdg_surface);
@@ -38,7 +38,7 @@ void get_toplevel(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* new_resource = wroc_resource_create(client, &xdg_toplevel_interface, wl_resource_get_version(resource), id);
     auto* xdg_surface = wroc_get_userdata<wroc_xdg_surface>(resource);
-    auto* xdg_toplevel = core_create_unsafe<wroc_toplevel>();
+    auto* xdg_toplevel = core::create_unsafe<wroc_toplevel>();
     xdg_toplevel->resource = new_resource;
     wroc_surface_put_addon(xdg_surface->surface.get(), xdg_toplevel);
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_xdg_toplevel_impl, xdg_toplevel);
@@ -48,7 +48,7 @@ static
 void set_window_geometry(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
 {
     auto* surface = wroc_get_userdata<wroc_xdg_surface>(resource);
-    surface->pending->geometry = {{x, y}, {width, height}, core_xywh};
+    surface->pending->geometry = {{x, y}, {width, height}, core::xywh};
     surface->pending->committed |= wroc_xdg_surface_committed_state::geometry;
 }
 
@@ -176,7 +176,7 @@ rect2f64 wroc_toplevel_get_layout_rect(wroc_toplevel* toplevel, rect2i32* p_geom
 
     auto extent = toplevel->layout_size ? *toplevel->layout_size : vec2f64(geom.extent);
     auto offset = toplevel->anchor.position - extent * toplevel->anchor.relative;
-    return {offset, extent, core_xywh};
+    return {offset, extent, core::xywh};
 }
 
 // -----------------------------------------------------------------------------
@@ -234,7 +234,7 @@ void toplevel_resize(wl_client* client, wl_resource* resource, wl_resource* seat
         return;
     }
 
-    flags<wroc_edge> edges;
+    core::Flags<wroc_edge> edges;
     switch (wl_edges) {
         break;case XDG_TOPLEVEL_RESIZE_EDGE_NONE: return;
         break;case XDG_TOPLEVEL_RESIZE_EDGE_TOP:          edges = wroc_edge::top;
@@ -284,7 +284,7 @@ void toplevel_on_initial_commit(wroc_toplevel* toplevel)
     wroc_toplevel_flush_configure(toplevel);
 
     if (wl_resource_get_version(toplevel->resource) >= XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION) {
-        wroc_send(xdg_toplevel_send_wm_capabilities, toplevel->resource, ptr_to(wroc_to_wl_array<const xdg_toplevel_wm_capabilities>({
+        wroc_send(xdg_toplevel_send_wm_capabilities, toplevel->resource, core::ptr_to(wroc_to_wl_array<const xdg_toplevel_wm_capabilities>({
             XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN,
         })));
     }
@@ -311,7 +311,7 @@ void toplevel_clamp_to_layout(wroc_toplevel* toplevel)
     };
 
     // Constrain
-    auto constrained = core_rect_constrain(frame, bounds);
+    auto constrained = core::rect::constrain(frame, bounds);
 
     // Apply
     wroc_toplevel_set_size(toplevel, constrained.extent);
@@ -339,7 +339,7 @@ static
 void toplevel_on_initial_size(wroc_toplevel* toplevel)
 {
     auto geom = wroc_xdg_surface_get_geometry(toplevel->base());
-    log_debug("Initial surface size: {}", core_to_string(geom.extent));
+    log_debug("Initial surface size: {}", core::to_string(geom.extent));
     wroc_toplevel_set_size(toplevel, geom.extent);
     wroc_toplevel_flush_configure(toplevel);
 }
@@ -472,7 +472,7 @@ void wroc_toplevel_flush_configure(wroc_toplevel* toplevel)
     }
 
     wroc_send(xdg_toplevel_send_configure, toplevel->resource, configure.size.x, configure.size.y,
-        ptr_to(wroc_to_wl_array<xdg_toplevel_state>(configure.states)));
+        core::ptr_to(wroc_to_wl_array<xdg_toplevel_state>(configure.states)));
 
     wroc_xdg_surface_flush_configure(toplevel->base());
 
@@ -548,7 +548,7 @@ void wroc_toplevel_update_fullscreen_size(wroc_toplevel* toplevel)
 void create_positioner(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* new_resource = wroc_resource_create(client, &xdg_positioner_interface, wl_resource_get_version(resource), id);
-    auto* positioner = core_create_unsafe<wroc_positioner>();
+    auto* positioner = core::create_unsafe<wroc_positioner>();
     positioner->resource = new_resource;
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_xdg_positioner_impl, positioner);
 }
@@ -561,7 +561,7 @@ void create_positioner(wl_client* client, wl_resource* resource, u32 id)
 const struct xdg_positioner_interface wroc_xdg_positioner_impl = {
     .destroy = wroc_simple_resource_destroy_callback,
     POSITIONER_SET(size,                  vec2i32(width, height),                       i32 width, i32 height),
-    POSITIONER_SET(anchor_rect,           rect2i32({x, y}, {width, height}, core_xywh), i32 x, i32 y, i32 width, i32 height),
+    POSITIONER_SET(anchor_rect,           rect2i32({x, y}, {width, height}, core::xywh), i32 x, i32 y, i32 width, i32 height),
     POSITIONER_SET(anchor,                xdg_positioner_anchor(anchor),                u32 anchor),
     POSITIONER_SET(gravity,               xdg_positioner_gravity(gravity),              u32 gravity),
     POSITIONER_SET(constraint_adjustment, xdg_positioner_constraint_adjustment(constraint_adjustment), u32 constraint_adjustment),
@@ -682,23 +682,23 @@ wroc_axis_region positioner_apply_axis(const wroc_xdg_positioner_axis_rules& rul
     case Prefix##_BOTTOM_RIGHT: return {rel.x,     rel.y    };
 
 template<typename T>
-core_vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, core_vec<2, T> rel)
+core::Vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, core::Vec<2, T> rel)
 {
     switch (anchor) {
         WROC_WAYLAND_EDGES_TO_REL_CASES(XDG_POSITIONER_ANCHOR)
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 template<typename T>
-core_vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, core_vec<2, T> rel)
+core::Vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, core::Vec<2, T> rel)
 {
     switch (gravity) {
         WROC_WAYLAND_EDGES_TO_REL_CASES(XDG_POSITIONER_GRAVITY)
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 static
@@ -747,7 +747,7 @@ void get_popup(wl_client* client, wl_resource* resource, u32 id, wl_resource* _p
 {
     auto* new_resource = wroc_resource_create(client, &xdg_popup_interface, wl_resource_get_version(resource), id);
     auto* base = wroc_get_userdata<wroc_xdg_surface>(resource);
-    auto* popup = core_create_unsafe<wroc_popup>();
+    auto* popup = core::create_unsafe<wroc_popup>();
     popup->resource = new_resource;
     wroc_surface_put_addon(base->surface.get(), popup);
 
@@ -766,14 +766,14 @@ void get_popup(wl_client* client, wl_resource* resource, u32 id, wl_resource* _p
 #if WROC_NOISY_POPUP
     auto& rules = xdg_positioner->rules;
     log_debug("xdg_popup<{}> created:", (void*)popup);
-    log_debug("  size = {}", core_to_string(rules.size));
-    log_debug("  anchor_rect = {}", core_to_string(rules.anchor_rect));
-    log_debug("  anchor = {}", core_to_string(rules.anchor));
-    log_debug("  gravity = {}", core_to_string(rules.gravity));
-    log_debug("  adjustment = {}", core_to_string(rules.constraint_adjustment));
-    log_debug("  offset = {}", core_to_string(rules.offset));
+    log_debug("  size = {}", core::to_string(rules.size));
+    log_debug("  anchor_rect = {}", core::to_string(rules.anchor_rect));
+    log_debug("  anchor = {}", core::to_string(rules.anchor));
+    log_debug("  gravity = {}", core::to_string(rules.gravity));
+    log_debug("  adjustment = {}", core::to_string(rules.constraint_adjustment));
+    log_debug("  offset = {}", core::to_string(rules.offset));
     log_debug("  reactive = {}", rules.reactive);
-    log_debug("  parent_size = {}", core_to_string(rules.parent_size));
+    log_debug("  parent_size = {}", core::to_string(rules.parent_size));
     log_debug("  parent_configure = {}", rules.parent_configure);
 #endif
 

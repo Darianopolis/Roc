@@ -5,7 +5,7 @@ void create_data_source(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* server = way_get_userdata<way_server>(resource);
 
-    auto source = core_create<way_data_source>();
+    auto source = core::create<way_data_source>();
     source->client = way_client_from(server, client);
     source->resource = way_resource_create_refcounted(wl_data_source, client, resource, id, source.get());
     source->source = scene_data_source_create(source->client->scene.get(), {
@@ -42,7 +42,7 @@ WAY_BIND_GLOBAL(wl_data_device_manager, bind)
 static
 void receive(wl_client* client, wl_resource* resource, const char* mime_type, int fd)
 {
-    auto write = core_fd_adopt(fd);
+    auto write = core::fd::adopt(fd);
 
     auto* offer = way_get_userdata<way_data_offer>(resource);
     scene_data_source_send(offer->source.get(), mime_type, write.get());
@@ -106,11 +106,11 @@ WAY_INTERFACE(wl_data_device) = {
 // -----------------------------------------------------------------------------
 
 static
-auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_source* source) -> ref<way_data_offer>
+auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_source* source) -> core::Ref<way_data_offer>
 {
     auto* server = client->server;
 
-    auto offer = core_create<way_data_offer>();
+    auto offer = core::create<way_data_offer>();
     offer->client = client;
     offer->source = source;
 

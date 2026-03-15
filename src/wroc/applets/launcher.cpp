@@ -70,7 +70,7 @@ void filter(wroc_launcher* launcher, bool up, bool down)
 
 void wroc_launcher_init()
 {
-    server->launcher = core_create<wroc_launcher>();
+    server->launcher = core::create<wroc_launcher>();
 
     auto* launcher = server->launcher.get();
 

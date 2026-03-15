@@ -43,7 +43,7 @@ struct gpu_descriptor_id_allocator
 using gpu_drm_format   = u32;
 using gpu_drm_modifier = u64;
 
-// Additional flags required to uniquely identify a format when paired with a VkFormat
+// Additional core::Flags required to uniquely identify a format when paired with a VkFormat
 enum class gpu_vk_format_flag : u32
 {
     // DRM FourCC codes have format variants to ignore alpha channels (E.g. XRGB|ARGB).
@@ -61,7 +61,7 @@ struct gpu_format_info
 
     VkFormat vk;
     VkFormat vk_srgb;
-    flags<gpu_vk_format_flag> vk_flags;
+    core::Flags<gpu_vk_format_flag> vk_flags;
 
     VKU_FORMAT_INFO info;
 };
@@ -94,7 +94,7 @@ auto gpu_get_formats()
 }
 
 auto gpu_format_from_drm(gpu_drm_format) -> gpu_format;
-auto gpu_format_from_vk(VkFormat, flags<gpu_vk_format_flag> = {}) -> gpu_format;
+auto gpu_format_from_vk(VkFormat, core::Flags<gpu_vk_format_flag> = {}) -> gpu_format;
 
 struct gpu_format_modifier_props
 {
@@ -108,7 +108,7 @@ struct gpu_format_modifier_props
     bool has_mutable_srgb;
 };
 
-using gpu_format_modifier_set = std::flat_set<gpu_drm_modifier>;
+using gpu_format_modifier_set = core::FlatSet<gpu_drm_modifier>;
 inline const gpu_format_modifier_set gpu_empty_modifier_set;
 
 struct gpu_format_props
@@ -138,7 +138,7 @@ CORE_MAKE_STRUCT_HASHABLE(gpu_format_props_key, v.format, v.usage);
 
 struct gpu_format_set
 {
-    ankerl::unordered_dense::map<gpu_format, gpu_format_modifier_set> entries;
+    core::Map<gpu_format, gpu_format_modifier_set> entries;
 
     void add(gpu_format format, gpu_drm_modifier modifier)
     {
@@ -163,7 +163,7 @@ struct gpu_format_set
 auto gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets) -> gpu_format_modifier_set;
 auto gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets) -> gpu_format_set;
 
-auto gpu_get_format_props(gpu_context*, gpu_format, flags<gpu_image_usage>) -> const gpu_format_props*;
+auto gpu_get_format_props(gpu_context*, gpu_format, core::Flags<gpu_image_usage>) -> const gpu_format_props*;
 
 auto gpu_drm_modifier_get_name(gpu_drm_modifier) -> std::string;
 
@@ -176,7 +176,7 @@ enum class gpu_feature : u32
 
 struct gpu_context
 {
-    flags<gpu_feature> features;
+    core::Flags<gpu_feature> features;
 
     struct {
         GPU_DECLARE_FUNCTION(GetInstanceProcAddr)
@@ -212,9 +212,9 @@ struct gpu_context
         u32 active_samplers;
     } stats;
 
-    ref<gpu_queue> graphics_queue;
-    ref<gpu_queue> transfer_queue;
-    ref<core_event_loop> event_loop;
+    core::Ref<gpu_queue> graphics_queue;
+    core::Ref<gpu_queue> transfer_queue;
+    core::Ref<core::EventLoop> event_loop;
 
     std::vector<VkSemaphore> free_binary_semaphores;
 
@@ -226,12 +226,12 @@ struct gpu_context
     gpu_descriptor_id_allocator image_descriptor_allocator;
     gpu_descriptor_id_allocator sampler_descriptor_allocator;
 
-    ankerl::unordered_dense::segmented_map<gpu_format_props_key, gpu_format_props> format_props;
+    core::SegmentedMap<gpu_format_props_key, gpu_format_props> format_props;
 
     ~gpu_context();
 };
 
-auto gpu_create(flags<gpu_feature>, core_event_loop*) -> ref<gpu_context>;
+auto gpu_create(core::Flags<gpu_feature>, core::EventLoop*) -> core::Ref<gpu_context>;
 
 // -----------------------------------------------------------------------------
 
@@ -252,7 +252,7 @@ struct gpu_queue
     VkCommandPool cmd_pool;
     VkCommandBuffer cmd;
 
-    ref<gpu_semaphore> queue_sema;
+    core::Ref<gpu_semaphore> queue_sema;
 
     u64 submitted;
 
@@ -263,7 +263,7 @@ auto gpu_get_queue(gpu_context*, gpu_queue_type) -> gpu_queue*;
 
 // -----------------------------------------------------------------------------
 
-struct gpu_wait_fn : core_intrusive_list_base<gpu_wait_fn>
+struct gpu_wait_fn : core::IntrusiveListBase<gpu_wait_fn>
 {
     u64 point;
 
@@ -279,9 +279,9 @@ struct gpu_semaphore
     u32         syncobj;
 
     struct {
-        core_fd fd;
+        core::Fd fd;
         u64 skips = 0;
-        core_intrusive_list<gpu_wait_fn> list;
+        core::IntrusiveList<gpu_wait_fn> list;
     } wait;
 
     ~gpu_semaphore();
@@ -294,8 +294,8 @@ struct gpu_syncpoint
     VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 };
 
-auto gpu_semaphore_create(gpu_context*) -> ref<gpu_semaphore>;
-auto gpu_semaphore_import_syncobj(gpu_context*, int syncobj_fd) -> ref<gpu_semaphore>;
+auto gpu_semaphore_create(gpu_context*) -> core::Ref<gpu_semaphore>;
+auto gpu_semaphore_import_syncobj(gpu_context*, int syncobj_fd) -> core::Ref<gpu_semaphore>;
 int  gpu_semaphore_export_syncobj(gpu_semaphore*);
 
 void gpu_semaphore_import_syncfile(gpu_semaphore*, int sync_fd, u64 target_point);
@@ -330,16 +330,16 @@ struct gpu_commands
     gpu_queue* queue;
 
     VkCommandBuffer buffer;
-    std::vector<ref<void>> objects;
+    std::vector<core::Ref<void>> objects;
 
     u64 submitted_value;
 
     ~gpu_commands();
 };
 
-auto gpu_commands_begin(gpu_queue*) -> ref<gpu_commands>;
+auto gpu_commands_begin(gpu_queue*) -> core::Ref<gpu_commands>;
 
-void gpu_cmd_protect(gpu_commands*, ref<void>);
+void gpu_cmd_protect(gpu_commands*, core::Ref<void>);
 
 auto gpu_submit(gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
 
@@ -370,7 +370,7 @@ struct gpu_buffer
     template<typename T>
     T* host(usz byte_offset = 0) const
     {
-        return core_byte_offset_pointer<T>(host_address, byte_offset);
+        return core::byte_offset_pointer<T>(host_address, byte_offset);
     }
 
     ~gpu_buffer();
@@ -381,7 +381,7 @@ enum class gpu_buffer_flag : u32
     host = 1 << 0,
 };
 
-auto gpu_buffer_create(gpu_context*, usz size, flags<gpu_buffer_flag>) -> ref<gpu_buffer>;
+auto gpu_buffer_create(gpu_context*, usz size, core::Flags<gpu_buffer_flag>) -> core::Ref<gpu_buffer>;
 
 // -----------------------------------------------------------------------------
 
@@ -399,7 +399,7 @@ struct gpu_array_element_proxy
 template<typename T>
 struct gpu_array
 {
-    ref<gpu_buffer> buffer;
+    core::Ref<gpu_buffer> buffer;
     usz count = 0;
     usz byte_offset = 0;
 
@@ -451,7 +451,7 @@ struct gpu_image
     auto modifier()   -> gpu_drm_modifier;
     auto view()       -> VkImageView;
     auto handle()     -> VkImage;
-    auto usage()      -> flags<gpu_image_usage>;
+    auto usage()      -> core::Flags<gpu_image_usage>;
     auto descriptor() -> gpu_descriptor_id;
 };
 
@@ -459,11 +459,11 @@ struct gpu_image_create_info
 {
     vec2u32                        extent;
     gpu_format                     format;
-    flags<gpu_image_usage>         usage;
+    core::Flags<gpu_image_usage>         usage;
     const gpu_format_modifier_set* modifiers;
 };
 
-auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> ref<gpu_image>;
+auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> core::Ref<gpu_image>;
 
 void gpu_cmd_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
 
@@ -476,10 +476,10 @@ struct gpu_buffer_image_copy
 };
 
 void gpu_cmd_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*, std::span<const gpu_buffer_image_copy> regions);
-void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
+void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, core::ByteView data, std::span<const gpu_buffer_image_copy> regions);
 
 // WARNING: Blocking
-void gpu_copy_memory_to_image(gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
+void gpu_copy_memory_to_image(gpu_image*, core::ByteView data, std::span<const gpu_buffer_image_copy> regions);
 
 auto gpu_image_compute_linear_offset(gpu_format, vec2u32 position, u32 stride) -> u32;
 
@@ -502,7 +502,7 @@ struct gpu_sampler_create_info
     VkFilter min;
 };
 
-auto gpu_sampler_create(gpu_context*, const gpu_sampler_create_info&) -> ref<gpu_sampler>;
+auto gpu_sampler_create(gpu_context*, const gpu_sampler_create_info&) -> core::Ref<gpu_sampler>;
 
 // -----------------------------------------------------------------------------
 
@@ -522,7 +522,7 @@ struct gpu_shader_create_info
     const char*           entry;
 };
 
-auto gpu_shader_create(gpu_context*, const gpu_shader_create_info&) -> ref<gpu_shader>;
+auto gpu_shader_create(gpu_context*, const gpu_shader_create_info&) -> core::Ref<gpu_shader>;
 
 enum class gpu_depth_enable
 {
@@ -530,12 +530,12 @@ enum class gpu_depth_enable
     write = 1 << 1,
 };
 
-void gpu_cmd_push_constants(   gpu_commands*, u32 offset, core_byte_view data);
+void gpu_cmd_push_constants(   gpu_commands*, u32 offset, core::ByteView data);
 void gpu_cmd_set_scissors(     gpu_commands*, std::span<const rect2i32> scissors);
 void gpu_cmd_set_viewports(    gpu_commands*, std::span<const rect2f32> viewports);
 void gpu_cmd_set_polygon_state(gpu_commands*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
 void gpu_cmd_set_cull_state(   gpu_commands*, VkCullModeFlagBits, VkFrontFace);
-void gpu_cmd_set_depth_state(  gpu_commands*, flags<gpu_depth_enable> enabled, VkCompareOp);
+void gpu_cmd_set_depth_state(  gpu_commands*, core::Flags<gpu_depth_enable> enabled, VkCompareOp);
 void gpu_cmd_set_blend_state(  gpu_commands*, std::span<const gpu_blend_mode>);
 void gpu_cmd_bind_shaders(     gpu_commands*, std::span<gpu_shader* const>);
 
@@ -547,14 +547,14 @@ constexpr static u32 gpu_dma_max_planes = 4;
 
 struct gpu_dma_plane
 {
-    core_fd fd;
+    core::Fd fd;
     u32     offset;
     u32     stride;
 };
 
 struct gpu_dma_params
 {
-    core_fixed_array<gpu_dma_plane, gpu_dma_max_planes> planes;
+    core::FixedArray<gpu_dma_plane, gpu_dma_max_planes> planes;
     bool disjoint;
 
     vec2u32          extent;
@@ -562,7 +562,7 @@ struct gpu_dma_params
     gpu_drm_modifier modifier;
 };
 
-auto gpu_image_import(gpu_context*, const gpu_dma_params&, flags<gpu_image_usage>) -> ref<gpu_image>;
+auto gpu_image_import(gpu_context*, const gpu_dma_params&, core::Flags<gpu_image_usage>) -> core::Ref<gpu_image>;
 auto gpu_image_export(gpu_image*) -> gpu_dma_params;
 
 // -----------------------------------------------------------------------------
@@ -586,10 +586,10 @@ struct gpu_image_handle
 template<typename Lessor>
 struct gpu_image_lease : gpu_image
 {
-    ref<gpu_image> image;
+    core::Ref<gpu_image> image;
     Lessor         lessor;
 
-    gpu_image_lease(ref<gpu_image> image, Lessor&& lessor)
+    gpu_image_lease(core::Ref<gpu_image> image, Lessor&& lessor)
         : image(std::move(image))
         , lessor(std::move(lessor))
     {}
@@ -603,9 +603,9 @@ struct gpu_image_lease : gpu_image
 };
 
 template<typename Lessor>
-auto gpu_lease_image(ref<gpu_image> image, Lessor&& lessor) -> ref<gpu_image_lease<Lessor>>
+auto gpu_lease_image(core::Ref<gpu_image> image, Lessor&& lessor) -> core::Ref<gpu_image_lease<Lessor>>
 {
-    return core_create<gpu_image_lease<Lessor>>(std::move(image), std::move(lessor));
+    return core::create<gpu_image_lease<Lessor>>(std::move(image), std::move(lessor));
 }
 
 // -----------------------------------------------------------------------------
@@ -614,7 +614,7 @@ struct gpu_image_pool
 {
     virtual ~gpu_image_pool() = default;
 
-    virtual auto acquire(const gpu_image_create_info&) -> ref<gpu_image> = 0;
+    virtual auto acquire(const gpu_image_create_info&) -> core::Ref<gpu_image> = 0;
 };
 
-auto gpu_image_pool_create(gpu_context*) -> ref<gpu_image_pool>;
+auto gpu_image_pool_create(gpu_context*) -> core::Ref<gpu_image_pool>;

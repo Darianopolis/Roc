@@ -5,7 +5,7 @@ using enum gpu_vk_format_flag;
 struct gpu_drm_vk_format_pair {
     gpu_drm_format  drm;
     VkFormat         vk;
-    flags<gpu_vk_format_flag> flags;
+    core::Flags<gpu_vk_format_flag> flags;
 };
 
 gpu_drm_vk_format_pair drm_to_vk[] {

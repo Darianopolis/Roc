@@ -8,7 +8,7 @@ void wroc_direct_backend::init()
     log_warn("Direct backend is highly experimental and will self terminate after {} seconds to prevent system lockout", WROC_DIRECT_BACKEND_TIME_LIMIT);
     std::thread{[] {
         std::this_thread::sleep_for(operator""s(WROC_DIRECT_BACKEND_TIME_LIMIT));
-        core_debugkill();
+        core::debugkill();
     }}.detach();
 #endif
 

@@ -61,12 +61,12 @@ void wroc_wl_seat_bind_global(wl_client* client, void* data, u32 version, u32 id
 
 void wroc_seat_init()
 {
-    server->seat = core_create<wroc_seat>();
+    server->seat = core::create<wroc_seat>();
     server->seat->name = "seat-0";
 
     wroc_seat_init_keyboard(server->seat.get());
     wroc_seat_init_pointer(server->seat.get());
 
-    server->seat->pointer->keyboard = core_create<wroc_keyboard>();
+    server->seat->pointer->keyboard = core::create<wroc_keyboard>();
     server->seat->keyboard->attach(server->seat->pointer->keyboard.get());
 }

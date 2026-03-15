@@ -5,84 +5,87 @@
 #include "types.hpp"
 #include "memory.hpp"
 
-struct core_thread_stack_storage
+namespace core
 {
-    byte* head;
-
-    byte* start;
-    byte* end;
-
-    static constexpr usz size = usz(1) * 1024 * 1024;
-
-    core_thread_stack_storage()
-        : head(static_cast<byte*>(unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
-        , start(head)
-        , end(head + size)
+    struct ThreadStackStorage
     {
-        log_warn("head: {}", (void*)head);
-        log_warn("start: {}", (void*)start);
-        log_warn("end: {}", (void*)end);
+        byte* head;
+
+        byte* start;
+        byte* end;
+
+        static constexpr usz size = usz(1) * 1024 * 1024;
+
+        ThreadStackStorage()
+            : head(static_cast<byte*>(core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
+            , start(head)
+            , end(head + size)
+        {
+            log_warn("head: {}", (void*)head);
+            log_warn("start: {}", (void*)start);
+            log_warn("end: {}", (void*)end);
+        }
+
+        ~ThreadStackStorage()
+        {
+            munmap(start, size);
+        }
+
+        usz remaining_bytes() const
+        {
+            return usz(end - head);
+        }
+    };
+
+    inline
+    auto core_get_thread_stack_storage() -> core::ThreadStackStorage&
+    {
+        thread_local core::ThreadStackStorage stack;
+        return stack;
     }
 
-    ~core_thread_stack_storage()
+    class ThreadStack
     {
-        munmap(start, size);
-    }
+        core::ThreadStackStorage& stack;
+        byte* old_head;
 
-    usz remaining_bytes() const
-    {
-        return usz(end - head);
-    }
-};
+    public:
+        ThreadStack()
+            : stack(core_get_thread_stack_storage())
+            , old_head(stack.head)
+        {}
 
-inline
-core_thread_stack_storage& core_get_thread_stack_storage()
-{
-    thread_local core_thread_stack_storage stack;
-    return stack;
+        ~ThreadStack()
+        {
+            stack.head = old_head;
+        }
+
+        CORE_DELETE_COPY_MOVE(ThreadStack);
+
+        void* get_head() noexcept
+        {
+            return stack.head;
+        }
+
+        void set_head(void* address) noexcept
+        {
+            stack.head = core::align_up_power2(static_cast<byte*>(address), 16);
+        }
+
+        constexpr void* allocate(usz byte_size) noexcept
+        {
+            void* ptr = stack.head;
+            set_head(stack.head + byte_size);
+            return ptr;
+        }
+
+        template<typename T>
+            requires std::is_trivially_default_constructible_v<T>
+        constexpr T* allocate(usz count) noexcept
+        {
+            T* ptr = reinterpret_cast<T*>(stack.head);
+            set_head(stack.head + sizeof(T) * count);
+            return ptr;
+        }
+    };
 }
-
-class core_thread_stack
-{
-    core_thread_stack_storage& stack;
-    byte* old_head;
-
-public:
-    core_thread_stack()
-        : stack(core_get_thread_stack_storage())
-        , old_head(stack.head)
-    {}
-
-    ~core_thread_stack()
-    {
-        stack.head = old_head;
-    }
-
-    CORE_DELETE_COPY_MOVE(core_thread_stack);
-
-    void* get_head() noexcept
-    {
-        return stack.head;
-    }
-
-    void set_head(void* address) noexcept
-    {
-        stack.head = core_align_up_power2(static_cast<byte*>(address), 16);
-    }
-
-    constexpr void* allocate(usz byte_size) noexcept
-    {
-        void* ptr = stack.head;
-        set_head(stack.head + byte_size);
-        return ptr;
-    }
-
-    template<typename T>
-        requires std::is_trivially_default_constructible_v<T>
-    constexpr T* allocate(usz count) noexcept
-    {
-        T* ptr = reinterpret_cast<T*>(stack.head);
-        set_head(stack.head + sizeof(T) * count);
-        return ptr;
-    }
-};

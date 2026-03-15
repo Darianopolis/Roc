@@ -13,9 +13,9 @@ void gpu_init_descriptors(gpu_context* gpu)
     gpu->image_descriptor_allocator   = gpu_descriptor_id_allocator(num_image_descriptors_each);
     gpu->sampler_descriptor_allocator = gpu_descriptor_id_allocator(num_sampler_descriptors);
 
-    gpu_check(vk.CreateDescriptorSetLayout(gpu->device, ptr_to(VkDescriptorSetLayoutCreateInfo {
+    gpu_check(vk.CreateDescriptorSetLayout(gpu->device, core::ptr_to(VkDescriptorSetLayoutCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = ptr_to(VkDescriptorSetLayoutBindingFlagsCreateInfo {
+        .pNext = core::ptr_to(VkDescriptorSetLayoutBindingFlagsCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
             .bindingCount = 3,
             .pBindingFlags = std::array { binding_flags, binding_flags, binding_flags }.data(),
@@ -44,18 +44,18 @@ void gpu_init_descriptors(gpu_context* gpu)
         }.data(),
     }), nullptr, &gpu->set_layout));
 
-    gpu_check(vk.CreatePipelineLayout(gpu->device, ptr_to(VkPipelineLayoutCreateInfo {
+    gpu_check(vk.CreatePipelineLayout(gpu->device, core::ptr_to(VkPipelineLayoutCreateInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
         .pSetLayouts = &gpu->set_layout,
         .pushConstantRangeCount = 1,
-        .pPushConstantRanges = ptr_to(VkPushConstantRange {
+        .pPushConstantRanges = core::ptr_to(VkPushConstantRange {
             .stageFlags = VK_SHADER_STAGE_ALL,
             .size = gpu_push_constant_size,
         }),
     }), nullptr, &gpu->pipeline_layout));
 
-    gpu_check(vk.CreateDescriptorPool(gpu->device, ptr_to(VkDescriptorPoolCreateInfo {
+    gpu_check(vk.CreateDescriptorPool(gpu->device, core::ptr_to(VkDescriptorPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
         .maxSets = 1,
@@ -67,7 +67,7 @@ void gpu_init_descriptors(gpu_context* gpu)
         }.data(),
     }), nullptr, &gpu->pool));
 
-    gpu_check(vk.AllocateDescriptorSets(gpu->device, ptr_to(VkDescriptorSetAllocateInfo {
+    gpu_check(vk.AllocateDescriptorSets(gpu->device, core::ptr_to(VkDescriptorSetAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = gpu->pool,
         .descriptorSetCount = 1,
@@ -128,7 +128,7 @@ void gpu_allocate_image_descriptor(gpu_image_base* image)
                 .dstArrayElement = std::to_underlying(id),
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                .pImageInfo = ptr_to(VkDescriptorImageInfo {
+                .pImageInfo = core::ptr_to(VkDescriptorImageInfo {
                     .imageView = image->view(),
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
@@ -145,7 +145,7 @@ void gpu_allocate_image_descriptor(gpu_image_base* image)
                 .dstArrayElement = std::to_underlying(id),
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                .pImageInfo = ptr_to(VkDescriptorImageInfo {
+                .pImageInfo = core::ptr_to(VkDescriptorImageInfo {
                     .imageView = image->view(),
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
@@ -179,7 +179,7 @@ void gpu_allocate_sampler_descriptor(gpu_sampler* sampler)
             .dstArrayElement = std::to_underlying(sampler->id),
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-            .pImageInfo = ptr_to(VkDescriptorImageInfo {
+            .pImageInfo = core::ptr_to(VkDescriptorImageInfo {
                 .sampler = sampler->sampler,
             }),
         },

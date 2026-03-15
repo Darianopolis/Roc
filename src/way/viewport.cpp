@@ -34,10 +34,10 @@ void set_source(wl_client* client, wl_resource* resource, wl_fixed_t x, wl_fixed
     rect2f32 src {
         {wl_fixed_to_double(x),     wl_fixed_to_double(y)},
         {wl_fixed_to_double(width), wl_fixed_to_double(height)},
-        core_xywh,
+        core::xywh,
     };
 
-    if (src == rect2f32{{-1, -1}, {-1, -1}, core_xywh}) {
+    if (src == rect2f32{{-1, -1}, {-1, -1}, core::xywh}) {
         surface->pending->unset(way_surface_committed_state::buffer_source);
     } else {
         surface->pending->buffer_source = src;
@@ -71,19 +71,19 @@ void way_viewport_apply(way_surface* surface, way_surface_state& from)
         scene_texture_set_src(surface->scene.texture.get(), src);
 
     } else if (!to.is_set(way_surface_committed_state::buffer_source)) {
-        scene_texture_set_src(surface->scene.texture.get(), {{}, {1, 1}, core_xywh});
+        scene_texture_set_src(surface->scene.texture.get(), {{}, {1, 1}, core::xywh});
     }
 
     // Destination
 
     if (to.is_set(way_surface_committed_state::buffer_destination)) {
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_destination, core_xywh});
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_destination, core::xywh});
 
     } else if (to.is_set(way_surface_committed_state::buffer_source)) {
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_source.extent, core_xywh});
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, to.buffer_source.extent, core::xywh});
 
     } else if (buffer) {
         // Use buffer extent if destination and source have not been set before
-        scene_texture_set_dst(surface->scene.texture.get(), {{}, buffer->extent, core_xywh});
+        scene_texture_set_dst(surface->scene.texture.get(), {{}, buffer->extent, core::xywh});
     }
 }

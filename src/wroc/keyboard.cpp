@@ -63,7 +63,7 @@ void wroc_seat_keyboard::attach(wroc_keyboard* kb)
 
 void wroc_seat_init_keyboard(wroc_seat* seat)
 {
-    seat->keyboard = core_create<wroc_seat_keyboard>();
+    seat->keyboard = core::create<wroc_seat_keyboard>();
     seat->keyboard->seat = seat;
 
     auto* kb = seat->keyboard.get();
@@ -72,7 +72,7 @@ void wroc_seat_init_keyboard(wroc_seat* seat)
 
     kb->context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
-    kb->keymap = xkb_keymap_new_from_names(kb->context, ptr_to(xkb_rule_names{
+    kb->keymap = xkb_keymap_new_from_names(kb->context, core::ptr_to(xkb_rule_names{
         .layout = "gb",
     }), XKB_KEYMAP_COMPILE_NO_FLAGS);
 
@@ -103,7 +103,7 @@ void wroc_seat_init_keyboard(wroc_seat* seat)
         return;
     }
 
-    void* dst = unix_check<mmap>(nullptr, keymap_size, PROT_READ | PROT_WRITE, MAP_SHARED, rw_fd, 0).value;
+    void* dst = core::check<mmap>(nullptr, keymap_size, PROT_READ | PROT_WRITE, MAP_SHARED, rw_fd, 0).value;
     close(rw_fd);
     if (!dst) {
         log_error("mmap failed");
@@ -166,9 +166,9 @@ bool wroc_seat_keyboard::is_locked(wroc_modifier mod) const
 }
 
 static
-void wroc_seat_keyboard_handle_component_updates(wroc_seat_keyboard* kb, flags<xkb_state_component> changed_components)
+void wroc_seat_keyboard_handle_component_updates(wroc_seat_keyboard* kb, core::Flags<xkb_state_component> changed_components)
 {
-    if (changed_components & flags(XKB_STATE_MODS_DEPRESSED, XKB_STATE_MODS_LATCHED, XKB_STATE_MODS_LOCKED, XKB_STATE_LAYOUT_EFFECTIVE)) {
+    if (changed_components & core::Flags(XKB_STATE_MODS_DEPRESSED, XKB_STATE_MODS_LATCHED, XKB_STATE_MODS_LOCKED, XKB_STATE_LAYOUT_EFFECTIVE)) {
         log_debug("Updated modifiers");
         wroc_post_event(wroc_keyboard_event {
             .type = wroc_event_type::keyboard_modifiers,
@@ -201,7 +201,7 @@ void wroc_seat_keyboard::set_locked(wroc_modifier mod, bool locked)
 static
 void wroc_seat_keyboard_update_state(wroc_seat_keyboard* kb, wroc_key_action action, std::span<const u32> actioned_keys)
 {
-    flags<xkb_state_component> updated = {};
+    core::Flags<xkb_state_component> updated = {};
 
     for (auto key : actioned_keys) {
         if (action == wroc_key_action::release ? kb->pressed.dec(key) : kb->pressed.inc(key)) {
@@ -231,9 +231,9 @@ void wroc_seat_keyboard_update_state(wroc_seat_keyboard* kb, wroc_key_action act
     wroc_seat_keyboard_handle_component_updates(kb, updated);
 }
 
-flags<wroc_modifier> wroc_keyboard_get_active_modifiers(wroc_seat_keyboard* kb)
+core::Flags<wroc_modifier> wroc_keyboard_get_active_modifiers(wroc_seat_keyboard* kb)
 {
-    flags<wroc_modifier> down = {};
+    core::Flags<wroc_modifier> down = {};
 
     auto xkb_mods = xkb_state_serialize_mods(kb->state, XKB_STATE_MODS_EFFECTIVE);
     for (auto mod : kb->mod_masks.enum_values) {
@@ -247,9 +247,9 @@ flags<wroc_modifier> wroc_keyboard_get_active_modifiers(wroc_seat_keyboard* kb)
     return down;
 }
 
-flags<wroc_modifier> wroc_get_active_modifiers()
+core::Flags<wroc_modifier> wroc_get_active_modifiers()
 {
-    flags<wroc_modifier> mods = {};
+    core::Flags<wroc_modifier> mods = {};
     if (server->seat->keyboard) {
         mods |= wroc_keyboard_get_active_modifiers(server->seat->keyboard.get());
     }
@@ -316,7 +316,7 @@ void wroc_keyboard_enter(wroc_seat_keyboard* kb, wroc_surface* surface)
 
         wroc_send(wl_keyboard_send_enter, resource,
             serial,
-            surface->resource, ptr_to(wroc_to_wl_array<const u32>(kb->pressed)));
+            surface->resource, core::ptr_to(wroc_to_wl_array<const u32>(kb->pressed)));
 
         wroc_send(wl_keyboard_send_modifiers, resource,
             serial,
@@ -344,7 +344,7 @@ void wroc_debug_print_key(wroc_seat_keyboard* kb, const wroc_keyboard_event& eve
     char name[128] = {};
     xkb_keysym_get_name(sym, name, sizeof(name) - 1);
 
-    auto utf8_escaped = core_escape_utf8(event.key.utf8);
+    auto utf8_escaped = core::escape_utf8(event.key.utf8);
 
     if (strcmp(name, event.key.utf8) == 0) {
         log_debug("key '{}' (sym: {}, evdev: {}) = {}", utf8_escaped, sym, evdev_keycode, pressed ? "press" : "release");

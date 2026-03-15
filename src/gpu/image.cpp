@@ -3,7 +3,7 @@
 #include "core/stack.hpp"
 #include "core/util.hpp"
 
-VkImageUsageFlags gpu_image_usage_to_vk(flags<gpu_image_usage> usage)
+VkImageUsageFlags gpu_image_usage_to_vk(core::Flags<gpu_image_usage> usage)
 {
     VkImageUsageFlags vk_usage = {};
     if (usage.contains(gpu_image_usage::storage))      vk_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -14,7 +14,7 @@ VkImageUsageFlags gpu_image_usage_to_vk(flags<gpu_image_usage> usage)
     return vk_usage;
 }
 
-VkFormatFeatureFlags gpu_get_required_format_features(gpu_format format, flags<gpu_image_usage> usage)
+VkFormatFeatureFlags gpu_get_required_format_features(gpu_format format, core::Flags<gpu_image_usage> usage)
 {
     VkFormatFeatureFlags features = {};
     if (usage.contains(gpu_image_usage::storage)) features |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
@@ -61,7 +61,7 @@ auto gpu_image::format()     -> gpu_format             { return get_base(this)->
 auto gpu_image::modifier()   -> gpu_drm_modifier       { return get_base(this)->data.modifier; }
 auto gpu_image::view()       -> VkImageView            { return get_base(this)->data.view;     }
 auto gpu_image::handle()     -> VkImage                { return get_base(this)->data.image;    }
-auto gpu_image::usage()      -> flags<gpu_image_usage> { return get_base(this)->data.usage;    }
+auto gpu_image::usage()      -> core::Flags<gpu_image_usage> { return get_base(this)->data.usage;    }
 auto gpu_image::descriptor() -> gpu_descriptor_id      { return get_base(this)->data.id;       }
 
 // -----------------------------------------------------------------------------
@@ -87,13 +87,13 @@ gpu_image_vma::~gpu_image_vma()
     vmaDestroyImage(gpu->vma, handle(), vma.allocation);
 }
 
-ref<gpu_image> gpu_image_create(gpu_context* gpu, const gpu_image_create_info& info)
+core::Ref<gpu_image> gpu_image_create(gpu_context* gpu, const gpu_image_create_info& info)
 {
     if (info.modifiers) {
         return gpu_image_create_dmabuf(gpu, info);
     }
 
-    auto image = core_create<gpu_image_vma>();
+    auto image = core::create<gpu_image_vma>();
     image->gpu = gpu;
 
     gpu->stats.active_images++;
@@ -103,7 +103,7 @@ ref<gpu_image> gpu_image_create(gpu_context* gpu, const gpu_image_create_info& i
     image->data.usage = info.usage;
 
     VmaAllocationInfo alloc_info;
-    gpu_check(vmaCreateImage(gpu->vma, ptr_to(VkImageCreateInfo {
+    gpu_check(vmaCreateImage(gpu->vma, core::ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = info.format->vk,
@@ -120,7 +120,7 @@ ref<gpu_image> gpu_image_create(gpu_context* gpu, const gpu_image_create_info& i
             gpu->transfer_queue->family,
         }.data(),
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    }), ptr_to(VmaAllocationCreateInfo {
+    }), core::ptr_to(VmaAllocationCreateInfo {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     }), &image->data.image, &image->vma.allocation, &alloc_info));
 
@@ -137,7 +137,7 @@ void gpu_image_init(gpu_image_base* image)
 
     auto vk_usage = gpu_image_usage_to_vk(image->usage());
     if (vk_usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {
-        gpu_check(gpu->vk.CreateImageView(gpu->device, ptr_to(VkImageViewCreateInfo {
+        gpu_check(gpu->vk.CreateImageView(gpu->device, core::ptr_to(VkImageViewCreateInfo {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = image->handle(),
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -159,10 +159,10 @@ void gpu_image_init(gpu_image_base* image)
     auto cmd = gpu_commands_begin(queue);
     gpu_cmd_protect(cmd.get(), image);
 
-    gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
+    gpu->vk.CmdPipelineBarrier2(cmd->buffer, core::ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
+        .pImageMemoryBarriers = core::ptr_to(VkImageMemoryBarrier2 {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
             .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
@@ -187,7 +187,7 @@ void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_ima
     gpu_cmd_protect(cmd, image);
     gpu_cmd_protect(cmd, buffer);
 
-    gpu->vk.CmdCopyImageToBuffer(cmd->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
+    gpu->vk.CmdCopyImageToBuffer(cmd->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, core::ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
         .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
         .imageOffset = {},
@@ -199,7 +199,7 @@ void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffe
 {
     auto* gpu = image->context();
 
-    core_thread_stack stack;
+    core::ThreadStack stack;
 
     gpu_cmd_protect(cmd, image);
     gpu_cmd_protect(cmd, buffer);
@@ -218,19 +218,19 @@ void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffe
     gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, regions.size(), copies);
 }
 
-void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
+void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core::ByteView data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto* gpu = image->context();
 
     // TODO: This should be stored persistently for transfers
-    ref buffer = gpu_buffer_create(gpu, data.size, gpu_buffer_flag::host);
+    core::Ref buffer = gpu_buffer_create(gpu, data.size, gpu_buffer_flag::host);
 
     std::memcpy(buffer->host_address, data.data, data.size);
 
     gpu_cmd_copy_buffer_to_image(cmd, image, buffer.get(), regions);
 }
 
-void gpu_copy_memory_to_image(gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
+void gpu_copy_memory_to_image(gpu_image* image, core::ByteView data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto queue = gpu_get_queue(image->context(), gpu_queue_type::transfer);
     auto commands = gpu_commands_begin(queue);
@@ -252,14 +252,14 @@ auto gpu_image_compute_linear_offset(gpu_format format, vec2u32 pos, u32 row_str
 
 // -----------------------------------------------------------------------------
 
-ref<gpu_sampler> gpu_sampler_create(gpu_context* gpu, const gpu_sampler_create_info& info)
+core::Ref<gpu_sampler> gpu_sampler_create(gpu_context* gpu, const gpu_sampler_create_info& info)
 {
-    ref sampler = core_create<gpu_sampler>();
+    core::Ref sampler = core::create<gpu_sampler>();
     sampler->gpu = gpu;
 
     gpu->stats.active_samplers++;
 
-    gpu_check(gpu->vk.CreateSampler(gpu->device, ptr_to(VkSamplerCreateInfo {
+    gpu_check(gpu->vk.CreateSampler(gpu->device, core::ptr_to(VkSamplerCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = info.mag,
         .minFilter = info.min,
@@ -308,7 +308,7 @@ u32 gpu_find_vk_memory_type_index(gpu_context* gpu, u32 type_filter, VkMemoryPro
 
 struct gpu_image_dmabuf : gpu_image_base
 {
-    core_fixed_array<VkDeviceMemory, gpu_dma_max_planes> memory;
+    core::FixedArray<VkDeviceMemory, gpu_dma_max_planes> memory;
 
     struct {
         usz allocation_size;
@@ -330,9 +330,9 @@ gpu_image_dmabuf::~gpu_image_dmabuf()
     }
 }
 
-ref<gpu_image> gpu_image_create_dmabuf(gpu_context* gpu, const gpu_image_create_info& info)
+core::Ref<gpu_image> gpu_image_create_dmabuf(gpu_context* gpu, const gpu_image_create_info& info)
 {
-    auto image = core_create<gpu_image_dmabuf>();
+    auto image = core::create<gpu_image_dmabuf>();
     image->gpu = gpu;
 
     image->data.extent = info.extent;
@@ -341,14 +341,14 @@ ref<gpu_image> gpu_image_create_dmabuf(gpu_context* gpu, const gpu_image_create_
 
     auto vk_usage = gpu_image_usage_to_vk(info.usage);
 
-    gpu_check(gpu->vk.CreateImage(gpu->device, ptr_to(VkImageCreateInfo {
+    gpu_check(gpu->vk.CreateImage(gpu->device, core::ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = gpu_vk_make_chain_in({
-            ptr_to(VkExternalMemoryImageCreateInfo {
+            core::ptr_to(VkExternalMemoryImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
             }),
-            ptr_to(VkImageDrmFormatModifierListCreateInfoEXT {
+            core::ptr_to(VkImageDrmFormatModifierListCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
                 .drmFormatModifierCount = u32(info.modifiers->size()),
                 .pDrmFormatModifiers = std::span(*info.modifiers).data(),
@@ -378,14 +378,14 @@ ref<gpu_image> gpu_image_create_dmabuf(gpu_context* gpu, const gpu_image_create_
     gpu->vk.GetImageMemoryRequirements(gpu->device, image->handle(), &mem_reqs);
 
     auto index = gpu_find_vk_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+    gpu_check(gpu->vk.AllocateMemory(gpu->device, core::ptr_to(VkMemoryAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = gpu_vk_make_chain_in({
-            ptr_to(VkExportMemoryAllocateInfo {
+            core::ptr_to(VkExportMemoryAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
             }),
-            ptr_to(VkMemoryDedicatedAllocateInfo {
+            core::ptr_to(VkMemoryDedicatedAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
                 .image = image->handle(),
             })
@@ -440,7 +440,7 @@ gpu_dma_params gpu_image_export(gpu_image* _image)
     for (u32 i = 0; i < mod_props->plane_count; ++i) {
         VkSubresourceLayout layout;
         gpu->vk.GetImageSubresourceLayout(gpu->device, image->handle(),
-            ptr_to(VkImageSubresource{gpu_plane_to_aspect(i), 0, 0}),
+            core::ptr_to(VkImageSubresource{gpu_plane_to_aspect(i), 0, 0}),
             &layout);
 
         params.planes[i].offset = layout.offset;
@@ -451,12 +451,12 @@ gpu_dma_params gpu_image_export(gpu_image* _image)
 
     auto export_fd = [&](VkDeviceMemory mem) {
         int _fd = -1;
-        gpu_check(gpu->vk.GetMemoryFdKHR(gpu->device, ptr_to(VkMemoryGetFdInfoKHR {
+        gpu_check(gpu->vk.GetMemoryFdKHR(gpu->device, core::ptr_to(VkMemoryGetFdInfoKHR {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
             .memory = image->memory[0],
             .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
         }), &_fd));
-        return core_fd_adopt(_fd);
+        return core::fd::adopt(_fd);
     };
 
     if (image->memory.count == 1) {
@@ -474,7 +474,7 @@ gpu_dma_params gpu_image_export(gpu_image* _image)
     return params;
 }
 
-ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, flags<gpu_image_usage> usage)
+core::Ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, core::Flags<gpu_image_usage> usage)
 {
     core_assert(!usage.empty());
 
@@ -489,7 +489,7 @@ ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, 
         return nullptr;
     }
 
-    auto image = core_create<gpu_image_dmabuf>();
+    auto image = core::create<gpu_image_dmabuf>();
     image->gpu = gpu;
 
     gpu->stats.active_images++;
@@ -509,14 +509,14 @@ ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, 
 
     VkImageCreateFlags img_create_flags = {};
     if (params.disjoint) img_create_flags |= VK_IMAGE_CREATE_DISJOINT_BIT;
-    gpu_check(gpu->vk.CreateImage(gpu->device, ptr_to(VkImageCreateInfo {
+    gpu_check(gpu->vk.CreateImage(gpu->device, core::ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = gpu_vk_make_chain_in({
-            ptr_to(VkExternalMemoryImageCreateInfo {
+            core::ptr_to(VkExternalMemoryImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
             }),
-            ptr_to(VkImageDrmFormatModifierExplicitCreateInfoEXT {
+            core::ptr_to(VkImageDrmFormatModifierExplicitCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT,
                 .drmFormatModifier = params.modifier,
                 .drmFormatModifierPlaneCount = u32(params.planes.count),
@@ -552,10 +552,10 @@ ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, 
         VkMemoryRequirements2 mem_reqs = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
         };
-        gpu->vk.GetImageMemoryRequirements2(gpu->device, ptr_to(VkImageMemoryRequirementsInfo2 {
+        gpu->vk.GetImageMemoryRequirements2(gpu->device, core::ptr_to(VkImageMemoryRequirementsInfo2 {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
             .pNext = params.disjoint
-                ? ptr_to(VkImagePlaneMemoryRequirementsInfo {
+                ? core::ptr_to(VkImagePlaneMemoryRequirementsInfo {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO,
                     .planeAspect = gpu_plane_to_aspect(i),
                 })
@@ -566,24 +566,24 @@ ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, 
         auto mem = gpu_find_vk_memory_type_index(gpu, mem_reqs.memoryRequirements.memoryTypeBits & fd_props.memoryTypeBits, 0);
 
         // Take a copy of the file descriptor, this will be owned by the bound vulkan memory
-        int vk_fd = core_fd_dup_unsafe(fd.get());
+        int vk_fd = core::fd::dup_unsafe(fd.get());
 
         image->stats.allocation_size   += mem_reqs.memoryRequirements.size;
         gpu->stats.active_image_memory += mem_reqs.memoryRequirements.size;
 
-        if (gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+        if (gpu_check(gpu->vk.AllocateMemory(gpu->device, core::ptr_to(VkMemoryAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext = gpu_vk_make_chain_in({
-                ptr_to(VkImportMemoryFdInfoKHR {
+                core::ptr_to(VkImportMemoryFdInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
                     .handleType = handle_type,
                     .fd = vk_fd,
                 }),
-                ptr_to(VkExportMemoryAllocateInfo {
+                core::ptr_to(VkExportMemoryAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
                     .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
                 }),
-                ptr_to(VkMemoryDedicatedAllocateInfo {
+                core::ptr_to(VkMemoryDedicatedAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
                     .image = image->handle(),
                 }),

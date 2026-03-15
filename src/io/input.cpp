@@ -6,7 +6,7 @@ void io_input_device_add(io_input_device_base* device)
 {
     core_assert(!std::ranges::contains(device->ctx->input_devices, device));
     device->ctx->input_devices.emplace_back(device);
-    io_post_event(device->ctx, ptr_to(io_event {
+    io_post_event(device->ctx, core::ptr_to(io_event {
         .type = io_event_type::input_added,
         .input = io_input_event {
             .device = device,
@@ -17,7 +17,7 @@ void io_input_device_add(io_input_device_base* device)
 void io_input_device_remove(io_input_device_base* device)
 {
     if (std::erase(device->ctx->input_devices, device)) {
-        io_post_event(device->ctx, ptr_to(io_event {
+        io_post_event(device->ctx, core::ptr_to(io_event {
             .type = io_event_type::input_removed,
             .input = io_input_event {
                 .device = device,
@@ -29,7 +29,7 @@ void io_input_device_remove(io_input_device_base* device)
 static
 void post_input(io_input_device_base* device, bool quiet, std::span<const io_input_channel> channels)
 {
-    io_post_event(device->ctx, ptr_to(io_event {
+    io_post_event(device->ctx, core::ptr_to(io_event {
         .type = io_event_type::input_event,
         .input = io_input_event {
             .device = device,
@@ -41,7 +41,7 @@ void post_input(io_input_device_base* device, bool quiet, std::span<const io_inp
 
 void io_input_device_leave(io_input_device_base* device)
 {
-    core_thread_stack stack;
+    core::ThreadStack stack;
     auto* events = stack.allocate<io_input_channel>(device->pressed.size());
     usz count = 0;
     for (auto key : device->pressed) {
@@ -55,7 +55,7 @@ void io_input_device_leave(io_input_device_base* device)
 
 void io_input_device_key_enter(io_input_device_base* device, std::span<const u32> keys)
 {
-    core_thread_stack stack;
+    core::ThreadStack stack;
     auto* events = stack.allocate<io_input_channel>(keys.size());
     usz count = 0;
     for (auto key : keys) {

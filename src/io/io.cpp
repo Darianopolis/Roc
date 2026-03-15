@@ -1,8 +1,8 @@
 #include "internal.hpp"
 
-auto io_create(core_event_loop* event_loop, gpu_context* gpu) -> ref<io_context>
+auto io_create(core::EventLoop* event_loop, gpu_context* gpu) -> core::Ref<io_context>
 {
-    auto ctx = core_create<io_context>();
+    auto ctx = core::create<io_context>();
 
     ctx->event_loop = event_loop;
     ctx->gpu = gpu;
@@ -25,7 +25,7 @@ void shutdown(io_context* ctx)
     ctx->libinput.destroy();
     ctx->session.destroy();
 
-    core_event_loop_stop(ctx->event_loop);
+    core::event_loop::stop(ctx->event_loop);
 }
 
 io_context::~io_context()
@@ -43,7 +43,7 @@ void io_set_event_handler(io_context* ctx, std::move_only_function<io_event_hand
 }
 
 static
-weak<io_context> signal_context;
+core::Weak<io_context> signal_context;
 
 static
 void signal_handler(int sig)
@@ -73,7 +73,7 @@ void io_run(io_context* ctx)
         io_wayland_start(ctx);
     }
 
-    core_event_loop_run(ctx->event_loop);
+    core::event_loop::run(ctx->event_loop);
 
     signal_context = nullptr;
     signal(SIGINT, SIG_DFL);
@@ -82,8 +82,8 @@ void io_run(io_context* ctx)
 
 void io_request_shutdown(io_context* ctx, io_shutdown_reason reason)
 {
-    core_event_loop_enqueue(ctx->event_loop, [ctx, reason] {
-        io_post_event(ctx, ptr_to(io_event {
+    core::event_loop::enqueue(ctx->event_loop, [ctx, reason] {
+        io_post_event(ctx, core::ptr_to(io_event {
             .type = io_event_type::shutdown_requested,
             .shutdown {
                 .reason = reason,
@@ -97,7 +97,7 @@ void io_stop(io_context* ctx)
     if (ctx->stop_requested) return;
     ctx->stop_requested = true;
 
-    core_event_loop_enqueue(ctx->event_loop, [ctx] {
+    core::event_loop::enqueue(ctx->event_loop, [ctx] {
         shutdown(ctx);
     });
 }

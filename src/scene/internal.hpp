@@ -24,16 +24,16 @@ struct scene_context
     gpu_context* gpu;
 
     struct {
-        ref<gpu_shader> vertex;
-        ref<gpu_shader> fragment;
-        ref<gpu_image>    white;
-        ref<gpu_sampler>  sampler;
+        core::Ref<gpu_shader> vertex;
+        core::Ref<gpu_shader> fragment;
+        core::Ref<gpu_image>    white;
+        core::Ref<gpu_sampler>  sampler;
     } render;
 
     scene_system_id prev_system_id = {};
 
-    ref<scene_tree> root_tree;
-    core_enum_map<scene_layer, ref<scene_tree>> layers;
+    core::Ref<scene_tree> root_tree;
+    core::EnumMap<scene_layer, core::Ref<scene_tree>> layers;
 
     std::vector<scene_output*> outputs;
 
@@ -42,14 +42,14 @@ struct scene_context
     scene_system_id            window_system;
 
     struct {
-        ref<scene_keyboard> keyboard;
-        ref<scene_pointer>  pointer;
+        core::Ref<scene_keyboard> keyboard;
+        core::Ref<scene_pointer>  pointer;
         std::vector<io_input_device*> led_devices;
     } seat;
 
-    ref<scene_data_source> selection;
+    core::Ref<scene_data_source> selection;
 
-    ref<scene_cursor_manager> cursor_manager;
+    core::Ref<scene_cursor_manager> cursor_manager;
 
     ~scene_context();
 };
@@ -84,7 +84,7 @@ struct scene_window
 
     std::string title;
 
-    ref<scene_tree> tree;
+    core::Ref<scene_tree> tree;
 
     ~scene_window();
 };
@@ -93,13 +93,13 @@ struct scene_window
 
 struct scene_hotkey_press_state
 {
-    flags<scene_modifier> modifiers;
+    core::Flags<scene_modifier> modifiers;
     scene_client*         client;
 };
 
 struct scene_hotkey_map {
-    ankerl::unordered_dense::map<scene_hotkey, scene_client*> registered;
-    ankerl::unordered_dense::map<scene_scancode, scene_hotkey_press_state> pressed;
+    core::Map<scene_hotkey, scene_client*> registered;
+    core::Map<scene_scancode, scene_hotkey_press_state> pressed;
 };
 
 struct scene_input_device
@@ -122,28 +122,28 @@ struct scene_focus
 
 struct scene_keyboard : scene_input_device, scene_keyboard_info
 {
-    core_counting_set<u32> pressed;
+    core::CountingSet<u32> pressed;
 
-    flags<scene_modifier> depressed;
-    flags<scene_modifier> latched;
-    flags<scene_modifier> locked;
+    core::Flags<scene_modifier> depressed;
+    core::Flags<scene_modifier> latched;
+    core::Flags<scene_modifier> locked;
 
-    core_enum_map<scene_modifier, xkb_mod_mask_t> mod_masks;
+    core::EnumMap<scene_modifier, xkb_mod_mask_t> mod_masks;
 
     scene_focus focus;
 
     ~scene_keyboard();
 };
 
-auto scene_keyboard_create(scene_context*) -> ref<scene_keyboard>;
+auto scene_keyboard_create(scene_context*) -> core::Ref<scene_keyboard>;
 
 // -----------------------------------------------------------------------------
 
 struct scene_pointer : scene_input_device
 {
-    core_counting_set<u32> pressed;
+    core::CountingSet<u32> pressed;
 
-    ref<scene_tree> tree;
+    core::Ref<scene_tree> tree;
 
     std::move_only_function<scene_pointer_driver_fn> driver;
 
@@ -152,7 +152,7 @@ struct scene_pointer : scene_input_device
 
 void scene_update_pointer_focus(scene_context*);
 
-auto scene_pointer_create(scene_context*) -> ref<scene_pointer>;
+auto scene_pointer_create(scene_context*) -> core::Ref<scene_pointer>;
 
 // -----------------------------------------------------------------------------
 
@@ -164,7 +164,7 @@ struct scene_data_source
 {
     scene_client* client;
 
-    std::flat_set<std::string> offered;
+    core::FlatSet<std::string> offered;
 
     scene_data_source_ops ops;
 

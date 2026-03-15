@@ -1,8 +1,8 @@
 #include "internal.hpp"
 
-auto scene_data_source_create(scene_client* client, scene_data_source_ops&& ops) -> ref<scene_data_source>
+auto scene_data_source_create(scene_client* client, scene_data_source_ops&& ops) -> core::Ref<scene_data_source>
 {
-    auto source = core_create<scene_data_source>();
+    auto source = core::create<scene_data_source>();
     source->ops = std::move(ops);
     source->client = client;
     return source;
@@ -41,7 +41,7 @@ scene_data_source::~scene_data_source()
 
 void scene_offer_selection(scene_client* client, scene_data_source* source)
 {
-    scene_client_post_event(client, ptr_to(scene_event {
+    scene_client_post_event(client, core::ptr_to(scene_event {
         .type = scene_event_type::selection,
         .data {
             .source =source,

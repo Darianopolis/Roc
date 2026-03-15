@@ -8,7 +8,7 @@ void syncobj_get_surface(wl_client* client, wl_resource* resource, u32 id, wl_re
     auto* surface = wroc_get_userdata<wroc_surface>(_surface);
 
     auto* syncobj_surface_resource = wroc_resource_create(client, &wp_linux_drm_syncobj_surface_v1_interface, wl_resource_get_version(resource), id);
-    auto syncobj_surface = core_create_unsafe<wroc_syncobj_surface>();
+    auto syncobj_surface = core::create_unsafe<wroc_syncobj_surface>();
     syncobj_surface->resource = syncobj_surface_resource;
     wroc_surface_put_addon(surface, syncobj_surface);
     wroc_resource_set_implementation_refcounted(syncobj_surface_resource, &wroc_wp_linux_drm_syncobj_surface_v1_impl, syncobj_surface);
@@ -18,7 +18,7 @@ static
 void syncobj_import_timeline(wl_client* client, wl_resource* resource, u32 id, int fd)
 {
     auto* timeline_resource = wroc_resource_create(client, &wp_linux_drm_syncobj_timeline_v1_interface, wl_resource_get_version(resource), id);
-    auto timeline = core_create_unsafe<wroc_syncobj_timeline>();
+    auto timeline = core::create_unsafe<wroc_syncobj_timeline>();
     timeline->resource = timeline_resource;
     timeline->syncobj = gpu_semaphore_import_syncobj(server->gpu, fd);
     wroc_resource_set_implementation_refcounted(timeline_resource, &wroc_wp_linux_drm_syncobj_timeline_v1_impl, timeline);

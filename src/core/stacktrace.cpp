@@ -1,7 +1,7 @@
 #include "stacktrace.hpp"
 #include "debug.hpp"
 
-std::string core_to_string(const core_stacktrace& st)
+std::string core::to_string(const core::Stacktrace& st)
 {
     std::string str;
     for (u32 i = 0; i < st.entries.size(); ++i) {
@@ -12,7 +12,7 @@ std::string core_to_string(const core_stacktrace& st)
     return str;
 }
 
-std::pair<const core_stacktrace*, bool> core_stacktrace_cache::insert(const std::stacktrace& st)
+std::pair<const core::Stacktrace*, bool> core::StacktraceCache::insert(const std::stacktrace& st)
 {
     auto& entry = traces[st];
     bool added = entry.size() != st.size();
@@ -22,7 +22,7 @@ std::pair<const core_stacktrace*, bool> core_stacktrace_cache::insert(const std:
     return {&entry, added};
 }
 
-void core_stacktrace::populate(struct core_stacktrace_cache& cache, const std::stacktrace& stacktrace)
+void core::Stacktrace::populate(struct core::StacktraceCache& cache, const std::stacktrace& stacktrace)
 {
     core_assert(entries.empty());
 

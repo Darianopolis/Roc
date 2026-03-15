@@ -9,7 +9,7 @@ static
 void wroc_wl_compositor_create_region(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* new_resource = wroc_resource_create(client, &wl_region_interface, wl_resource_get_version(resource), id);
-    auto* region = core_create_unsafe<wroc_region>();
+    auto* region = core::create_unsafe<wroc_region>();
     region->resource = new_resource;
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_wl_region_impl, region);
 }
@@ -18,7 +18,7 @@ static
 void wroc_wl_compositor_create_surface(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* new_resource = wroc_resource_create(client, &wl_surface_interface, wl_resource_get_version(resource), id);
-    auto* surface = core_create_unsafe<wroc_surface>();
+    auto* surface = core::create_unsafe<wroc_surface>();
     surface->resource = new_resource;
     server->surfaces.emplace_back(surface);
 
@@ -26,7 +26,7 @@ void wroc_wl_compositor_create_surface(wl_client* client, wl_resource* resource,
     surface->pending->surface_stack.emplace_back(surface);
     surface->pending->committed |= wroc_surface_committed_state::surface_stack;
 
-    surface->current.input_region = {{{0, 0}, {INT32_MAX, INT32_MAX}, core_minmax}},
+    surface->current.input_region = {{{0, 0}, {INT32_MAX, INT32_MAX}, core::minmax}},
     surface->current.buffer_scale = 1.f;
 
     // Use default cursor
@@ -55,7 +55,7 @@ static
 void wroc_wl_region_add(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
 {
     auto* region = wroc_get_userdata<wroc_region>(resource);
-    region->region.add({{x, y}, {width, height}, core_xywh});
+    region->region.add({{x, y}, {width, height}, core::xywh});
 }
 
 static
@@ -63,7 +63,7 @@ void wroc_wl_region_subtract(wl_client* client, wl_resource* resource, i32 x, i3
 {
     auto* region = wroc_get_userdata<wroc_region>(resource);
 
-    region->region.subtract({{x, y}, {width, height}, core_xywh});
+    region->region.subtract({{x, y}, {width, height}, core::xywh});
 }
 
 const struct wl_region_interface wroc_wl_region_impl = {
@@ -125,7 +125,7 @@ void wroc_wl_surface_set_input_region(wl_client* client, wl_resource* resource, 
         surface->pending->input_region = region->region;
     } else {
         surface->pending->input_region.clear();
-        surface->pending->input_region.add({{0, 0}, {INT32_MAX, INT32_MAX}, core_minmax});
+        surface->pending->input_region.add({{0, 0}, {INT32_MAX, INT32_MAX}, core::minmax});
     }
     surface->pending->committed |= wroc_surface_committed_state::input_region;
 }
@@ -244,7 +244,7 @@ void apply_state(wroc_surface* surface, wroc_surface_state& from)
         to.surface_stack.append_range(from.surface_stack);
     }
 
-    // Update commit flags
+    // Update commit core::Flags
 
     to.committed |= from.committed;
     from.committed = {};
@@ -354,7 +354,7 @@ void wroc_surface_flush_apply(wroc_surface* surface)
     }
 
     if (surface->current.buffer) {
-        surface->buffer_src = {{}, surface->current.buffer->extent, core_xywh};
+        surface->buffer_src = {{}, surface->current.buffer->extent, core::xywh};
         // TODO: inverse buffer_transform
         surface->buffer_dst.extent = vec2f64(surface->current.buffer->extent) / surface->current.buffer_scale;
     }
@@ -373,7 +373,7 @@ void wroc_surface_flush_apply(wroc_surface* surface)
         }
 
 #if WROC_NOISY_COMMIT
-        log_debug("buffer src = {}, dst = {}", core_to_string(surface->buffer_src), core_to_string(surface->buffer_dst));
+        log_debug("buffer src = {}, dst = {}", core::to_string(surface->buffer_src), core::to_string(surface->buffer_dst));
 #endif
     }
 
@@ -438,13 +438,13 @@ bool wroc_surface_point_accepts_input(wroc_surface* surface, vec2f64 surface_pos
         buffer_rect.extent = vec2f64{surface->current.buffer->extent} / surface->current.buffer_scale;
     }
 
-    // log_debug("buffer_rect = {}", core_to_string(buffer_rect));
+    // log_debug("buffer_rect = {}", core::to_string(buffer_rect));
 
-    if (!core_rect_contains(buffer_rect, surface_pos)) return false;
+    if (!core::rect::contains(buffer_rect, surface_pos)) return false;
 
     auto accepts_input = surface->current.input_region.contains(surface_pos);
 
-    // log_trace("input_region.contains{} = {}", core_to_string(point), accepts_input);
+    // log_trace("input_region.contains{} = {}", core::to_string(point), accepts_input);
 
     return accepts_input;
 }
@@ -462,7 +462,7 @@ rect2f64 wroc_surface_get_frame(wroc_surface* surface)
     switch (surface->role) {
         break;case wroc_surface_role::cursor:
             // Consider only hotspot as pointer's "frame"
-            return {server->seat->pointer->position, vec2f64(1.0), core_xywh};
+            return {server->seat->pointer->position, vec2f64(1.0), core::xywh};
         break;case wroc_surface_role::xdg_toplevel:
             if (auto* toplevel = wroc_surface_get_addon<wroc_toplevel>(surface)) {
                 return wroc_toplevel_get_layout_rect(toplevel);
@@ -471,17 +471,17 @@ rect2f64 wroc_surface_get_frame(wroc_surface* surface)
             if (auto* xdg_surface = wroc_surface_get_addon<wroc_xdg_surface>(surface)) {
                 auto space = wroc_surface_get_coord_space(surface);
                 aabb2f64 geom = wroc_xdg_surface_get_geometry(xdg_surface);
-                return { space.to_global(geom.min), space.to_global(geom.max), core_minmax };
+                return { space.to_global(geom.min), space.to_global(geom.max), core::minmax };
             }
         }
         break;default: {
             auto space = wroc_surface_get_coord_space(surface);
             aabb2f64 buffer_dst = surface->buffer_dst;
-            return { space.to_global(buffer_dst.min), space.to_global(buffer_dst.max), core_minmax };
+            return { space.to_global(buffer_dst.min), space.to_global(buffer_dst.max), core::minmax };
         }
     }
 
-    log_error("Surface with role \"{}\" has no valid frame!", core_to_string(surface->role));
+    log_error("Surface with role \"{}\" has no valid frame!", core::to_string(surface->role));
     return {};
 }
 
@@ -509,14 +509,14 @@ wroc_coord_space wroc_surface_get_coord_space(wroc_surface* surface)
             if (auto* toplevel = wroc_surface_get_addon<wroc_toplevel>(surface)) {
                 rect2i32 geom;
                 auto layout = wroc_toplevel_get_layout_rect(toplevel, &geom);
-                auto fit = core_rect_fit<f64>(layout.extent, geom.extent);
+                auto fit = core::rect::fit<f64>(layout.extent, geom.extent);
                 auto scale = fit.extent / vec2f64(geom.extent);
                 auto pos = layout.origin + fit.origin - vec2f64(geom.origin) * scale;
                 return {pos, scale};
             }
     }
 
-    log_error("Surface with role \"{}\" has no valid position!", core_to_string(surface->role));
+    log_error("Surface with role \"{}\" has no valid position!", core::to_string(surface->role));
     return {{}, {1, 1}};
 }
 
@@ -536,14 +536,14 @@ bool wroc_surface_put_addon_impl(wroc_surface* surface, wroc_surface_addon* addo
 {
     if (role != wroc_surface_role::none) {
         if (surface->role_addon) {
-            log_error("Surface already has addon for role {}", core_to_string(surface->role));
+            log_error("Surface already has addon for role {}", core::to_string(surface->role));
             return false;
         }
 
         if (surface->role == wroc_surface_role::none) {
             surface->role = role;
         } else if (surface->role != role) {
-            log_error("Surface already has role {}, can't change to {}", core_to_string(surface->role), core_to_string(role));
+            log_error("Surface already has role {}, can't change to {}", core::to_string(surface->role), core::to_string(role));
             return false;
         }
 

@@ -22,14 +22,14 @@ wp_cursor_shape_device_v1_shape from_imgui_cursor(ImGuiMouseCursor cursor)
         break;case ImGuiMouseCursor_NotAllowed: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NOT_ALLOWED;
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 void wroc_imgui_init()
 {
     auto* gpu = server->gpu;
 
-    server->imgui = core_create<wroc_imgui>();
+    server->imgui = core::create<wroc_imgui>();
     auto* imgui = server->imgui.get();
 
     imgui->vertex = gpu_shader_create(gpu, {
@@ -359,7 +359,7 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
     struct frame_guard : wroc_object
     {
         wroc_imgui_frame_data frame_data;
-        weak<wroc_imgui> imgui;
+        core::Weak<wroc_imgui> imgui;
 
         ~frame_guard()
         {
@@ -368,7 +368,7 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
             }
         }
     };
-    auto guard = core_create<frame_guard>();
+    auto guard = core::create<frame_guard>();
     guard->imgui = imgui;
     gpu_cmd_protect(commands, guard.get());
 
@@ -381,13 +381,13 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
     }
 
     if (frame->vertices.count < usz(data->TotalVtxCount)) {
-        auto new_size = core_compute_geometric_growth(frame->vertices.count, data->TotalVtxCount);
+        auto new_size = core::compute_geometric_growth(frame->vertices.count, data->TotalVtxCount);
         log_debug("ImGui - reallocating vertex buffer, size: {}", new_size);
         frame->vertices = {gpu_buffer_create(gpu, new_size * sizeof(ImDrawVert), {}), usz(new_size)};
     }
 
     if (frame->indices.count < usz(data->TotalIdxCount)) {
-        auto new_size = core_compute_geometric_growth(frame->indices.count, data->TotalIdxCount);
+        auto new_size = core::compute_geometric_growth(frame->indices.count, data->TotalIdxCount);
         log_debug("ImGui - reallocating index buffer, size: {}", new_size);
         frame->indices = {gpu_buffer_create(gpu, new_size * sizeof(ImDrawIdx), {}), usz(new_size)};
     }
@@ -422,10 +422,10 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
                 continue;
             }
 
-            gpu_cmd_set_scissors(commands, {{clip_min, clip_max, core_minmax}});
+            gpu_cmd_set_scissors(commands, {{clip_min, clip_max, core::minmax}});
 
             auto draw_scale = 2.f / vec2f32(viewport.extent);
-            gpu_cmd_push_constants(commands, 0, core_view_bytes(wroc_imgui_shader_in {
+            gpu_cmd_push_constants(commands, 0, core::view_bytes(wroc_imgui_shader_in {
                 .vertices = frame->vertices.device(),
                 .scale = draw_scale,
                 .offset = vec2f32(-1.f) - (vec2f32(viewport.origin) * draw_scale),

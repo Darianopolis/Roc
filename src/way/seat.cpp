@@ -7,15 +7,15 @@ auto get_keymap_file(xkb_keymap* keymap) -> way_keymap
     defer { free(string); };
     u32 size = strlen(string) + 1;
 
-    auto fd = core_fd_adopt(unix_check<memfd_create>(PROGRAM_NAME "-keymap", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
-    unix_check<ftruncate>(fd.get(), size);
+    auto fd = core::fd::adopt(core::check<memfd_create>(PROGRAM_NAME "-keymap", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
+    core::check<ftruncate>(fd.get(), size);
 
-    auto mapped = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
+    auto mapped = core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd.get(), 0).value;
     memcpy(mapped, string, size);
     munmap(mapped, size);
 
     // Seal file to prevent further writes
-    unix_check<fcntl>(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW);
+    core::check<fcntl>(fd.get(), F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_SHRINK | F_SEAL_GROW);
 
     return { .fd = std::move(fd), .size = size };
 }

@@ -8,7 +8,7 @@ static
 void wroc_wl_data_device_manager_create_data_source(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* new_resource = wroc_resource_create(client, &wl_data_source_interface, wl_resource_get_version(resource), id);
-    auto* data_source = core_create_unsafe<wroc_data_source>();
+    auto* data_source = core::create_unsafe<wroc_data_source>();
     data_source->resource = new_resource;
     server->data_manager.sources.emplace_back(data_source);
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_wl_data_source_impl, data_source);
@@ -18,7 +18,7 @@ static
 void wroc_wl_data_device_manager_get_data_device(wl_client* client, wl_resource* resource, u32 id, wl_resource* seat)
 {
     auto* new_resource = wroc_resource_create(client, &wl_data_device_interface, wl_resource_get_version(resource), id);
-    auto* data_device = core_create_unsafe<wroc_data_device>();
+    auto* data_device = core::create_unsafe<wroc_data_device>();
     data_device->resource = new_resource;
     data_device->seat = wroc_get_userdata<wroc_seat>(seat);
     server->data_manager.devices.emplace_back(data_device);
@@ -61,8 +61,8 @@ void wroc_wl_data_offer_set_actions(wl_client* client, wl_resource* resource, u3
 
 #if WROC_NOISY_DRAG
     log_trace("<- wl_data_offer.set_actions({}, {})",
-        core_to_string(flags(wl_data_device_manager_dnd_action(dnd_actions))),
-        core_to_string(wl_data_device_manager_dnd_action(preferred_action)));
+        core::to_string(core::Flags(wl_data_device_manager_dnd_action(dnd_actions))),
+        core::to_string(wl_data_device_manager_dnd_action(preferred_action)));
 #endif
 
     if (!data_offer->source) {
@@ -82,7 +82,7 @@ void wroc_wl_data_offer_set_actions(wl_client* client, wl_resource* resource, u3
 
     if (new_action != data_offer->action) {
         data_offer->action = new_action;
-        log_debug("-> wl_data_offer.send_action({}, {})", (void*)data_offer->resource, core_to_string(new_action));
+        log_debug("-> wl_data_offer.send_action({}, {})", (void*)data_offer->resource, core::to_string(new_action));
         wroc_send(wl_data_offer_send_action, data_offer->resource, data_offer->action);
     }
 }
@@ -248,7 +248,7 @@ static
 wl_resource* wroc_data_device_offer(wroc_data_device* device, wroc_data_source* source)
 {
     auto* offer_resource = wroc_resource_create(wroc_resource_get_client(device->resource), &wl_data_offer_interface, wl_resource_get_version(device->resource), 0);
-    auto* data_offer = core_create_unsafe<wroc_data_offer>();
+    auto* data_offer = core::create_unsafe<wroc_data_offer>();
     data_offer->resource = offer_resource;
     data_offer->source = source;
     data_offer->device = device;
@@ -378,7 +378,7 @@ void wroc_data_manager_finish_drag()
     if (drag.offer && drag.offer->device && drag.offer->source) {
         if (drag.offer->action && drag.source->dnd_actions.contains(drag.offer->action)) {
             log_debug("Drag completed with offer");
-            log_debug("  action = {}", core_to_string(drag.offer->action));
+            log_debug("  action = {}", core::to_string(drag.offer->action));
             log_debug("  mime_type = {}", drag.offer->mime_type);
             wroc_send(wl_data_device_send_drop, drag.offer->device->resource);
             wroc_send(wl_data_source_send_dnd_drop_performed, drag.source->resource);

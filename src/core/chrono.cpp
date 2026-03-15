@@ -4,10 +4,10 @@
 #include "string.hpp"
 #include "util.hpp"
 
-std::string core_to_string(std::chrono::system_clock::time_point time, core_time_format format)
+std::string core::to_string(std::chrono::system_clock::time_point time, core::TimeFormat format)
 {
     tm tm = {};
-    gmtime_r(ptr_to(std::chrono::system_clock::to_time_t(time)), &tm);
+    gmtime_r(core::ptr_to(std::chrono::system_clock::to_time_t(time)), &tm);
 
     auto year  = tm.tm_year + 1900;
     auto month = tm.tm_mon + 1;
@@ -48,27 +48,27 @@ std::string core_to_string(std::chrono::system_clock::time_point time, core_time
     };
 
     switch (format) {
-        break;case core_time_format::date_pretty:
+        break;case core::TimeFormat::date_pretty:
             return std::format("{}, {} {}{}", weekdays[tm.tm_wday], months[tm.tm_mon], tm.tm_mday, day_suffix(tm.tm_mday));
 
-        break;case core_time_format::iso8601:
+        break;case core::TimeFormat::iso8601:
             return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",      year, month, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        break;case core_time_format::datetime:
+        break;case core::TimeFormat::datetime:
             return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}",       year, month, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        break;case core_time_format::datetime_ms:
+        break;case core::TimeFormat::datetime_ms:
             return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", year, month, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, msec);
 
-        break;case core_time_format::time:
+        break;case core::TimeFormat::time:
             return std::format("{:02}:{:02}:{:02}",       tm.tm_hour, tm.tm_min, tm.tm_sec);
-        break;case core_time_format::time_ms: {
+        break;case core::TimeFormat::time_ms: {
             return std::format("{:02}:{:02}:{:02}.{:03}", tm.tm_hour, tm.tm_min, tm.tm_sec, msec);
         }
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
-std::string core_to_string(std::chrono::duration<f64, std::nano> dur)
+std::string core::to_string(std::chrono::duration<f64, std::nano> dur)
 {
     f64 nanos = dur.count();
 
@@ -90,7 +90,7 @@ std::string core_to_string(std::chrono::duration<f64, std::nano> dur)
 #define CORE_DURATION_FORMAT_CASE(Size, Suffix) \
     if (nanos >= (Size)) { \
         f64 in_size = nanos / (Size); \
-        return core_format_with_suffix(Suffix, in_size, core_decimals_for_3sf(in_size)); \
+        return core::format_with_suffix(Suffix, in_size, core::decimals_for_3sf(in_size)); \
     }
 
     CORE_DURATION_FORMAT_CASE(1e9, "s")

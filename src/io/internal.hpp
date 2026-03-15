@@ -24,18 +24,18 @@ struct io_context
 
     bool stop_requested = false;
 
-    core_event_loop* event_loop;
+    core::EventLoop* event_loop;
     gpu_context*     gpu;
 
     std::vector<io_input_device_base*> input_devices;
     std::vector<io_output_base*>       outputs;
 
-    ref<io_udev>     udev;
-    ref<io_session>  session;
-    ref<io_libinput> libinput; // input_device
-    ref<io_evdev>    evdev;    // input_device
-    ref<io_drm>      drm;      // output
-    ref<io_wayland>  wayland;  // output | input_device
+    core::Ref<io_udev>     udev;
+    core::Ref<io_session>  session;
+    core::Ref<io_libinput> libinput; // input_device
+    core::Ref<io_evdev>    evdev;    // input_device
+    core::Ref<io_drm>      drm;      // output
+    core::Ref<io_wayland>  wayland;  // output | input_device
 
     ~io_context();
 };
@@ -79,9 +79,9 @@ struct io_input_device_base : io_input_device
 {
     io_context* ctx;
 
-    flags<io_input_device_capability> capabilities;
+    core::Flags<io_input_device_capability> capabilities;
 
-    std::flat_set<u32> pressed;
+    core::FlatSet<u32> pressed;
 
     auto info() -> io_input_device_info
     {

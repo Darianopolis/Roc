@@ -48,7 +48,7 @@ IO_WL_LISTENER(wl_keyboard) = {
 static
 void set_keyboard(io_context* ctx)
 {
-    auto* kb = (ctx->wayland->keyboard = core_create<io_input_device_wayland_keyboard>()).get();
+    auto* kb = (ctx->wayland->keyboard = core::create<io_input_device_wayland_keyboard>()).get();
     kb->wl_keyboard = wl_seat_get_keyboard(ctx->wayland->wl_seat);
     kb->ctx = ctx;
     wl_keyboard_add_listener(kb->wl_keyboard, &io_wl_keyboard_listener, ctx);
@@ -159,7 +159,7 @@ IO_WL_LISTENER(zwp_relative_pointer_v1) = {
 static
 void set_pointer(io_context* ctx)
 {
-    auto* ptr = (ctx->wayland->pointer = core_create<io_input_device_wayland_pointer>()).get();
+    auto* ptr = (ctx->wayland->pointer = core::create<io_input_device_wayland_pointer>()).get();
     ptr->ctx = ctx;
 
     ptr->wl_pointer = wl_seat_get_pointer(ctx->wayland->wl_seat);

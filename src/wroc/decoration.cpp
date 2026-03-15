@@ -4,7 +4,7 @@ const u32 wroc_zxdg_decoration_manager_v1_version = 1;
 
 struct wroc_decoration : wroc_object
 {
-    weak<wroc_toplevel> toplevel;
+    core::Weak<wroc_toplevel> toplevel;
     wroc_resource resource;
 };
 
@@ -25,7 +25,7 @@ static
 void get_toplevel_decoration(wl_client* client, wl_resource* resource, u32 id, wl_resource* _toplevel)
 {
     auto* toplevel = wroc_get_userdata<wroc_toplevel>(_toplevel);
-    auto decoration = core_create_unsafe<wroc_decoration>();
+    auto decoration = core::create_unsafe<wroc_decoration>();
     decoration->toplevel = toplevel;
     decoration->resource = wroc_resource_create(client, &zxdg_toplevel_decoration_v1_interface, wl_resource_get_version(resource), id);
     wroc_resource_set_implementation_refcounted(decoration->resource, &wroc_zxdg_toplevel_decoration_v1_impl, decoration);
@@ -98,7 +98,7 @@ void request_mode(wl_client* client, wl_resource* resource, u32 _mode)
 {
     auto mode = org_kde_kwin_server_decoration_manager_mode(_mode);
     if (mode != kde_decoration_mode) {
-        log_warn("org.kde.kwin-server-decoration :: client requested mode: {}", core_to_string(mode));
+        log_warn("org.kde.kwin-server-decoration :: client requested mode: {}", core::to_string(mode));
     }
 }
 

@@ -61,7 +61,7 @@ WAY_INTERFACE(xdg_surface) = {
     .destroy = way_role_destroy,
     .get_toplevel = get_toplevel,
     .get_popup = way_get_popup,
-    .set_window_geometry = WAY_ADDON_SIMPLE_STATE_REQUEST(way_xdg_surface, xdg.geometry, geometry, rect2i32({x, y}, {w, h}, core_xywh), i32 x, i32 y, i32 w, i32 h),
+    .set_window_geometry = WAY_ADDON_SIMPLE_STATE_REQUEST(way_xdg_surface, xdg.geometry, geometry, rect2i32({x, y}, {w, h}, core::xywh), i32 x, i32 y, i32 w, i32 h),
     .ack_configure = ack_configure,
 };
 
@@ -71,7 +71,7 @@ void way_xdg_surface_apply(way_surface* surface, way_surface_state& from)
     WAY_ADDON_SIMPLE_STATE_APPLY(from, surface->current, xdg.acked_serial, acked_serial);
 
     if (!surface->current.is_set(way_surface_committed_state::geometry) && surface->mapped) {
-        surface->current.xdg.geometry = { {}, surface->current.buffer->extent, core_xywh };
+        surface->current.xdg.geometry = { {}, surface->current.buffer->extent, core::xywh };
     }
 }
 
@@ -98,7 +98,7 @@ void configure_toplevel(way_surface* surface, vec2u32 extent)
 {
     way_send(surface->client->server, xdg_toplevel_send_configure, surface->toplevel.resource,
         extent.x, extent.y,
-        ptr_to(way_to_wl_array<const xdg_toplevel_state>({
+        core::ptr_to(way_to_wl_array<const xdg_toplevel_state>({
             XDG_TOPLEVEL_STATE_ACTIVATED,
         }))
     );
@@ -111,7 +111,7 @@ void way_toplevel_on_reposition(way_surface* surface, rect2f32 frame, vec2f32 gr
         scene_window_set_frame(surface->toplevel.window.get(), {
             frame.origin,
             scene_window_get_frame(surface->toplevel.window.get()).extent,
-            core_xywh
+            core::xywh
         });
     } else {
         // Resize
@@ -133,7 +133,7 @@ void send_premap_configure(way_surface* surface)
     auto* server = surface->client->server;
 
     if (wl_resource_get_version(surface->toplevel.resource) >= XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION) {
-        way_send(server, xdg_toplevel_send_wm_capabilities, surface->toplevel.resource, ptr_to(way_to_wl_array<const xdg_toplevel_wm_capabilities>({
+        way_send(server, xdg_toplevel_send_wm_capabilities, surface->toplevel.resource, core::ptr_to(way_to_wl_array<const xdg_toplevel_wm_capabilities>({
             XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN,
         })));
     }
@@ -153,7 +153,7 @@ void way_toplevel_apply(way_surface* surface, way_surface_state& from)
         vec2f32 extent = surface->current.xdg.geometry.extent;
         rect2f32 anchor = surface->toplevel.anchor;
 
-        rect2f32 frame { anchor.origin, extent, core_xywh };
+        rect2f32 frame { anchor.origin, extent, core::xywh };
 
         // Apply gravity
         vec2f32 rel = 1.f - ((surface->toplevel.gravity + 1.f) * .5f);

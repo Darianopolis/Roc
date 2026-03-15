@@ -21,7 +21,7 @@ template<typename K, typename V>
 struct wroc_wl_proxy_cache
 {
     using Vptr = std::unique_ptr<V, void(*)(V*)>;
-    struct entry { weak<K> key; Vptr value; };
+    struct entry { core::Weak<K> key; Vptr value; };
 
     void(*destroy)(V*);
     std::vector<entry> entries;
@@ -65,7 +65,7 @@ struct wroc_wayland_output : wroc_output
 
     ~wroc_wayland_output();
 
-    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, flags<wroc_output_commit_flag>) final override;
+    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
 };
 
 struct wroc_wayland_keyboard : wroc_keyboard
@@ -81,7 +81,7 @@ struct wroc_wayland_pointer : wroc_pointer
     u32 last_serial = {};
 
     struct zwp_relative_pointer_v1* relative_pointer = {};
-    weak<wroc_wayland_output> current_output = {};
+    core::Weak<wroc_wayland_output> current_output = {};
 
     ~wroc_wayland_pointer();
 };
@@ -107,12 +107,12 @@ struct wroc_wayland_backend : wroc_backend
     struct wl_seat* wl_seat = {};
 
     u32 next_window_id = 1;
-    std::vector<ref<wroc_wayland_output>> outputs;
+    std::vector<core::Ref<wroc_wayland_output>> outputs;
 
-    ref<wroc_wayland_keyboard> keyboard = {};
-    ref<wroc_wayland_pointer>  pointer = {};
+    core::Ref<wroc_wayland_keyboard> keyboard = {};
+    core::Ref<wroc_wayland_pointer>  pointer = {};
 
-    core_fd wl_event_source_fd;
+    core::Fd wl_event_source_fd;
 
     std::chrono::steady_clock::time_point current_dispatch_time;
 

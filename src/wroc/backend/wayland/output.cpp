@@ -26,7 +26,7 @@ void dma_feedback_format_table(void* data, struct zwp_linux_dmabuf_feedback_v1* 
     core_assert(size % sizeof(entry) == 0);
 
     defer { close(fd); };
-    auto mapped = static_cast<entry*>(unix_check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
+    auto mapped = static_cast<entry*>(core::check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
     core_assert(mapped);
     defer { munmap(mapped, size); };
 
@@ -130,7 +130,7 @@ void wroc_listen_toplevel_configure(void* data, xdg_toplevel*, i32 width, i32 he
     };
 
     for (auto[i, state] : wroc_to_span<xdg_toplevel_state>(states) | std::views::enumerate) {
-        log_debug("  states[{}] = {}", i, core_to_string(state));
+        log_debug("  states[{}] = {}", i, core::to_string(state));
     }
 
     wroc_post_event(wroc_output_event {
@@ -168,7 +168,7 @@ void wroc_listen_toplevel_wm_capabilities(void* data, xdg_toplevel*, wl_array* c
     log_debug("xdg_toplevel::wm_capabilities");
 
     for (auto[i, capability] : wroc_to_span<xdg_toplevel_state>(capabilities) | std::views::enumerate) {
-        log_debug("  capabilities[] = {}", i, core_to_string(capability));
+        log_debug("  capabilities[] = {}", i, core::to_string(capability));
     }
 }
 
@@ -247,7 +247,7 @@ void wroc_wayland_backend::create_output()
         return;
     }
 
-    auto output = core_create<wroc_wayland_output>();
+    auto output = core::create<wroc_wayland_output>();
 
     auto id = next_window_id++;
 
@@ -365,7 +365,7 @@ wroc_output_commit_id wroc_wayland_output::commit(
     gpu_image* image,
     gpu_syncpoint acquire,
     gpu_syncpoint release,
-    flags<wroc_output_commit_flag> flags)
+    core::Flags<wroc_output_commit_flag> flags)
 {
     core_assert(frame_available);
 
@@ -394,7 +394,7 @@ wroc_output_commit_id wroc_wayland_output::commit(
     if (flags.contains(wroc_output_commit_flag::vsync)) {
         frame_available = false;
     } else {
-        core_event_loop_enqueue(server->event_loop.get(), [output = weak(this)] {
+        core::event_loop::enqueue(server->event_loop.get(), [output = core::Weak(this)] {
             if (!output) return;
             wroc_post_event(wroc_output_event{
                 .type = wroc_event_type::output_frame,

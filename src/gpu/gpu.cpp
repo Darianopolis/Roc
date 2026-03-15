@@ -99,7 +99,7 @@ bool open_drm(gpu_context* gpu, drmDevice* device)
     }
 
     log_debug("  drm path: {}", name);
-    gpu->drm.fd = unix_check<open>(name, O_RDWR | O_NONBLOCK | O_CLOEXEC).value;
+    gpu->drm.fd = core::check<open>(name, O_RDWR | O_NONBLOCK | O_CLOEXEC).value;
     log_debug("  drm fd: {}", gpu->drm.fd);
 
     if (gpu->drm.fd) {
@@ -151,7 +151,7 @@ bool try_physical_device(gpu_context* gpu, VkPhysicalDevice phdev)
         VkPhysicalDeviceDrmPropertiesEXT drm_props {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT,
         };
-        gpu->vk.GetPhysicalDeviceProperties2(phdev, ptr_to(VkPhysicalDeviceProperties2 {
+        gpu->vk.GetPhysicalDeviceProperties2(phdev, core::ptr_to(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &drm_props,
         }));
@@ -165,7 +165,7 @@ bool try_physical_device(gpu_context* gpu, VkPhysicalDevice phdev)
         }
 
         drmDevice* device;
-        unix_check<drmGetDeviceFromDevId>(drm_props.hasRender ? render_dev_id : primary_dev_id, 0, &device);
+        core::check<drmGetDeviceFromDevId>(drm_props.hasRender ? render_dev_id : primary_dev_id, 0, &device);
 
         if (!open_drm(gpu, device)) {
             drmFreeDevice(&device);
@@ -235,21 +235,21 @@ VkBool32 VKAPI_CALL debug_callback(
 {
     if (!data->pMessage) return VK_FALSE;
 
-    core_log_level level;
+    core::LogLevel level;
     switch (severity) {
-        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: level = core_log_level::trace;
-        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:    level = core_log_level::info;
-        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: level = core_log_level::warn;
-        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:   level = core_log_level::error;
+        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: level = core::LogLevel::trace;
+        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:    level = core::LogLevel::info;
+        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: level = core::LogLevel::warn;
+        break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:   level = core::LogLevel::error;
         break;case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-            core_unreachable();
+            core::unreachable();
     }
 
-    if (!core_is_log_level_enabled(level)) return VK_FALSE;
+    if (!core::is_log_level_enabled(level)) return VK_FALSE;
 
     if (data->messageIdNumber) {
         auto message = std::format("Validation {}: [ {} ] | MessageID = {:#x}\n",
-            level == core_log_level::error ? "Error" : "Warning",
+            level == core::LogLevel::error ? "Error" : "Warning",
             data->pMessageIdName,
             data->messageIdNumber);
         message += data->pMessage;
@@ -274,21 +274,21 @@ VkBool32 VKAPI_CALL debug_callback(
                 std::make_format_args(i, max_index_width, type_name, type_width, object.objectHandle));
         }
 
-        core_log(level, message);
+        core::log(level, message);
     } else {
-        core_log(level, data->pMessage);
+        core::log(level, data->pMessage);
     }
 
     if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-        core_debugkill();
+        core::debugkill();
     }
 
     return VK_FALSE;
 }
 
-ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event_loop)
+core::Ref<gpu_context> gpu_create(core::Flags<gpu_feature> _features, core::EventLoop* event_loop)
 {
-    auto gpu = core_create<gpu_context>();
+    auto gpu = core::create<gpu_context>();
     gpu->features = _features;
 
     gpu->event_loop = event_loop;
@@ -330,13 +330,13 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     };
 
-    gpu_check(gpu->vk.CreateInstance(ptr_to(VkInstanceCreateInfo {
+    gpu_check(gpu->vk.CreateInstance(core::ptr_to(VkInstanceCreateInfo {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = ptr_to(VkValidationFeaturesEXT {
+        .pNext = core::ptr_to(VkValidationFeaturesEXT {
             .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
             .pNext = &debug_messenger_info,
         }),
-        .pApplicationInfo = ptr_to(VkApplicationInfo {
+        .pApplicationInfo = core::ptr_to(VkApplicationInfo {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .apiVersion = VK_API_VERSION_1_4,
         }),
@@ -403,23 +403,23 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
     }
 
     auto create_device = [&](bool global_priority) {
-        return gpu_check(gpu->vk.CreateDevice(gpu->physical_device, ptr_to(VkDeviceCreateInfo {
+        return gpu_check(gpu->vk.CreateDevice(gpu->physical_device, core::ptr_to(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = gpu_vk_make_chain_in({
-                ptr_to(VkPhysicalDeviceFeatures2 {
+                core::ptr_to(VkPhysicalDeviceFeatures2 {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
                     .features = {
                         .shaderInt64 = true,
                         .shaderInt16 = true,
                     },
                 }),
-                ptr_to(VkPhysicalDeviceVulkan11Features {
+                core::ptr_to(VkPhysicalDeviceVulkan11Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
                     .storagePushConstant16 = true,
                     .samplerYcbcrConversion = true,
                     .shaderDrawParameters = true,
                 }),
-                ptr_to(VkPhysicalDeviceVulkan12Features {
+                core::ptr_to(VkPhysicalDeviceVulkan12Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
                     .storagePushConstant8 = true,
                     .shaderInt8 = true,
@@ -434,23 +434,23 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
                     .timelineSemaphore = true,
                     .bufferDeviceAddress = true,
                 }),
-                ptr_to(VkPhysicalDeviceVulkan13Features {
+                core::ptr_to(VkPhysicalDeviceVulkan13Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
                     .synchronization2 = true,
                     .dynamicRendering = true,
                     .maintenance4 = true,
                 }),
-                ptr_to(VkPhysicalDeviceVulkan14Features {
+                core::ptr_to(VkPhysicalDeviceVulkan14Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
                     .maintenance5 = true,
                     .maintenance6 = true,
                 }),
-                ptr_to(VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR {
+                core::ptr_to(VkPhysicalDeviceUnifiedImageLayoutsFeaturesKHR {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFIED_IMAGE_LAYOUTS_FEATURES_KHR,
                     .unifiedImageLayouts = true,
                     .unifiedImageLayoutsVideo = true,
                 }),
-                ptr_to(VkPhysicalDeviceShaderObjectFeaturesEXT {
+                core::ptr_to(VkPhysicalDeviceShaderObjectFeaturesEXT {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT,
                     .shaderObject = true,
                 }),
@@ -461,20 +461,20 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                     .pNext =
                         global_priority
-                            ? ptr_to(VkDeviceQueueGlobalPriorityCreateInfoKHR {
+                            ? core::ptr_to(VkDeviceQueueGlobalPriorityCreateInfoKHR {
                                 .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO,
                                 .globalPriority = VK_QUEUE_GLOBAL_PRIORITY_HIGH,
                             })
                             : nullptr,
                     .queueFamilyIndex = graphics_queue_family,
                     .queueCount = 1,
-                    .pQueuePriorities = ptr_to(1.f),
+                    .pQueuePriorities = core::ptr_to(1.f),
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                     .queueFamilyIndex = transfer_queue_family,
                     .queueCount = 1,
-                    .pQueuePriorities = ptr_to(1.f),
+                    .pQueuePriorities = core::ptr_to(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(required_device_extensions.size()),
@@ -482,7 +482,7 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
         }), nullptr, &gpu->device), VK_ERROR_NOT_PERMITTED);
     };
 
-    if (core_capability_has(CAP_SYS_NICE)) {
+    if (core::capability::has(CAP_SYS_NICE)) {
         log_debug("NICE system capability detected, requesting high global queue priority");
         if (create_device(true) == VK_ERROR_NOT_PERMITTED) {
             log_warn("Failed to acquire global queue priority, falling back to normal queue priorities");
@@ -490,7 +490,7 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
         } else {
             log_info("Sucessfully created device with high global queue priority");
         }
-        core_capability_drop(CAP_SYS_NICE);
+        core::capability::drop(CAP_SYS_NICE);
     } else {
         create_device(false);
     }
@@ -502,14 +502,14 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
 
     // VMA allocator
 
-    gpu_check(vmaCreateAllocator(ptr_to(VmaAllocatorCreateInfo {
+    gpu_check(vmaCreateAllocator(core::ptr_to(VmaAllocatorCreateInfo {
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
                | VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
                | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT
                | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT,
         .physicalDevice = gpu->physical_device,
         .device = gpu->device,
-        .pVulkanFunctions = ptr_to(VmaVulkanFunctions {
+        .pVulkanFunctions = core::ptr_to(VmaVulkanFunctions {
             .vkGetInstanceProcAddr = gpu->vk.GetInstanceProcAddr,
             .vkGetDeviceProcAddr = gpu->vk.GetDeviceProcAddr,
         }),

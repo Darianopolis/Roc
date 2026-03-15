@@ -59,12 +59,12 @@ void way_on_client_create(wl_listener* listener, void* data)
     auto* server = way_get_userdata<way_server>(listener);
     auto* wl_client = static_cast<struct wl_client*>(data);
 
-    auto client = core_create<way_client>();
+    auto client = core::create<way_client>();
     client->server = server;
     client->wl_client = wl_client;
 
-    wl_client_set_user_data(wl_client, core_add_ref(client.get()), [](void* data) {
-        core_remove_ref(way_get_userdata<way_client>(data));
+    wl_client_set_user_data(wl_client, core::add_ref(client.get()), [](void* data) {
+        core::remove_ref(way_get_userdata<way_client>(data));
     });
 
     client->scene = scene_client_create(server->scene);
@@ -81,7 +81,7 @@ way_client* way_client_from(way_server* server, const wl_client* client)
 
 auto way_client_is_behind(way_client* client) -> bool
 {
-    return poll(ptr_to(pollfd {
+    return poll(core::ptr_to(pollfd {
         .fd = wl_client_get_fd(client->wl_client),
         .events = POLLOUT,
     }), 1, 0) != 1;

@@ -4,7 +4,7 @@ static
 void pool_unmap(way_shm_pool* pool)
 {
     if (pool->data) {
-        unix_check<munmap>(pool->data, pool->size);
+        core::check<munmap>(pool->data, pool->size);
         pool->data = nullptr;
         pool->size = 0;
     }
@@ -15,7 +15,7 @@ void pool_map(way_shm_pool* pool, usz size)
 {
     pool_unmap(pool);
 
-    auto res = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd.get(), 0);
+    auto res = core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd.get(), 0);
     if (res.ok()) {
         pool->data = res.value;
         pool->size = size;
@@ -27,9 +27,9 @@ void pool_map(way_shm_pool* pool, usz size)
 static
 void create_pool(wl_client* client, wl_resource* resource, u32 id, int fd, i32 size)
 {
-    auto pool = core_create<way_shm_pool>();
+    auto pool = core::create<way_shm_pool>();
     pool->server = way_get_userdata<way_server>(resource);
-    pool->fd = core_fd_adopt(fd);
+    pool->fd = core::fd::adopt(fd);
     pool->resource = way_resource_create_refcounted(wl_shm_pool, client, resource, id, pool.get());
     pool_map(pool.get(), size);
 }
@@ -73,7 +73,7 @@ gpu_drm_format to_drm(wl_shm_format shm)
 
 struct way_shm_buffer : way_buffer
 {
-    ref<way_shm_pool> pool;
+    core::Ref<way_shm_pool> pool;
 
     way_resource resource;
 
@@ -81,7 +81,7 @@ struct way_shm_buffer : way_buffer
     i32 stride;
     gpu_format format;
 
-    virtual auto acquire(way_surface*, way_surface_state& from) -> ref<gpu_image> final override;
+    virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu_image> final override;
 };
 
 static
@@ -90,7 +90,7 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     auto* pool = way_get_userdata<way_shm_pool>(resource);
     auto* server = pool->server;
 
-    auto buffer = core_create<way_shm_buffer>();
+    auto buffer = core::create<way_shm_buffer>();
     buffer->resource = way_resource_create_refcounted(wl_buffer, client, resource, id, buffer.get());
 
     buffer->format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
@@ -100,7 +100,7 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     buffer->offset = offset;
 
     if (!buffer->format) {
-        way_post_error(server, resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", core_to_string(wl_shm_format(_format)));
+        way_post_error(server, resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", core::to_string(wl_shm_format(_format)));
         return;
     }
 }
@@ -142,16 +142,16 @@ auto try_steal(way_shm_buffer* buffer, way_surface* surface) -> gpu_image*
     if (candidate->format() != buffer->format) return nullptr;
 
 #if NOISY_SHM_BUFFER_IMAGES
-    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  core_to_string(candidate->extent()));
-    else                      log_debug("STEALING shm buffer image {}", core_to_string(candidate->extent()));
+    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  core::to_string(candidate->extent()));
+    else                      log_debug("STEALING shm buffer image {}", core::to_string(candidate->extent()));
 #endif
 
     return candidate;
 }
 
-auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) -> ref<gpu_image>
+auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) -> core::Ref<gpu_image>
 {
-    ref image = try_steal(this, surface);
+    core::Ref image = try_steal(this, surface);
 
     auto damage = packet.buffer_damage;
 
@@ -164,20 +164,20 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
             .usage = gpu_image_usage::transfer_dst | gpu_image_usage::texture,
         });
 
-        damage.damage({{}, extent, core_minmax});
+        damage.damage({{}, extent, core::minmax});
 
 #if NOISY_SHM_BUFFER_IMAGES
-        log_warn("ALLOCATING shm buffer image {}", core_to_string(extent));
+        log_warn("ALLOCATING shm buffer image {}", core::to_string(extent));
 #endif
     }
 
-    damage.clip_to({{}, extent, core_minmax});
+    damage.clip_to({{}, extent, core::minmax});
 
     if (damage) {
         aabb2i32 aabb = damage.bounds();
         rect2i32 rect = aabb;
 #if NOISY_SHM_BUFFER_IMAGES
-        log_trace("  damage {}", core_to_string(rect));
+        log_trace("  damage {}", core::to_string(rect));
 #endif
 
         auto* gpu = server->gpu;
@@ -192,7 +192,7 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
         auto size = max_offset - min_offset;
         auto staging = gpu_buffer_create(gpu, size, gpu_buffer_flag::host);
         core_assert((offset + max_offset) <= pool->size, "accessed {} > available {}", offset + max_offset, pool->size);
-        std::memcpy(staging->host_address, core_byte_offset_pointer<void>(pool->data, offset + min_offset), size);
+        std::memcpy(staging->host_address, core::byte_offset_pointer<void>(pool->data, offset + min_offset), size);
 
         gpu_cmd_copy_buffer_to_image(commands.get(), image.get(), staging.get(),
             {{

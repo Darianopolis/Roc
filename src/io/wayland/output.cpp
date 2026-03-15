@@ -3,7 +3,7 @@
 static
 void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_feedback_v1, int fd, u32 size)
 {
-    auto _ = core_fd_adopt(fd);
+    auto _ = core::fd::adopt(fd);
     auto* ctx = static_cast<io_context*>(udata);
 
     struct entry {
@@ -14,7 +14,7 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
 
     core_assert(size % sizeof(entry) == 0);
 
-    auto mapped = static_cast<entry*>(unix_check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
+    auto mapped = static_cast<entry*>(core::check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
     core_assert(mapped);
     defer { munmap(mapped, size); };
 
@@ -87,7 +87,7 @@ void toplevel_close(void* udata, xdg_toplevel*)
 {
     auto* output = static_cast<io_output_wayland*>(udata);
     auto* ctx = output->ctx;
-    std::erase_if(ctx->wayland->outputs, core_object_equals{output});
+    std::erase_if(ctx->wayland->outputs, core::ObjectEquals{output});
     if (ctx->wayland->outputs.empty()) {
         io_request_shutdown(ctx, io_shutdown_reason::no_more_outputs);
     }
@@ -129,7 +129,7 @@ void io_add_output(io_context* ctx)
     static u32 window_id = 0;
     auto title = std::format("WL-{}", ++window_id);
 
-    auto output = core_create<io_output_wayland>();
+    auto output = core::create<io_output_wayland>();
     output->ctx = ctx;
 
     wl->outputs.emplace_back(output);
@@ -225,7 +225,7 @@ void on_present_frame(void* udata, wl_callback*, u32 time)
     }
 }
 
-void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, flags<io_output_commit_flag> flags)
+void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, core::Flags<io_output_commit_flag> flags)
 {
     core_assert(commit_available);
 
@@ -239,7 +239,7 @@ void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, flags<io_ou
     release->point++;
     release->image = image;
 
-    gpu_wait({release->semaphore.get(), release->point}, [output = weak(this), semaphore = release->semaphore.get()](u64 point) {
+    gpu_wait({release->semaphore.get(), release->point}, [output = core::Weak(this), semaphore = release->semaphore.get()](u64 point) {
         if (!output) return;
         auto release = std::ranges::find_if(output->release_slots, [&](auto& s) { return s.semaphore.get() == semaphore; });
         release->image = nullptr;

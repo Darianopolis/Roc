@@ -1,8 +1,8 @@
 #include "internal.hpp"
 
-ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, flags<gpu_buffer_flag> flags)
+core::Ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, core::Flags<gpu_buffer_flag> flags)
 {
-    auto buffer = core_create<gpu_buffer>();
+    auto buffer = core::create<gpu_buffer>();
     buffer->gpu = gpu;
 
     buffer->size = size;
@@ -11,7 +11,7 @@ ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, flags<gpu_buffer_f
 
     VmaAllocationInfo alloc_info;
     gpu_check(vmaCreateBuffer(gpu->vma,
-        ptr_to(VkBufferCreateInfo {
+        core::ptr_to(VkBufferCreateInfo {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = size,
             .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -26,12 +26,12 @@ ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, flags<gpu_buffer_f
             }.data(),
         }),
         flags.contains(gpu_buffer_flag::host)
-            ? ptr_to(VmaAllocationCreateInfo {
+            ? core::ptr_to(VmaAllocationCreateInfo {
                 .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
                 .requiredFlags = VK_MEMORY_PROPERTY_HOST_CACHED_BIT
             })
-            : ptr_to(VmaAllocationCreateInfo {
+            : core::ptr_to(VmaAllocationCreateInfo {
                 .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
             }),
@@ -41,7 +41,7 @@ ref<gpu_buffer> gpu_buffer_create(gpu_context* gpu, usz size, flags<gpu_buffer_f
 
     buffer->host_address = alloc_info.pMappedData;
 
-    buffer->device_address = gpu->vk.GetBufferDeviceAddress(gpu->device, ptr_to(VkBufferDeviceAddressInfo {
+    buffer->device_address = gpu->vk.GetBufferDeviceAddress(gpu->device, core::ptr_to(VkBufferDeviceAddressInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
         .buffer = buffer->buffer,
     }));

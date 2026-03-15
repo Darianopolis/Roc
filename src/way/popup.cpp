@@ -18,7 +18,7 @@ struct way_positioner_rules
     rect2i32 anchor_rect;
     xdg_positioner_anchor anchor;
     xdg_positioner_gravity gravity;
-    flags<xdg_positioner_constraint_adjustment> constraint_adjustment;
+    core::Flags<xdg_positioner_constraint_adjustment> constraint_adjustment;
     vec2i32 offset;
     bool reactive = false;
     vec2i32 parent_size;
@@ -36,7 +36,7 @@ struct way_positioner
 
 void way_create_positioner(wl_client* client, wl_resource* resource, u32 id)
 {
-    auto positioner = core_create<way_positioner>();
+    auto positioner = core::create<way_positioner>();
     positioner->resource = way_resource_create_refcounted(xdg_positioner, client, resource, id, positioner.get());
 }
 
@@ -48,7 +48,7 @@ void way_create_positioner(wl_client* client, wl_resource* resource, u32 id)
 WAY_INTERFACE(xdg_positioner) = {
     .destroy = way_simple_destroy,
     SET(size,                  vec2i32(width, height),                       i32 width, i32 height),
-    SET(anchor_rect,           rect2i32({x, y}, {width, height}, core_xywh), i32 x, i32 y, i32 width, i32 height),
+    SET(anchor_rect,           rect2i32({x, y}, {width, height}, core::xywh), i32 x, i32 y, i32 width, i32 height),
     SET(anchor,                xdg_positioner_anchor(anchor),                u32 anchor),
     SET(gravity,               xdg_positioner_gravity(gravity),              u32 gravity),
     SET(constraint_adjustment, xdg_positioner_constraint_adjustment(constraint_adjustment), u32 constraint_adjustment),
@@ -169,23 +169,23 @@ way_axis_region positioner_apply_axis(const way_xdg_positioner_axis_rules& rules
     case Prefix##_BOTTOM_RIGHT: return {rel.x,     rel.y    };
 
 template<typename T>
-core_vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, core_vec<2, T> rel)
+core::Vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, core::Vec<2, T> rel)
 {
     switch (anchor) {
         EDGES_TO_REL_CASES(XDG_POSITIONER_ANCHOR)
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 template<typename T>
-core_vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, core_vec<2, T> rel)
+core::Vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, core::Vec<2, T> rel)
 {
     switch (gravity) {
         EDGES_TO_REL_CASES(XDG_POSITIONER_GRAVITY)
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 #undef EDGES_TO_REL_CASES
@@ -245,7 +245,7 @@ void position(way_surface* surface, const way_positioner_rules& rules, std::opti
 {
     auto* server = surface->client->server;
 
-    rect2i32 constraint = {{-INT_MAX/4, -INT_MAX/4}, {INT_MAX/2, INT_MAX/2}, core_xywh};
+    rect2i32 constraint = {{-INT_MAX/4, -INT_MAX/4}, {INT_MAX/2, INT_MAX/2}, core::xywh};
 
     {
         auto anchor = rules.anchor_rect;
@@ -256,13 +256,13 @@ void position(way_surface* surface, const way_positioner_rules& rules, std::opti
             constraint = {
                 vp.min - translation,
                 vp.max - translation,
-                core_minmax
+                core::minmax
             };
         }
     }
 
     auto geometry = positioner_apply(rules, constraint);
-    log_debug("popup geometry: {}", core_to_string(geometry));
+    log_debug("popup geometry: {}", core::to_string(geometry));
     surface->popup.position = geometry.origin;
 
     if (token) {

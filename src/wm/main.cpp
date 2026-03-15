@@ -12,7 +12,7 @@ int main()
 {
     // Systems
 
-    auto event_loop = core_event_loop_create();
+    auto event_loop = core::event_loop::create();
     auto gpu = gpu_create({}, event_loop.get());
     auto io = io_create(event_loop.get(), gpu.get());
     auto scene = scene_create(gpu.get(), io.get());
@@ -23,7 +23,7 @@ int main()
     auto image_pool = gpu_image_pool_create(gpu.get());
     auto output_client = scene_client_create(scene.get());
     struct output {
-        ref<scene_output> scene;
+        core::Ref<scene_output> scene;
         io_output*        io;
     };
     std::vector<output> outputs;
@@ -31,7 +31,7 @@ int main()
         f32 x = 0;
         for (auto& output : outputs) {
             auto size = output.io->info().size;
-            scene_output_set_viewport(output.scene.get(), {{x, 0.f}, size, core_xywh});
+            scene_output_set_viewport(output.scene.get(), {{x, 0.f}, size, core::xywh});
             x += f32(size.x);
         }
     };
@@ -134,7 +134,7 @@ int main()
 
     auto background_client = scene_client_create(scene.get());
 
-    ref<scene_tree> background_layer = {};
+    core::Ref<scene_tree> background_layer = {};
     auto unparent_background = [&] {
         if (background_layer) scene_node_unparent(background_layer.get());
     };
@@ -151,8 +151,8 @@ int main()
             // Create texture node
             auto texture = scene_texture_create(scene.get());
             scene_texture_set_image(texture.get(), background_image.get(), sampler.get(), gpu_blend_mode::premultiplied);
-            auto src = core_rect_fit<f32>(image_size, viewport.extent);
-            scene_texture_set_src(texture.get(), {src.origin / image_size, src.extent / image_size, core_xywh});
+            auto src = core::rect::fit<f32>(image_size, viewport.extent);
+            scene_texture_set_src(texture.get(), {src.origin / image_size, src.extent / image_size, core::xywh});
             scene_texture_set_dst(texture.get(), viewport);
             scene_tree_place_above(background_layer.get(), nullptr, texture.get());
         }
@@ -173,15 +173,15 @@ int main()
 
     auto window = scene_window_create(client.get());
     auto initial_size = vec2f32{256, 256};
-    scene_window_set_frame(window.get(), {{64, 64}, initial_size, core_xywh});
+    scene_window_set_frame(window.get(), {{64, 64}, initial_size, core::xywh});
 
     auto canvas = scene_texture_create(scene.get());
     scene_texture_set_tint(canvas.get(), {255, 0, 255, 255});
-    scene_texture_set_dst(canvas.get(), {{}, initial_size, core_xywh});
+    scene_texture_set_dst(canvas.get(), {{}, initial_size, core::xywh});
     scene_tree_place_below(scene_window_get_tree(window.get()), nullptr, canvas.get());
 
     auto input = scene_input_region_create(client.get());
-    scene_input_region_set_region(input.get(), {{{}, initial_size, core_xywh}});
+    scene_input_region_set_region(input.get(), {{{}, initial_size, core::xywh}});
     scene_tree_place_above(scene_window_get_tree(window.get()), nullptr, input.get());
 
     auto inner = scene_tree_create(scene.get());
@@ -190,7 +190,7 @@ int main()
 
     auto square = scene_texture_create(scene.get());
     scene_texture_set_tint(square.get(), {0, 255, 255, 255});
-    scene_texture_set_dst(square.get(), {{}, {128, 128}, core_xywh});
+    scene_texture_set_dst(square.get(), {{}, {128, 128}, core::xywh});
     scene_tree_place_above(inner.get(), nullptr, square.get());
 
     scene_client_set_event_handler(client.get(), [&](scene_event* event) {
@@ -200,19 +200,19 @@ int main()
                     libevdev_event_code_get_name(EV_KEY, event->keyboard.key.code),
                     event->keyboard.key.pressed ? "pressed" : "released");
             break;case scene_event_type::keyboard_modifier:
-                log_trace("keyboard_modifier({})", core_to_string(scene_keyboard_get_modifiers(event->keyboard.keyboard)));
+                log_trace("keyboard_modifier({})", core::to_string(scene_keyboard_get_modifiers(event->keyboard.keyboard)));
             break;case scene_event_type::pointer_motion:
                 log_trace("pointer_motion(accel: {}, unaccel: {}, pos: {})",
-                    core_to_string(event->pointer.motion.rel_accel),
-                    core_to_string(event->pointer.motion.rel_unaccel),
-                    core_to_string(scene_pointer_get_position(event->pointer.pointer)));
+                    core::to_string(event->pointer.motion.rel_accel),
+                    core::to_string(event->pointer.motion.rel_unaccel),
+                    core::to_string(scene_pointer_get_position(event->pointer.pointer)));
             break;case scene_event_type::pointer_button:
                 log_trace("pointer_button({}, {})",
                     libevdev_event_code_get_name(EV_KEY, event->pointer.button.code),
                     event->pointer.button.pressed ? "pressed" : "released");
                 scene_window_raise(window.get());
             break;case scene_event_type::pointer_scroll:
-                log_trace("pointer_scroll(delta: {})", core_to_string(event->pointer.scroll.delta));
+                log_trace("pointer_scroll(delta: {})", core::to_string(event->pointer.scroll.delta));
             break;case scene_event_type::pointer_enter:
                 log_trace("pointer_enter({}, region: {})", (void*)event->pointer.pointer, (void*)event->pointer.focus.region);
             break;case scene_event_type::pointer_leave:
@@ -223,8 +223,8 @@ int main()
                 log_trace("keyboard_leave({})", (void*)event->keyboard.keyboard);
             break;case scene_event_type::window_reposition: {
                 auto frame = event->window.reposition.frame;
-                scene_texture_set_dst(       canvas.get(), {{}, frame.extent, core_xywh});
-                scene_input_region_set_region(input.get(), {{{}, frame.extent, core_xywh}});
+                scene_texture_set_dst(       canvas.get(), {{}, frame.extent, core::xywh});
+                scene_input_region_set_region(input.get(), {{{}, frame.extent, core::xywh}});
                 scene_window_set_frame(event->window.window, frame);
             }
             break;case scene_event_type::output_frame:
@@ -262,7 +262,7 @@ int main()
 
             if (ImGui::Button("Reposition")) {
                 if (auto* window = imui_get_window(ImGui::GetCurrentWindow())) {
-                    scene_window_request_reposition(window, {{}, {512, 512}, core_xywh}, {});
+                    scene_window_request_reposition(window, {{}, {512, 512}, core::xywh}, {});
                 }
             }
 
@@ -296,7 +296,7 @@ int main()
                         if (tree->system == way->scene_system
                                 && (surface = way_get_userdata<way_surface>(tree))) {
                             log_warn("{}tree({}{}) {{", indent(),
-                                core_to_string(surface->role),
+                                core::to_string(surface->role),
                                 tree->enabled ? "": ", disabled");
                         } else {
                             log_warn("{}tree{} {{", indent(), tree->enabled ? "": "(disabled)");
@@ -305,7 +305,7 @@ int main()
                         return scene_iterate_action::next;
                     },
                     [&](scene_node* node) {
-                        log_warn("{}{}", indent(), core_to_string(node->type));
+                        log_warn("{}{}", indent(), core::to_string(node->type));
                         return scene_iterate_action::next;
                     },
                     [&](scene_tree* tree) {
@@ -324,7 +324,7 @@ int main()
 
     auto main_mod = scene_modifier::alt;
     auto hotkey_client = scene_client_create(scene.get());
-    ankerl::unordered_dense::map<scene_hotkey, std::string> hotkeys;
+    core::Map<scene_hotkey, std::string> hotkeys;
     hotkeys[{ main_mod,                         KEY_SPACE  }] = "launcher";
     hotkeys[{ main_mod,                         KEY_Q      }] = "close-focused";
     hotkeys[{ main_mod,                         KEY_S      }] = "clear-focus";

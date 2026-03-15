@@ -54,7 +54,7 @@ auto find_viewport_for_input_region(imui_context* ctx, scene_input_region* regio
         }
     }
 
-    core_assert_fail("find_viewport_for_input_plane", "Failed to find viewport for region");
+    core::assert_fail("find_viewport_for_input_plane", "Failed to find viewport for region");
 }
 
 static
@@ -151,7 +151,7 @@ void Platform_SetClipboardTextFn(ImGuiContext* imctx, const char* text)
 
     auto data_source = scene_data_source_create(ctx->client.get(), {
         .send = [message = std::string(text)](const char* mime, int fd) {
-            unix_check<write>(fd, message.data(), message.size());
+            core::check<write>(fd, message.data(), message.size());
         }
     });
     for (auto* mime : text_mime_types) {
@@ -166,7 +166,7 @@ auto read_to_string(int fd) -> std::string
     std::string str;
     for (;;) {
         char buffer[4096];
-        auto[len, err] = unix_check<read>(fd, buffer, sizeof(buffer));
+        auto[len, err] = core::check<read>(fd, buffer, sizeof(buffer));
         if (len <= 0) break;
         str.append_range(std::span(buffer, len));
     }
@@ -184,8 +184,8 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imctx) -> const char*
             if (std::ranges::contains(available, std::string_view(mime))) {
                 auto[read, write] = [] {
                     int fd[2] = {-1, -1};
-                    unix_check<pipe>(fd);
-                    return std::pair { core_fd_adopt(fd[0]), core_fd_adopt(fd[1]) };
+                    core::check<pipe>(fd);
+                    return std::pair { core::fd::adopt(fd[0]), core::fd::adopt(fd[1]) };
                 }();
                 scene_data_source_send(source, mime, write.get());
                 write.reset();
@@ -308,7 +308,7 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
             auto indices = to_span(list->IdxBuffer).subspan(cmd.IdxOffset, cmd.ElemCount);
             auto vtx_count = std::ranges::max(indices) + 1;
 
-            core_thread_stack stack;
+            core::ThreadStack stack;
 
             auto* vertices = stack.allocate<scene_vertex>(vtx_count);
             for (auto[i, imvert] : to_span(list->VtxBuffer).subspan(cmd.VtxOffset, vtx_count) | std::views::enumerate) {
@@ -319,7 +319,7 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
                 };
             }
 
-            rect2f32 clip = {{cmd.ClipRect.x, cmd.ClipRect.y}, {cmd.ClipRect.z, cmd.ClipRect.w}, core_minmax};
+            rect2f32 clip = {{cmd.ClipRect.x, cmd.ClipRect.y}, {cmd.ClipRect.z, cmd.ClipRect.w}, core::minmax};
             clip.origin -= translation;
 
             auto[image, sampler, blend] = ctx->textures[cmd.GetTexID()];
@@ -332,9 +332,9 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
     // Update visual frame
 
     {
-        rect2f32 rect {translation, from_imvec(vp->Size), core_xywh};
+        rect2f32 rect {translation, from_imvec(vp->Size), core::xywh};
         if (rect != scene_window_get_frame(data->window.get())) {
-            scene_input_region_set_region(data->input_plane.get(), {{{}, rect.extent, core_xywh}});
+            scene_input_region_set_region(data->input_plane.get(), {{{}, rect.extent, core::xywh}});
             scene_window_set_frame(data->window.get(), rect);
         }
     }
@@ -397,9 +397,9 @@ void handle_reposition(imui_context* ctx, scene_window* window, rect2f32 frame)
     }
 }
 
-auto imui_create(gpu_context* gpu, scene_context* scene) -> ref<imui_context>
+auto imui_create(gpu_context* gpu, scene_context* scene) -> core::Ref<imui_context>
 {
-    auto ctx = core_create<imui_context>();
+    auto ctx = core::create<imui_context>();
     ctx->scene   = scene;
     ctx->gpu     = gpu;
     ctx->sampler = gpu_sampler_create(ctx->gpu, {
@@ -622,7 +622,7 @@ auto imgui_cursor_to_xcursor(ImGuiMouseCursor cursor) -> const char*
         break;case ImGuiMouseCursor_NotAllowed: return "not-allowed";
     }
 
-    core_unreachable();
+    core::unreachable();
 }
 
 static

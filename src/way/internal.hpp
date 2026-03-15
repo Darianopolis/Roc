@@ -28,7 +28,7 @@ struct way_surface;
 
 struct way_keymap
 {
-    core_fd fd;
+    core::Fd fd;
     u32     size;
 };
 
@@ -36,7 +36,7 @@ struct way_keymap
 
 struct way_server
 {
-    core_event_loop* event_loop;
+    core::EventLoop* event_loop;
 
     std::chrono::steady_clock::time_point epoch;
 
@@ -45,11 +45,11 @@ struct way_server
     scene_system_id scene_system;
 
     wl_display* wl_display;
-    core_fd wl_event_loop_fd;
+    core::Fd wl_event_loop_fd;
     std::string socket_name;
 
 
-    ref<gpu_sampler> sampler;
+    core::Ref<gpu_sampler> sampler;
 
     struct {
         way_listener created;
@@ -65,12 +65,12 @@ struct way_server
     } pointer;
 
     struct {
-        weak<way_surface> pointer;
-        weak<way_surface> keyboard;
+        core::Weak<way_surface> pointer;
+        core::Weak<way_surface> keyboard;
     } focus;
 
     struct {
-        core_fd format_table;
+        core::Fd format_table;
         usz format_table_size;
         std::vector<u16> tranche_formats;
     } dmabuf;
@@ -122,7 +122,7 @@ struct way_region
  */
 struct way_damage_region
 {
-    static constexpr aabb2i32 Empty = {{INT_MAX, INT_MAX}, {INT_MIN, INT_MIN}, core_minmax};
+    static constexpr aabb2i32 Empty = {{INT_MAX, INT_MAX}, {INT_MIN, INT_MIN}, core::minmax};
 
 private:
     aabb2i32 region = Empty;
@@ -130,12 +130,12 @@ private:
 public:
     void damage(aabb2i32 damage)
     {
-        region = core_aabb_outer(region, damage);
+        region = core::aabb::outer(region, damage);
     }
 
     void clip_to(aabb2i32 limit)
     {
-        region = core_aabb_inner(region, limit);
+        region = core::aabb::inner(region, limit);
     }
 
     void clear()
@@ -208,18 +208,18 @@ enum class way_surface_committed_state : u32
 
 struct way_subsurface_place
 {
-    ref<way_surface> reference;
-    ref<way_surface> subsurface;
+    core::Ref<way_surface> reference;
+    core::Ref<way_surface> subsurface;
     bool above;
 };
 
 struct way_subsurface_move
 {
-    ref<way_surface> subsurface;
+    core::Ref<way_surface> subsurface;
     vec2i32 position;
 };
 
-static constexpr aabb2f32 way_infinite_aabb = {{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, core_minmax};
+static constexpr aabb2f32 way_infinite_aabb = {{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, core::minmax};
 
 struct way_positioner;
 
@@ -263,8 +263,8 @@ struct way_surface_state
     } surface;
 
 
-    ref<way_buffer>     buffer;
-    ref<gpu_image>      image;
+    core::Ref<way_buffer>     buffer;
+    core::Ref<gpu_image>      image;
     wl_output_transform buffer_transform;
     i32                 buffer_scale = 1;
     rect2f32            buffer_source;
@@ -295,7 +295,7 @@ struct way_surface
 {
     way_client* client;
 
-    weak<way_surface> parent;
+    core::Weak<way_surface> parent;
 
     // core
     way_resource wl_surface;
@@ -329,7 +329,7 @@ struct way_surface
         way_resource resource;
         rect2f32 anchor;
         vec2f32 gravity = {1, 1};
-        ref<scene_window> window;
+        core::Ref<scene_window> window;
 
         bool pending; // commit response to resize configure is pending
         bool queued;  // new reposition request received while pending
@@ -337,9 +337,9 @@ struct way_surface
 
     // scene
     struct {
-        ref<scene_tree>         tree;
-        ref<scene_texture>      texture;
-        ref<scene_input_region> input_region;
+        core::Ref<scene_tree>         tree;
+        core::Ref<scene_texture>      texture;
+        core::Ref<scene_input_region> input_region;
     } scene;
 
     bool mapped;
@@ -389,7 +389,7 @@ struct way_data_source
 
     way_resource resource;
 
-    ref<scene_data_source> source;
+    core::Ref<scene_data_source> source;
 };
 
 struct way_data_offer
@@ -398,7 +398,7 @@ struct way_data_offer
 
     way_resource resource;
 
-    ref<scene_data_source> source;
+    core::Ref<scene_data_source> source;
 };
 
 void way_data_offer_selection(way_client*);
@@ -410,7 +410,7 @@ struct way_buffer
     vec2u32 extent;
 
     // Sent on apply, should return a gpu_image when the buffer is ready to display
-    [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> ref<gpu_image> = 0;
+    [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> core::Ref<gpu_image> = 0;
 
 protected:
     ~way_buffer() = default;
@@ -426,7 +426,7 @@ struct way_shm_pool
 
     way_resource resource;
 
-    core_fd fd;
+    core::Fd fd;
     void*   data;
     usz     size;
 
@@ -441,7 +441,7 @@ struct way_client
 
     wl_client* wl_client;
 
-    ref<scene_client> scene;
+    core::Ref<scene_client> scene;
 
     std::vector<way_surface*> surfaces;
 
@@ -450,7 +450,7 @@ struct way_client
     way_resource_list data_devices;
 
     struct {
-        ref<way_data_offer> offer;
+        core::Ref<way_data_offer> offer;
     } drag;
 };
 

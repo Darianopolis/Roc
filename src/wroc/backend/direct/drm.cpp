@@ -13,14 +13,14 @@ struct drm_resources
 
     drm_resources(int drm_fd)
     {
-        auto mode_res = unix_check<drmModeGetResources>(drm_fd).value;
+        auto mode_res = core::check<drmModeGetResources>(drm_fd).value;
         if (!mode_res) {
             log_warn("Failed to get mode resources");
             return;
         }
         defer { drmModeFreeResources(mode_res); };
 
-        auto plane_res = unix_check<drmModeGetPlaneResources>(drm_fd).value;
+        auto plane_res = core::check<drmModeGetPlaneResources>(drm_fd).value;
         if (!plane_res) {
             log_warn("Failed to get plane resources");
             return;
@@ -69,7 +69,7 @@ struct drm_property_map
     using prop_ptr = std::unique_ptr<drmModeObjectProperties, prop_deleter>;
     prop_ptr props;
 
-    ankerl::unordered_dense::map<std::string_view, drmModePropertyRes*> properties;
+    core::Map<std::string_view, drmModePropertyRes*> properties;
 
     drm_property_map() = default;
 
@@ -130,7 +130,7 @@ struct drm_property_map
                 return props->prop_values[i];
             }
         }
-        core_assert_fail("Failed to find property");
+        core::assert_fail("Failed to find property");
     }
 
     int get_enum_value(std::string_view prop_name, std::string_view enum_name)
@@ -145,7 +145,7 @@ struct drm_property_map
         }
 
         log_error("Failed to find enum value: {}.{}", prop_name, enum_name);
-        core_debugkill();
+        core::debugkill();
     }
 };
 
@@ -166,8 +166,8 @@ gpu_format_set parse_plane_formats(wroc_direct_backend* backend, drm_resources* 
 
     auto* header = static_cast<drm_format_modifier_blob*>(blob->data);
 
-    auto formats = core_byte_offset_pointer<gpu_drm_format>(blob->data, header->formats_offset);
-    auto modifiers = core_byte_offset_pointer<drm_format_modifier>(blob->data, header->modifiers_offset);
+    auto formats = core::byte_offset_pointer<gpu_drm_format>(blob->data, header->formats_offset);
+    auto modifiers = core::byte_offset_pointer<drm_format_modifier>(blob->data, header->modifiers_offset);
 
     gpu_format_set set;
     for (auto mod : std::span(modifiers, header->count_modifiers)) {
@@ -200,13 +200,13 @@ struct wroc_drm_output_state
     drm_property_map plane_prop;
     drm_property_map crtc_prop;
 
-    ref<gpu_semaphore> last_release_semaphore = {};
+    core::Ref<gpu_semaphore> last_release_semaphore = {};
     u64 last_release_point;
 
     gpu_format_set format_set;
 
 #if WROC_DRM_EXPERIMENTAL_BROKEN_TEARING_SUPPORT
-    ref<gpu_semaphore> pending_release_semaphore = {};
+    core::Ref<gpu_semaphore> pending_release_semaphore = {};
     u64 pending_release_point;
 #endif
 
@@ -275,7 +275,7 @@ void add_output(wroc_direct_backend* backend, drm_resources* resources, drmModeC
     log_warn("  refresh: {} mHz", refresh);
     log_warn("  extent: ({}, {})", crtc->width, crtc->height);
 
-    auto output = core_create<wroc_drm_output>();
+    auto output = core::create<wroc_drm_output>();
     output->state = new wroc_drm_output_state {
         .primary_plane_id = plane->plane_id,
         .crtc_id = crtc->crtc_id,
@@ -325,7 +325,7 @@ static
 void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, void* data);
 
 static
-void drm_handle_event(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
+void drm_handle_event(wroc_direct_backend* backend, int fd, core::Flags<core::FdEventBit> events)
 {
     drmEventContext handlers {
         .version = 3,
@@ -346,34 +346,34 @@ void wroc_backend_init_drm(wroc_direct_backend* backend)
 
     if (drm_fd < 0) {
         log_error("Failed to open DRM primary node for render device!");
-        core_debugkill();
+        core::debugkill();
     }
 
-    backend->drm_fd = core_fd_adopt(drm_fd);
+    backend->drm_fd = core::fd::adopt(drm_fd);
 
-    core_fd_add_listener(backend->drm_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend](int fd, core_fd_event_bits events) {
+    core::fd::add_listener(backend->drm_fd.get(), server->event_loop.get(), core::FdEventBit::readable,
+        [backend](int fd, core::Flags<core::FdEventBit> events) {
             drm_handle_event(backend, fd, events);
         });
 
     drm_magic_t magic;
     log_debug("Getting magic");
-    unix_check<drmGetMagic>(drm_fd, &magic);
+    core::check<drmGetMagic>(drm_fd, &magic);
     log_debug("Authenticating magic");
-    unix_check<drmAuthMagic>(drm_fd, magic);
+    core::check<drmAuthMagic>(drm_fd, magic);
 
     log_debug("Setting universal planes capability");
-    unix_check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    core::check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
     log_debug("Setting atomic capability");
-    unix_check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_ATOMIC, 1);
+    core::check<drmSetClientCap>(drm_fd, DRM_CLIENT_CAP_ATOMIC, 1);
 
     u64 cap = 0;
 
     log_debug("Checking for framebuffer modifier support");
-    core_assert(unix_check<drmGetCap>(drm_fd, DRM_CAP_ADDFB2_MODIFIERS, &cap).ok() && cap);
+    core_assert(core::check<drmGetCap>(drm_fd, DRM_CAP_ADDFB2_MODIFIERS, &cap).ok() && cap);
 
     log_debug("Checking for monotonic timestamp support");
-    core_assert(unix_check<drmGetCap>(drm_fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap).ok() && cap);
+    core_assert(core::check<drmGetCap>(drm_fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap).ok() && cap);
 
     drm_resources res(drm_fd);
 
@@ -397,7 +397,7 @@ void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, vo
 {
     auto* output = static_cast<wroc_drm_output*>(data);
 
-    auto time = core_steady_clock_from_timespec<CLOCK_MONOTONIC>(timespec {
+    auto time = core::steady_clock::from_timespec<CLOCK_MONOTONIC>(timespec {
         .tv_sec = tv_sec,
         .tv_nsec = tv_usec * 1000,
     });
@@ -454,7 +454,7 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     u32 offsets[4] = {};
     u64 modifiers[4] = {};
     for (u32 i = 0; i < dma_params.planes.count; ++i) {
-        unix_check<drmPrimeFDToHandle>(backend->drm_fd.get(), dma_params.planes[i].fd.get(), &handles[i]);
+        core::check<drmPrimeFDToHandle>(backend->drm_fd.get(), dma_params.planes[i].fd.get(), &handles[i]);
         log_warn("  plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
         pitches[i] = dma_params.planes[i].stride;
         offsets[i] = dma_params.planes[i].offset;
@@ -464,14 +464,14 @@ u32 get_image_fb2(wroc_direct_backend* backend, gpu_image* image)
     // Import
 
     u32 fb2_handle = 0;
-    unix_check<drmModeAddFB2WithModifiers>(backend->drm_fd.get(),
+    core::check<drmModeAddFB2WithModifiers>(backend->drm_fd.get(),
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
         &fb2_handle, DRM_MODE_FB_MODIFIERS);
 
     // Close GEM handles
 
-    std::flat_set<u32> unique_handles;
+    core::FlatSet<u32> unique_handles;
     unique_handles.insert_range(handles);
     for (auto handle : unique_handles) drmCloseBufferHandle(backend->drm_fd.get(), handle);
 
@@ -484,7 +484,7 @@ wroc_output_commit_id wroc_drm_output::commit(
     gpu_image* image,
     gpu_syncpoint acquire,
     gpu_syncpoint release,
-    flags<wroc_output_commit_flag> in_flags)
+    core::Flags<wroc_output_commit_flag> in_flags)
 {
     core_assert(frame_available);
     frame_available = false;
@@ -534,7 +534,7 @@ wroc_output_commit_id wroc_drm_output::commit(
 
     drmModeAtomicAddProperty(req, state->crtc_id, state->crtc_prop.get_prop_id("VRR_ENABLED"), true);
 
-    if (unix_check<drmModeAtomicCommit>(backend->drm_fd.get(), req, flags, this).err()) {
+    if (core::check<drmModeAtomicCommit>(backend->drm_fd.get(), req, flags, this).err()) {
         // TODO: Configuration rollback
         gpu_semaphore_import_syncfile(release.semaphore, in_fence, release.value);
         frame_available = true;

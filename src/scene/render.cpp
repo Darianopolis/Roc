@@ -23,7 +23,7 @@ void scene_render_init(scene_context* ctx)
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer_dst
     });
-    gpu_copy_memory_to_image(ctx->render.white.get(), {ptr_to(vec4u8{255, 255, 255, 255}), 4}, {{{1, 1}}});
+    gpu_copy_memory_to_image(ctx->render.white.get(), {core::ptr_to(vec4u8{255, 255, 255, 255}), 4}, {{{1, 1}}});
 
     ctx->render.sampler = gpu_sampler_create(ctx->gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -33,7 +33,7 @@ void scene_render_init(scene_context* ctx)
 
 void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output, gpu_image_pool* pool)
 {
-    scene_broadcast_event(ctx, ptr_to(scene_event {
+    scene_broadcast_event(ctx, core::ptr_to(scene_event {
         .type = scene_event_type::output_frame,
         .redraw = { .output = output },
     }));
@@ -47,7 +47,7 @@ void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output,
         .extent = io_output->info().size,
         .format = format,
         .usage = usage,
-        .modifiers = ptr_to(gpu_intersect_format_modifiers({
+        .modifiers = core::ptr_to(gpu_intersect_format_modifiers({
             &gpu_get_format_props(ctx->gpu, format, usage)->mods,
             &io_output->info().formats->get(format),
         }))
@@ -115,10 +115,10 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                     .first_vertex = u32(vertices.size()),
                     .first_index = u32(indices.size()),
                     .num_indices = u32(mesh->indices.size()),
-                    .clip = core_aabb_inner(default_clip, {
+                    .clip = core::aabb::inner(default_clip, {
                         pos + mesh->clip.min,
                         pos + mesh->clip.max,
-                        core_minmax
+                        core::minmax
                     }),
                     .image = mesh->image.get() ?: render.white.get(),
                     .sampler = mesh->sampler.get() ?: render.sampler.get(),
@@ -208,15 +208,15 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     vec2f32 target_extent = target->extent();
 
     gpu_cmd_reset_graphics_state(cmd);
-    gpu_cmd_set_viewports(cmd, {{{}, target_extent, core_xywh}});
+    gpu_cmd_set_viewports(cmd, {{{}, target_extent, core::xywh}});
     gpu_cmd_bind_shaders(cmd, {ctx->render.vertex.get(), ctx->render.fragment.get()});
 
-    gpu->vk.CmdBeginRendering(cmd->buffer, ptr_to(VkRenderingInfo {
+    gpu->vk.CmdBeginRendering(cmd->buffer, core::ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea = { {}, vk_extent },
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = ptr_to(VkRenderingAttachmentInfo {
+        .pColorAttachments = core::ptr_to(VkRenderingAttachmentInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = target->view(),
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -236,7 +236,7 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         gpu_cmd_set_scissors(cmd, {scissor});
 
         auto draw_scale = 2.f / viewport.extent;
-        gpu_cmd_push_constants(cmd, 0, core_view_bytes(scene_render_input {
+        gpu_cmd_push_constants(cmd, 0, core::view_bytes(scene_render_input {
             .vertices = gpu_vertices.device(),
             .scale = draw_scale,
             .offset = (draw.position - viewport.origin) * draw_scale - 1.f,

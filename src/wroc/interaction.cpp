@@ -8,7 +8,7 @@ bool toplevel_is_interactable(wroc_toplevel* toplevel)
     return !toplevel->fullscreen.output;
 }
 
-void wroc_begin_move_interaction(wroc_toplevel* toplevel, wroc_seat_pointer* pointer, flags<wroc_direction> directions)
+void wroc_begin_move_interaction(wroc_toplevel* toplevel, wroc_seat_pointer* pointer, core::Flags<wroc_direction> directions)
 {
     if (!toplevel_is_interactable(toplevel)) return;
 
@@ -22,7 +22,7 @@ void wroc_begin_move_interaction(wroc_toplevel* toplevel, wroc_seat_pointer* poi
     server->interaction_mode = wroc_interaction_mode::move;
 }
 
-void wroc_begin_resize_interaction(wroc_toplevel* toplevel, wroc_seat_pointer* pointer, flags<wroc_edge> edges)
+void wroc_begin_resize_interaction(wroc_toplevel* toplevel, wroc_seat_pointer* pointer, core::Flags<wroc_edge> edges)
 {
     if (!toplevel_is_interactable(toplevel)) return;
 
@@ -127,7 +127,7 @@ bool wroc_handle_movesize_interaction(const wroc_event& base_event)
                         cursor_geom_rel -= geom.origin;
                         auto nine_slice = cursor_geom_rel * 3 / geom.extent;
 
-                        flags<wroc_direction> dirs = {};
+                        core::Flags<wroc_direction> dirs = {};
                         if (nine_slice.x != 1 || nine_slice.y == 1) dirs |= wroc_direction::horizontal;
                         if (nine_slice.y != 1 || nine_slice.x == 1) dirs |= wroc_direction::vertical;
 
@@ -137,7 +137,7 @@ bool wroc_handle_movesize_interaction(const wroc_event& base_event)
 
                         } else if (event.button.button == BTN_RIGHT) {
 
-                            flags<wroc_edge> edges = {};
+                            core::Flags<wroc_edge> edges = {};
                             if      (nine_slice.x > 1) edges |= wroc_edge::right;
                             else if (nine_slice.x < 1) edges |= wroc_edge::left;
                             if      (nine_slice.y > 1) edges |= wroc_edge::bottom;
@@ -351,10 +351,10 @@ void zone_update_regions()
             aabb2f64 check_rect = {
                 rect.min - vec2f64(c.selection_leeway),
                 rect.max + vec2f64(c.selection_leeway),
-                core_minmax,
+                core::minmax,
             };
-            if (core_aabb_contains(check_rect, point)) {
-                pointer_zone = any_zones ? core_aabb_outer(pointer_zone, rect) : rect;
+            if (core::aabb::contains(check_rect, point)) {
+                pointer_zone = any_zones ? core::aabb::outer(pointer_zone, rect) : rect;
                 any_zones = true;
             }
         }
@@ -362,7 +362,7 @@ void zone_update_regions()
 
     if (any_zones) {
         if (server->zone.selecting) {
-            server->zone.final_zone = core_aabb_outer(server->zone.initial_zone, pointer_zone);
+            server->zone.final_zone = core::aabb::outer(server->zone.initial_zone, pointer_zone);
         } else {
             server->zone.final_zone = server->zone.initial_zone = pointer_zone;
         }

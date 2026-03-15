@@ -23,7 +23,7 @@ T* wroc_get_userdata(wl_resource* resource)
     auto* cast = dynamic_cast<T*>(base);
     if (!cast) {
         log_error("Fatal error casting wl_resource userdata: expected {} got {}", typeid(T).name(), typeid(*base).name());
-        core_debugbreak();
+        core::debugbreak();
     }
     return cast;
 }
@@ -52,7 +52,7 @@ wl_resource* wroc_resource_create(wl_client* client, const wl_interface* interfa
 inline
 void wroc_resource_simple_unref(wl_resource* resource)
 {
-    core_remove_ref(static_cast<wroc_object*>(wl_resource_get_user_data(resource)));
+    core::remove_ref(static_cast<wroc_object*>(wl_resource_get_user_data(resource)));
 }
 
 inline

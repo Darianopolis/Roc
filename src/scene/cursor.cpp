@@ -5,12 +5,12 @@ struct scene_cursor_manager
     const char* theme = "breeze_cursors";
     i32         size = 24;
 
-    ankerl::unordered_dense::map<std::string_view, ref<scene_node>> cache;
+    core::Map<std::string_view, core::Ref<scene_node>> cache;
 };
 
 void scene_cursor_manager_init(scene_context* ctx)
 {
-    ctx->cursor_manager = core_create<scene_cursor_manager>();
+    ctx->cursor_manager = core::create<scene_cursor_manager>();
 }
 
 static
@@ -77,7 +77,7 @@ auto get_xcursor(scene_context* ctx, const char* semantic) -> scene_node*
 
     auto visual = scene_texture_create(ctx);
     scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), gpu_blend_mode::premultiplied);
-    scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core_xywh});
+    scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, core::xywh});
 
     manager->cache.insert({semantic, visual});
 

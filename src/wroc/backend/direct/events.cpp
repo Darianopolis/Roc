@@ -13,7 +13,7 @@ wroc_input_device::~wroc_input_device()
 static
 bool device_init_keyboard(wroc_input_device* device)
 {
-    device->keyboard = core_create<wroc_libinput_keyboard>();
+    device->keyboard = core::create<wroc_libinput_keyboard>();
     device->keyboard->base = device;
 
     server->seat->keyboard->attach(device->keyboard.get());
@@ -30,7 +30,7 @@ void handle_keyboard_key(wroc_input_device* device, libinput_event_keyboard* eve
         break;case LIBINPUT_KEY_STATE_PRESSED:
             if (keycode == KEY_PAUSE) {
                 log_error("PAUSE HIT - EMERGENCY SHUTDOWN");
-                core_debugkill();
+                core::debugkill();
             }
             device->keyboard->press(keycode);
         break;case LIBINPUT_KEY_STATE_RELEASED:
@@ -48,7 +48,7 @@ void wroc_libinput_keyboard::update_leds(libinput_led leds)
 static
 bool device_init_pointer(wroc_input_device* device)
 {
-    device->pointer = core_create<wroc_libinput_pointer>();
+    device->pointer = core::create<wroc_libinput_pointer>();
     device->pointer->base = device;
 
     if (libinput_device_config_accel_is_available(device->handle)) {
@@ -110,7 +110,7 @@ void handle_device_added(wroc_direct_backend* backend, struct libinput_device* l
 
     log_debug("Adding {} [{}:{}]", name, vendor, product);
 
-    auto device = core_create<wroc_input_device>();
+    auto device = core::create<wroc_input_device>();
     device->backend = backend;
     device->handle = libinput_device_ref(libinput_device);
     libinput_device_set_user_data(libinput_device, device.get());
@@ -144,7 +144,7 @@ void handle_device_removed(wroc_input_device* device)
 void wroc_backend_handle_libinput_event(wroc_direct_backend* backend, libinput_event* event)
 {
     // auto type = libinput_event_get_type(event);
-    // log_debug("libinput event: {}", core_to_string(type));
+    // log_debug("libinput event: {}", core::to_string(type));
 
     auto event_type = libinput_event_get_type(event);
     if (event_type == LIBINPUT_EVENT_NONE) return;
@@ -165,6 +165,6 @@ void wroc_backend_handle_libinput_event(wroc_direct_backend* backend, libinput_e
         break;case LIBINPUT_EVENT_POINTER_AXIS:   /* ignored */
         break;case LIBINPUT_EVENT_POINTER_SCROLL_WHEEL: handle_pointer_scroll_wheel(device, libinput_event_get_pointer_event(event));
         break;default:
-            log_warn("unhandled libinput event: {} ({})", core_to_string(event_type), u32(event_type));
+            log_warn("unhandled libinput event: {} ({})", core::to_string(event_type), u32(event_type));
     }
 }

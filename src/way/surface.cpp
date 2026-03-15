@@ -3,17 +3,17 @@
 WAY_INTERFACE(wl_region) = {
     .destroy = way_simple_destroy,
     .add = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
-        way_get_userdata<way_region>(resource)->region.add({{x, y}, {w, h}, core_xywh});
+        way_get_userdata<way_region>(resource)->region.add({{x, y}, {w, h}, core::xywh});
     },
     .subtract = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
-        way_get_userdata<way_region>(resource)->region.subtract({{x, y}, {w, h}, core_xywh});
+        way_get_userdata<way_region>(resource)->region.subtract({{x, y}, {w, h}, core::xywh});
     }
 };
 
 static
 void create_region(wl_client* client, wl_resource* resource, u32 id)
 {
-    auto region = core_create<way_region>();
+    auto region = core::create<way_region>();
     region->resource = way_resource_create_refcounted(wl_region, client, resource, id, region.get());
 }
 
@@ -22,7 +22,7 @@ void create_region(wl_client* client, wl_resource* resource, u32 id)
 static
 void create_surface(wl_client* client, wl_resource* resource, u32 id)
 {
-    auto surface = core_create<way_surface>();
+    auto surface = core::create<way_surface>();
 
     surface->client = way_client_from(way_get_userdata<way_server>(resource), client);
     surface->client->surfaces.emplace_back(surface.get());
@@ -91,7 +91,7 @@ void damage(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i
     auto* surface = way_get_userdata<way_surface>(resource);
     auto* pending = surface->pending;
 
-    pending->surface.damage.damage({{x, y}, {width, height}, core_xywh});
+    pending->surface.damage.damage({{x, y}, {width, height}, core::xywh});
 }
 
 static
@@ -100,7 +100,7 @@ void damage_buffer(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w
     auto* surface = way_get_userdata<way_surface>(resource);
     auto* pending = surface->pending;
 
-    pending->buffer_damage.damage({{x, y}, {width, height}, core_xywh});
+    pending->buffer_damage.damage({{x, y}, {width, height}, core::xywh});
 }
 
 static
@@ -241,7 +241,7 @@ void apply(way_surface* surface, way_surface_state& from)
     } else if (!to.is_set(way_surface_committed_state::input_region) && to.buffer) {
         // Unset input_region fills entire surface
         scene_input_region_set_region(surface->scene.input_region.get(),
-            {{{}, to.buffer->extent, core_xywh}});
+            {{{}, to.buffer->extent, core::xywh}});
     }
 
     // Map state
@@ -318,7 +318,7 @@ void flush(way_surface* surface)
 
         core_assert(!packet.image);
         if (packet.buffer && !(packet.image = packet.buffer->acquire(surface, packet))) {
-            core_debugkill();
+            core::debugkill();
         }
 
         apply(surface, packet);

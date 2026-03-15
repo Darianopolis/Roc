@@ -54,9 +54,9 @@ scene_tree::~scene_tree()
     }
 }
 
-auto scene_tree_create(scene_context* ctx) -> ref<scene_tree>
+auto scene_tree_create(scene_context* ctx) -> core::Ref<scene_tree>
 {
-    auto tree = core_create<scene_tree>();
+    auto tree = core::create<scene_tree>();
     tree->type = scene_node_type::tree;
     tree->ctx = ctx;
     tree->enabled = true;
@@ -145,7 +145,7 @@ void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
 {
     if (tree->translation == position) return;
 
-    NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, core_to_string(position));
+    NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, core::to_string(position));
 
     damage_node(tree);
     tree->translation = position;
@@ -154,13 +154,13 @@ void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
 
 // -----------------------------------------------------------------------------
 
-auto scene_texture_create(scene_context*) -> ref<scene_texture>
+auto scene_texture_create(scene_context*) -> core::Ref<scene_texture>
 {
-    auto texture = core_create<scene_texture>();
+    auto texture = core::create<scene_texture>();
     texture->blend = gpu_blend_mode::postmultiplied;
     texture->type = scene_node_type::texture;
     texture->tint = {255, 255, 255, 255};
-    texture->src = {{}, {1, 1}, core_minmax};
+    texture->src = {{}, {1, 1}, core::minmax};
     return texture;
 }
 
@@ -173,7 +173,7 @@ void scene_texture_set_image(scene_texture* texture, gpu_image* image, gpu_sampl
 #if SCENE_NOISY_NODES
     if (texture->image.get()   != image)   NODE_LOG("scene.texture{{{}}}.set_image({})",   (void*)texture, (void*)image);
     if (texture->sampler.get() != sampler) NODE_LOG("scene.texture{{{}}}.set_sampler({})", (void*)texture, (void*)sampler);
-    if (texture->blend         != blend)   NODE_LOG("scene.texture{{{}}}.set_blend({})",   (void*)texture, core_to_string(blend));
+    if (texture->blend         != blend)   NODE_LOG("scene.texture{{{}}}.set_blend({})",   (void*)texture, core::to_string(blend));
 #endif
 
     texture->image = image;
@@ -186,7 +186,7 @@ void scene_texture_set_tint(scene_texture* texture, vec4u8 tint)
 {
     if (texture->tint == tint) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, core_to_string(tint));
+    NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, core::to_string(tint));
 
     texture->tint = tint;
     damage_node(texture);
@@ -196,7 +196,7 @@ void scene_texture_set_src(scene_texture* texture, aabb2f32 source)
 {
     if (source == texture->src) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, core_to_string(source));
+    NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, core::to_string(source));
 
     texture->src = source;
     damage_node(texture);
@@ -206,7 +206,7 @@ void scene_texture_set_dst(scene_texture* texture, rect2f32 extent)
 {
     if (extent == texture->dst) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, core_to_string(extent));
+    NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, core::to_string(extent));
 
     damage_node(texture);
     texture->dst = extent;
@@ -215,16 +215,16 @@ void scene_texture_set_dst(scene_texture* texture, rect2f32 extent)
 
 void scene_texture_damage(scene_texture* texture, aabb2i32 damage)
 {
-    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, core_to_string(rect2i32(damage)));
+    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, core::to_string(rect2i32(damage)));
 
     damage_node(texture);
 }
 
 // -----------------------------------------------------------------------------
 
-auto scene_mesh_create(scene_context* ctx) -> ref<scene_mesh>
+auto scene_mesh_create(scene_context* ctx) -> core::Ref<scene_mesh>
 {
-    auto mesh = core_create<scene_mesh>();
+    auto mesh = core::create<scene_mesh>();
     mesh->type = scene_node_type::mesh;
     return mesh;
 }
@@ -234,8 +234,8 @@ void scene_mesh_update(scene_mesh* mesh, gpu_image* image, gpu_sampler* sampler,
 #if SCENE_NOISY_NODES
     if (mesh->image.get()   != image)   NODE_LOG("scene.mesh{{{}}}.set_image({})",   (void*)mesh, (void*)image);
     if (mesh->sampler.get() != sampler) NODE_LOG("scene.mesh{{{}}}.set_sampler({})", (void*)mesh, (void*)sampler);
-    if (mesh->blend         != blend)   NODE_LOG("scene.mesh{{{}}}.set_blend({})",   (void*)mesh, core_to_string(blend));
-    if (mesh->clip          != clip)    NODE_LOG("scene.mesh{{{}}}.set_clip{}",      (void*)mesh, core_to_string(clip));
+    if (mesh->blend         != blend)   NODE_LOG("scene.mesh{{{}}}.set_blend({})",   (void*)mesh, core::to_string(blend));
+    if (mesh->clip          != clip)    NODE_LOG("scene.mesh{{{}}}.set_clip{}",      (void*)mesh, core::to_string(clip));
 
     NODE_LOG("scene.mesh{{{}}}.set_vertices({}, {})", (void*)mesh, (void*)vertices.data(), vertices.size());
     NODE_LOG("scene.mesh{{{}}}.set_indices({}, {})",  (void*)mesh, (void*)indices.data(),  indices.size());
@@ -264,9 +264,9 @@ scene_input_region::~scene_input_region()
     scene_update_pointer_focus(client->ctx);
 }
 
-auto scene_input_region_create(scene_client* client) -> ref<scene_input_region>
+auto scene_input_region_create(scene_client* client) -> core::Ref<scene_input_region>
 {
-    auto region = core_create<scene_input_region>();
+    auto region = core::create<scene_input_region>();
     region->type = scene_node_type::input_region;
     region->client = client;
     client->input_regions++;
@@ -280,7 +280,7 @@ void scene_input_region_set_region(scene_input_region* input_region, region2f32 
 #if SCENE_NOISY_NODES
     NODE_LOG("scene.input_region{{{}}}.set_region([{:s}])", (void*)input_region,
         region.aabbs
-            | std::views::transform((std::string(&)(const aabb2f32&))core_to_string)
+            | std::views::transform((std::string(&)(const aabb2f32&))core::to_string)
             | std::views::join_with(", "sv));
 #endif
 

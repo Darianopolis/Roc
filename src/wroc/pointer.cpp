@@ -52,8 +52,8 @@ void constrain_pointer(
     u32 lifetime)
 {
     log_debug("Pointer constraint created: type = {}, lifetime = {}",
-        core_to_string(type),
-        core_to_string(zwp_pointer_constraints_v1_lifetime(lifetime)));
+        core::to_string(type),
+        core::to_string(zwp_pointer_constraints_v1_lifetime(lifetime)));
 
     auto* surface = wroc_get_userdata<wroc_surface>(_surface);
     auto* pointer = wroc_get_userdata<wroc_seat_pointer>(_pointer);
@@ -70,7 +70,7 @@ void constrain_pointer(
     }
 
     auto* new_resource = wroc_resource_create(client, interface, wl_resource_get_version(resource), id);
-    auto* constraint = core_create_unsafe<wroc_pointer_constraint>();
+    auto* constraint = core::create_unsafe<wroc_pointer_constraint>();
     wroc_resource_set_implementation_refcounted(new_resource, implementation, constraint);
     constraint->type = type;
     constraint->pointer = pointer;
@@ -136,7 +136,7 @@ void wroc_pointer_constraint::activate()
         pointer->active_constraint->deactivate();
     }
 
-    log_debug("Pointer constraint {} activated", core_to_string(type));
+    log_debug("Pointer constraint {} activated", core::to_string(type));
 
     pointer->active_constraint = this;
 
@@ -252,7 +252,7 @@ void wroc_update_pointer_constraint_state()
 
     if (queue_new_motion) {
         // Sent an empty motion event to update visual state after constraint changes immediately
-        core_event_loop_enqueue(server->event_loop.get(), [] {
+        core::event_loop::enqueue(server->event_loop.get(), [] {
             wroc_post_event(wroc_pointer_event {
                 .type = wroc_event_type::pointer_motion,
                 .pointer = server->seat->pointer.get(),
@@ -279,7 +279,7 @@ vec2f64 apply_constraint(wroc_pointer_constraint* constraint, vec2f64 old_pos, v
     static constexpr f64 epsilon = 0.0001;
     surface_rect.origin += epsilon;
     surface_rect.extent -= epsilon * 2;
-    constrained = core_rect_clamp_point(surface_rect, constrained);
+    constrained = core::rect::clamp_point(surface_rect, constrained);
 
     // Constrain to surface input region
     if (!surface->current.input_region.empty()) {
@@ -368,7 +368,7 @@ vec2f64 pointer_acceleration_apply(const wroc_pointer_accel_config& config, vec2
     if (!remainder) return new_delta;
 
     *remainder += new_delta;
-    vec2f64 integer_delta = core_round_to_zero(*remainder);
+    vec2f64 integer_delta = core::round_to_zero(*remainder);
     *remainder -= integer_delta;
 
     return integer_delta;
@@ -434,7 +434,7 @@ void wroc_seat_pointer::attach(wroc_pointer* kb)
 
 void wroc_seat_init_pointer(wroc_seat* seat)
 {
-    seat->pointer = core_create<wroc_seat_pointer>();
+    seat->pointer = core::create<wroc_seat_pointer>();
     seat->pointer->seat = seat;
 }
 
@@ -454,7 +454,7 @@ void wroc_seat_pointer_update_state(wroc_seat_pointer* pointer, wroc_key_action 
         }
 
         if (action == wroc_key_action::release ? pointer->pressed.dec(button) : pointer->pressed.inc(button)) {
-            // log_trace("button {} - {}", libevdev_event_code_get_name(EV_KEY, button), core_to_string(action));
+            // log_trace("button {} - {}", libevdev_event_code_get_name(EV_KEY, button), core::to_string(action));
             if (action != wroc_key_action::enter) {
                 wroc_post_event(wroc_pointer_event {
                     .type = wroc_event_type::pointer_button,
@@ -586,7 +586,7 @@ void wroc_pointer_motion(wroc_seat_pointer* pointer, vec2f64 rel, vec2f64 _rel_u
             auto time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch());
             auto time_us = time.count();
 
-            // log_warn("relative[{}:{}] - {}, {}", time_us >> 32, time_us & 0xFFFF'FFFF, core_to_string(rel), core_to_string(rel_unaccel));
+            // log_warn("relative[{}:{}] - {}, {}", time_us >> 32, time_us & 0xFFFF'FFFF, core::to_string(rel), core::to_string(rel_unaccel));
 
             bool force_accel = toplevel_under_cursor
                 && toplevel_under_cursor->tweaks.force_accel

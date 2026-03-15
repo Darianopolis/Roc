@@ -1,45 +1,51 @@
 #pragma once
 
 #include "types.hpp"
+#include "containers.hpp"
 
-struct core_stacktrace_entry_data
+namespace core
 {
-    bool populated = false;
-    std::string description;
-    std::filesystem::path source_file;
-    u32 source_line;
-};
+    struct StacktraceEntryData
+    {
+        bool populated = false;
+        std::string description;
+        std::filesystem::path source_file;
+        u32 source_line;
+    };
 
-struct core_stacktrace_entry
-{
-    const core_stacktrace_entry_data* data;
+    struct StacktraceEntry
+    {
+        const core::StacktraceEntryData* data;
 
-    const std::string& description() const noexcept { return data->description; }
-    const std::filesystem::path& source_file() const noexcept { return data->source_file; }
-    u32 source_line() const noexcept { return data->source_line; }
-};
+        const std::string& description() const noexcept { return data->description; }
+        const std::filesystem::path& source_file() const noexcept { return data->source_file; }
+        u32 source_line() const noexcept { return data->source_line; }
+    };
 
-struct core_stacktrace
-{
-    std::vector<core_stacktrace_entry> entries;
+    struct StacktraceCache;
 
-    core_stacktrace() = default;
+    struct Stacktrace
+    {
+        std::vector<core::StacktraceEntry> entries;
 
-    void populate(struct core_stacktrace_cache& cache, const std::stacktrace& stacktrace);
+        Stacktrace() = default;
 
-    usz size() const noexcept { return entries.size(); }
-    core_stacktrace_entry at(usz i) const { return entries.at(i); }
+        void populate(struct core::StacktraceCache& cache, const std::stacktrace& stacktrace);
 
-    auto begin() const noexcept { return entries.begin(); }
-    auto end() const noexcept { return entries.end(); }
-};
+        usz size() const noexcept { return entries.size(); }
+        StacktraceEntry at(usz i) const { return entries.at(i); }
 
-std::string core_to_string(const core_stacktrace& st);
+        auto begin() const noexcept { return entries.begin(); }
+        auto end() const noexcept { return entries.end(); }
+    };
 
-struct core_stacktrace_cache
-{
-    ankerl::unordered_dense::segmented_map<std::stacktrace_entry, core_stacktrace_entry_data> entries;
-    ankerl::unordered_dense::segmented_map<std::stacktrace, core_stacktrace> traces;
+    std::string to_string(const core::Stacktrace& st);
 
-    std::pair<const core_stacktrace*, bool> insert(const std::stacktrace& st);
-};
+    struct StacktraceCache
+    {
+        core::SegmentedMap<std::stacktrace_entry, core::StacktraceEntryData> entries;
+        core::SegmentedMap<std::stacktrace, core::Stacktrace> traces;
+
+        std::pair<const core::Stacktrace*, bool> insert(const std::stacktrace& st);
+    };
+}

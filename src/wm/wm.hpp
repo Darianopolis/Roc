@@ -18,8 +18,8 @@ struct wm_context
     struct {
         scene_pointer* pointer;
 
-        ref<scene_client> client;
-        weak<scene_window> window;
+        core::Ref<scene_client> client;
+        core::Weak<scene_window> window;
 
         vec2f32  grab;
         rect2f32 frame;
@@ -29,6 +29,6 @@ struct wm_context
     } movesize;
 };
 
-auto wm_create(scene_context*) -> ref<wm_context>;
+auto wm_create(scene_context*) -> core::Ref<wm_context>;
 
 void wm_init_movesize(wm_context*);

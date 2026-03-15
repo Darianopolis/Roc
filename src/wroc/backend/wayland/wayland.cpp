@@ -75,7 +75,7 @@ const wl_registry_listener wroc_wl_registry_listener {
 };
 
 static
-int wroc_listen_backend_display_read(wroc_wayland_backend* backend, int fd, core_fd_event_bits events)
+int wroc_listen_backend_display_read(wroc_wayland_backend* backend, int fd, core::Flags<core::FdEventBit> events)
 {
     backend->current_dispatch_time = std::chrono::steady_clock::now();
 
@@ -109,9 +109,9 @@ void wroc_wayland_backend::init()
     // Second roundtrip ensures that all events expected in response to binding are received
     wl_display_roundtrip(wl_display);
 
-    wl_event_source_fd = core_fd_reference(wl_display_get_fd(wl_display));
-    core_fd_add_listener(wl_event_source_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend = weak(this)](int fd, core_fd_event_bits events) {
+    wl_event_source_fd = core::fd::reference(wl_display_get_fd(wl_display));
+    core::fd::add_listener(wl_event_source_fd.get(), server->event_loop.get(), core::FdEventBit::readable,
+        [backend = core::Weak(this)](int fd, core::Flags<core::FdEventBit> events) {
             if (backend) {
                 wroc_listen_backend_display_read(backend.get(), fd, events);
             }

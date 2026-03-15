@@ -28,7 +28,7 @@ std::vector<std::string> wroc_cursor_list_themes()
 
 void wroc_cursor_create()
 {
-    server->cursor = core_create<wroc_cursor>();
+    server->cursor = core::create<wroc_cursor>();
     auto cursor = server->cursor.get();
 
     auto themes = wroc_cursor_list_themes();
@@ -88,7 +88,7 @@ void wroc_cursor_set(wroc_cursor* cursor, wl_client* client, wroc_surface* surfa
 // -----------------------------------------------------------------------------
 
 static constexpr auto shape_names = [] {
-    core_enum_map<wp_cursor_shape_device_v1_shape, const char*> shapes;
+    core::EnumMap<wp_cursor_shape_device_v1_shape, const char*> shapes;
     shapes[WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT]       = "default";
     shapes[WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CONTEXT_MENU]  = "context-menu";
     shapes[WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_HELP]          = "help";
@@ -135,18 +135,18 @@ wroc_surface* wroc_cursor_get_shape(wroc_cursor* cursor, wp_cursor_shape_device_
     auto& surface = cursor->shapes[shape];
     if (surface) return surface.get();
 
-    log_info("Loading cursor shape {} \"{}\"", core_to_string(shape), shape_names[shape]);
+    log_info("Loading cursor shape {} \"{}\"", core::to_string(shape), shape_names[shape]);
 
     // TODO: This is a a hacky mess, we should implement a proper way to have locally managed surfaces
     //       We'll want something like this for integrating compositor UI with the surface stack properly later.
 
-    surface = core_create<wroc_surface>();
+    surface = core::create<wroc_surface>();
     surface->current.surface_stack.emplace_back(surface.get());
 
-    auto cursor_surface = core_create<wroc_cursor_surface>();
+    auto cursor_surface = core::create<wroc_cursor_surface>();
     wroc_surface_put_addon(surface.get(), cursor_surface.get());
 
-    auto cursor_buffer = core_create<wroc_shm_buffer>();
+    auto cursor_buffer = core::create<wroc_shm_buffer>();
     cursor_buffer->released = false;
     surface->current.buffer = cursor_buffer;
     surface->current.buffer_lock = cursor_buffer->lock();
@@ -175,8 +175,8 @@ wroc_surface* wroc_cursor_get_shape(wroc_cursor* cursor, wp_cursor_shape_device_
         {image->pixels, image->width * image->height * 4},
         {{{image->width, image->height}}});
 
-    surface->buffer_dst = {{-image->xhot, -image->yhot}, {image->width, image->height}, core_xywh};
-    surface->buffer_src = {{}, {image->width, image->height}, core_xywh};
+    surface->buffer_dst = {{-image->xhot, -image->yhot}, {image->width, image->height}, core::xywh};
+    surface->buffer_src = {{}, {image->width, image->height}, core::xywh};
 
     return surface.get();
 }

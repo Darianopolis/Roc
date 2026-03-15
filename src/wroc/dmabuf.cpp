@@ -11,7 +11,7 @@ static
 void wroc_dmabuf_create_params(wl_client* client, wl_resource* resource, u32 params_id)
 {
     auto* new_resource = wroc_resource_create(client, &zwp_linux_buffer_params_v1_interface, wl_resource_get_version(resource), params_id);
-    auto* params = core_create_unsafe<wroc_dma_buffer_params>();
+    auto* params = core::create_unsafe<wroc_dma_buffer_params>();
     params->resource = new_resource;
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_zwp_linux_buffer_params_v1_impl, params);
 }
@@ -49,7 +49,7 @@ const struct zwp_linux_dmabuf_v1_interface wroc_zwp_linux_dmabuf_v1_impl = {
 static
 void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u32 plane_idx, u32 offset, u32 stride, u32 modifier_hi, u32 modifier_lo)
 {
-    auto fd = core_fd_adopt(_fd);
+    auto fd = core::fd::adopt(_fd);
 
     // TODO: We should enforce a limit on the number of open files a client can have to keep under 1024 for the whole process
 
@@ -86,7 +86,7 @@ void wroc_dmabuf_params_add(wl_client* client, wl_resource* resource, int _fd, u
     // Deduplicate file descriptors as we receive them
 
     for (auto& p : params->params.planes) {
-        if (core_fd_are_same(p.fd.get(), fd.get())) {
+        if (core::fd::are_same(p.fd.get(), fd.get())) {
             plane.fd = p.fd;
             break;
         } else {
@@ -123,7 +123,7 @@ wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* param
     params.planes.count = std::popcount(dma_params->planes_set);
 
     auto* new_resource = wroc_resource_create(client, &wl_buffer_interface, 1, buffer_id);
-    auto* buffer = core_create_unsafe<wroc_dma_buffer>();
+    auto* buffer = core::create_unsafe<wroc_dma_buffer>();
     buffer->resource = new_resource;
     buffer->type = wroc_buffer_type::dma;
 
@@ -136,7 +136,7 @@ wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* param
 
     buffer->extent = {width, height};
     log_debug("Importing DMA-BUF, size = {}, format = {}, mod = {}",
-        core_to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
+        core::to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
     buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
 
     dma_params->params = {};
@@ -181,7 +181,7 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
         ready = gpu_semaphore_get_value(acquire_timeline.get()) >= acquire_point;
         if (!ready) {
             surface->apply_queued = true;
-            gpu_wait({acquire_timeline.get(), acquire_point}, [surface = weak(surface)](u64)  {
+            gpu_wait({acquire_timeline.get(), acquire_point}, [surface = core::Weak(surface)](u64)  {
                 if (surface) {
                     surface->apply_queued = false;
                     wroc_surface_flush_apply(surface.get());
@@ -195,23 +195,23 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
         }
 
         for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-            if (unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0).value > 0) {
+            if (core::check<poll>(core::ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0).value > 0) {
                 continue;
             }
 
             ready = false;
 
-            if (core_fd_get_listener(plane.fd.get())) {
+            if (core::fd::get_listener(plane.fd.get())) {
                 log_error("Can't register new DMA-BUF implicit listener - file descriptor already has listener registered");
             } else {
                 surface->apply_queued = true;
-                core_fd_add_listener(plane.fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-                    [surface = weak(surface)](int, core_fd_event_bits) {
+                core::fd::add_listener(plane.fd.get(), server->event_loop.get(), core::FdEventBit::readable,
+                    [surface = core::Weak(surface)](int, core::Flags<core::FdEventBit>) {
                         if (surface) {
                             surface->apply_queued = false;
                             wroc_surface_flush_apply(surface.get());
                         }
-                    }, core_fd_listen_flag::oneshot);
+                    }, core::FdListenFlag::oneshot);
             }
 
             break;
@@ -260,10 +260,10 @@ void wroc_dma_buffer::on_commit(wroc_surface* surface)
     // TODO: We should still include these barriers for correctness, even if the driver works
     //       fine without them (or at least seems too).
 
-    gpu->vk.CmdPipelineBarrier2(commands->buffer, ptr_to(VkDependencyInfo {
+    gpu->vk.CmdPipelineBarrier2(commands->buffer, core::ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
+        .pImageMemoryBarriers = core::ptr_to(VkImageMemoryBarrier2 {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
             .srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
             .srcAccessMask = 0,
@@ -280,10 +280,10 @@ void wroc_dma_buffer::on_commit(wroc_surface* surface)
         }),
     }));
 
-    gpu->vk.CmdPipelineBarrier2(commands->buffer, ptr_to(VkDependencyInfo {
+    gpu->vk.CmdPipelineBarrier2(commands->buffer, core::ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
+        .pImageMemoryBarriers = core::ptr_to(VkImageMemoryBarrier2 {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
             .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
             .srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
@@ -339,10 +339,10 @@ void wroc_renderer_init_buffer_feedback(wroc_renderer* renderer)
     int rw, ro;
     if (!core_allocate_shm_file_pair(size, &rw, &ro)) {
         log_error("Failed to allocate shared memory pair");
-        core_debugkill();
+        core::debugkill();
     }
 
-    void* dst = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, rw, 0).value;
+    void* dst = core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, rw, 0).value;
     close(rw);
     if (!dst) {
         log_error("mmap failed");
@@ -380,7 +380,7 @@ void wroc_dmabuf_send_tranches(wl_resource* resource)
 
     wroc_send(zwp_linux_dmabuf_feedback_v1_send_tranche_target_device, resource, &dev_id);
     wroc_send(zwp_linux_dmabuf_feedback_v1_send_tranche_flags, resource, 0);
-    wroc_send(zwp_linux_dmabuf_feedback_v1_send_tranche_formats, resource, ptr_to(wroc_to_wl_array<u16>(feedback.tranche_formats)));
+    wroc_send(zwp_linux_dmabuf_feedback_v1_send_tranche_formats, resource, core::ptr_to(wroc_to_wl_array<u16>(feedback.tranche_formats)));
     wroc_send(zwp_linux_dmabuf_feedback_v1_send_tranche_done, resource);
 
     wroc_send(zwp_linux_dmabuf_feedback_v1_send_done, resource);

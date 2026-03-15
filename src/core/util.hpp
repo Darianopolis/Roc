@@ -6,29 +6,38 @@
 
 // -----------------------------------------------------------------------------
 
-template<typename Fn>
-struct core_defer_guard
+namespace core
 {
-    Fn fn;
+    template<typename Fn>
+    struct DeferGuard
+    {
+        Fn fn;
 
-    core_defer_guard(Fn&& fn): fn(std::move(fn)) {}
-    ~core_defer_guard() { fn(); };
-};
+        DeferGuard(Fn&& fn): fn(std::move(fn)) {}
+        ~DeferGuard() { fn(); };
+    };
+}
 
-#define defer core_defer_guard _ = [&]
-
-// -----------------------------------------------------------------------------
-
-template<typename... Ts>
-struct core_overload_set : Ts... {
-    using Ts::operator()...;
-};
-
-template<typename... Ts> core_overload_set(Ts...) -> core_overload_set<Ts...>;
+#define defer ::core::DeferGuard _ = [&]
 
 // -----------------------------------------------------------------------------
 
-constexpr auto ptr_to(auto&& value) { return &value; }
+namespace core
+{
+    template<typename... Ts>
+    struct OverloadSet : Ts... {
+        using Ts::operator()...;
+    };
+
+    template<typename... Ts> OverloadSet(Ts...) -> OverloadSet<Ts...>;
+}
+
+// -----------------------------------------------------------------------------
+
+namespace core
+{
+    constexpr auto ptr_to(auto&& value) { return &value; }
+}
 
 // -----------------------------------------------------------------------------
 
@@ -36,23 +45,26 @@ constexpr auto ptr_to(auto&& value) { return &value; }
                Type(const Type& ) = delete; \
     Type& operator=(const Type& ) = delete; \
 
-#define CORE_DELETE_COPY_MOVE(Type)         \
-    CORE_DELETE_COPY(Type)                  \
-               Type(      Type&&) = delete; \
-    Type& operator=(      Type&&) = delete;
+#define CORE_DELETE_COPY_MOVE(Type) \
+    CORE_DELETE_COPY(Type) \
+               Type(Type&&) = delete; \
+    Type& operator=(Type&&) = delete;
 
 // -----------------------------------------------------------------------------
 
-constexpr usz core_round_up_power2(usz v) noexcept
+namespace core
 {
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v |= v >> 32;
-    v++;
+    constexpr usz round_up_power2(usz v) noexcept
+    {
+        v--;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v |= v >> 32;
+        v++;
 
-    return v;
+        return v;
+    }
 }

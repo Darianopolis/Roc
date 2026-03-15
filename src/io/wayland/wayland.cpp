@@ -67,13 +67,13 @@ IO_WL_LISTENER(xdg_wm_base) = {
 // -----------------------------------------------------------------------------
 
 static
-void display_read(io_context* ctx, core_fd_event_bits events)
+void display_read(io_context* ctx, core::Flags<core::FdEventBit> events)
 {
     ctx->wayland->current_dispatch_time = std::chrono::steady_clock::now();
 
     timespec timeout = {};
-    if (unix_check<wl_display_dispatch_timeout>(ctx->wayland->wl_display, &timeout).err()) {
-        core_debugkill();
+    if (core::check<wl_display_dispatch_timeout>(ctx->wayland->wl_display, &timeout).err()) {
+        core::debugkill();
     }
 
     wl_display_flush(ctx->wayland->wl_display);
@@ -81,7 +81,7 @@ void display_read(io_context* ctx, core_fd_event_bits events)
 
 void io_wayland_init(io_context* ctx)
 {
-    ctx->wayland = core_create<io_wayland>();
+    ctx->wayland = core::create<io_wayland>();
     auto* wl = ctx->wayland.get();
 
     wl->wl_display = wl_display_connect(nullptr);
@@ -100,9 +100,9 @@ void io_wayland_start(io_context* ctx)
     // Second roundtrip ensure that all events expected in response to binding are received
     wl_display_roundtrip(wl->wl_display);
 
-    wl->wl_display_fd = core_fd_reference(wl_display_get_fd(wl->wl_display));
-    core_fd_add_listener(wl->wl_display_fd.get(), ctx->event_loop, core_fd_event_bit::readable,
-        [ctx = weak(ctx)](int, core_fd_event_bits events) {
+    wl->wl_display_fd = core::fd::reference(wl_display_get_fd(wl->wl_display));
+    core::fd::add_listener(wl->wl_display_fd.get(), ctx->event_loop, core::FdEventBit::readable,
+        [ctx = core::Weak(ctx)](int, core::Flags<core::FdEventBit> events) {
             if (ctx) display_read(ctx.get(), events);
         });
 

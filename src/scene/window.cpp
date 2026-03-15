@@ -9,9 +9,9 @@ scene_window::~scene_window()
     std::erase(client->ctx->windows, this);
 }
 
-auto scene_window_create(scene_client* client) -> ref<scene_window>
+auto scene_window_create(scene_client* client) -> core::Ref<scene_window>
 {
-    auto window = core_create<scene_window>();
+    auto window = core::create<scene_window>();
     window->client = client;
 
     auto* ctx = client->ctx;
@@ -38,7 +38,7 @@ void scene_window_set_title(scene_window* window, std::string_view title)
 
 void scene_window_request_reposition(scene_window* window, rect2f32 frame, vec2f32 gravity)
 {
-    scene_client_post_event(window->client, ptr_to(scene_event {
+    scene_client_post_event(window->client, core::ptr_to(scene_event {
         .type = scene_event_type::window_reposition,
         .window = {
             .window = window,
@@ -61,7 +61,7 @@ auto scene_window_get_frame(scene_window* window) -> rect2f32
     return {
         scene_tree_get_position(window->tree.get()),
         window->extent,
-        core_xywh
+        core::xywh
     };
 }
 
@@ -107,7 +107,7 @@ auto scene_find_window_at(scene_context* ctx, vec2f32 point) -> scene_window*
         [&](scene_tree* tree) {
             if (tree->system == ctx->window_system) {
                 auto w = static_cast<scene_window*>(tree->userdata);
-                if (core_rect_contains(scene_window_get_frame(w), point)) {
+                if (core::rect::contains(scene_window_get_frame(w), point)) {
                     window = w;
                     return scene_iterate_action::stop;
                 }

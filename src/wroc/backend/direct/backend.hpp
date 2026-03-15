@@ -17,7 +17,7 @@ struct wroc_drm_output_state;
 
 struct wroc_drm_buffer
 {
-    weak<gpu_image> image;
+    core::Weak<gpu_image> image;
     u32 fb2_handle;
 };
 
@@ -27,7 +27,7 @@ struct wroc_drm_output : wroc_output
 
     ~wroc_drm_output();
 
-    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, flags<wroc_output_commit_flag>) final override;
+    virtual wroc_output_commit_id commit(gpu_image*, gpu_syncpoint acquire, gpu_syncpoint release, core::Flags<wroc_output_commit_flag>) final override;
 };
 
 struct wroc_libinput_keyboard : wroc_keyboard
@@ -48,31 +48,31 @@ struct wroc_input_device : wroc_object
 
     libinput_device* handle;
 
-    ref<wroc_libinput_keyboard> keyboard;
-    ref<wroc_libinput_pointer> pointer;
+    core::Ref<wroc_libinput_keyboard> keyboard;
+    core::Ref<wroc_libinput_pointer> pointer;
 
     ~wroc_input_device();
 };
 
 struct wroc_direct_backend : wroc_backend
 {
-    core_fd drm_fd;
+    core::Fd drm_fd;
 
     struct libseat* seat;
     const char* seat_name;
     struct udev* udev;
     struct libinput* libinput;
 
-    std::vector<ref<wroc_device>> devices;
+    std::vector<core::Ref<wroc_device>> devices;
 
-    std::vector<ref<wroc_input_device>> input_devices;
+    std::vector<core::Ref<wroc_input_device>> input_devices;
 
-    std::vector<ref<wroc_drm_output>> outputs;
+    std::vector<core::Ref<wroc_drm_output>> outputs;
 
     std::vector<wroc_drm_buffer> buffer_cache;
 
-    core_fd libseat_fd = {};
-    core_fd libinput_fd = {};
+    core::Fd libseat_fd = {};
+    core::Fd libinput_fd = {};
 
     virtual void init() final override;
     virtual void start() final override;

@@ -27,9 +27,9 @@ gpu_drm_format to_drm(wl_shm_format shm)
 static
 void update_mapping(wroc_shm_pool* pool, usz size)
 {
-    auto mapping = core_create<wroc_shm_mapping>();
+    auto mapping = core::create<wroc_shm_mapping>();
     mapping->size = size;
-    mapping->data = unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd, 0).value;
+    mapping->data = core::check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool->fd, 0).value;
     if (!mapping->data) {
         wroc_post_error(pool->resource, WL_SHM_ERROR_INVALID_FD, "mmap failed");
         return;
@@ -49,7 +49,7 @@ void wroc_wl_whm_create_pool(wl_client* client, wl_resource* resource, u32 id, i
     // TODO: We should enforce a limit on the number of open files a client can have to keep under 1024 for the whole process
 
     auto* new_resource = wroc_resource_create(client, &wl_shm_pool_interface, wl_resource_get_version(resource), id);
-    auto* pool = core_create_unsafe<wroc_shm_pool>();
+    auto* pool = core::create_unsafe<wroc_shm_pool>();
     pool->resource = new_resource;
     pool->fd = fd;
     wroc_resource_set_implementation_refcounted(new_resource, &wroc_wl_shm_pool_impl, pool);
@@ -80,7 +80,7 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
 
     auto format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
     if (!format) {
-        wroc_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", core_to_string(wl_shm_format(_format)));
+        wroc_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", core::to_string(wl_shm_format(_format)));
         return;
     }
 
@@ -96,7 +96,7 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
 
     auto* new_resource = wroc_resource_create(client, &wl_buffer_interface, wl_resource_get_version(resource), id);
 
-    auto* shm_buffer = core_create_unsafe<wroc_shm_buffer>();
+    auto* shm_buffer = core::create_unsafe<wroc_shm_buffer>();
     shm_buffer->type = wroc_buffer_type::shm;
     shm_buffer->resource = new_resource;
     shm_buffer->extent = {width, height};
@@ -114,7 +114,7 @@ void wroc_wl_shm_pool_create_buffer(wl_client* client, wl_resource* resource, u3
         .usage = gpu_image_usage::texture | gpu_image_usage::transfer
     });
 
-    log_debug("Created shared buffer {}, format = {}", core_to_string(shm_buffer->extent), shm_buffer->format->name);
+    log_debug("Created shared buffer {}, format = {}", core::to_string(shm_buffer->extent), shm_buffer->format->name);
 }
 
 static
@@ -134,7 +134,7 @@ const struct wl_shm_pool_interface wroc_wl_shm_pool_impl = {
 
 wroc_shm_pool::~wroc_shm_pool()
 {
-    core_assert(core_allocation_from(mapping.get())->ref_count == 1);
+    core_assert(core::allocation::from(mapping.get())->ref_count == 1);
     mapping = nullptr;
     close(fd);
 }
@@ -158,15 +158,15 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
         usz image_size = block_w * block_h * info.texel_block_size;
 
         gpu_cmd_copy_memory_to_image(commands.get(), image.get(),
-            {core_byte_offset_pointer<void>(mapping->data, offset), image_size},
+            {core::byte_offset_pointer<void>(mapping->data, offset), image_size},
             {{image->extent()}});
 
         struct shm_transfer_guard : wroc_object
         {
-            ref<wroc_buffer_lock> lock;
+            core::Ref<wroc_buffer_lock> lock;
             // Protect mapping for duration of transfer
             // This must be destroyed before buffer, in case buffer is holding last reference to shm_pool
-            ref<wroc_shm_mapping> mapping;
+            core::Ref<wroc_shm_mapping> mapping;
 
             ~shm_transfer_guard()
             {
@@ -174,7 +174,7 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
                 lock->buffer->release();
             }
         };
-        auto transfer_guard = core_create<shm_transfer_guard>();
+        auto transfer_guard = core::create<shm_transfer_guard>();
         transfer_guard->lock = lock();
         transfer_guard->mapping = mapping;
         gpu_cmd_protect(commands.get(), transfer_guard.get());

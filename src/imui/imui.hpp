@@ -4,7 +4,7 @@
 
 struct imui_context;
 
-auto imui_create(gpu_context*, scene_context*) -> ref<imui_context>;
+auto imui_create(gpu_context*, scene_context*) -> core::Ref<imui_context>;
 
 // -----------------------------------------------------------------------------
 

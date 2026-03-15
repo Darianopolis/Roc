@@ -18,7 +18,7 @@ enum class io_input_device_capability : u32
 
 struct io_input_device_info
 {
-    flags<io_input_device_capability> capabilities;
+    core::Flags<io_input_device_capability> capabilities;
 };
 
 /**
@@ -29,7 +29,7 @@ struct io_input_device_info
 struct io_input_device
 {
     virtual auto info() -> io_input_device_info = 0;
-    virtual void update_leds(flags<libinput_led>) {}
+    virtual void update_leds(core::Flags<libinput_led>) {}
 };
 
 // -----------------------------------------------------------------------------
@@ -58,7 +58,7 @@ struct io_output
 {
     virtual auto info() -> io_output_info = 0;
     virtual void request_frame() = 0;
-    virtual void commit(gpu_image*, gpu_syncpoint done, flags<io_output_commit_flag>) = 0;
+    virtual void commit(gpu_image*, gpu_syncpoint done, core::Flags<io_output_commit_flag>) = 0;
 };
 
 // -----------------------------------------------------------------------------
@@ -144,7 +144,7 @@ using io_event_handler = void(io_event*);
 
 // -----------------------------------------------------------------------------
 
-auto io_create(core_event_loop*, gpu_context*) -> ref<io_context>;
+auto io_create(core::EventLoop*, gpu_context*) -> core::Ref<io_context>;
 void io_set_event_handler(io_context*, std::move_only_function<io_event_handler>&&);
 void io_run( io_context*);
 void io_stop(io_context*);

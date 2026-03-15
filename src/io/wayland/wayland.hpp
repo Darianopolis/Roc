@@ -26,7 +26,7 @@ template<typename K, typename V>
 struct io_wl_proxy_cache
 {
     using Vptr = std::unique_ptr<V, void(*)(V*)>;
-    struct entry { weak<K> key; Vptr value; };
+    struct entry { core::Weak<K> key; Vptr value; };
 
     void(*destroy)(V*);
     std::vector<entry> entries;
@@ -82,14 +82,14 @@ struct io_wayland
         gpu_format_set set;
     } format;
 
-    core_fd wl_display_fd = {};
+    core::Fd wl_display_fd = {};
 
-    std::vector<ref<io_output_wayland>> outputs;
+    std::vector<core::Ref<io_output_wayland>> outputs;
 
     std::chrono::steady_clock::time_point current_dispatch_time;
 
-    ref<io_input_device_wayland_keyboard> keyboard;
-    ref<io_input_device_wayland_pointer>  pointer;
+    core::Ref<io_input_device_wayland_keyboard> keyboard;
+    core::Ref<io_input_device_wayland_pointer>  pointer;
 
     bool in_keyboard_enter;
 
@@ -127,14 +127,14 @@ struct io_output_wayland : io_output_base
 
     struct release_slot
     {
-        ref<gpu_image>     image;
-        ref<gpu_semaphore> semaphore;
+        core::Ref<gpu_image>     image;
+        core::Ref<gpu_semaphore> semaphore;
         u64                point;
     };
 
     std::vector<release_slot> release_slots;
 
-    virtual void commit(gpu_image*, gpu_syncpoint done, flags<io_output_commit_flag>) final override;
+    virtual void commit(gpu_image*, gpu_syncpoint done, core::Flags<io_output_commit_flag>) final override;
 
     ~io_output_wayland();
 };
@@ -159,7 +159,7 @@ struct io_input_device_wayland_pointer : io_input_device_base
     IO_WL_INTERFACE(wl_pointer);
     IO_WL_INTERFACE(zwp_relative_pointer_v1);
 
-    weak<io_output> current_output;
+    core::Weak<io_output> current_output;
     u32 last_serial;
 
     ~io_input_device_wayland_pointer();

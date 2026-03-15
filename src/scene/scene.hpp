@@ -17,7 +17,7 @@ struct scene_window;
 
 struct scene_context;
 
-auto scene_create(gpu_context*, struct io_context*) -> ref<scene_context>;
+auto scene_create(gpu_context*, struct io_context*) -> core::Ref<scene_context>;
 
 enum class scene_layer
 {
@@ -48,11 +48,11 @@ auto scene_register_system(scene_context*) -> scene_system_id;
 
 struct scene_client;
 
-auto scene_client_create(scene_context*) -> ref<scene_client>;
+auto scene_client_create(scene_context*) -> core::Ref<scene_client>;
 
 // -----------------------------------------------------------------------------
 
-auto scene_output_create(scene_client*) -> ref<scene_output>;
+auto scene_output_create(scene_client*) -> core::Ref<scene_output>;
 void scene_output_set_viewport(scene_output*, rect2f32 viewport);
 
 auto scene_list_outputs(scene_context*) -> std::span<scene_output* const>;
@@ -86,7 +86,7 @@ enum class scene_modifier_flags
 
 using scene_scancode = u32;
 
-auto scene_get_modifiers(scene_context*, flags<scene_modifier_flags> = {}) -> flags<scene_modifier>;
+auto scene_get_modifiers(scene_context*, core::Flags<scene_modifier_flags> = {}) -> core::Flags<scene_modifier>;
 
 enum class scene_input_device_type
 {
@@ -123,7 +123,7 @@ struct scene_keyboard_info
 };
 
 void scene_keyboard_clear_focus(  scene_keyboard*);
-auto scene_keyboard_get_modifiers(scene_keyboard*, flags<scene_modifier_flags> = {}) -> flags<scene_modifier>;
+auto scene_keyboard_get_modifiers(scene_keyboard*, core::Flags<scene_modifier_flags> = {}) -> core::Flags<scene_modifier>;
 auto scene_keyboard_get_pressed(  scene_keyboard*) -> std::span<const scene_scancode>;
 auto scene_keyboard_get_sym(      scene_keyboard*, scene_scancode) -> xkb_keysym_t;
 auto scene_keyboard_get_utf8(     scene_keyboard*, scene_scancode) -> std::string;
@@ -158,7 +158,7 @@ struct scene_data_source_ops
     std::move_only_function<void(const char*, int)> send;
 };
 
-auto scene_data_source_create(scene_client*, scene_data_source_ops&&) -> ref<scene_data_source>;
+auto scene_data_source_create(scene_client*, scene_data_source_ops&&) -> core::Ref<scene_data_source>;
 
 void scene_data_source_offer(      scene_data_source*, const char* mime_type);
 auto scene_data_source_get_offered(scene_data_source*) -> std::span<const std::string>;
@@ -200,12 +200,12 @@ struct scene_tree : scene_node
     scene_system_id system;
     void*           userdata;
 
-    core_ref_vector<scene_node> children;
+    core::RefVector<scene_node> children;
 
     ~scene_tree();
 };
 
-auto scene_tree_create(scene_context*) -> ref<scene_tree>;
+auto scene_tree_create(scene_context*) -> core::Ref<scene_tree>;
 
 void scene_tree_set_enabled(scene_tree*, bool enabled);
 void scene_tree_place_below(scene_tree*, scene_node* reference, scene_node* to_place);
@@ -221,8 +221,8 @@ auto scene_tree_get_position(scene_tree* tree) -> vec2f32
 
 struct scene_texture : scene_node
 {
-    ref<gpu_image>   image;
-    ref<gpu_sampler> sampler;
+    core::Ref<gpu_image>   image;
+    core::Ref<gpu_sampler> sampler;
     gpu_blend_mode   blend;
 
     vec4u8   tint;
@@ -230,7 +230,7 @@ struct scene_texture : scene_node
     rect2f32 dst;
 };
 
-auto scene_texture_create(scene_context*) -> ref<scene_texture>;
+auto scene_texture_create(scene_context*) -> core::Ref<scene_texture>;
 void scene_texture_set_image(scene_texture*, gpu_image*, gpu_sampler*, gpu_blend_mode);
 void scene_texture_set_tint( scene_texture*, vec4u8   tint);
 void scene_texture_set_src(  scene_texture*, aabb2f32 src);
@@ -239,8 +239,8 @@ void scene_texture_damage(   scene_texture*, aabb2i32 damage);
 
 struct scene_mesh : scene_node
 {
-    ref<gpu_image>   image;
-    ref<gpu_sampler> sampler;
+    core::Ref<gpu_image>   image;
+    core::Ref<gpu_sampler> sampler;
     gpu_blend_mode   blend;
 
     aabb2f32 clip;
@@ -249,7 +249,7 @@ struct scene_mesh : scene_node
     std::vector<u16>          indices;
 };
 
-auto scene_mesh_create(scene_context*) -> ref<scene_mesh>;
+auto scene_mesh_create(scene_context*) -> core::Ref<scene_mesh>;
 void scene_mesh_update(scene_mesh*, gpu_image*, gpu_sampler*, gpu_blend_mode, aabb2f32 clip, std::span<const scene_vertex> vertices, std::span<const u16> indices);
 
 struct scene_input_region : scene_node
@@ -261,7 +261,7 @@ struct scene_input_region : scene_node
     ~scene_input_region();
 };
 
-auto scene_input_region_create(scene_client*) -> ref<scene_input_region>;
+auto scene_input_region_create(scene_client*) -> core::Ref<scene_input_region>;
 void scene_input_region_set_region(scene_input_region*, region2f32);
 
 // -----------------------------------------------------------------------------
@@ -269,7 +269,7 @@ void scene_input_region_set_region(scene_input_region*, region2f32);
 // Represents a normal interactable "toplevel" window.
 struct scene_window;
 
-auto scene_window_create(scene_client*) -> ref<scene_window>;
+auto scene_window_create(scene_client*) -> core::Ref<scene_window>;
 
 void scene_window_set_title(scene_window*, std::string_view title);
 
@@ -338,7 +338,7 @@ auto scene_iterate(scene_tree* tree, scene_iterate_direction dir, Pre&& pre, Lea
 
 struct scene_hotkey
 {
-    flags<scene_modifier> mod;
+    core::Flags<scene_modifier> mod;
     scene_scancode        code;
 
     constexpr bool operator==(const scene_hotkey&) const noexcept = default;

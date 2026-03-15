@@ -1,80 +1,82 @@
 #include "fd.hpp"
 
-bool core_fd_are_same(int fd0, int fd1)
+bool core::fd::are_same(int fd0, int fd1)
 {
     struct stat st0 = {};
-    if (unix_check<fstat>(fd0, &st0).err()) return false;
+    if (core::check<fstat>(fd0, &st0).err()) return false;
 
     struct stat st1 = {};
-    if (unix_check<fstat>(fd0, &st1).err()) return false;
+    if (core::check<fstat>(fd0, &st1).err()) return false;
 
     return st0.st_ino == st1.st_ino;
 }
 
-int core_fd_dup_unsafe(int fd)
+int core::fd::dup_unsafe(int fd)
 {
     if (fd < 0) return {};
 
-    return unix_check<fcntl>(fd, F_DUPFD_CLOEXEC, 0).value;
+    return core::check<fcntl>(fd, F_DUPFD_CLOEXEC, 0).value;
 }
 
 // -----------------------------------------------------------------------------
 
 #define CORE_FD_LEAK_CHECK 1
 
-struct core_fd_data
+namespace
 {
-    static constexpr u32 max_fds = core_fd_max + 1;
-
-    struct {
-        std::array<ref<core_fd_listener>, max_fds> listeners  = {};
-        std::array<u32,                   max_fds> ref_counts = {};
-        std::array<bool,                  max_fds> no_close   = {};
-#if CORE_FD_LEAK_CHECK
-        std::array<bool,                  max_fds> inherited  = {};
-#endif
-    } data;
-
-    ref<core_fd_listener>* listeners  = data.listeners.data()  + 1;
-    u32*                   ref_counts = data.ref_counts.data() + 1;
-    bool*                  no_close   = data.no_close.data()   + 1;
-
-#if CORE_FD_LEAK_CHECK
-    core_fd_data()
+    struct FdData
     {
-        for (int fd = 0; fd < core_fd_max; ++fd) {
-            if (fcntl(fd, F_GETFD) == 0) {
-                data.inherited[fd] = true;
+        static constexpr u32 max_fds = core::fd::max_fds + 1;
+
+        struct {
+            std::array<core::Ref<core::FdListener>, max_fds> listeners  = {};
+            std::array<u32,                   max_fds> ref_counts = {};
+            std::array<bool,                  max_fds> no_close   = {};
+#if CORE_FD_LEAK_CHECK
+            std::array<bool,                  max_fds> inherited  = {};
+#endif
+        } data;
+
+        core::Ref<core::FdListener>* listeners  = data.listeners.data()  + 1;
+        u32*                   ref_counts = data.ref_counts.data() + 1;
+        bool*                  no_close   = data.no_close.data()   + 1;
+
+#if CORE_FD_LEAK_CHECK
+        FdData()
+        {
+            for (int fd = 0; fd < core::fd::max_fds; ++fd) {
+                if (fcntl(fd, F_GETFD) == 0) {
+                    data.inherited[fd] = true;
+                }
             }
         }
-    }
 
-    ~core_fd_data()
-    {
-        for (int fd = 0; fd < core_fd_max; ++fd) {
-            if (data.inherited[fd]) continue;
-            if (fcntl(fd, F_GETFD) == -1) continue;
+        ~FdData()
+        {
+            for (int fd = 0; fd < core::fd::max_fds; ++fd) {
+                if (data.inherited[fd]) continue;
+                if (fcntl(fd, F_GETFD) == -1) continue;
 
-            log_error("fd[{}] leaked (refs: {})", fd, ref_counts[fd]);
+                log_error("fd[{}] leaked (refs: {})", fd, ref_counts[fd]);
+            }
         }
-    }
 #endif
-};
+    };
 
-static
-core_fd_data fds;
+    FdData fds;
+}
 
-auto core_fd_get_ref_count(int fd) -> u32
+auto core::fd::get_ref_count(int fd) -> u32
 {
     return fds.ref_counts[fd];
 }
 
-auto core_fd_get_listener(int fd) -> core_fd_listener*
+auto core::fd::get_listener(int fd) -> core::FdListener*
 {
     return fds.listeners[fd].get();
 }
 
-void core_fd_set_listener(int fd, core_fd_listener* listener)
+void core::fd::set_listener(int fd, core::FdListener* listener)
 {
     if (fd < 0) return;
 
@@ -89,11 +91,11 @@ void core_fd_set_listener(int fd, core_fd_listener* listener)
 #define FD_LOG(...)
 #endif
 
-auto core_fd_add_ref(int fd) -> int
+auto core::fd::add_ref(int fd) -> int
 {
     if (fd == -1) return -1;
 
-    FD_LOG("core_fd_add_ref({}) {} -> {}", fd, fds.ref_counts[fd], fds.ref_counts[fd] + 1);
+    FD_LOG("core::fd::add_ref({}) {} -> {}", fd, fds.ref_counts[fd], fds.ref_counts[fd] + 1);
     fds.ref_counts[fd]++;
     return fd;
 }
@@ -102,24 +104,24 @@ static
 void destroy_fd(int fd)
 {
     if (fds.listeners[fd]) {
-        FD_LOG("  core_fd_remove_listener({})", fd);
-        core_fd_remove_listener(fd);
+        FD_LOG("  core::fd::remove_listener({})", fd);
+        core::fd::remove_listener(fd);
     }
 
     if (!fds.no_close[fd]) {
         FD_LOG("  close({})", fd);
-        unix_check<close>(fd);
+        core::check<close>(fd);
     } else {
         // Next
         fds.no_close[fd] = false;
     }
 }
 
-auto core_fd_remove_ref(int fd) -> int
+auto core::fd::remove_ref(int fd) -> int
 {
     if (fd == -1) return -1;
 
-    FD_LOG("core_fd_remove_ref({}) {} -> {}", fd, fds.ref_counts[fd], fds.ref_counts[fd] - 1);
+    FD_LOG("core::fd::remove_ref({}) {} -> {}", fd, fds.ref_counts[fd], fds.ref_counts[fd] - 1);
     if (!--fds.ref_counts[fd]) {
         destroy_fd(fd);
         return -1;
@@ -130,24 +132,24 @@ auto core_fd_remove_ref(int fd) -> int
 
 // -----------------------------------------------------------------------------
 
-core_fd core_fd_adopt(int fd)
+core::Fd core::fd::adopt(int fd)
 {
-    FD_LOG("core_fd_adopt({})", fd);
-    core_assert(core_fd_get_ref_count(fd) == 0);
+    FD_LOG("core::fd::adopt({})", fd);
+    core_assert(core::fd::get_ref_count(fd) == 0);
     core_assert(fds.no_close[fd] == false);
-    return core_fd(fd);
+    return core::Fd(fd);
 }
 
-core_fd core_fd_reference(int fd)
+core::Fd core::fd::reference(int fd)
 {
-    FD_LOG("core_fd_reference({})", fd);
-    core_assert(core_fd_get_ref_count(fd) == 0);
+    FD_LOG("core::fd::reference({})", fd);
+    core_assert(core::fd::get_ref_count(fd) == 0);
     core_assert(fds.no_close[fd] == false);
     fds.no_close[fd] = true;
-    return core_fd(fd);
+    return core::Fd(fd);
 }
 
-core_fd core_fd_dup(int fd)
+core::Fd core::fd::dup(int fd)
 {
-    return fd >= 0 ? core_fd_adopt(core_fd_dup_unsafe(fd)) : core_fd();
+    return fd >= 0 ? core::fd::adopt(core::fd::dup_unsafe(fd)) : core::Fd();
 }

@@ -3,9 +3,9 @@
 #include "imui.hpp"
 
 struct imui_viewport_data {
-    ref<scene_window>       window;
-    ref<scene_tree>         draws;
-    ref<scene_input_region> input_plane;
+    core::Ref<scene_window>       window;
+    core::Ref<scene_tree>         draws;
+    core::Ref<scene_input_region> input_plane;
 
     // Pending reposition request. Requests are double-buffered so that
     // resizes requested during ImGui frames are handled correctly.
@@ -17,18 +17,18 @@ struct imui_context
     gpu_context*   gpu;
     scene_context* scene;
 
-    ref<gpu_sampler>  sampler;
-    ref<scene_client> client;
+    core::Ref<gpu_sampler>  sampler;
+    core::Ref<scene_client> client;
     ImGuiContext*     context;
     u32 frames_requested = 0;
 
     struct texture {
-        ref<gpu_image>   image;
-        ref<gpu_sampler> sampler;
+        core::Ref<gpu_image>   image;
+        core::Ref<gpu_sampler> sampler;
         gpu_blend_mode   blend;
     };
     std::vector<texture> textures;
-    ref<gpu_image> font_image;
+    core::Ref<gpu_image> font_image;
 
     std::vector<std::move_only_function<imui_frame_fn>> frame_handlers;
 

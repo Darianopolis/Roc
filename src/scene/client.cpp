@@ -20,9 +20,9 @@ scene_client::~scene_client()
     std::erase(ctx->clients, this);
 }
 
-auto scene_client_create(scene_context* ctx) -> ref<scene_client>
+auto scene_client_create(scene_context* ctx) -> core::Ref<scene_client>
 {
-    auto client = core_create<scene_client>();
+    auto client = core::create<scene_client>();
     client->ctx = ctx;
     ctx->clients.emplace_back(client.get());
     return client;

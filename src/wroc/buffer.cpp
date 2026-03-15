@@ -4,7 +4,7 @@ const struct wl_buffer_interface wroc_wl_buffer_impl = {
     .destroy = wroc_simple_resource_destroy_callback,
 };
 
-[[nodiscard]] ref<wroc_buffer_lock> wroc_buffer::commit(wroc_surface* surface)
+[[nodiscard]] core::Ref<wroc_buffer_lock> wroc_buffer::commit(wroc_surface* surface)
 {
     if (!released) {
         log_error("Client is attempting to commit a buffer that has not been released!");
@@ -32,7 +32,7 @@ void wroc_buffer::release()
     }
 }
 
-ref<wroc_buffer_lock> wroc_buffer::lock()
+core::Ref<wroc_buffer_lock> wroc_buffer::lock()
 {
     // If buffer is already locked, return existing lock guard
     if (lock_guard) return lock_guard.get();
@@ -41,8 +41,8 @@ ref<wroc_buffer_lock> wroc_buffer::lock()
     core_assert(!released);
 
     // Else create new lock guard
-    // Store in a local ref as lock_guard is weak and won't keep it alive to the end of the function
-    auto guard = core_create<wroc_buffer_lock>();
+    // Store in a local core::Ref as lock_guard is core::Weak and won't keep it alive to the end of the function
+    auto guard = core::create<wroc_buffer_lock>();
     guard->buffer = this;
     lock_guard = guard.get();
 
