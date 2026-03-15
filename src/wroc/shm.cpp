@@ -161,7 +161,7 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
             {core_byte_offset_pointer<void>(mapping->data, offset), image_size},
             {{image->extent()}});
 
-        struct shm_transfer_guard : core_object
+        struct shm_transfer_guard : wroc_object
         {
             ref<wroc_buffer_lock> lock;
             // Protect mapping for duration of transfer

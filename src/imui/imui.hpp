@@ -3,7 +3,6 @@
 #include "scene/scene.hpp"
 
 struct imui_context;
-CORE_OBJECT_EXPLICIT_DECLARE(imui_context);
 
 auto imui_create(gpu_context*, scene_context*) -> ref<imui_context>;
 

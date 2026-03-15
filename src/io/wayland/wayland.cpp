@@ -1,7 +1,5 @@
 #include "wayland.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(io_wayland);
-
 // -----------------------------------------------------------------------------
 
 static

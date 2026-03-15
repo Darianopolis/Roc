@@ -2,7 +2,7 @@
 
 const u32 wroc_zxdg_decoration_manager_v1_version = 1;
 
-struct wroc_decoration : core_object
+struct wroc_decoration : wroc_object
 {
     weak<wroc_toplevel> toplevel;
     wroc_resource resource;

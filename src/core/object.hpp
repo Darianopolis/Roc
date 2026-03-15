@@ -7,38 +7,20 @@
 
 // -----------------------------------------------------------------------------
 
-/**
- * Common polymorphic helper base for dynamic objects.
- *
- * Note that no registry operations actually depend on deriving from this type.
- * It is merely provided as a convenience.
- */
-struct core_object
-{
-    core_object() = default;
-
-    CORE_DELETE_COPY_MOVE(core_object)
-
-    virtual ~core_object() = default;
-};
-
-// -----------------------------------------------------------------------------
-
-using core_allocation_version = u64;
+using core_allocation_version = u32;
 
 struct alignas(16) core_allocation_header
 {
+    void (*free)(core_allocation_header*);
     core_allocation_version version;
     u32 ref_count;
-    u8 bin;
 };
 
-template<typename T>
-core_allocation_header* core_allocation_from(T* t)
+inline
+auto core_allocation_from(const void* v) -> core_allocation_header*
 {
-    // NOTE: Assumes that `t` points to start of allocated data section
-    //       This will break for objects with virtual hierarchies, but we don't support them anyway..
-    return reinterpret_cast<core_allocation_header*>(t) - 1;
+    // `const_cast` is safe as the `core_allocation_header` is always mutable
+    return static_cast<core_allocation_header*>(const_cast<void*>(v)) - 1;
 }
 
 inline
@@ -49,49 +31,37 @@ void* core_allocation_get_data(core_allocation_header* header)
 
 // -----------------------------------------------------------------------------
 
-struct core_registry
+struct core_registry_stats
 {
-    std::array<std::vector<core_allocation_header*>, 64> bins;
     u32 active_allocations;
     u32 inactive_allocations;
-
-    struct {
-        std::vector<core_allocation_header*> freed;
-    } debug;
-
-    ~core_registry();
-
-    core_allocation_header* allocate(usz size);
-    void free(core_allocation_header*);
 };
 
-extern struct core_registry core_registry;
+auto core_registry_get_stats() -> core_registry_stats;
 
-// -----------------------------------------------------------------------------
+auto core_registry_allocate(u8 bin) -> core_allocation_header*;
+void core_registry_free(core_allocation_header*, u8 bin);
 
-template<typename T>
-void core_destruct(T* t)
+constexpr
+u8   core_registry_get_bin_index(usz size)
 {
-    if constexpr (!std::is_trivially_destructible_v<T>) {
-        t->~T();
-    }
+    return std::countr_zero(core_round_up_power2(size + sizeof(core_allocation_header)));
 }
-
-#define CORE_OBJECT_EXPLICIT_DECLARE(Type) \
-    template<> void core_destruct(Type* t)
-
-#define CORE_OBJECT_EXPLICIT_DEFINE(Type) \
-    template<> void core_destruct(Type* t) \
-    { \
-        t->~Type(); \
-    }
 
 // -----------------------------------------------------------------------------
 
 template<typename T>
 T* core_create_uninitialized()
 {
-    return static_cast<T*>(core_allocation_get_data(core_registry.allocate(sizeof(T))));
+    static constexpr auto bin = core_registry_get_bin_index(sizeof(T));
+    auto header = core_registry_allocate(bin);
+    header->free = [](core_allocation_header* header) {
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            static_cast<T*>(core_allocation_get_data(header))->~T();
+        }
+        core_registry_free(header, bin);
+    };
+    return static_cast<T*>(core_allocation_get_data(header));
 }
 
 template<typename T>
@@ -100,11 +70,11 @@ T* core_create_unsafe(auto&&... args)
     return new (core_create_uninitialized<T>()) T(std::forward<decltype(args)>(args)...);
 }
 
-template<typename T>
-void core_destroy(T* t)
+inline
+void core_destroy(void* v)
 {
-    core_destruct(t);
-    core_registry.free(core_allocation_from(t));
+    auto header = core_allocation_from(v);
+    header->free(header);
 }
 
 // -----------------------------------------------------------------------------
@@ -120,8 +90,9 @@ template<typename T>
 T* core_remove_ref(T* t)
 {
     if (!t) return nullptr;
-    if (!--core_allocation_from(t)->ref_count) {
-        core_destroy(t);
+    auto header = core_allocation_from(t);
+    if (!--header->ref_count) {
+        header->free(header);
         return nullptr;
     }
     return t;
@@ -297,17 +268,6 @@ struct core_object_equals
         return c.get() == value;
     }
 };
-
-// -----------------------------------------------------------------------------
-
-template<typename T>
-T* core_object_cast(core_object* base)
-{
-    if (!base) return nullptr;
-    auto derived = dynamic_cast<T*>(base);
-    core_assert(derived, "Fatal error casting void to object: expected {} got {}", typeid(T).name(), typeid(*base).name());
-    return derived;
-}
 
 // -----------------------------------------------------------------------------
 

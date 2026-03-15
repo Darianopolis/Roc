@@ -19,7 +19,7 @@ struct core_task
     std::atomic_flag* sync;
 };
 
-struct core_event_loop : core_object
+struct core_event_loop
 {
     bool stopped = false;
 
@@ -108,7 +108,7 @@ using core_fd_listen_flags = flags<core_fd_listen_flag>;
 
 using core_fd_listener_fn = void(int, core_fd_event_bits events);
 
-struct core_fd_listener : core_object
+struct core_fd_listener
 {
     weak<core_event_loop> loop = nullptr;
     core_fd_event_bits events;

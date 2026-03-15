@@ -13,9 +13,9 @@ struct scene_node;
 struct scene_tree;
 struct scene_texture;
 struct scene_input_region;
+struct scene_window;
 
 struct scene_context;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_context);
 
 auto scene_create(gpu_context*, struct io_context*) -> ref<scene_context>;
 
@@ -41,14 +41,16 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
 
 // -----------------------------------------------------------------------------
 
+enum class scene_system_id : u32 {};
+auto scene_register_system(scene_context*) -> scene_system_id;
+
+// -----------------------------------------------------------------------------
+
 struct scene_client;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_client);
 
 auto scene_client_create(scene_context*) -> ref<scene_client>;
 
 // -----------------------------------------------------------------------------
-
-CORE_OBJECT_EXPLICIT_DECLARE(scene_output);
 
 auto scene_output_create(scene_client*) -> ref<scene_output>;
 void scene_output_set_viewport(scene_output*, rect2f32 viewport);
@@ -149,7 +151,6 @@ void scene_pointer_set_driver(scene_pointer*, std::move_only_function<scene_poin
 // -----------------------------------------------------------------------------
 
 struct scene_data_source;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_data_source);
 
 struct scene_data_source_ops
 {
@@ -177,7 +178,7 @@ enum class scene_node_type
     input_region,
 };
 
-struct scene_node : core_object
+struct scene_node
 {
     scene_node_type type;
 
@@ -196,7 +197,8 @@ struct scene_tree : scene_node
 
     bool enabled;
 
-    core_object* userdata;
+    scene_system_id system;
+    void*           userdata;
 
     core_ref_vector<scene_node> children;
 
@@ -266,7 +268,6 @@ void scene_input_region_set_region(scene_input_region*, region2f32);
 
 // Represents a normal interactable "toplevel" window.
 struct scene_window;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_window);
 
 auto scene_window_create(scene_client*) -> ref<scene_window>;
 

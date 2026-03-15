@@ -29,9 +29,11 @@ void create_surface(wl_client* client, wl_resource* resource, u32 id)
 
     surface->pending = &surface->cached.emplace_back();
 
-    auto* scene = surface->client->server->scene;
+    auto* server = surface->client->server;
+    auto* scene = server->scene;
 
     surface->scene.tree = scene_tree_create(scene);
+    surface->scene.tree->system = server->scene_system;
     surface->scene.tree->userdata = surface.get();
     scene_tree_set_enabled(surface->scene.tree.get(), false);
 
@@ -328,10 +330,13 @@ void flush(way_surface* surface)
 
     // Flush subsurface state recursively
 
+    auto* server = surface->client->server;
+
     for (auto* child : surface->scene.tree->children) {
-        if (auto* tree = dynamic_cast<scene_tree*>(child)) {
-            flush(core_object_cast<way_surface>(tree->userdata));
-        }
+        if (child->type != scene_node_type::tree) continue;
+        auto* tree = static_cast<scene_tree*>(child);
+        if (tree->system != server->scene_system) continue;
+        flush(way_get_userdata<way_surface>(tree->userdata));
     }
 }
 

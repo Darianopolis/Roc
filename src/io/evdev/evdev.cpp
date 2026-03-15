@@ -4,8 +4,6 @@ struct io_evdev
 {
 };
 
-CORE_OBJECT_EXPLICIT_DEFINE(io_evdev);
-
 void io_evdev_init(io_context*)
 {
     log_error("IO - evdev backend not implemented");

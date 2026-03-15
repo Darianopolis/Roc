@@ -7,7 +7,7 @@
 struct wroc_direct_backend;
 struct wroc_input_device;
 
-struct wroc_device : core_object
+struct wroc_device : wroc_object
 {
     int dev_id;
     int fd;
@@ -42,7 +42,7 @@ struct wroc_libinput_pointer : wroc_pointer
     wroc_input_device* base;
 };
 
-struct wroc_input_device : core_object
+struct wroc_input_device : wroc_object
 {
     wroc_direct_backend* backend;
 

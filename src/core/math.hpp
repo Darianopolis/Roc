@@ -163,19 +163,3 @@ core_rect<Out> core_round(core_rect<In> rect, core_rect<In>* remainder = nullptr
     }
     return { origin, extent, core_xywh };
 }
-
-// -----------------------------------------------------------------------------
-
-constexpr usz core_round_up_power2(usz v) noexcept
-{
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v |= v >> 32;
-    v++;
-
-    return v;
-}

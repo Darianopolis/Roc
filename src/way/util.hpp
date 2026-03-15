@@ -27,21 +27,9 @@ wl_array way_to_wl_array(std::span<T> span)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* way_try_get_userdata(void* data)
-{
-    return dynamic_cast<T*>(static_cast<core_object*>(data));
-}
-
-template<typename T>
 T* way_get_userdata(void* data)
 {
-    return core_object_cast<T>(static_cast<core_object*>(data));
-}
-
-template<typename T>
-T* way_try_get_userdata(wl_resource* resource)
-{
-    return resource ? way_try_get_userdata<T>(wl_resource_get_user_data(resource)) : nullptr;
+    return static_cast<T*>(data);
 }
 
 template<typename T>
@@ -251,7 +239,7 @@ public:
 
 struct way_listener
 {
-    core_object* data;
+    void* data;
     wl_listener listener;
 
     way_listener() = default;
@@ -266,7 +254,7 @@ struct way_listener
     template<typename T>
     T* get() const
     {
-        return core_object_cast<T>(data);
+        return way_get_userdata<T>(data);
     }
 
     static
@@ -278,13 +266,7 @@ struct way_listener
 };
 
 template<typename T>
-T* way_try_get_userdata(wl_listener* listener)
-{
-    return dynamic_cast<T*>(way_listener::from(listener).data);
-}
-
-template<typename T>
 T* way_get_userdata(wl_listener* listener)
 {
-    return core_object_cast<T>(way_listener::from(listener).data);
+    return way_listener::from(listener).get<T>();
 }

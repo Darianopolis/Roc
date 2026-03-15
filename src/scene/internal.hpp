@@ -16,7 +16,6 @@ struct scene_output {
 // -----------------------------------------------------------------------------
 
 struct scene_cursor_manager;
-CORE_OBJECT_EXPLICIT_DECLARE(scene_cursor_manager);
 
 void scene_cursor_manager_init(scene_context*);
 
@@ -31,6 +30,8 @@ struct scene_context
         ref<gpu_sampler>  sampler;
     } render;
 
+    scene_system_id prev_system_id = {};
+
     ref<scene_tree> root_tree;
     core_enum_map<scene_layer, ref<scene_tree>> layers;
 
@@ -38,6 +39,7 @@ struct scene_context
 
     std::vector<scene_client*> clients;
     std::vector<scene_window*> windows;
+    scene_system_id            window_system;
 
     struct {
         ref<scene_keyboard> keyboard;
@@ -73,7 +75,7 @@ void scene_client_post_event(scene_client*, scene_event*);
 
 // -----------------------------------------------------------------------------
 
-struct scene_window : core_object
+struct scene_window
 {
     scene_client* client;
 

@@ -10,7 +10,7 @@ static constexpr int x11_disabled = 0;
 static constexpr int x11_enabled = 1;
 static constexpr int x11_forced = 2;
 
-struct wroc_debug_gui : core_object
+struct wroc_debug_gui : wroc_object
 {
     bool show_debug_menu = false;
     bool show_log_window = false;
@@ -43,7 +43,6 @@ struct wroc_debug_gui : core_object
         int x11_mode = x11_disabled;
     } launch;
 };
-CORE_OBJECT_EXPLICIT_DEFINE(wroc_debug_gui)
 
 void wroc_debug_gui_init(bool show_on_startup)
 {
@@ -253,8 +252,8 @@ void wroc_imgui_show_debug(wroc_debug_gui* debug)
     // Allocations
 
     ImGui_Text("Objects:       {}/{}",
-        core_registry.active_allocations,
-        core_registry.inactive_allocations);
+        core_registry_get_stats().active_allocations,
+        core_registry_get_stats().inactive_allocations);
 
     ImGui::Separator();
 

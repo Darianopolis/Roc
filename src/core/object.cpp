@@ -12,10 +12,28 @@ static_assert(CORE_REGISTRY_PROTECT_FREE);
 
 // -----------------------------------------------------------------------------
 
+struct core_registry
+{
+    std::array<std::vector<core_allocation_header*>, 64> bins;
+    core_registry_stats stats;
+
+#if CORE_REGISTRY_DONT_FREE
+    struct {
+        std::vector<core_allocation_header*> freed;
+    } debug;
+#endif
+
+    ~core_registry();
+};
+
+static struct core_registry registry;
+
+// -----------------------------------------------------------------------------
+
 core_registry::~core_registry()
 {
-    if (active_allocations) {
-        log_error("Registry found {} remaining active allocations", active_allocations);
+    if (stats.active_allocations) {
+        log_error("Registry found {} remaining active allocations", stats.active_allocations);
     }
 
     usz total_allocation_size = 0;
@@ -39,26 +57,29 @@ core_registry::~core_registry()
     log_debug("Peak registry allocation: {}", core_to_string(core_fmt_bytes(total_allocation_size)));
 }
 
-auto core_registry::allocate(usz size) -> core_allocation_header*
+auto core_registry_get_stats() -> core_registry_stats
 {
-    size = core_round_up_power2(size + sizeof(core_allocation_header));
+    return registry.stats;
+}
 
-    active_allocations++;
+// -----------------------------------------------------------------------------
 
-    u8 bin_idx = std::countr_zero(size);
-    auto& bin = bins[bin_idx];
+auto core_registry_allocate(u8 bin_idx) -> core_allocation_header*
+{
+    auto size = 1 << bin_idx;
+    auto& bin = registry.bins[bin_idx];
+
+    registry.stats.active_allocations++;
 
     core_allocation_header* header;
     if (bin.empty()) {
         header = static_cast<core_allocation_header*>(unix_check<malloc>(size).value);
-        new (header) core_allocation_header {
-            .bin = bin_idx,
-        };
+        new (header) core_allocation_header { };
         header->version = 1;
     } else {
         header = bin.back();
         bin.pop_back();
-        inactive_allocations--;
+        registry.stats.inactive_allocations--;
     }
 
     header->ref_count = 1;
@@ -66,23 +87,22 @@ auto core_registry::allocate(usz size) -> core_allocation_header*
     return header;
 }
 
-void core_registry::free(core_allocation_header* header)
+void core_registry_free(core_allocation_header* header, u8 bin)
 {
-    active_allocations--;
-    inactive_allocations++;
+    registry.stats.active_allocations--;
+    registry.stats.inactive_allocations++;
 
     header->version++;
 
 #if CORE_REGISTRY_PROTECT_FREE
-    auto size = (1 << header->bin) - sizeof(core_allocation_header);
+    header->free = nullptr;
+    auto size = (1 << bin) - sizeof(core_allocation_header);
     ::memset(core_allocation_get_data(header), 0xDD, size);
 #endif
 
 #if CORE_REGISTRY_DONT_FREE
-    debug.freed.emplace_back(header);
+    registry.debug.freed.emplace_back(header);
 #else
-    bins[header->bin].emplace_back(header);
+    registry.bins[bin].emplace_back(header);
 #endif
 }
-
-struct core_registry core_registry;

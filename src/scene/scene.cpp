@@ -1,8 +1,5 @@
 #include "internal.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(scene_context);
-CORE_OBJECT_EXPLICIT_DEFINE(scene_window);
-
 scene_context::~scene_context()
 {
     core_assert(outputs.empty());
@@ -36,6 +33,8 @@ auto scene_create(gpu_context* gpu, io_context* io) -> ref<scene_context>
     auto scene = core_create<scene_context>();
 
     scene->gpu = gpu;
+
+    scene->window_system = scene_register_system(scene.get());
 
     scene->root_tree = scene_tree_create(scene.get());
 
@@ -71,6 +70,14 @@ void scene_broadcast_event(scene_context* ctx, scene_event* event)
     for (auto* client : ctx->clients) {
         scene_client_post_event(client, event);
     }
+}
+
+// -----------------------------------------------------------------------------
+
+auto scene_register_system(scene_context* ctx) -> scene_system_id
+{
+    ctx->prev_system_id = scene_system_id(std::to_underlying(ctx->prev_system_id) + 1);
+    return ctx->prev_system_id;
 }
 
 // -----------------------------------------------------------------------------

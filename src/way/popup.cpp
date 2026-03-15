@@ -25,7 +25,7 @@ struct way_positioner_rules
     u32 parent_configure;
 };
 
-struct way_positioner : core_object
+struct way_positioner
 {
     way_server* server;
 
@@ -33,8 +33,6 @@ struct way_positioner : core_object
 
     way_positioner_rules rules;
 };
-
-CORE_OBJECT_EXPLICIT_DEFINE(way_positioner);
 
 void way_create_positioner(wl_client* client, wl_resource* resource, u32 id)
 {

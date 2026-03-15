@@ -12,8 +12,6 @@ struct gpu_shader
     ~gpu_shader();
 };
 
-CORE_OBJECT_EXPLICIT_DEFINE(gpu_shader)
-
 gpu_shader::~gpu_shader()
 {
     gpu->vk.DestroyShaderEXT(gpu->device, shader, nullptr);

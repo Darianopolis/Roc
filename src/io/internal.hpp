@@ -4,7 +4,6 @@
 
 #define IO_BACKEND(Name) \
     struct Name; \
-    CORE_OBJECT_EXPLICIT_DECLARE(Name); \
     void Name##_init(io_context*)
 
 IO_BACKEND(io_udev);
@@ -19,7 +18,7 @@ void io_wayland_start(io_context*);
 struct io_input_device_base;
 struct io_output_base;
 
-struct io_context : core_object
+struct io_context
 {
     std::move_only_function<io_event_handler> event_handler;
 

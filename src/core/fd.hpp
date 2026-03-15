@@ -11,7 +11,6 @@ auto core_fd_dup_unsafe(int fd) -> int;
 // -----------------------------------------------------------------------------
 
 struct core_fd_listener;
-CORE_OBJECT_EXPLICIT_DECLARE(core_fd_listener);
 void core_fd_remove_listener(int fd);
 auto core_fd_get_listener(   int fd) -> core_fd_listener*;
 void core_fd_set_listener(   int fd, core_fd_listener*);

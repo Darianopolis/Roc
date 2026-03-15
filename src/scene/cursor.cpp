@@ -8,8 +8,6 @@ struct scene_cursor_manager
     ankerl::unordered_dense::map<std::string_view, ref<scene_node>> cache;
 };
 
-CORE_OBJECT_EXPLICIT_DEFINE(scene_cursor_manager);
-
 void scene_cursor_manager_init(scene_context* ctx)
 {
     ctx->cursor_manager = core_create<scene_cursor_manager>();

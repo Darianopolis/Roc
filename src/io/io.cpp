@@ -1,7 +1,5 @@
 #include "internal.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(io_context);
-
 auto io_create(core_event_loop* event_loop, gpu_context* gpu) -> ref<io_context>
 {
     auto ctx = core_create<io_context>();

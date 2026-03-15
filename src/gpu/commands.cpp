@@ -74,10 +74,10 @@ ref<gpu_commands> gpu_commands_begin(gpu_queue* queue)
 
 // -----------------------------------------------------------------------------
 
-void gpu_cmd_protect(gpu_commands* commands, core_object* object)
+void gpu_cmd_protect(gpu_commands* commands, ref<void> object)
 {
     if (!object) return;
-    commands->objects.emplace_back(object);
+    commands->objects.emplace_back(std::move(object));
 }
 
 // -----------------------------------------------------------------------------

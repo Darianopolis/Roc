@@ -1,7 +1,7 @@
 #include <wroc/wroc.hpp>
 #include <wroc/event.hpp>
 
-struct wroc_launcher : core_object
+struct wroc_launcher : wroc_object
 {
     std::vector<struct wroc_launcher_app> apps;
     std::string filter;
@@ -12,8 +12,6 @@ struct wroc_launcher : core_object
 
     ~wroc_launcher();
 };
-
-CORE_OBJECT_EXPLICIT_DEFINE(wroc_launcher);
 
 struct wroc_launcher_app
 {

@@ -19,6 +19,8 @@ auto scene_window_create(scene_client* client) -> ref<scene_window>
     ctx->windows.emplace_back(window.get());
 
     window->tree = scene_tree_create(ctx);
+
+    window->tree->system = client->ctx->window_system;
     window->tree->userdata = window.get();
 
     return window;
@@ -103,7 +105,8 @@ auto scene_find_window_at(scene_context* ctx, vec2f32 point) -> scene_window*
         scene_iterate_default,
         scene_iterate_default,
         [&](scene_tree* tree) {
-            if (auto w = dynamic_cast<scene_window*>(tree->userdata)) {
+            if (tree->system == ctx->window_system) {
+                auto w = static_cast<scene_window*>(tree->userdata);
                 if (core_rect_contains(scene_window_get_frame(w), point)) {
                     window = w;
                     return scene_iterate_action::stop;

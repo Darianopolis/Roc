@@ -40,3 +40,19 @@ constexpr auto ptr_to(auto&& value) { return &value; }
     CORE_DELETE_COPY(Type)                  \
                Type(      Type&&) = delete; \
     Type& operator=(      Type&&) = delete;
+
+// -----------------------------------------------------------------------------
+
+constexpr usz core_round_up_power2(usz v) noexcept
+{
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v |= v >> 32;
+    v++;
+
+    return v;
+}

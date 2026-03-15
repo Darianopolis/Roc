@@ -209,8 +209,6 @@ void core_event_loop_run(core_event_loop* loop)
 
 // -----------------------------------------------------------------------------
 
-CORE_OBJECT_EXPLICIT_DEFINE(core_fd_listener);
-
 void core_fd_add_listener(
     int fd,
     core_event_loop* loop,

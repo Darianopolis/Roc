@@ -201,8 +201,6 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imctx) -> const char*
 
 // -----------------------------------------------------------------------------
 
-CORE_OBJECT_EXPLICIT_DEFINE(imui_context);
-
 imui_context::~imui_context()
 {
     ImGui::SetCurrentContext(context);

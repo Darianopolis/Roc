@@ -292,7 +292,9 @@ int main()
                 scene_iterate(scene_get_layer(scene.get(), scene_layer::window)->parent,
                     scene_iterate_direction::back_to_front,
                     [&](scene_tree* tree) {
-                        if (auto* surface = dynamic_cast<way_surface*>(tree->userdata)) {
+                        way_surface* surface;
+                        if (tree->system == way->scene_system
+                                && (surface = way_get_userdata<way_surface>(tree))) {
                             log_warn("{}tree({}{}) {{", indent(),
                                 core_to_string(surface->role),
                                 tree->enabled ? "": ", disabled");

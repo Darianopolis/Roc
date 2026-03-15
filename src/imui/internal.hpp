@@ -12,7 +12,7 @@ struct imui_viewport_data {
     std::optional<rect2f32> reposition;
 };
 
-struct imui_context : core_object
+struct imui_context
 {
     gpu_context*   gpu;
     scene_context* scene;

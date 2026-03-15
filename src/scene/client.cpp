@@ -1,7 +1,5 @@
 #include "internal.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(scene_client);
-
 scene_client::~scene_client()
 {
     core_assert(input_regions == 0);

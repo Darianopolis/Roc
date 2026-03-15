@@ -25,6 +25,26 @@ CORE_UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)
 
 // -----------------------------------------------------------------------------
 
+struct wroc_object
+{
+    wroc_object() = default;
+
+    CORE_DELETE_COPY_MOVE(wroc_object)
+
+    virtual ~wroc_object() = default;
+};
+
+template<typename T>
+T* wroc_object_cast(wroc_object* base)
+{
+    if (!base) return nullptr;
+    auto derived = dynamic_cast<T*>(base);
+    core_assert(derived, "Fatal error casting void to object: expected {} got {}", typeid(T).name(), typeid(*base).name());
+    return derived;
+}
+
+// -----------------------------------------------------------------------------
+
 bool core_allocate_shm_file_pair(usz size, int* p_rw_fd, int* p_ro_fd);
 
 // -----------------------------------------------------------------------------

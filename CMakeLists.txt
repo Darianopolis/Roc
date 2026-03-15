@@ -106,19 +106,22 @@ function(init_target target_name)
         )
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         target_compile_options(${target_name} PRIVATE
-            -Wpedantic
-            -Wshadow
+            -Wshadow # (only enabled for clang, as gcc complains on shadowing in constructors)
 
+            -Wno-missing-designated-field-initializers
+            -Wno-sometimes-uninitialized
+            -Wno-delete-non-abstract-non-virtual-dtor # doesn't allow for protected non-virtual destructors
+
+            # GNU Extensions
+            -Wpedantic
             -Wno-gnu-case-range
             -Wno-zero-length-array
             -Wno-gnu-conditional-omitted-operand
-            -Wno-missing-designated-field-initializers
-            -Wno-sometimes-uninitialized
             -Wno-nested-anon-types
             )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${target_name} PRIVATE
-            -Wno-changes-meaning
+            -Wno-changes-meaning # we use `foo* foo` a lot in wayland protocol bindings
             -Wno-maybe-uninitialized
             )
     endif()

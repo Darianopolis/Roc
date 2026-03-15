@@ -355,7 +355,7 @@ void wroc_screenshot(rect2f64 rect)
 
     // Completion handler
 
-    struct screenshot_guard : core_object
+    struct screenshot_guard : wroc_object
     {
         wroc_renderer_frame_data frame = {};
         std::chrono::steady_clock::time_point start;
@@ -490,7 +490,7 @@ void wroc_render_frame(wroc_output* output)
     auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
     auto commands = gpu_commands_begin(queue);
 
-    struct frame_guard : core_object
+    struct frame_guard : wroc_object
     {
         wroc_renderer_frame_data frame_data;
         weak<wroc_output> output;

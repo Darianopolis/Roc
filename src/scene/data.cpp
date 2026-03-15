@@ -1,7 +1,5 @@
 #include "internal.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(scene_data_source);
-
 auto scene_data_source_create(scene_client* client, scene_data_source_ops&& ops) -> ref<scene_data_source>
 {
     auto source = core_create<scene_data_source>();

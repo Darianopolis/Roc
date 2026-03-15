@@ -34,18 +34,20 @@ struct way_keymap
 
 // -----------------------------------------------------------------------------
 
-struct way_server : core_object
+struct way_server
 {
     core_event_loop* event_loop;
 
     std::chrono::steady_clock::time_point epoch;
 
     gpu_context* gpu;
-    scene_context* scene;
+    scene_context*  scene;
+    scene_system_id scene_system;
 
     wl_display* wl_display;
     core_fd wl_event_loop_fd;
     std::string socket_name;
+
 
     ref<gpu_sampler> sampler;
 
@@ -99,7 +101,7 @@ void way_seat_on_scroll(       way_client*, scene_event*);
 
 // -----------------------------------------------------------------------------
 
-struct way_region : core_object
+struct way_region
 {
     way_resource resource;
 
@@ -289,7 +291,7 @@ struct way_surface_state
     ~way_surface_state();
 };
 
-struct way_surface : core_object
+struct way_surface
 {
     way_client* client;
 
@@ -369,8 +371,6 @@ void way_toplevel_on_reposition(way_surface*, rect2f32 frame, vec2f32 gravity);
 
 // -----------------------------------------------------------------------------
 
-CORE_OBJECT_EXPLICIT_DECLARE(way_positioner);
-
 void way_create_positioner(wl_client*, wl_resource*, u32 id);
 void way_get_popup(        wl_client*, wl_resource*, u32 id,
 			               wl_resource* parent, wl_resource* positioner);
@@ -383,7 +383,7 @@ void way_output_init(way_server*);
 
 // -----------------------------------------------------------------------------
 
-struct way_data_source : core_object
+struct way_data_source
 {
     way_client* client;
 
@@ -392,7 +392,7 @@ struct way_data_source : core_object
     ref<scene_data_source> source;
 };
 
-struct way_data_offer : core_object
+struct way_data_offer
 {
     way_client* client;
 
@@ -405,19 +405,22 @@ void way_data_offer_selection(way_client*);
 
 // -----------------------------------------------------------------------------
 
-struct way_buffer : core_object
+struct way_buffer
 {
     vec2u32 extent;
 
     // Sent on apply, should return a gpu_image when the buffer is ready to display
     [[nodiscard]] virtual auto acquire(way_surface*, way_surface_state& from) -> ref<gpu_image> = 0;
+
+protected:
+    ~way_buffer() = default;
 };
 
 // -----------------------------------------------------------------------------
 
 struct way_shm_pool;
 
-struct way_shm_pool : core_object
+struct way_shm_pool
 {
     way_server* server;
 
@@ -432,7 +435,7 @@ struct way_shm_pool : core_object
 
 // -----------------------------------------------------------------------------
 
-struct way_client : core_object
+struct way_client
 {
     way_server* server;
 
@@ -553,10 +556,10 @@ struct way_bind_global_data
 
 // -----------------------------------------------------------------------------
 
-wl_resource* way_resource_create_(wl_client*, const wl_interface*, int version, int id, const void* impl, core_object*, bool refcount);
+wl_resource* way_resource_create_(wl_client*, const wl_interface*, int version, int id, const void* impl, void*, bool refcount);
 
 inline
-wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, core_object* object, bool refcount)
+wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, void* object, bool refcount)
 {
     return way_resource_create_(client, interface, wl_resource_get_version(parent), id, impl, object, refcount);
 }

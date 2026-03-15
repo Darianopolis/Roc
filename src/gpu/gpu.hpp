@@ -174,7 +174,7 @@ enum class gpu_feature : u32
     validation = 1 << 0,
 };
 
-struct gpu_context : core_object
+struct gpu_context
 {
     flags<gpu_feature> features;
 
@@ -241,7 +241,7 @@ enum class gpu_queue_type : u32
     transfer,
 };
 
-struct gpu_queue : core_object
+struct gpu_queue
 {
     gpu_context* gpu;
 
@@ -271,7 +271,7 @@ struct gpu_wait_fn : core_intrusive_list_base<gpu_wait_fn>
     virtual ~gpu_wait_fn() = default;
 };
 
-struct gpu_semaphore : core_object
+struct gpu_semaphore
 {
     gpu_context* gpu;
 
@@ -325,12 +325,12 @@ void gpu_wait(gpu_syncpoint sync, Fn&& fn)
 
 // -----------------------------------------------------------------------------
 
-struct gpu_commands : core_object
+struct gpu_commands
 {
     gpu_queue* queue;
 
     VkCommandBuffer buffer;
-    std::vector<ref<core_object>> objects;
+    std::vector<ref<void>> objects;
 
     u64 submitted_value;
 
@@ -339,7 +339,7 @@ struct gpu_commands : core_object
 
 auto gpu_commands_begin(gpu_queue*) -> ref<gpu_commands>;
 
-void gpu_cmd_protect(gpu_commands*, core_object*);
+void gpu_cmd_protect(gpu_commands*, ref<void>);
 
 auto gpu_submit(gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
 
@@ -351,7 +351,7 @@ void gpu_wait_idle(gpu_queue*);
 
 // -----------------------------------------------------------------------------
 
-struct gpu_buffer : core_object
+struct gpu_buffer
 {
     gpu_context* gpu;
 
@@ -439,7 +439,7 @@ enum class gpu_image_usage : u32
     storage      = 1 << 4,
 };
 
-struct gpu_image : core_object
+struct gpu_image
 {
     virtual ~gpu_image() = default;
 
@@ -485,7 +485,7 @@ auto gpu_image_compute_linear_offset(gpu_format, vec2u32 position, u32 stride) -
 
 // -----------------------------------------------------------------------------
 
-struct gpu_sampler : core_object
+struct gpu_sampler
 {
     gpu_context* gpu;
 
@@ -514,7 +514,6 @@ enum class gpu_blend_mode : u32
 };
 
 struct gpu_shader;
-CORE_OBJECT_EXPLICIT_DECLARE(gpu_shader);
 
 struct gpu_shader_create_info
 {

@@ -2,8 +2,6 @@
 
 #include "core/math.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(scene_output);
-
 scene_output::~scene_output()
 {
     auto* ctx = client->ctx;

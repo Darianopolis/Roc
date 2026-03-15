@@ -142,7 +142,7 @@ WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
 
 // -----------------------------------------------------------------------------
 
-struct way_dma_params : core_object
+struct way_dma_params
 {
     way_server* server;
 

@@ -356,7 +356,7 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
 
     // Dynamically allocated per-frame data
 
-    struct frame_guard : core_object
+    struct frame_guard : wroc_object
     {
         wroc_imgui_frame_data frame_data;
         weak<wroc_imgui> imgui;

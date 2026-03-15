@@ -1,7 +1,5 @@
 #include "internal.hpp"
 
-CORE_OBJECT_EXPLICIT_DEFINE(way_server);
-
 way_server::~way_server()
 {
     wl_event_loop_fd = nullptr;
@@ -18,6 +16,7 @@ auto way_create(core_event_loop* event_loop, gpu_context* gpu, scene_context* sc
     server->event_loop = event_loop;
     server->gpu = gpu;
     server->scene = scene;
+    server->scene_system = scene_register_system(scene);
 
     way_seat_init(server.get());
 
@@ -69,13 +68,13 @@ wl_global* way_global_(way_server* server, const wl_interface* interface, i32 ve
     return wl_global_create(server->wl_display, interface, version, data ?: server, bind);
 }
 
-wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, core_object* data, bool refcount)
+wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, void* data, bool refcount)
 {
     auto resource = wl_resource_create(client, interface, version, id);
     if (refcount) {
         core_add_ref(data);
         wl_resource_set_implementation(resource, impl, data, [](wl_resource* resource) {
-            core_remove_ref(static_cast<core_object*>(wl_resource_get_user_data(resource)));
+            core_remove_ref(wl_resource_get_user_data(resource));
         });
     } else {
         wl_resource_set_implementation(resource, impl, data, nullptr);
