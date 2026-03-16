@@ -100,8 +100,7 @@ auto scene_find_window_at(scene_context* ctx, vec2f32 point) -> scene_window*
 
     scene_window* window = nullptr;
 
-    scene_iterate(ctx->root_tree.get(),
-        scene_iterate_direction::front_to_back,
+    scene_iterate<scene_iterate_direction::front_to_back>(ctx->root_tree.get(),
         scene_iterate_default,
         scene_iterate_default,
         [&](scene_tree* tree) {

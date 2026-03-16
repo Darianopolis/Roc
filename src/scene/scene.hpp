@@ -290,11 +290,11 @@ auto scene_find_window_at(scene_context*, vec2f32 point) -> scene_window*;
 enum class scene_iterate_action
 {
     next, // Continue to next iteration action.
-    skip, // Skip children.
+    skip, // Skip children. May only be returned from pre-visit, post-visit will be skipped.
     stop, // Stop iteration. If called in pre-visit, post-visit will be skipped.
 };
 
-static constexpr auto scene_iterate_default = [](auto*) -> scene_iterate_action { return scene_iterate_action::next; };
+static constexpr auto scene_iterate_default = [](auto*) {};
 
 enum class scene_iterate_direction
 {
@@ -302,36 +302,74 @@ enum class scene_iterate_direction
     back_to_front,
 };
 
-template<typename Pre, typename Leaf, typename Post>
-auto scene_iterate(scene_tree* tree, scene_iterate_direction dir, Pre&& pre, Leaf&& leaf, Post&& post) -> scene_iterate_action
+template<typename Visit>
+auto scene_visit(scene_node* node, Visit&& visit)
 {
-    if (!tree->enabled) return scene_iterate_action::next;
+    switch (node->type) {
+        break;case scene_node_type::texture:
+            return visit(static_cast<scene_texture*>(node));
+        break;case scene_node_type::mesh:
+            return visit(static_cast<scene_mesh*>(node));
+        break;case scene_node_type::input_region:
+            return visit(static_cast<scene_input_region*>(node));
+        break;case scene_node_type::tree:
+            return visit(static_cast<scene_tree*>(node));
+    }
+}
 
-    auto pre_action = pre(tree);
+template<scene_iterate_direction Dir, typename Pre, typename Leaf, typename Post>
+auto scene_iterate(scene_tree* tree, Pre&& pre, Leaf&& leaf, Post&& post) -> scene_iterate_action
+{
+    static constexpr auto call = [](auto fn, auto* arg) {
+        if constexpr (std::same_as<decltype(fn(arg)), scene_iterate_action>) {
+            return fn(arg);
+        } else {
+            fn(arg);
+            return scene_iterate_action::next;
+        }
+    };
+
+    static constexpr auto is_defaulted = []<typename Fn>(Fn&&) {
+        return std::same_as<std::remove_cvref_t<Fn>, std::remove_cvref_t<decltype(scene_iterate_default)>>;
+    };
+
+    scene_iterate_action pre_action;
+    if constexpr (is_defaulted(pre)) {
+        pre_action = tree->enabled
+            ? scene_iterate_action::next
+            : scene_iterate_action::skip;
+    } else {
+        pre_action = call(pre, tree);
+    }
+
     if (pre_action == scene_iterate_action::stop) return scene_iterate_action::stop;
     if (pre_action == scene_iterate_action::skip) return scene_iterate_action::next;
 
     auto for_each = [&](auto&& children) -> scene_iterate_action {
         for (auto* child : children) {
-            if (child->type == scene_node_type::tree) {
-                if (scene_iterate(static_cast<scene_tree*>(child), dir,
-                        std::forward<Pre>(pre), std::forward<Leaf>(leaf), std::forward<Post>(post))
-                            == scene_iterate_action::stop) {
-                    return scene_iterate_action::stop;
-                }
-            } else {
-                if (leaf(child) == scene_iterate_action::stop) return scene_iterate_action::stop;
-            }
+            auto action = scene_visit(child, core_overload_set {
+                [&](scene_tree* tree) {
+                    return scene_iterate<Dir>(static_cast<scene_tree*>(child),
+                        std::forward<Pre>(pre),
+                        std::forward<Leaf>(leaf),
+                        std::forward<Post>(post));
+                },
+                [&](auto* node) { return call(leaf, node); },
+            });
+            if (action != scene_iterate_action::next) return action;
         }
         return scene_iterate_action::next;
     };
 
-    auto action = dir == scene_iterate_direction::front_to_back
-        ? for_each(tree->children | std::views::reverse)
-        : for_each(tree->children);
+    scene_iterate_action action;
+    switch (Dir) {
+        break;case scene_iterate_direction::front_to_back: action = for_each(tree->children | std::views::reverse);
+        break;case scene_iterate_direction::back_to_front: action = for_each(tree->children);
+    }
+
     if (action == scene_iterate_action::stop) return action;
 
-    return post(tree);
+    return call(post, tree);
 }
 
 // -----------------------------------------------------------------------------

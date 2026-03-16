@@ -104,12 +104,9 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         return draw;
     };
 
-    auto visit_node = [&](scene_node* node) -> scene_iterate_action {
-        switch (node->type) {
-            break;case scene_node_type::mesh: {
-                auto* mesh = static_cast<scene_mesh*>(node);
-
-                auto pos = scene_tree_get_position(node->parent);
+    auto visit_mesh =
+            [&](scene_mesh* mesh) {
+                auto pos = scene_tree_get_position(mesh->parent);
 
                 draws.emplace_back(scene_draw {
                     .first_vertex = u32(vertices.size()),
@@ -128,9 +125,10 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
 
                 vertices.insert_range(vertices.end(), mesh->vertices);
                 indices.insert_range(indices.end(), mesh->indices);
-            }
-            break;case scene_node_type::texture: {
-                auto* texture = static_cast<scene_texture*>(node);
+            };
+
+    auto visit_texture =
+            [&](scene_texture* texture) {
                 aabb2f32 src = texture->src;
                 aabb2f32 dst = texture->dst;
 
@@ -163,17 +161,15 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
                 push_vtx({dst.max.x, dst.min.y}, {src.max.x, src.min.y});
                 push_vtx({dst.min.x, dst.max.y}, {src.min.x, src.max.y});
                 push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
-            }
-            break;default:
-                ;
-        }
-        return scene_iterate_action::next;
-    };
+            };
 
-    scene_iterate(ctx->root_tree.get(),
-        scene_iterate_direction::back_to_front,
+    scene_iterate<scene_iterate_direction::back_to_front>(ctx->root_tree.get(),
         scene_iterate_default,
-        visit_node,
+        core_overload_set {
+            visit_mesh,
+            visit_texture,
+            [](scene_input_region*) {},
+        },
         scene_iterate_default);
 
     auto gpu = ctx->gpu;

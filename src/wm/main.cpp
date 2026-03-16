@@ -289,8 +289,8 @@ int main()
             if (ImGui::Button("Print Scene Graph")) {
                 u32 depth = 0;
                 auto indent = [&] { return std::string(depth, ' '); };
-                scene_iterate(scene_get_layer(scene.get(), scene_layer::window)->parent,
-                    scene_iterate_direction::back_to_front,
+                scene_iterate<scene_iterate_direction::back_to_front>(
+                    scene_get_layer(scene.get(), scene_layer::window)->parent,
                     [&](scene_tree* tree) {
                         way_surface* surface;
                         if (tree->system == way->scene_system
@@ -302,16 +302,13 @@ int main()
                             log_warn("{}tree{} {{", indent(), tree->enabled ? "": "(disabled)");
                         }
                         depth += 2;
-                        return scene_iterate_action::next;
                     },
                     [&](scene_node* node) {
                         log_warn("{}{}", indent(), core_to_string(node->type));
-                        return scene_iterate_action::next;
                     },
                     [&](scene_tree* tree) {
                         depth -= 2;
                         log_warn("{}}}", indent());
-                        return scene_iterate_action::next;
                     });
             }
 

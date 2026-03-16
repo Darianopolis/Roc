@@ -270,8 +270,7 @@ auto scene_find_input_region_at(scene_tree* tree, vec2f32 pos) -> scene_input_re
 {
     scene_input_region* region = nullptr;
 
-    scene_iterate(tree,
-        scene_iterate_direction::front_to_back,
+    scene_iterate<scene_iterate_direction::front_to_back>(tree,
         scene_iterate_default,
         [&](scene_node* node) {
             if (node->type == scene_node_type::input_region) {
