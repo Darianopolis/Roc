@@ -156,8 +156,8 @@ void gpu_image_init(gpu_image_base* image)
     }
 
     auto queue = gpu_get_queue(gpu, gpu_queue_type::transfer);
-    auto cmd = gpu_commands_begin(queue);
-    gpu_cmd_protect(cmd.get(), image);
+    auto cmd = gpu_begin(queue);
+    gpu_protect(cmd.get(), image);
 
     gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -184,8 +184,8 @@ void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_ima
     auto* gpu = image->context();
     auto extent = image->extent();
 
-    gpu_cmd_protect(cmd, image);
-    gpu_cmd_protect(cmd, buffer);
+    gpu_protect(cmd, image);
+    gpu_protect(cmd, buffer);
 
     gpu->vk.CmdCopyImageToBuffer(cmd->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
@@ -201,8 +201,8 @@ void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffe
 
     core_thread_stack stack;
 
-    gpu_cmd_protect(cmd, image);
-    gpu_cmd_protect(cmd, buffer);
+    gpu_protect(cmd, image);
+    gpu_protect(cmd, buffer);
 
     auto* copies = stack.allocate<VkBufferImageCopy>(regions.size());
     for (auto[i, region] : regions | std::views::enumerate) {
@@ -233,7 +233,7 @@ void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core_byte
 void gpu_copy_memory_to_image(gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto queue = gpu_get_queue(image->context(), gpu_queue_type::transfer);
-    auto commands = gpu_commands_begin(queue);
+    auto commands = gpu_begin(queue);
     gpu_cmd_copy_memory_to_image(commands.get(), image, data, regions);
     auto done = gpu_submit(commands.get(), {});
     gpu_wait(done);
@@ -435,7 +435,7 @@ gpu_dma_params gpu_image_export(gpu_image* _image)
 
     // Query plane layouts
 
-    auto* mod_props = gpu_get_format_props(gpu, image->format(), image->usage())->for_mod(params.modifier);
+    auto* mod_props = gpu_get_format_properties(gpu, image->format(), image->usage())->for_mod(params.modifier);
     params.planes.count = mod_props->plane_count;
     for (u32 i = 0; i < mod_props->plane_count; ++i) {
         VkSubresourceLayout layout;
@@ -478,14 +478,14 @@ ref<gpu_image> gpu_image_import(gpu_context* gpu, const gpu_dma_params& params, 
 {
     core_assert(!usage.empty());
 
-    auto props = gpu_get_format_props(gpu, params.format, usage)->for_mod(params.modifier);
+    auto props = gpu_get_format_properties(gpu, params.format, usage)->for_mod(params.modifier);
     if (!props) {
-        log_error("Format {} cannot be used with modifier: {}", params.format->name, gpu_drm_modifier_get_name(params.modifier));
+        log_error("Format {} cannot be used with modifier: {}", params.format->name, gpu_get_modifier_name(params.modifier));
         return nullptr;
     }
 
     if (params.disjoint && !(props->features & VK_FORMAT_FEATURE_2_DISJOINT_BIT)) {
-        log_error("Format {} with modifier {} does not support disjoint images", params.format->name, gpu_drm_modifier_get_name(params.modifier));
+        log_error("Format {} with modifier {} does not support disjoint images", params.format->name, gpu_get_modifier_name(params.modifier));
         return nullptr;
     }
 

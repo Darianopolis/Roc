@@ -143,7 +143,7 @@ void wroc_run(int argc, char* argv[])
     auto wl_event_loop = wl_display_get_event_loop(server->display);
     auto wl_event_loop_fd = core_fd_reference(wl_event_loop_get_fd(wl_event_loop));
     core_fd_add_listener(wl_event_loop_fd.get(), event_loop.get(), core_fd_event_bit::readable,
-        [&](int fd, core_fd_event_bits events) {
+        [&](int fd, flags<core_fd_event_bit> events) {
             server->client_flushes_pending++;
             unix_check<wl_event_loop_dispatch>(wl_event_loop, 0);
             wl_display_flush_clients(server->display);

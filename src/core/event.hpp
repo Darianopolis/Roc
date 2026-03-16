@@ -98,23 +98,21 @@ enum class core_fd_event_bit : u32
     readable = 1 << 0,
     writable = 1 << 1,
 };
-using core_fd_event_bits = flags<core_fd_event_bit>;
 
 enum class core_fd_listen_flag : u32
 {
     oneshot = 1 << 0,
 };
-using core_fd_listen_flags = flags<core_fd_listen_flag>;
 
-using core_fd_listener_fn = void(int, core_fd_event_bits events);
+using core_fd_listener_fn = void(int, flags<core_fd_event_bit> events);
 
 struct core_fd_listener
 {
     weak<core_event_loop> loop = nullptr;
-    core_fd_event_bits events;
-    core_fd_listen_flags flags;
+    flags<core_fd_event_bit> events;
+    flags<core_fd_listen_flag> flags;
 
-    virtual void handle(int fd, core_fd_event_bits events) = 0;
+    virtual void handle(int fd, ::flags<core_fd_event_bit> events) = 0;
 };
 
 // -----------------------------------------------------------------------------
@@ -125,15 +123,15 @@ template<typename Fn>
 void core_fd_add_listener(
     int fd,
     core_event_loop* loop,
-    core_fd_event_bits events,
+    flags<core_fd_event_bit> events,
     Fn&& callback,
-    core_fd_listen_flags flags = {})
+    flags<core_fd_listen_flag> flags = {})
 {
     struct core_fd_listener_lambda : core_fd_listener
     {
         Fn lambda;
         core_fd_listener_lambda(Fn&& lambda): lambda(std::move(lambda)) {}
-        virtual void handle(int fd, core_fd_event_bits events) { lambda(fd, events); }
+        virtual void handle(int fd, ::flags<core_fd_event_bit> events) { lambda(fd, events); }
     };
 
     auto listener = core_create<core_fd_listener_lambda>(std::move(callback));

@@ -315,7 +315,7 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
             for (auto[i, imvert] : to_span(list->VtxBuffer).subspan(cmd.VtxOffset, vtx_count) | std::views::enumerate) {
                 vertices[i] = scene_vertex {
                     .pos = from_imvec(imvert.pos) - translation,
-                    .uv = from_imvec(imvert.uv),
+                    .uv  = from_imvec(imvert.uv),
                     .color = std::bit_cast<vec4u8>(imvert.col),
                 };
             }

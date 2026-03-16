@@ -183,16 +183,16 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
         auto* gpu = server->gpu;
 
         auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-        auto commands = gpu_commands_begin(queue);
+        auto commands = gpu_begin(queue);
 
         auto& info = format->info;
-        auto min_offset = gpu_image_compute_linear_offset(format, aabb.min,     stride);
-        auto max_offset = gpu_image_compute_linear_offset(format, aabb.max - 1, stride) + info.texel_block_size;
+        auto read_start = gpu_image_compute_linear_offset(format, aabb.min,     stride);
+        auto read_end   = gpu_image_compute_linear_offset(format, aabb.max - 1, stride) + info.texel_block_size;
 
-        auto size = max_offset - min_offset;
+        auto size = read_end - read_start;
         auto staging = gpu_buffer_create(gpu, size, gpu_buffer_flag::host);
-        core_assert((offset + max_offset) <= pool->size, "accessed {} > available {}", offset + max_offset, pool->size);
-        std::memcpy(staging->host_address, core_byte_offset_pointer<void>(pool->data, offset + min_offset), size);
+        core_assert((offset + read_end) <= pool->size, "accessed {} > available {}", offset + read_end, pool->size);
+        std::memcpy(staging->host_address, core_byte_offset_pointer<void>(pool->data, offset + read_start), size);
 
         gpu_cmd_copy_buffer_to_image(commands.get(), image.get(), staging.get(),
             {{

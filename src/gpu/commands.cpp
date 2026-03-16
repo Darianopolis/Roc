@@ -52,7 +52,7 @@ gpu_commands::~gpu_commands()
     gpu->vk.FreeCommandBuffers(gpu->device, queue->cmd_pool, 1, &buffer);
 }
 
-ref<gpu_commands> gpu_commands_begin(gpu_queue* queue)
+ref<gpu_commands> gpu_begin(gpu_queue* queue)
 {
     auto* gpu = queue->gpu;
     auto commands = core_create<gpu_commands>();
@@ -74,7 +74,7 @@ ref<gpu_commands> gpu_commands_begin(gpu_queue* queue)
 
 // -----------------------------------------------------------------------------
 
-void gpu_cmd_protect(gpu_commands* commands, ref<void> object)
+void gpu_protect(gpu_commands* commands, ref<void> object)
 {
     if (!object) return;
     commands->objects.emplace_back(std::move(object));
@@ -115,7 +115,7 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
     auto* wait_infos = stack.allocate<VkSemaphoreSubmitInfo>(waits.size());
     for (auto[i, wait] : waits | std::views::enumerate) {
         wait_infos[i] = gpu_syncpoint_to_submit_info(wait);
-        gpu_cmd_protect(commands, wait.semaphore);
+        gpu_protect(commands, wait.semaphore);
     }
 
     gpu_check(gpu->vk.QueueSubmit2(queue->queue, 1, ptr_to(VkSubmitInfo2 {

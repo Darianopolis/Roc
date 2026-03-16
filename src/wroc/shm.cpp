@@ -150,7 +150,7 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
         auto mapping = pool->mapping;
 
         auto queue = gpu_get_queue(image->context(), gpu_queue_type::graphics);
-        auto commands = gpu_commands_begin(queue);
+        auto commands = gpu_begin(queue);
 
         const auto& info = image->format()->info;
         usz block_w = (image->extent().x + info.block_extent.width  - 1) / info.block_extent.width;
@@ -177,7 +177,7 @@ bool wroc_shm_buffer::is_ready(wroc_surface* surface)
         auto transfer_guard = core_create<shm_transfer_guard>();
         transfer_guard->lock = lock();
         transfer_guard->mapping = mapping;
-        gpu_cmd_protect(commands.get(), transfer_guard.get());
+        gpu_protect(commands.get(), transfer_guard.get());
 
         gpu_submit(commands.get(), {});
 

@@ -176,7 +176,7 @@ void gpu_semaphore_wait(gpu_semaphore* semaphore, gpu_wait_fn* wait)
         semaphore->wait.fd = core_fd_adopt(eventfd(0, EFD_CLOEXEC));
 
         core_fd_add_listener(semaphore->wait.fd.get(), gpu->event_loop.get(), core_fd_event_bit::readable,
-            [semaphore](int, core_fd_event_bits) {
+            [semaphore](int, flags<core_fd_event_bit>) {
                 handle_waits(semaphore);
             });
     }

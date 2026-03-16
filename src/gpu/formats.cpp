@@ -64,7 +64,7 @@ gpu_format gpu_format_from_vk(VkFormat vk_format, flags<gpu_vk_format_flag> vk_f
 }
 
 static
-bool gpu_query_image_format_support(
+bool query_format_support(
     gpu_context* gpu,
     VkFormat format, VkFormat srgb_format,
     VkImageUsageFlags usage,
@@ -158,7 +158,7 @@ bool gpu_query_image_format_support(
 }
 
 static
-std::vector<VkDrmFormatModifierProperties2EXT> get_drm_modifiers(gpu_context* gpu, gpu_format format)
+auto get_drm_modifiers(gpu_context* gpu, gpu_format format) -> std::vector<VkDrmFormatModifierProperties2EXT>
 {
     VkDrmFormatModifierPropertiesList2EXT mod_list = {
         .sType = VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_2_EXT,
@@ -178,7 +178,7 @@ std::vector<VkDrmFormatModifierProperties2EXT> get_drm_modifiers(gpu_context* gp
 }
 
 static
-const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& props, gpu_format format, flags<gpu_image_usage> usage)
+auto load_format_props(gpu_context* gpu, gpu_format_props& props, gpu_format format, flags<gpu_image_usage> usage) -> const gpu_format_props*
 {
     auto vk_usage = gpu_image_usage_to_vk(usage);
     auto required_features = gpu_get_required_format_features(format, usage);
@@ -194,7 +194,7 @@ const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& pr
 
         VkImageFormatProperties image_props;
         bool has_mutable_srgb = false;
-        if (gpu_query_image_format_support(gpu, format->vk, format->vk_srgb, vk_usage, nullptr, &has_mutable_srgb, &image_props, nullptr)
+        if (query_format_support(gpu, format->vk, format->vk_srgb, vk_usage, nullptr, &has_mutable_srgb, &image_props, nullptr)
                 && has_all_features(vk_props.formatProperties.optimalTilingFeatures)) {
             props.opt_props = std::unique_ptr<gpu_format_modifier_props>(new gpu_format_modifier_props {
                 .modifier = DRM_FORMAT_MOD_INVALID,
@@ -209,7 +209,7 @@ const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& pr
         VkImageFormatProperties image_props;
         bool has_mutable_srgb = false;
         VkExternalMemoryProperties ext_mem_props;
-        if (gpu_query_image_format_support(gpu, format->vk, format->vk_srgb, vk_usage, &mod, &has_mutable_srgb, &image_props, &ext_mem_props)
+        if (query_format_support(gpu, format->vk, format->vk_srgb, vk_usage, &mod, &has_mutable_srgb, &image_props, &ext_mem_props)
                 && has_all_features(mod.drmFormatModifierTilingFeatures)) {
             props.mod_props.emplace_back(gpu_format_modifier_props {
                 .modifier = mod.drmFormatModifier,
@@ -226,7 +226,7 @@ const gpu_format_props* load_format_props(gpu_context* gpu, gpu_format_props& pr
     return &props;
 }
 
-const gpu_format_props* gpu_get_format_props(gpu_context* gpu, gpu_format format, flags<gpu_image_usage> usage)
+auto gpu_get_format_properties(gpu_context* gpu, gpu_format format, flags<gpu_image_usage> usage) -> const gpu_format_props*
 {
     core_assert(!usage.empty());
 
@@ -240,7 +240,7 @@ const gpu_format_props* gpu_get_format_props(gpu_context* gpu, gpu_format format
         : &iter->second;
 }
 
-std::string gpu_drm_modifier_get_name(gpu_drm_modifier mod)
+auto gpu_get_modifier_name(gpu_drm_modifier mod) -> std::string
 {
     auto name = drmGetFormatModifierName(mod);
     std::string str = name ?: "UNKNOWN";
@@ -248,7 +248,7 @@ std::string gpu_drm_modifier_get_name(gpu_drm_modifier mod)
     return str;
 }
 
-gpu_format_set gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets)
+auto gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets) -> gpu_format_set
 {
     if (sets.empty()) return {};
 
@@ -268,7 +268,7 @@ gpu_format_set gpu_intersect_format_sets(std::span<const gpu_format_set* const> 
     return out;
 }
 
-gpu_format_modifier_set gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets)
+auto gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets) -> gpu_format_modifier_set
 {
     if (sets.empty()) return {};
 

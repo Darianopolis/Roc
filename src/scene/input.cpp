@@ -73,14 +73,14 @@ auto get_modifiers(scene_keyboard* keyboard, flags<xkb_state_component> componen
     return down;
 }
 
-auto scene_keyboard_get_modifiers(scene_keyboard* keyboard, flags<scene_modifier_flags> flags) -> ::flags<scene_modifier>
+auto scene_keyboard_get_modifiers(scene_keyboard* keyboard, flags<scene_modifier_flag> flags) -> ::flags<scene_modifier>
 {
     auto mods = keyboard->depressed | keyboard->latched;
-    if (!flags.contains(scene_modifier_flags::ignore_locked)) mods |= keyboard->locked;
+    if (!flags.contains(scene_modifier_flag::ignore_locked)) mods |= keyboard->locked;
     return mods;
 }
 
-auto scene_get_modifiers(scene_context* ctx, flags<scene_modifier_flags> flags) -> ::flags<scene_modifier>
+auto scene_get_modifiers(scene_context* ctx, flags<scene_modifier_flag> flags) -> ::flags<scene_modifier>
 {
     return scene_keyboard_get_modifiers(scene_get_keyboard(ctx), flags);
 }
@@ -93,7 +93,7 @@ bool try_send_hotkey(scene_input_device* device, scene_scancode code, bool press
 
     if (pressed) {
         // Ignore LOCKED modifier state like CAPS and NUMLOCK, as hotkyes require an exact match.
-        scene_hotkey hotkey { scene_get_modifiers(ctx, scene_modifier_flags::ignore_locked), code };
+        scene_hotkey hotkey { scene_get_modifiers(ctx, scene_modifier_flag::ignore_locked), code };
 
         auto iter = hotkeys.registered.find(hotkey);
         if (iter != hotkeys.registered.end()) {

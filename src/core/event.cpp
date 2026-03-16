@@ -16,7 +16,7 @@ void core_eventfd_signal(int fd, u64 inc)
 // -----------------------------------------------------------------------------
 
 static
-u32 to_epoll_events(core_fd_event_bits events)
+u32 to_epoll_events(flags<core_fd_event_bit> events)
 {
     u32 out = 0;
     if (events.contains(core_fd_event_bit::readable))  out |= EPOLLIN;
@@ -25,9 +25,9 @@ u32 to_epoll_events(core_fd_event_bits events)
 }
 
 static
-core_fd_event_bits from_epoll_events(u32 events)
+flags<core_fd_event_bit> from_epoll_events(u32 events)
 {
-    core_fd_event_bits out = {};
+    flags<core_fd_event_bit> out = {};
     if (events & EPOLLIN)  out |= core_fd_event_bit::readable;
     if (events & EPOLLOUT) out |= core_fd_event_bit::writable;
     return out;
@@ -91,7 +91,7 @@ ref<core_event_loop> core_event_loop_create()
     loop->epoll_fd = core_fd_adopt(unix_check<epoll_create1>(EPOLL_CLOEXEC).value);
 
     loop->task_fd = core_fd_adopt(unix_check<eventfd>(0, EFD_CLOEXEC | EFD_NONBLOCK).value);
-    core_fd_add_listener(loop->task_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, core_fd_event_bits events) {
+    core_fd_add_listener(loop->task_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, flags<core_fd_event_bit> events) {
         loop->tasks_available += core_eventfd_read(fd);
 
         // Don't double dip task event stats
@@ -99,7 +99,7 @@ ref<core_event_loop> core_event_loop_create()
     });
 
     loop->timer_fd = core_fd_adopt(unix_check<timerfd_create>(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC).value);
-    core_fd_add_listener(loop->timer_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, core_fd_event_bits events) {
+    core_fd_add_listener(loop->timer_fd.get(), loop.get(), core_fd_event_bit::readable, [loop = loop.get()](int fd, flags<core_fd_event_bit> events) {
         handle_timer(loop, fd);
 
         // Don't double dip timer event stats

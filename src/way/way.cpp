@@ -28,7 +28,7 @@ auto way_create(core_event_loop* event_loop, gpu_context* gpu, scene_context* sc
 
     server->wl_event_loop_fd = core_fd_reference(wl_event_loop_get_fd(wl_display_get_event_loop(server->wl_display)));
     core_fd_add_listener(server->wl_event_loop_fd.get(), event_loop, core_fd_event_bit::readable,
-        [server = server.get()](int fd, core_fd_event_bits events) {
+        [server = server.get()](int fd, flags<core_fd_event_bit> events) {
             unix_check<wl_event_loop_dispatch>(wl_display_get_event_loop(server->wl_display), 0);
             wl_display_flush_clients(server->wl_display);
         });

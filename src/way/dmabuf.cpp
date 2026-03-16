@@ -12,7 +12,7 @@ auto get_formats(way_server* server)
 
     return gpu_get_formats()
         | std::views::transform([server](auto format) -> std::pair<gpu_format, std::span<const gpu_drm_modifier>> {
-            auto props = gpu_get_format_props(server->gpu, format, gpu_image_usage::texture | gpu_image_usage::transfer_src);
+            auto props = gpu_get_format_properties(server->gpu, format, gpu_image_usage::texture | gpu_image_usage::transfer_src);
             return { format, props->mods };
         });
 }
@@ -259,7 +259,7 @@ auto create_buffer(way_dma_params* dma_params, u32 buffer_id, vec2u32 extent, gp
     params.extent = extent;
 
     log_debug("DMA-BUF {} - {} : {}",
-        core_to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
+        core_to_string(buffer->extent), format->name, gpu_get_modifier_name(params.modifier));
     buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
 
     dma_params->params = {};

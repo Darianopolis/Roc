@@ -67,7 +67,7 @@ IO_WL_LISTENER(xdg_wm_base) = {
 // -----------------------------------------------------------------------------
 
 static
-void display_read(io_context* ctx, core_fd_event_bits events)
+void display_read(io_context* ctx, flags<core_fd_event_bit> events)
 {
     ctx->wayland->current_dispatch_time = std::chrono::steady_clock::now();
 
@@ -102,7 +102,7 @@ void io_wayland_start(io_context* ctx)
 
     wl->wl_display_fd = core_fd_reference(wl_display_get_fd(wl->wl_display));
     core_fd_add_listener(wl->wl_display_fd.get(), ctx->event_loop, core_fd_event_bit::readable,
-        [ctx = weak(ctx)](int, core_fd_event_bits events) {
+        [ctx = weak(ctx)](int, flags<core_fd_event_bit> events) {
             if (ctx) display_read(ctx.get(), events);
         });
 

@@ -163,9 +163,9 @@ struct gpu_format_set
 auto gpu_intersect_format_modifiers(std::span<const gpu_format_modifier_set* const> sets) -> gpu_format_modifier_set;
 auto gpu_intersect_format_sets(std::span<const gpu_format_set* const> sets) -> gpu_format_set;
 
-auto gpu_get_format_props(gpu_context*, gpu_format, flags<gpu_image_usage>) -> const gpu_format_props*;
+auto gpu_get_format_properties(gpu_context*, gpu_format, flags<gpu_image_usage>) -> const gpu_format_props*;
 
-auto gpu_drm_modifier_get_name(gpu_drm_modifier) -> std::string;
+auto gpu_get_modifier_name(gpu_drm_modifier) -> std::string;
 
 // -----------------------------------------------------------------------------
 
@@ -337,9 +337,9 @@ struct gpu_commands
     ~gpu_commands();
 };
 
-auto gpu_commands_begin(gpu_queue*) -> ref<gpu_commands>;
+auto gpu_begin(gpu_queue*) -> ref<gpu_commands>;
 
-void gpu_cmd_protect(gpu_commands*, ref<void>);
+void gpu_protect(gpu_commands*, ref<void>);
 
 auto gpu_submit(gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
 

@@ -370,7 +370,7 @@ void wroc_imgui_render(wroc_imgui* imgui, gpu_commands* commands, rect2f64 viewp
     };
     auto guard = core_create<frame_guard>();
     guard->imgui = imgui;
-    gpu_cmd_protect(commands, guard.get());
+    gpu_protect(commands, guard.get());
 
     wroc_imgui_frame_data* frame = &guard->frame_data;
     if (!imgui->available_frames.empty()) {

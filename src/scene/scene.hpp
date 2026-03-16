@@ -79,14 +79,14 @@ enum class scene_modifier : u32
     caps  = 1 << 5,
 };
 
-enum class scene_modifier_flags
+enum class scene_modifier_flag
 {
     ignore_locked = 1 << 0
 };
 
 using scene_scancode = u32;
 
-auto scene_get_modifiers(scene_context*, flags<scene_modifier_flags> = {}) -> flags<scene_modifier>;
+auto scene_get_modifiers(scene_context*, flags<scene_modifier_flag> = {}) -> flags<scene_modifier>;
 
 enum class scene_input_device_type
 {
@@ -123,7 +123,7 @@ struct scene_keyboard_info
 };
 
 void scene_keyboard_clear_focus(  scene_keyboard*);
-auto scene_keyboard_get_modifiers(scene_keyboard*, flags<scene_modifier_flags> = {}) -> flags<scene_modifier>;
+auto scene_keyboard_get_modifiers(scene_keyboard*, flags<scene_modifier_flag> = {}) -> flags<scene_modifier>;
 auto scene_keyboard_get_pressed(  scene_keyboard*) -> std::span<const scene_scancode>;
 auto scene_keyboard_get_sym(      scene_keyboard*, scene_scancode) -> xkb_keysym_t;
 auto scene_keyboard_get_utf8(     scene_keyboard*, scene_scancode) -> std::string;

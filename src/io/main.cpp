@@ -12,13 +12,13 @@ void render(gpu_context* gpu, io_output* output, gpu_image_pool* pool)
         .format = format,
         .usage = usage,
         .modifiers = ptr_to(gpu_intersect_format_modifiers({
-            &gpu_get_format_props(gpu, format, usage)->mods,
+            &gpu_get_format_properties(gpu, format, usage)->mods,
             &output->info().formats->get(format),
         })),
     });
 
     auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-    auto commands = gpu_commands_begin(queue);
+    auto commands = gpu_begin(queue);
 
     gpu->vk.CmdClearColorImage(commands->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL,
         ptr_to(VkClearColorValue{.float32{1,0,0,1}}),

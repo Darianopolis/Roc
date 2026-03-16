@@ -325,7 +325,7 @@ static
 void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, void* data);
 
 static
-void drm_handle_event(wroc_direct_backend* backend, int fd, core_fd_event_bits events)
+void drm_handle_event(wroc_direct_backend* backend, int fd, flags<core_fd_event_bit> events)
 {
     drmEventContext handlers {
         .version = 3,
@@ -352,7 +352,7 @@ void wroc_backend_init_drm(wroc_direct_backend* backend)
     backend->drm_fd = core_fd_adopt(drm_fd);
 
     core_fd_add_listener(backend->drm_fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-        [backend](int fd, core_fd_event_bits events) {
+        [backend](int fd, flags<core_fd_event_bit> events) {
             drm_handle_event(backend, fd, events);
         });
 

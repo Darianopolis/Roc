@@ -48,7 +48,7 @@ void scene_frame(scene_context* ctx, scene_output* output, io_output* io_output,
         .format = format,
         .usage = usage,
         .modifiers = ptr_to(gpu_intersect_format_modifiers({
-            &gpu_get_format_props(ctx->gpu, format, usage)->mods,
+            &gpu_get_format_properties(ctx->gpu, format, usage)->mods,
             &io_output->info().formats->get(format),
         }))
     });
@@ -104,70 +104,68 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
         return draw;
     };
 
-    auto visit_mesh =
-            [&](scene_mesh* mesh) {
-                auto pos = scene_tree_get_position(mesh->parent);
+    auto draw_mesh = [&](scene_mesh* mesh) {
+        auto pos = scene_tree_get_position(mesh->parent);
 
-                draws.emplace_back(scene_draw {
-                    .first_vertex = u32(vertices.size()),
-                    .first_index = u32(indices.size()),
-                    .num_indices = u32(mesh->indices.size()),
-                    .clip = core_aabb_inner(default_clip, {
-                        pos + mesh->clip.min,
-                        pos + mesh->clip.max,
-                        core_minmax
-                    }),
-                    .image = mesh->image.get() ?: render.white.get(),
-                    .sampler = mesh->sampler.get() ?: render.sampler.get(),
-                    .blend = mesh->blend,
-                    .position = pos,
-                });
+        draws.emplace_back(scene_draw {
+            .first_vertex = u32(vertices.size()),
+            .first_index = u32(indices.size()),
+            .num_indices = u32(mesh->indices.size()),
+            .clip = core_aabb_inner(default_clip, {
+                pos + mesh->clip.min,
+                pos + mesh->clip.max,
+                core_minmax
+            }),
+            .image = mesh->image.get() ?: render.white.get(),
+            .sampler = mesh->sampler.get() ?: render.sampler.get(),
+            .blend = mesh->blend,
+            .position = pos,
+        });
 
-                vertices.insert_range(vertices.end(), mesh->vertices);
-                indices.insert_range(indices.end(), mesh->indices);
-            };
+        vertices.insert_range(vertices.end(), mesh->vertices);
+        indices.insert_range(indices.end(), mesh->indices);
+    };
 
-    auto visit_texture =
-            [&](scene_texture* texture) {
-                aabb2f32 src = texture->src;
-                aabb2f32 dst = texture->dst;
+    auto draw_texture = [&](scene_texture* texture) {
+        aabb2f32 src = texture->src;
+        aabb2f32 dst = texture->dst;
 
-                //  0 ---- 1
-                //  | a /  |  a = 0,2,1
-                //  |  / b |  b = 1,2,3
-                //  2 ---- 3
+        //  0 ---- 1
+        //  | a /  |  a = 0,2,1
+        //  |  / b |  b = 1,2,3
+        //  2 ---- 3
 
-                auto* draw = get_draw(default_clip,
-                    texture->image.get()   ?: render.white.get(),
-                    texture->sampler.get() ?: render.sampler.get(),
-                    texture->blend,
-                    {});
+        auto* draw = get_draw(default_clip,
+            texture->image.get()   ?: render.white.get(),
+            texture->sampler.get() ?: render.sampler.get(),
+            texture->blend,
+            {});
 
-                auto base_vtx = vertices.size() - draw->first_vertex;
-                draw->num_indices += 6;
-                for (auto idx : {0, 2, 1, 1, 2, 3}) {
-                    indices.emplace_back(base_vtx + idx);
-                }
+        auto base_vtx = vertices.size() - draw->first_vertex;
+        draw->num_indices += 6;
+        for (auto idx : {0, 2, 1, 1, 2, 3}) {
+            indices.emplace_back(base_vtx + idx);
+        }
 
-                auto translation = scene_tree_get_position(texture->parent);
-                auto push_vtx = [&](vec2f32 pos, vec2f32 uv = {}) {
-                    vertices.emplace_back(scene_vertex {
-                        .pos = translation + pos,
-                        .uv = uv,
-                        .color = texture->tint
-                    });
-                };
-                push_vtx({dst.min.x, dst.min.y}, {src.min.x, src.min.y});
-                push_vtx({dst.max.x, dst.min.y}, {src.max.x, src.min.y});
-                push_vtx({dst.min.x, dst.max.y}, {src.min.x, src.max.y});
-                push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
-            };
+        auto translation = scene_tree_get_position(texture->parent);
+        auto push_vtx = [&](vec2f32 pos, vec2f32 uv = {}) {
+            vertices.emplace_back(scene_vertex {
+                .pos = translation + pos,
+                .uv = uv,
+                .color = texture->tint
+            });
+        };
+        push_vtx({dst.min.x, dst.min.y}, {src.min.x, src.min.y});
+        push_vtx({dst.max.x, dst.min.y}, {src.max.x, src.min.y});
+        push_vtx({dst.min.x, dst.max.y}, {src.min.x, src.max.y});
+        push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
+    };
 
     scene_iterate<scene_iterate_direction::back_to_front>(ctx->root_tree.get(),
         scene_iterate_default,
         core_overload_set {
-            visit_mesh,
-            visit_texture,
+            draw_mesh,
+            draw_texture,
             [](scene_input_region*) {},
         },
         scene_iterate_default);
@@ -184,18 +182,18 @@ auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> g
     auto gpu_indices  = make_gpu(std::span(indices));
 
     auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-    auto commands = gpu_commands_begin(queue);
+    auto commands = gpu_begin(queue);
     auto cmd = commands.get();
-    gpu_cmd_protect(cmd, gpu_vertices.buffer.get());
-    gpu_cmd_protect(cmd, gpu_indices.buffer.get());
+    gpu_protect(cmd, gpu_vertices.buffer.get());
+    gpu_protect(cmd, gpu_indices.buffer.get());
 
     // Protect images
 
-    gpu_cmd_protect(cmd, target);
+    gpu_protect(cmd, target);
 
-    gpu_cmd_protect(cmd, render.white.get());
+    gpu_protect(cmd, render.white.get());
     for (auto& draw : draws) {
-        gpu_cmd_protect(cmd, draw.image);
+        gpu_protect(cmd, draw.image);
     }
 
     // Record

@@ -136,7 +136,7 @@ wroc_dma_buffer* wroc_dmabuf_create_buffer(wl_client* client, wl_resource* param
 
     buffer->extent = {width, height};
     log_debug("Importing DMA-BUF, size = {}, format = {}, mod = {}",
-        core_to_string(buffer->extent), format->name, gpu_drm_modifier_get_name(params.modifier));
+        core_to_string(buffer->extent), format->name, gpu_get_modifier_name(params.modifier));
     buffer->image = gpu_image_import(server->gpu, params, gpu_image_usage::texture);
 
     dma_params->params = {};
@@ -206,7 +206,7 @@ bool wroc_dma_buffer::is_ready(wroc_surface* surface)
             } else {
                 surface->apply_queued = true;
                 core_fd_add_listener(plane.fd.get(), server->event_loop.get(), core_fd_event_bit::readable,
-                    [surface = weak(surface)](int, core_fd_event_bits) {
+                    [surface = weak(surface)](int, flags<core_fd_event_bit>) {
                         if (surface) {
                             surface->apply_queued = false;
                             wroc_surface_flush_apply(surface.get());

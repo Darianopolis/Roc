@@ -11,7 +11,7 @@ using core_allocation_version = u32;
 
 struct alignas(16) core_allocation
 {
-    void (*free)(core_allocation*);
+    void(*free)(core_allocation*);
     core_allocation_version version;
     u32 ref_count;
 };
