@@ -17,7 +17,7 @@ struct scene_window;
 
 struct scene_context;
 
-auto scene_create(gpu_context*, struct io_context*) -> ref<scene_context>;
+auto scene_create(gpu_context*, core_event_loop*, struct io_context*) -> ref<scene_context>;
 
 enum class scene_layer
 {
@@ -210,6 +210,7 @@ auto scene_tree_create(scene_context*) -> ref<scene_tree>;
 void scene_tree_set_enabled(scene_tree*, bool enabled);
 void scene_tree_place_below(scene_tree*, scene_node* reference, scene_node* to_place);
 void scene_tree_place_above(scene_tree*, scene_node* reference, scene_node* to_place);
+void scene_tree_clear(      scene_tree*);
 
 void scene_tree_set_translation(scene_tree*, vec2f32 translation);
 

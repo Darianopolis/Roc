@@ -19,9 +19,16 @@ struct scene_cursor_manager;
 
 void scene_cursor_manager_init(scene_context*);
 
+enum class scene_damage_type : u32
+{
+    visual = 1 << 0,
+    input  = 1 << 1,
+};
+
 struct scene_context
 {
     gpu_context* gpu;
+    core_event_loop* event_loop;
 
     struct {
         ref<gpu_shader> vertex;
@@ -46,6 +53,10 @@ struct scene_context
         ref<scene_pointer>  pointer;
         std::vector<io_input_device*> led_devices;
     } seat;
+
+    struct {
+        flags<scene_damage_type> queued;
+    } damage;
 
     ref<scene_data_source> selection;
 

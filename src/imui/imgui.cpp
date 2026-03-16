@@ -89,6 +89,9 @@ void Platform_CreateWindow(ImGuiViewport* vp)
     data->input_plane = scene_input_region_create(ctx->client.get());
     scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->input_plane.get());
 
+    data->draws = scene_tree_create(ctx->scene);
+    scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->draws.get());
+
     vp->PlatformUserData = data;
 }
 
@@ -297,9 +300,7 @@ void render_viewport(imui_context* ctx, ImGuiViewport* vp)
     auto* data = get_data(vp);
     if (!data || !vp->DrawData) return;
 
-    if (data->draws) scene_node_unparent(data->draws.get());
-    data->draws = scene_tree_create(ctx->scene);
-    scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->draws.get());
+    scene_tree_clear(data->draws.get());
 
     auto translation = from_imvec(vp->Pos);
 

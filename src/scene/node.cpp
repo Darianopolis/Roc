@@ -9,33 +9,109 @@
 #endif
 
 static
-void request_frame(scene_context* ctx)
+auto get_enabled_tree_root(scene_tree* tree) -> scene_tree*
 {
-    for (auto* output : ctx->outputs) {
-        scene_output_request_frame(output);
+    if (!tree->enabled) return nullptr;
+
+    return tree->parent ? get_enabled_tree_root(tree->parent) : tree;
+}
+
+static
+auto is_enabled_in_scene(scene_node* node)
+{
+    auto* tree = node->type == scene_node_type::tree
+        ? static_cast<scene_tree*>(node)
+        : node->parent;
+
+    return tree && get_enabled_tree_root(tree) == tree->ctx->root_tree.get();
+}
+
+// -----------------------------------------------------------------------------
+
+static
+void dispatch_damage(scene_context* ctx)
+{
+    defer { ctx->damage.queued = {}; };
+
+    if (ctx->damage.queued.contains(scene_damage_type::input)) {
+        scene_update_pointer_focus(ctx);
     }
+
+    if (ctx->damage.queued.contains(scene_damage_type::visual)) {
+        for (auto* output : ctx->outputs) {
+            scene_output_request_frame(output);
+        }
+    }
+}
+
+static
+void enqueue_damage(scene_context* ctx, scene_damage_type type)
+{
+    auto enqueue = ctx->damage.queued.empty();
+    ctx->damage.queued |= type;
+
+    if (!enqueue) return;
+
+    core_event_loop_enqueue(ctx->event_loop, [ctx = weak(ctx)] {
+        if (ctx) dispatch_damage(ctx.get());
+    });
+}
+
+// -----------------------------------------------------------------------------
+
+static
+void basic_damage(scene_node* node)
+{
+    if (node->parent) {
+        // TODO: Damage affected regions only.
+        enqueue_damage(node->parent->ctx, scene_damage_type::visual);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+template<bool CheckInScene = true>
+void damage_node(scene_texture* texture)
+{
+    if (CheckInScene && !is_enabled_in_scene(texture)) return;
+
+    return basic_damage(texture);
+}
+
+template<bool CheckInScene = true>
+void damage_node(scene_mesh* mesh)
+{
+    if (CheckInScene && !is_enabled_in_scene(mesh)) return;
+
+    return basic_damage(mesh);
+}
+
+template<bool CheckInScene = true>
+void damage_node(scene_input_region* input)
+{
+    if (CheckInScene && !is_enabled_in_scene(input)) return;
+
+    auto* ctx = input->client->ctx;
+    enqueue_damage(ctx, scene_damage_type::input);
+}
+
+static
+void damage_node(scene_tree* tree)
+{
+    if (!is_enabled_in_scene(tree)) return;
+
+    scene_iterate<scene_iterate_direction::back_to_front>(tree,
+        scene_iterate_default,
+        [](auto* node) { damage_node<false>(node); },
+        scene_iterate_default);
 }
 
 static
 void damage_node(scene_node* node)
 {
-    switch (node->type) {
-        break;case scene_node_type::tree:
-            for (auto* child : static_cast<scene_tree*>(node)->children) {
-                damage_node(child);
-            }
-        break;case scene_node_type::texture:
-              case scene_node_type::mesh:
-            if (node->parent) {
-                request_frame(node->parent->ctx);
-                // TODO: Damage affected regions only.
-                //       Since currently we're just forcing a global redraw,
-                //       we can immediately return after a frame has been requested.
-                return;
-            }
-        break;case scene_node_type::input_region:
-            ;
-    }
+    if (!is_enabled_in_scene(node)) return;
+
+    scene_visit(node, [](auto* node) { damage_node(node); });
 }
 
 // -----------------------------------------------------------------------------
@@ -141,6 +217,17 @@ void scene_tree_place_above(scene_tree* tree, scene_node* reference, scene_node*
     reparent_unsafe(to_place, tree);
 }
 
+void scene_tree_clear(scene_tree* tree)
+{
+    damage_node(tree);
+
+    for (auto* child : tree->children) {
+        child->parent = nullptr;
+    }
+
+    tree->children.clear();
+}
+
 void scene_tree_set_translation(scene_tree* tree, vec2f32 position)
 {
     if (tree->translation == position) return;
@@ -166,9 +253,11 @@ auto scene_texture_create(scene_context*) -> ref<scene_texture>
 
 void scene_texture_set_image(scene_texture* texture, gpu_image* image, gpu_sampler* sampler, gpu_blend_mode blend)
 {
-    if (   texture->image.get()   == image
-        && texture->sampler.get() == sampler
-        && texture->blend         == blend) return;
+    bool damage = bool(texture->image.get())  != bool(texture)
+                    || texture->sampler.get() !=      sampler
+                    || texture->blend         !=      blend;
+
+    if (texture->image.get() == image && !damage) return;
 
 #if SCENE_NOISY_NODES
     if (texture->image.get()   != image)   NODE_LOG("scene.texture{{{}}}.set_image({})",   (void*)texture, (void*)image);
@@ -179,7 +268,10 @@ void scene_texture_set_image(scene_texture* texture, gpu_image* image, gpu_sampl
     texture->image = image;
     texture->sampler = sampler;
     texture->blend = blend;
-    damage_node(texture);
+
+    if (damage) {
+        damage_node(texture);
+    }
 }
 
 void scene_texture_set_tint(scene_texture* texture, vec4u8 tint)
@@ -285,4 +377,6 @@ void scene_input_region_set_region(scene_input_region* input_region, region2f32 
 #endif
 
     input_region->region = std::move(region);
+
+    damage_node(input_region);
 }

@@ -15,7 +15,7 @@ int main()
     auto event_loop = core_event_loop_create();
     auto gpu = gpu_create({}, event_loop.get());
     auto io = io_create(event_loop.get(), gpu.get());
-    auto scene = scene_create(gpu.get(), io.get());
+    auto scene = scene_create(gpu.get(), event_loop.get(), io.get());
     auto wm = wm_create(scene.get());
 
     // I/O event plumbing
