@@ -1,12 +1,12 @@
 #!/bin/python
 
 import os
+import sys
 import shutil
 from pathlib import Path
 import subprocess
 import argparse
 import filecmp
-import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-U", "--update", action="store_true", help="Update")
@@ -44,58 +44,9 @@ def write_file_lazy(path: Path, data: str | bytes):
 
 # -----------------------------------------------------------------------------
 
-build_data = cwd / "build.json"
+import scripts.deps as deps
 
-def load_build_data():
-    with build_data.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_build_data(data):
-    write_file_lazy(build_data, json.dumps(data, indent=4, sort_keys=True))
-
-# -----------------------------------------------------------------------------
-
-def fetch_dep(dir: Path, entry) -> Path:
-    repo = entry["repo"]
-    branch = entry["branch"]
-    commit = entry.get("commit", None)
-    dumb = entry.get("dumb", False)
-
-    def run(cmds, cwd=None):
-        print(cmds)
-        subprocess.run(cmds, cwd=cwd)
-
-    if not dir.exists():
-        cmds = ["git", "clone", repo, "--branch", branch]
-        if not dumb:
-            cmds += ["--depth", "1", "--recursive"]
-        cmds += [str(dir)]
-        run(cmds)
-        if commit is not None:
-            run(["git", "checkout", commit])
-    elif args.update or not commit:
-        print(f"Updating [{repo}]")
-        run(["git", "fetch", "origin", branch], cwd=dir)
-        run(["git", "checkout", branch], cwd=dir)
-        run(["git", "pull", "--ff-only"], cwd=dir)
-        run(["git", "submodule", "update", "--init", "--recursive"], cwd=dir)
-
-    entry["commit"] = subprocess.run(["git", "rev-parse", "HEAD"], cwd=dir, stdout=subprocess.PIPE).stdout.decode().strip()
-
-    return dir
-
-dep_dirs = {}
-
-def fetch_deps():
-    lock = load_build_data()
-    deps = lock["dependencies"]
-    for name, entry in deps.items():
-        dir = vendor_dir / name
-        dep_dirs[name] = dir
-        fetch_dep(dir, entry)
-    save_build_data(lock)
-
-fetch_deps()
+dep_dirs = deps.fetch_deps(vendor_dir, cwd / "build.json", args.update)
 
 def dep_dir(name: str):
     return dep_dirs[name]
