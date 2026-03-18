@@ -38,7 +38,7 @@ Roc is built around an internal protocol-independent "display server", with a se
 
 The Wayland protocol is then implemented as a set of internal clients, alongside other GUI shell components.
 
-> The project is currently in a state of rewriting the old monolothic `wroc` compositor implementation into a more more modular layered approach.
+> The project is currently in a state of rewriting the old monolothic compositor implementation into a more more modular layered approach.
 >
 > Points marked as **❗** have not been implemented in the rewrite yet.
 
@@ -136,7 +136,7 @@ Builds on `scene` to implement opinionated window management, styling, and behav
 
 ### Quickstart
 
-Build in release mode and install to `.local/bin/wroc`
+Build in release mode and install to `.local/bin/roc`
 
 ```
 $ python build.py -BIR
@@ -149,7 +149,7 @@ $ python build.py -BIR
 Roc can take advantage of higher queue scheduling priority when given the NICE system capability.
 
 ```
-# setcap cap_sys_nice+ep ~/.local/bin/wroc
+# setcap cap_sys_nice+ep ~/.local/bin/roc
 ```
 
 ### Build Options

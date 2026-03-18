@@ -172,8 +172,6 @@ generate_wayland_protocols()
 
 def build_shaders():
     shaders = [
-        ("src/wroc/shaders/blit.slang",  "wroc_blit_shader"),
-        ("src/wroc/shaders/imgui.slang", "wroc_imgui_shader"),
         ("src/scene/render.slang",        "scene_render_shader"),
     ]
 
@@ -316,7 +314,7 @@ use_mold = not args.system_linker and shutil.which("mold")
 build(build_type  = "Release" if args.release else "Debug",
       compiler    = "gcc"     if args.use_gcc else "clang",
       linker_type = "MOLD"    if use_mold     else "SYSTEM",
-      install     = "wroc"    if args.install else None)
+      install     = "roc"     if args.install else None)
 
 # -----------------------------------------------------------------------------
 

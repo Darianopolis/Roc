@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.0)
 
-project(wroc)
+project(roc)
 
 # ------------------------------------------------------------------------------
 
@@ -145,7 +145,7 @@ endfunction()
 
 init_library(core)
 target_precompile_headers(core PUBLIC src/core/pch.hpp)
-target_compile_definitions(core PUBLIC PROGRAM_NAME="wroc" PROJECT_NAME="Roc")
+target_compile_definitions(core PUBLIC PROGRAM_NAME="roc" PROJECT_NAME="Roc")
 target_sources(core PUBLIC
     src/core/log.cpp
     src/core/string.cpp
@@ -285,52 +285,3 @@ target_sources(roc PUBLIC
     src/wm/movesize.cpp
     )
 target_link_libraries(roc PUBLIC scene way imui)
-
-# ------------------------------------------------------------------------------
-
-init_executable(wroc)
-target_sources(wroc PUBLIC
-    src/wroc/util.cpp
-    src/wroc/client.cpp
-    src/wroc/server.cpp
-    src/wroc/event.cpp
-    src/wroc/output.cpp
-    src/wroc/keyboard.cpp
-    src/wroc/pointer.cpp
-    src/wroc/renderer.cpp
-    src/wroc/buffer.cpp
-    src/wroc/dmabuf.cpp
-    src/wroc/syncobj.cpp
-    src/wroc/seat.cpp
-    src/wroc/shm.cpp
-    src/wroc/surface.cpp
-    src/wroc/subsurface.cpp
-    src/wroc/interaction.cpp
-    src/wroc/gestures.cpp
-    src/wroc/xdg_shell.cpp
-    src/wroc/viewporter.cpp
-    src/wroc/data.cpp
-    src/wroc/cursor.cpp
-    src/wroc/imgui.cpp
-    src/wroc/scene.cpp
-    src/wroc/debug.cpp
-    src/wroc/process.cpp
-    src/wroc/decoration.cpp
-
-    src/wroc/applets/launcher.cpp
-
-    src/main.cpp
-
-    src/wroc/backend/backend.cpp
-
-    src/wroc/backend/wayland/wayland.cpp
-    src/wroc/backend/wayland/seat.cpp
-    src/wroc/backend/wayland/output.cpp
-
-    src/wroc/backend/direct/backend.cpp
-    src/wroc/backend/direct/output.cpp
-    src/wroc/backend/direct/input.cpp
-    src/wroc/backend/direct/events.cpp
-    src/wroc/backend/direct/drm.cpp
-    )
-target_link_libraries(wroc PUBLIC gpu core)
