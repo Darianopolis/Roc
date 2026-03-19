@@ -17,7 +17,7 @@ struct scene_window;
 
 struct scene_context;
 
-auto scene_create(gpu_context*, core_event_loop*) -> ref<scene_context>;
+auto scene_create(exec_context*, gpu_context*) -> ref<scene_context>;
 
 enum class scene_layer
 {

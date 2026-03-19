@@ -27,8 +27,8 @@ enum class scene_damage_type : u32
 
 struct scene_context
 {
-    gpu_context* gpu;
-    core_event_loop* event_loop;
+    exec_context* exec;
+    gpu_context*  gpu;
 
     struct {
         ref<gpu_shader> vertex;

@@ -4,4 +4,4 @@
 
 struct way_server;
 
-auto way_create(core_event_loop*, gpu_context*, scene_context*) -> ref<way_server>;
+auto way_create(exec_context*, gpu_context*, scene_context*) -> ref<way_server>;

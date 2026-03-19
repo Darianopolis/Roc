@@ -67,7 +67,7 @@ IO_WL_LISTENER(xdg_wm_base) = {
 // -----------------------------------------------------------------------------
 
 static
-void display_read(io_context* ctx, flags<core_fd_event_bit> events)
+void display_read(io_context* ctx, flags<exec_fd_event_bit> events)
 {
     ctx->wayland->current_dispatch_time = std::chrono::steady_clock::now();
 
@@ -100,8 +100,8 @@ void io_wayland_start(io_context* ctx)
     // Second roundtrip ensure that all events expected in response to binding are received
     wl_display_roundtrip(wl->wl_display);
 
-    core_event_loop_fd_listen(ctx->event_loop, wl_display_get_fd(wl->wl_display), core_fd_event_bit::readable,
-        [ctx = weak(ctx)](int, flags<core_fd_event_bit> events) {
+    exec_fd_listen(ctx->exec, wl_display_get_fd(wl->wl_display), exec_fd_event_bit::readable,
+        [ctx = weak(ctx)](int, flags<exec_fd_event_bit> events) {
             if (ctx) display_read(ctx.get(), events);
         });
 
@@ -110,7 +110,8 @@ void io_wayland_start(io_context* ctx)
 
 void io_wayland_deinit(io_context* ctx)
 {
-    core_event_loop_fd_unlisten(ctx->event_loop, wl_display_get_fd(ctx->wayland->wl_display));
+    exec_fd_unlisten(ctx->exec, wl_display_get_fd(ctx->wayland->wl_display));
+
     ctx->wayland.destroy();
 }
 

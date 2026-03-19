@@ -293,12 +293,12 @@ VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
-ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event_loop)
+ref<gpu_context> gpu_create(exec_context* exec, flags<gpu_feature> _features)
 {
     auto gpu = core_create<gpu_context>();
     gpu->features = _features;
 
-    gpu->event_loop = event_loop;
+    gpu->exec = exec;
 
     // Loader
 

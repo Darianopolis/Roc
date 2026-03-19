@@ -8,18 +8,18 @@ int get_loop_fd(wl_display* display)
 
 way_server::~way_server()
 {
-    core_event_loop_fd_unlisten(event_loop, get_loop_fd(wl_display));
+    exec_fd_unlisten(exec, get_loop_fd(wl_display));
     wl_display_terminate(wl_display);
     wl_display_destroy(wl_display);
 }
 
-auto way_create(core_event_loop* event_loop, gpu_context* gpu, scene_context* scene) -> ref<way_server>
+auto way_create(exec_context* exec, gpu_context* gpu, scene_context* scene) -> ref<way_server>
 {
     auto server = core_create<way_server>();
 
     server->epoch = std::chrono::steady_clock::now();
 
-    server->event_loop = event_loop;
+    server->exec = exec;
     server->gpu = gpu;
     server->scene = scene;
     server->scene_system = scene_register_system(scene);
@@ -32,8 +32,8 @@ auto way_create(core_event_loop* event_loop, gpu_context* gpu, scene_context* sc
 
     server->socket_name = wl_display_add_socket_auto(server->wl_display);
 
-    core_event_loop_fd_listen(event_loop, get_loop_fd(server->wl_display), core_fd_event_bit::readable,
-        [server = server.get()](int fd, flags<core_fd_event_bit> events) {
+    exec_fd_listen(exec, get_loop_fd(server->wl_display), exec_fd_event_bit::readable,
+        [server = server.get()](int fd, flags<exec_fd_event_bit> events) {
             unix_check<wl_event_loop_dispatch>(wl_display_get_event_loop(server->wl_display), 0);
             wl_display_flush_clients(server->wl_display);
         });

@@ -52,7 +52,7 @@ void enqueue_damage(scene_context* ctx, scene_damage_type type)
 
     if (!enqueue) return;
 
-    core_event_loop_enqueue(ctx->event_loop, [ctx = weak(ctx)] {
+    exec_enqueue(ctx->exec, [ctx = weak(ctx)] {
         if (ctx) dispatch_damage(ctx.get());
     });
 }

@@ -60,7 +60,7 @@ auto gpu_syncobj_export_syncfile(gpu_syncobj* syncobj, u64 source_point) -> core
 gpu_syncobj::~gpu_syncobj()
 {
     if (wait.fd) {
-        core_event_loop_fd_unlisten(gpu->event_loop, wait.fd.get());
+        exec_fd_unlisten(gpu->exec, wait.fd.get());
     }
 
     while (!wait.list.empty()) {
@@ -112,8 +112,8 @@ void gpu_syncobj_wait(gpu_syncobj* syncobj, gpu_wait_fn* wait)
     if (!syncobj->wait.fd) {
         syncobj->wait.fd = core_fd(eventfd(0, EFD_CLOEXEC));
 
-        core_event_loop_fd_listen(gpu->event_loop, syncobj->wait.fd.get(), core_fd_event_bit::readable,
-            [syncobj](int, flags<core_fd_event_bit>) {
+        exec_fd_listen(gpu->exec, syncobj->wait.fd.get(), exec_fd_event_bit::readable,
+            [syncobj](int, flags<exec_fd_event_bit>) {
                 handle_waits(syncobj);
             });
     }
@@ -138,7 +138,7 @@ void gpu_wait(gpu_syncpoint syncpoint)
     u32 first_signalled;
     unix_check<drmSyncobjTimelineWait>(gpu->drm.fd, &syncobj->syncobj, &value, 1, INT64_MAX, 0, &first_signalled);
 
-    if (std::this_thread::get_id() == gpu->event_loop->main_thread) {
+    if (std::this_thread::get_id() == gpu->exec->os_thread) {
         decltype(syncobj->wait.list)::iterator w;
         while (w = syncobj->wait.list.first(), w != syncobj->wait.list.end() && w->point <= value) {
             syncobj->wait.skips++;

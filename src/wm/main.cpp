@@ -12,11 +12,11 @@ int main()
 {
     // Systems
 
-    auto event_loop = core_event_loop_create();
-    auto gpu = gpu_create({}, event_loop.get());
-    auto io = io_create(event_loop.get(), gpu.get());
-    auto scene = scene_create(gpu.get(), event_loop.get());
-    auto wm = wm_create(scene.get());
+    auto exec  = exec_create();
+    auto gpu   = gpu_create(  exec.get(), {});
+    auto io    = io_create(   exec.get(), gpu.get());
+    auto scene = scene_create(exec.get(), gpu.get());
+    auto wm    = wm_create(scene.get());
 
     // I/O event plumbing
 
@@ -266,7 +266,7 @@ int main()
 
     // Wayland
 
-    auto way = way_create(event_loop.get(), gpu.get(), scene.get());
+    auto way = way_create(exec.get(), gpu.get(), scene.get());
 
     // ImGui
 

@@ -36,7 +36,7 @@ struct way_keymap
 
 struct way_server
 {
-    core_event_loop* event_loop;
+    exec_context* exec;
 
     std::chrono::steady_clock::time_point epoch;
 

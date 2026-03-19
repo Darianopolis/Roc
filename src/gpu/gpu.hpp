@@ -179,6 +179,8 @@ struct gpu_context
 {
     flags<gpu_feature> features;
 
+    exec_context* exec;
+
     struct {
         GPU_DECLARE_FUNCTION(GetInstanceProcAddr)
         GPU_DECLARE_FUNCTION(CreateInstance)
@@ -215,8 +217,6 @@ struct gpu_context
         u32 active_samplers;
     } stats;
 
-    core_event_loop* event_loop;
-
     std::vector<VkSemaphore> free_binary_semaphores;
 
     VkDescriptorSetLayout set_layout;
@@ -241,7 +241,7 @@ struct gpu_context
     ~gpu_context();
 };
 
-auto gpu_create(flags<gpu_feature>, core_event_loop*) -> ref<gpu_context>;
+auto gpu_create(exec_context*, flags<gpu_feature>) -> ref<gpu_context>;
 
 // -----------------------------------------------------------------------------
 

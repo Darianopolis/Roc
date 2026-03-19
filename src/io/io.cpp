@@ -1,10 +1,10 @@
 #include "internal.hpp"
 
-auto io_create(core_event_loop* event_loop, gpu_context* gpu) -> ref<io_context>
+auto io_create(exec_context* exec, gpu_context* gpu) -> ref<io_context>
 {
     auto ctx = core_create<io_context>();
 
-    ctx->event_loop = event_loop;
+    ctx->exec = exec;
     ctx->gpu = gpu;
 
     io_session_init( ctx.get());
@@ -25,7 +25,7 @@ void shutdown(io_context* ctx)
     io_drm_deinit(ctx);
     io_wayland_deinit(ctx);
 
-    core_event_loop_stop(ctx->event_loop);
+    exec_stop(ctx->exec);
 }
 
 io_context::~io_context()
@@ -49,7 +49,7 @@ static
 void signal_handler(int sig)
 {
     if (sig == SIGINT) {
-        // Immediately unregister SIGINT in case of unresponsive event loop
+        // Immediately unregister SIGINT in case application is unresponsive
         std::signal(sig, SIG_DFL);
     }
 
@@ -73,7 +73,7 @@ void io_run(io_context* ctx)
         io_wayland_start(ctx);
     }
 
-    core_event_loop_run(ctx->event_loop);
+    exec_run(ctx->exec);
 
     signal_context = nullptr;
     signal(SIGINT, SIG_DFL);
@@ -82,7 +82,7 @@ void io_run(io_context* ctx)
 
 void io_request_shutdown(io_context* ctx, io_shutdown_reason reason)
 {
-    core_event_loop_enqueue(ctx->event_loop, [ctx, reason] {
+    exec_enqueue(ctx->exec, [ctx, reason] {
         io_post_event(ctx, ptr_to(io_event {
             .type = io_event_type::shutdown_requested,
             .shutdown {
@@ -97,7 +97,7 @@ void io_stop(io_context* ctx)
     if (ctx->stop_requested) return;
     ctx->stop_requested = true;
 
-    core_event_loop_enqueue(ctx->event_loop, [ctx] {
+    exec_enqueue(ctx->exec, [ctx] {
         shutdown(ctx);
     });
 }

@@ -56,9 +56,9 @@ void handle_event(io_context* io, gpu_context* gpu, gpu_image_pool* pool, io_eve
 
 int main()
 {
-    auto event_loop = core_event_loop_create();
-    auto gpu = gpu_create({}, event_loop.get());
-    auto io = io_create(event_loop.get(), gpu.get());
+    auto exec = exec_create();
+    auto gpu  = gpu_create( exec.get(), {});
+    auto io   = io_create(  exec.get(), gpu.get());
     auto pool = gpu_image_pool_create(gpu.get());
     io_set_event_handler(io.get(), [&](io_event* event) {
         handle_event(io.get(), gpu.get(), pool.get(), event);

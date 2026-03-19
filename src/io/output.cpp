@@ -49,7 +49,7 @@ void io_output_try_redraw(io_output_base* output)
 
 void io_output_try_redraw_later(io_output_base* output)
 {
-    core_event_loop_enqueue(output->ctx->event_loop, [output = weak(output)] {
+    exec_enqueue(output->ctx->exec, [output = weak(output)] {
         if (output) {
             io_output_try_redraw(output.get());
         }

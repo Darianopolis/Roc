@@ -145,7 +145,7 @@ using io_event_handler = void(io_event*);
 
 // -----------------------------------------------------------------------------
 
-auto io_create(core_event_loop*, gpu_context*) -> ref<io_context>;
+auto io_create(exec_context*, gpu_context*) -> ref<io_context>;
 void io_set_event_handler(io_context*, std::move_only_function<io_event_handler>&&);
 void io_run( io_context*);
 void io_stop(io_context*);

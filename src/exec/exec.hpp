@@ -8,23 +8,23 @@
 
 // -----------------------------------------------------------------------------
 
-struct core_task
+struct exec_task
 {
     std::move_only_function<void()> callback;
     std::atomic_flag* sync;
 };
 
-struct core_fd_listener;
+struct exec_fd_listener;
 
-struct core_event_loop
+struct exec_context
 {
     bool stopped = false;
 
-    std::array<ref<core_fd_listener>, core_fd_limit> listeners  = {};
+    std::array<ref<exec_fd_listener>, core_fd_limit> listeners  = {};
 
-    std::thread::id main_thread;
+    std::thread::id os_thread;
 
-    moodycamel::ConcurrentQueue<core_task> queue;
+    moodycamel::ConcurrentQueue<exec_task> queue;
 
     u64 tasks_available;
     core_fd task_fd;
@@ -45,93 +45,96 @@ struct core_event_loop
         u64 poll_waits;
     } stats;
 
-    ~core_event_loop();
+    ~exec_context();
 };
 
-ref<core_event_loop> core_event_loop_create();
-void core_event_loop_run( core_event_loop*);
-void core_event_loop_stop(core_event_loop*);
+auto exec_create() -> ref<exec_context>;
 
-void core_event_loop_timer_expiry_impl(core_event_loop*, std::chrono::steady_clock::time_point exp);
+void exec_set_thread_context(exec_context*);
+auto exec_get_thread_context() -> exec_context*;
+
+void exec_run( exec_context*);
+void exec_stop(exec_context*);
+
+void exec_add_timer_wakeup(exec_context*, std::chrono::steady_clock::time_point exp);
 
 template<typename Lambda>
-void core_event_loop_enqueue_timed(core_event_loop* loop, std::chrono::steady_clock::time_point exp, Lambda&& task)
+void exec_enqueue_timed(exec_context* exec, std::chrono::steady_clock::time_point exp, Lambda&& task)
 {
-    core_assert(std::this_thread::get_id() == loop->main_thread);
+    core_assert(std::this_thread::get_id() == exec->os_thread);
 
-    loop->timed_events.emplace_back(exp, std::move(task));
+    exec->timed_events.emplace_back(exp, std::move(task));
 
-    core_event_loop_timer_expiry_impl(loop, exp);
+    exec_add_timer_wakeup(exec, exp);
 }
 
 template<typename Lambda>
-void core_event_loop_enqueue(core_event_loop* loop, Lambda&& task)
+void exec_enqueue(exec_context* exec, Lambda&& task)
 {
-    loop->queue.enqueue({ .callback = std::move(task) });
-    if (std::this_thread::get_id() == loop->main_thread) {
-        loop->tasks_available++;
+    exec->queue.enqueue({ .callback = std::move(task) });
+    if (std::this_thread::get_id() == exec->os_thread) {
+        exec->tasks_available++;
     } else {
-        core_eventfd_signal(loop->task_fd.get(), 1);
+        core_eventfd_signal(exec->task_fd.get(), 1);
     }
 }
 
 template<typename Lambda>
-void core_event_loop_enqueue_and_wait(core_event_loop* loop, Lambda&& task)
+void exec_enqueue_and_wait(exec_context* exec, Lambda&& task)
 {
-    core_assert(std::this_thread::get_id() != loop->main_thread);
+    core_assert(std::this_thread::get_id() != exec->os_thread);
 
     std::atomic_flag done = false;
     // We can avoid moving `task` entirely since its lifetime is guaranteed
-    loop->queue.enqueue({ .callback = [&task] { task(); }, .sync = &done });
-    core_eventfd_signal(loop->task_fd.get(), 1);
+    exec->queue.enqueue({ .callback = [&task] { task(); }, .sync = &done });
+    core_eventfd_signal(exec->task_fd.get(), 1);
     done.wait(false);
 }
 
 // -----------------------------------------------------------------------------
 
-enum class core_fd_event_bit : u32
+enum class exec_fd_event_bit : u32
 {
     readable = 1 << 0,
     writable = 1 << 1,
 };
 
-enum class core_fd_listen_flag : u32
+enum class exec_fd_listen_flag : u32
 {
     oneshot = 1 << 0,
 };
 
-using core_fd_listener_fn = void(int, flags<core_fd_event_bit> events);
-
-struct core_fd_listener
+struct exec_fd_listener
 {
-    flags<core_fd_event_bit> events;
-    flags<core_fd_listen_flag> flags;
+    flags<exec_fd_event_bit> events;
+    flags<exec_fd_listen_flag> flags;
 
-    virtual void handle(int fd, ::flags<core_fd_event_bit> events) = 0;
+    virtual void handle(int fd, ::flags<exec_fd_event_bit> events) = 0;
 };
 
 // -----------------------------------------------------------------------------
 
-void core_event_loop_fd_listen(  core_event_loop*, int fd, core_fd_listener*);
-void core_event_loop_fd_unlisten(core_event_loop*, int fd);
+void exec_fd_listen(  exec_context*, int fd, exec_fd_listener*);
+void exec_fd_unlisten(exec_context*, int fd);
 
 template<typename Fn>
-void core_event_loop_fd_listen(
-    core_event_loop* loop,
+void exec_fd_listen(
+    exec_context* exec,
     int fd,
-    flags<core_fd_event_bit> events,
+    flags<exec_fd_event_bit> events,
     Fn&& callback,
-    flags<core_fd_listen_flag> flags = {})
+    flags<exec_fd_listen_flag> flags = {})
 {
-    struct core_fd_listener_lambda : core_fd_listener
+    struct lambda_listener : exec_fd_listener
     {
         Fn lambda;
-        core_fd_listener_lambda(Fn&& lambda): lambda(std::move(lambda)) {}
-        virtual void handle(int fd, ::flags<core_fd_event_bit> events) { lambda(fd, events); }
+        lambda_listener(Fn&& lambda): lambda(std::move(lambda)) {}
+        virtual void handle(int fd, ::flags<exec_fd_event_bit> events) { lambda(fd, events); }
     };
 
-    auto listener = core_create<core_fd_listener_lambda>(std::move(callback));
+    auto listener = core_create<lambda_listener>(std::move(callback));
     listener->events = events;
     listener->flags = flags;
-    core_event_loop_fd_listen(loop, fd, listener.get());
+    exec_fd_listen(exec, fd, listener.get());
 }
+

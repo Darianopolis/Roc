@@ -28,12 +28,12 @@ void scene_push_io_event(scene_context* ctx, io_event* event)
     }
 }
 
-auto scene_create(gpu_context* gpu, core_event_loop* event_loop) -> ref<scene_context>
+auto scene_create(exec_context* exec, gpu_context* gpu) -> ref<scene_context>
 {
     auto scene = core_create<scene_context>();
 
+    scene->exec = exec;
     scene->gpu = gpu;
-    scene->event_loop = event_loop;
 
     scene->window_system = scene_register_system(scene.get());
 
