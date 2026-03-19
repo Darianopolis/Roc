@@ -18,8 +18,6 @@ struct gpu_image;
 struct gpu_buffer;
 struct gpu_sampler;
 struct gpu_syncobj;
-struct gpu_commands;
-struct gpu_queue;
 
 enum class gpu_image_usage : u32;
 
@@ -216,8 +214,6 @@ struct gpu_context
         u32 active_samplers;
     } stats;
 
-    ref<gpu_queue> graphics_queue;
-    ref<gpu_queue> transfer_queue;
     ref<core_event_loop> event_loop;
 
     std::vector<VkSemaphore> free_binary_semaphores;
@@ -232,39 +228,19 @@ struct gpu_context
 
     ankerl::unordered_dense::segmented_map<gpu_format_props_key, gpu_format_props> format_props;
 
+    struct {
+        u32 family;
+        VkQueue queue;
+        VkCommandPool pool;
+        ref<struct gpu_commands> commands;
+        ref<gpu_syncobj> syncobj;
+        u64 submitted;
+    } queue;
+
     ~gpu_context();
 };
 
 auto gpu_create(flags<gpu_feature>, core_event_loop*) -> ref<gpu_context>;
-
-// -----------------------------------------------------------------------------
-
-enum class gpu_queue_type : u32
-{
-    graphics,
-    transfer,
-};
-
-struct gpu_queue
-{
-    gpu_context* gpu;
-
-    gpu_queue_type type;
-    u32 family;
-    u32 optimal_transfers_to;
-
-    VkQueue queue;
-
-    VkCommandPool cmd_pool;
-
-    ref<gpu_syncobj> syncobj;
-
-    u64 submitted;
-
-    ~gpu_queue();
-};
-
-auto gpu_get_queue(gpu_context*, gpu_queue_type) -> gpu_queue*;
 
 // -----------------------------------------------------------------------------
 
@@ -329,35 +305,9 @@ void gpu_wait(gpu_syncpoint sync, Fn&& fn)
 
 // -----------------------------------------------------------------------------
 
-struct gpu_commands
-{
-    gpu_queue* queue;
+void gpu_protect(gpu_context*, ref<void>);
 
-    VkCommandBuffer buffer;
-    core_ref_vector<void> objects;
-
-    u64 submitted_value;
-
-#if GPU_VALIDATION_COMPATIBILITY
-    struct {
-        VkFence fence;
-    } validation;
-#endif
-
-    ~gpu_commands();
-};
-
-auto gpu_begin(gpu_queue*) -> ref<gpu_commands>;
-
-void gpu_protect(gpu_commands*, ref<void>);
-
-auto gpu_submit(gpu_commands*, std::span<const gpu_syncpoint> waits) -> gpu_syncpoint;
-
-// WARNING: Blocking
-void gpu_wait_idle(gpu_context*);
-
-// WARNING: Blocking
-void gpu_wait_idle(gpu_queue*);
+auto gpu_flush(gpu_context*) -> gpu_syncpoint;
 
 // -----------------------------------------------------------------------------
 
@@ -475,7 +425,7 @@ struct gpu_image_create_info
 
 auto gpu_image_create(gpu_context*, const gpu_image_create_info&) -> ref<gpu_image>;
 
-void gpu_cmd_copy_image_to_buffer(gpu_commands*, gpu_buffer*, gpu_image*);
+void gpu_copy_image_to_buffer(gpu_buffer*, gpu_image*);
 
 struct gpu_buffer_image_copy
 {
@@ -485,10 +435,8 @@ struct gpu_buffer_image_copy
     u32 buffer_row_length;
 };
 
-void gpu_cmd_copy_buffer_to_image(gpu_commands*, gpu_image*, gpu_buffer*, std::span<const gpu_buffer_image_copy> regions);
-void gpu_cmd_copy_memory_to_image(gpu_commands*, gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
+void gpu_copy_buffer_to_image(gpu_image*, gpu_buffer*, std::span<const gpu_buffer_image_copy> regions);
 
-// WARNING: Blocking
 void gpu_copy_memory_to_image(gpu_image*, core_byte_view data, std::span<const gpu_buffer_image_copy> regions);
 
 auto gpu_image_compute_linear_offset(gpu_format, vec2u32 position, u32 stride) -> u32;
@@ -534,22 +482,55 @@ struct gpu_shader_create_info
 
 auto gpu_shader_create(gpu_context*, const gpu_shader_create_info&) -> ref<gpu_shader>;
 
+// -----------------------------------------------------------------------------
+
 enum class gpu_depth_enable
 {
     test  = 1 << 0,
     write = 1 << 1,
 };
 
-void gpu_cmd_push_constants(   gpu_commands*, u32 offset, core_byte_view data);
-void gpu_cmd_set_scissors(     gpu_commands*, std::span<const rect2i32> scissors);
-void gpu_cmd_set_viewports(    gpu_commands*, std::span<const rect2f32> viewports);
-void gpu_cmd_set_polygon_state(gpu_commands*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
-void gpu_cmd_set_cull_state(   gpu_commands*, VkCullModeFlagBits, VkFrontFace);
-void gpu_cmd_set_depth_state(  gpu_commands*, flags<gpu_depth_enable> enabled, VkCompareOp);
-void gpu_cmd_set_blend_state(  gpu_commands*, std::span<const gpu_blend_mode>);
-void gpu_cmd_bind_shaders(     gpu_commands*, std::span<gpu_shader* const>);
+struct gpu_draw_info {
+    u32 index_count;
+    u32 instance_count;
+    u32 first_index;
+    u32 vertex_offset;
+    u32 first_instance;
+};
 
-void gpu_cmd_reset_graphics_state(gpu_commands*);
+struct gpu_renderpass
+{
+    gpu_context*    gpu;
+    VkCommandBuffer cmd;
+
+    void push_constants(   u32 offset, core_byte_view data);
+    void set_scissors(     std::span<const rect2i32> scissors);
+    void set_viewports(    std::span<const rect2f32> viewports);
+    void set_polygon_state(VkPrimitiveTopology, VkPolygonMode, f32 line_width);
+    void set_cull_state(   VkCullModeFlagBits, VkFrontFace);
+    void set_depth_state(  flags<gpu_depth_enable> enabled, VkCompareOp);
+    void set_blend_state(  std::span<const gpu_blend_mode>);
+    void bind_index_buffer(gpu_buffer*, u32 offset, VkIndexType);
+    void bind_shaders(     std::span<gpu_shader* const>);
+    void draw_indexed(     const gpu_draw_info&);
+};
+
+struct gpu_renderpass_info
+{
+    gpu_image* target;
+    vec4f32    clear_color;
+};
+
+auto gpu_renderpass_begin(gpu_context*, const gpu_renderpass_info&) -> gpu_renderpass;
+void gpu_renderpass_end(gpu_renderpass&);
+
+template<typename Fn>
+void gpu_render(gpu_context* gpu, const gpu_renderpass_info& info, Fn&& fn)
+{
+    auto pass = gpu_renderpass_begin(gpu, info);
+    fn(pass);
+    gpu_renderpass_end(pass);
+}
 
 // -----------------------------------------------------------------------------
 

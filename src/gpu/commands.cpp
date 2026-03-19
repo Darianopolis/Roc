@@ -3,59 +3,24 @@
 #include "core/enum.hpp"
 #include "core/stack.hpp"
 
-auto gpu_queue_create(gpu_context* gpu, gpu_queue_type type, u32 family, const VkQueueFamilyOwnershipTransferPropertiesKHR& transfer_props) -> ref<gpu_queue>
+void gpu_queue_init(gpu_context* gpu)
 {
-    auto queue = core_create<gpu_queue>();
-    queue->gpu = gpu;
-    queue->type = type;
-    queue->family = family;
-    queue->optimal_transfers_to = transfer_props.optimalImageTransferToQueueFamilies;
-
-    log_debug("Queue created of type \"{}\" with family {}", core_to_string(type), family);
-
-    return queue;
-}
-
-void gpu_queue_init(gpu_queue* queue)
-{
-    auto* gpu = queue->gpu;
-
-    gpu->vk.GetDeviceQueue(gpu->device, queue->family, 0, &queue->queue);
+    gpu->vk.GetDeviceQueue(gpu->device, gpu->queue.family, 0, &gpu->queue.queue);
 
     gpu_check(gpu->vk.CreateCommandPool(gpu->device, ptr_to(VkCommandPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = queue->family,
-    }), nullptr, &queue->cmd_pool));
+        .queueFamilyIndex = gpu->queue.family,
+    }), nullptr, &gpu->queue.pool));
 
-    queue->syncobj = gpu_syncobj_create(gpu);
-}
-
-gpu_queue::~gpu_queue()
-{
-    syncobj = nullptr;
-
-    gpu->vk.DestroyCommandPool(gpu->device, cmd_pool, nullptr);
-}
-
-gpu_queue* gpu_get_queue(gpu_context* gpu, gpu_queue_type type)
-{
-    switch (type) {
-        break;case gpu_queue_type::graphics:
-            return gpu->graphics_queue.get();
-        break;case gpu_queue_type::transfer:
-            return gpu->transfer_queue.get();
-    }
-
-    core_unreachable();
+    gpu->queue.syncobj = gpu_syncobj_create(gpu);
 }
 
 // -----------------------------------------------------------------------------
 
 gpu_commands::~gpu_commands()
 {
-    auto* gpu = queue->gpu;
-    gpu->vk.FreeCommandBuffers(gpu->device, queue->cmd_pool, 1, &buffer);
+    gpu->vk.FreeCommandBuffers(gpu->device, gpu->queue.pool, 1, &buffer);
 
 #if GPU_VALIDATION_COMPATIBILITY
     if (validation.fence) {
@@ -64,15 +29,16 @@ gpu_commands::~gpu_commands()
 #endif
 }
 
-ref<gpu_commands> gpu_begin(gpu_queue* queue)
+auto gpu_get_commands(gpu_context* gpu) -> gpu_commands*
 {
-    auto* gpu = queue->gpu;
+    if (gpu->queue.commands) return gpu->queue.commands.get();
+
     auto commands = core_create<gpu_commands>();
-    commands->queue = queue;
+    commands->gpu = gpu;
 
     gpu_check(gpu->vk.AllocateCommandBuffers(gpu->device, ptr_to(VkCommandBufferAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = queue->cmd_pool,
+        .commandPool = gpu->queue.pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     }), &commands->buffer));
@@ -81,29 +47,17 @@ ref<gpu_commands> gpu_begin(gpu_queue* queue)
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     })));
 
-    return commands;
+    gpu->queue.commands = std::move(commands);
+
+    return gpu->queue.commands.get();
 }
 
 // -----------------------------------------------------------------------------
 
-void gpu_protect(gpu_commands* commands, ref<void> object)
+void gpu_protect(gpu_context* gpu, ref<void> object)
 {
     if (!object) return;
-    commands->objects.emplace_back(std::move(object));
-}
-
-// -----------------------------------------------------------------------------
-
-void gpu_wait_idle(gpu_context* gpu)
-{
-    gpu_wait_idle(gpu->graphics_queue.get());
-    gpu_wait_idle(gpu->transfer_queue.get());
-}
-
-void gpu_wait_idle(gpu_queue* queue)
-{
-    queue->gpu->vk.QueueWaitIdle(queue->queue);
-    gpu_wait({queue->syncobj.get(), queue->submitted});
+    gpu_get_commands(gpu)->objects.emplace_back(std::move(object));
 }
 
 // -----------------------------------------------------------------------------
@@ -134,46 +88,20 @@ auto submit_info(gpu_binary_semaphore* semaphore, VkPipelineStageFlags2 stages) 
     };
 }
 
-static
-auto get_wait(gpu_commands* commands, gpu_syncpoint syncpoint) -> VkSemaphoreSubmitInfo
+gpu_syncpoint gpu_flush(gpu_context* gpu)
 {
-    auto gpu = commands->queue->gpu;
-    auto binary = gpu_get_binary_semaphore(gpu);
-
-    auto sync_fd = gpu_syncobj_export_syncfile(syncpoint.syncobj, syncpoint.value);
-
-    gpu_check(gpu->vk.ImportSemaphoreFdKHR(gpu->device, ptr_to(VkImportSemaphoreFdInfoKHR {
-        .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
-        .semaphore = binary->semaphore,
-        .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
-        .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
-        .fd = sync_fd,
-    })));
-
-    gpu_protect(commands, binary.get());
-    return submit_info(binary.get(), syncpoint.stages);
-}
-
-gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> waits)
-{
-    auto* queue = commands->queue;
-    auto* gpu = queue->gpu;
+    auto* commands = gpu->queue.commands.get();
 
     core_thread_stack stack;
 
     gpu_check(gpu->vk.EndCommandBuffer(commands->buffer));
 
-    commands->submitted_value = ++queue->submitted;
+    commands->submitted_value = ++gpu->queue.submitted;
 
     gpu_syncpoint target {
-        .syncobj = queue->syncobj.get(),
+        .syncobj = gpu->queue.syncobj.get(),
         .value = commands->submitted_value,
     };
-
-    auto* wait_infos = stack.allocate<VkSemaphoreSubmitInfo>(waits.size());
-    for (auto[i, wait] : waits | std::views::enumerate) {
-        wait_infos[i] = get_wait(commands, wait);
-    }
 
     // Signal does not require protection, as exporting resets its payload.
     auto signal = gpu_get_binary_semaphore(gpu);
@@ -188,11 +116,9 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
     }
 #endif
 
-    gpu_check(gpu->vk.QueueSubmit2(queue->queue, 1,
+    gpu_check(gpu->vk.QueueSubmit2(gpu->queue.queue, 1,
         ptr_to(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .waitSemaphoreInfoCount = u32(waits.size()),
-            .pWaitSemaphoreInfos = wait_infos,
             .commandBufferInfoCount = 1,
             .pCommandBufferInfos = ptr_to(VkCommandBufferSubmitInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
@@ -210,14 +136,16 @@ gpu_syncpoint gpu_submit(gpu_commands* commands, std::span<const gpu_syncpoint> 
 
     transfer(signal.get(), target.syncobj, target.value);
 
-    gpu_wait({queue->syncobj.get(), queue->submitted}, [commands = ref(commands)](u64) {
+    gpu_wait({gpu->queue.syncobj.get(), gpu->queue.submitted}, [commands = ref(commands)](u64) {
 #if GPU_VALIDATION_COMPATIBILITY
         if (commands->validation.fence) {
-            auto* gpu = commands->queue->gpu;
+            auto* gpu = commands->gpu;
             gpu_check(gpu->vk.WaitForFences(gpu->device, 1, &commands->validation.fence, true, UINT64_MAX));
         }
 #endif
     });
+
+    gpu->queue.commands = nullptr;
 
     return target;
 }

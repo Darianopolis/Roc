@@ -126,6 +126,12 @@ ref<gpu_image> gpu_image_create(gpu_context* gpu, const gpu_image_create_info& i
     return image;
 }
 
+static
+VkCommandBuffer get_cmdbuf(gpu_context* gpu)
+{
+    return gpu_get_commands(gpu)->buffer;
+}
+
 void gpu_image_init(gpu_image_base* image)
 {
     auto* gpu = image->context();
@@ -150,11 +156,9 @@ void gpu_image_init(gpu_image_base* image)
         }
     }
 
-    auto queue = gpu_get_queue(gpu, gpu_queue_type::transfer);
-    auto cmd = gpu_begin(queue);
-    gpu_protect(cmd.get(), image);
+    gpu_protect(gpu, image);
 
-    gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
+    gpu->vk.CmdPipelineBarrier2(get_cmdbuf(gpu), ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
@@ -169,20 +173,17 @@ void gpu_image_init(gpu_image_base* image)
             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
         }),
     }));
-
-    auto done = gpu_submit(cmd.get(), {});
-    gpu_wait(done);
 }
 
-void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_image* image)
+void gpu_cmd_copy_image_to_buffer(gpu_buffer* buffer, gpu_image* image)
 {
     auto* gpu = image->context();
     auto extent = image->extent();
 
-    gpu_protect(cmd, image);
-    gpu_protect(cmd, buffer);
+    gpu_protect(gpu, image);
+    gpu_protect(gpu, buffer);
 
-    gpu->vk.CmdCopyImageToBuffer(cmd->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
+    gpu->vk.CmdCopyImageToBuffer(get_cmdbuf(gpu), image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
         .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
         .imageOffset = {},
@@ -190,14 +191,14 @@ void gpu_cmd_copy_image_to_buffer(gpu_commands* cmd, gpu_buffer* buffer, gpu_ima
     }));
 }
 
-void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffer* buffer, std::span<const gpu_buffer_image_copy> regions)
+void gpu_copy_buffer_to_image(gpu_image* image, gpu_buffer* buffer, std::span<const gpu_buffer_image_copy> regions)
 {
     auto* gpu = image->context();
 
     core_thread_stack stack;
 
-    gpu_protect(cmd, image);
-    gpu_protect(cmd, buffer);
+    gpu_protect(gpu, image);
+    gpu_protect(gpu, buffer);
 
     auto* copies = stack.allocate<VkBufferImageCopy>(regions.size());
     for (auto[i, region] : regions | std::views::enumerate) {
@@ -210,10 +211,10 @@ void gpu_cmd_copy_buffer_to_image(gpu_commands* cmd, gpu_image* image, gpu_buffe
         };
     }
 
-    gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, regions.size(), copies);
+    gpu->vk.CmdCopyBufferToImage(get_cmdbuf(gpu), buffer->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL, regions.size(), copies);
 }
 
-void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
+void gpu_copy_memory_to_image(gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
 {
     auto* gpu = image->context();
 
@@ -222,16 +223,7 @@ void gpu_cmd_copy_memory_to_image(gpu_commands* cmd, gpu_image* image, core_byte
 
     std::memcpy(buffer->host_address, data.data, data.size);
 
-    gpu_cmd_copy_buffer_to_image(cmd, image, buffer.get(), regions);
-}
-
-void gpu_copy_memory_to_image(gpu_image* image, core_byte_view data, std::span<const gpu_buffer_image_copy> regions)
-{
-    auto queue = gpu_get_queue(image->context(), gpu_queue_type::transfer);
-    auto commands = gpu_begin(queue);
-    gpu_cmd_copy_memory_to_image(commands.get(), image, data, regions);
-    auto done = gpu_submit(commands.get(), {});
-    gpu_wait(done);
+    gpu_copy_buffer_to_image(image, buffer.get(), regions);
 }
 
 auto gpu_image_compute_linear_offset(gpu_format format, vec2u32 pos, u32 row_stride_bytes) -> u32

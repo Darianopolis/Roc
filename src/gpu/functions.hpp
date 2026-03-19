@@ -5,7 +5,7 @@
 #define GPU_INSTANCE_FUNCTIONS(DO) \
     DO(EnumeratePhysicalDevices) \
     DO(GetPhysicalDeviceProperties2) \
-    DO(GetPhysicalDeviceQueueFamilyProperties2) \
+    DO(GetPhysicalDeviceQueueFamilyProperties) \
     DO(EnumerateDeviceExtensionProperties) \
     DO(CreateDevice) \
     DO(GetDeviceProcAddr) \

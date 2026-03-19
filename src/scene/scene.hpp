@@ -37,7 +37,7 @@ void scene_push_io_event(scene_context* ctx, struct io_event*);
 
 // -----------------------------------------------------------------------------
 
-auto scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport) -> gpu_syncpoint;
+void scene_render(scene_context* ctx, gpu_image* target, rect2f32 viewport);
 
 // -----------------------------------------------------------------------------
 

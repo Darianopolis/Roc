@@ -16,12 +16,12 @@ gpu_context::~gpu_context()
 {
     log_info("GPU context destroyed");
 
-    graphics_queue = nullptr;
-    transfer_queue = nullptr;
-
     core_assert(stats.active_images == 0);
     core_assert(stats.active_buffers == 0);
     core_assert(stats.active_samplers == 0);
+
+    core_assert(!queue.commands, "Unflushed commands");
+    vk.DestroyCommandPool(device, queue.pool, nullptr);
 
     vmaDestroyAllocator(vma);
 
@@ -395,39 +395,19 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
     // Queue selection
 
     {
-        u32 count;
-        gpu->vk.GetPhysicalDeviceQueueFamilyProperties2(gpu->physical_device, &count, nullptr);
+        std::vector<VkQueueFamilyProperties> props;
+        gpu_vk_enumerate(props, gpu->vk.GetPhysicalDeviceQueueFamilyProperties, gpu->physical_device);
 
-        core_thread_stack stack;
-        auto props = stack.allocate<VkQueueFamilyProperties2>(count);
-        auto transfer_props = stack.allocate<VkQueueFamilyOwnershipTransferPropertiesKHR>(count);
-        for (u32 i = 0; i < count; ++i) {
-            props[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
-            props[i].pNext = &transfer_props[i];
-            transfer_props[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_OWNERSHIP_TRANSFER_PROPERTIES_KHR;
-        }
-
-        gpu->vk.GetPhysicalDeviceQueueFamilyProperties2(gpu->physical_device, &count, props);
-
-        for (u32 i = 0; i < count; ++i) {
-            if (props[i].queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                if (!gpu->graphics_queue) {
-                    gpu->graphics_queue = gpu_queue_create(gpu.get(), gpu_queue_type::graphics, i, transfer_props[i]);
-                }
-            } else if (props[i].queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                if (!gpu->transfer_queue) {
-                    gpu->transfer_queue = gpu_queue_create(gpu.get(), gpu_queue_type::transfer, i, transfer_props[i]);
-                }
+        bool found = false;
+        for (auto[i, queue_props] : props | std::views::enumerate) {
+            VkQueueFlags require_flags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+            if ((queue_props.queueFlags & require_flags) == require_flags) {
+                gpu->queue.family = i;
+                found =true;
             }
         }
 
-        // TODO: Relax requirement for dedicated transfer queue
-        core_assert(gpu->graphics_queue);
-        core_assert(gpu->transfer_queue);
-
-        // Require QFOT-less transfers between graphics and transfer queues (from maintenance 9)
-        core_assert(gpu->graphics_queue->optimal_transfers_to & (1 << gpu->transfer_queue->family));
-        core_assert(gpu->transfer_queue->optimal_transfers_to & (1 << gpu->graphics_queue->family));
+        core_assert(found);
     }
 
     // Device creation
@@ -492,7 +472,7 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
                     .maintenance9 = true,
                 }),
             }),
-            .queueCreateInfoCount = 2,
+            .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -503,13 +483,7 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
                                 .globalPriority = VK_QUEUE_GLOBAL_PRIORITY_HIGH,
                             })
                             : nullptr,
-                    .queueFamilyIndex = gpu->graphics_queue->family,
-                    .queueCount = 1,
-                    .pQueuePriorities = ptr_to(1.f),
-                },
-                VkDeviceQueueCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = gpu->transfer_queue->family,
+                    .queueFamilyIndex = gpu->queue.family,
                     .queueCount = 1,
                     .pQueuePriorities = ptr_to(1.f),
                 },
@@ -534,8 +508,7 @@ ref<gpu_context> gpu_create(flags<gpu_feature> _features, core_event_loop* event
 
     gpu_load_device_functions(gpu.get());
 
-    gpu_queue_init(gpu->graphics_queue.get());
-    gpu_queue_init(gpu->transfer_queue.get());
+    gpu_queue_init(gpu.get());
 
     // Transfer syncobj
 

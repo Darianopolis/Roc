@@ -182,9 +182,6 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
 
         auto* gpu = server->gpu;
 
-        auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-        auto commands = gpu_begin(queue);
-
         auto& info = format->info;
         auto read_start = gpu_image_compute_linear_offset(format, aabb.min,     stride);
         auto read_end   = gpu_image_compute_linear_offset(format, aabb.max - 1, stride) + info.texel_block_size;
@@ -194,14 +191,12 @@ auto way_shm_buffer::acquire(way_surface* surface, way_surface_state& packet) ->
         core_assert((offset + read_end) <= pool->size, "accessed {} > available {}", offset + read_end, pool->size);
         std::memcpy(staging->host_address, core_byte_offset_pointer<void>(pool->data, offset + read_start), size);
 
-        gpu_cmd_copy_buffer_to_image(commands.get(), image.get(), staging.get(),
+        gpu_copy_buffer_to_image(image.get(), staging.get(),
             {{
                 .image_extent = rect.extent,
                 .image_offset = rect.origin,
                 .buffer_row_length = u32(stride) / info.texel_block_size,
             }});
-
-        gpu_submit(commands.get(), {});
     }
 #if NOISY_SHM_BUFFER_IMAGES
     else {

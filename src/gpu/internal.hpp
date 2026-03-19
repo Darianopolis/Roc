@@ -91,8 +91,26 @@ void gpu_allocate_sampler_descriptor(gpu_sampler*);
 
 // -----------------------------------------------------------------------------
 
-auto gpu_queue_create(gpu_context*, gpu_queue_type, u32 family, const VkQueueFamilyOwnershipTransferPropertiesKHR&) -> ref<gpu_queue>;
-void gpu_queue_init(gpu_queue*);
+struct gpu_commands
+{
+    gpu_context* gpu;
+
+    VkCommandBuffer buffer;
+    core_ref_vector<void> objects;
+
+    u64 submitted_value;
+
+#if GPU_VALIDATION_COMPATIBILITY
+    struct {
+        VkFence fence;
+    } validation;
+#endif
+
+    ~gpu_commands();
+};
+
+void gpu_queue_init(gpu_context*);
+auto gpu_get_commands(gpu_context*) -> gpu_commands*;
 
 // -----------------------------------------------------------------------------
 

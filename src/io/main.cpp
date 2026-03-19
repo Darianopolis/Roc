@@ -17,15 +17,12 @@ void render(gpu_context* gpu, io_output* output, gpu_image_pool* pool)
         })),
     });
 
-    auto queue = gpu_get_queue(gpu, gpu_queue_type::graphics);
-    auto commands = gpu_begin(queue);
+    gpu_render(gpu, {
+        .target = image.get(),
+        .clear_color = {1, 0, 0, 1},
+    }, [](gpu_renderpass&) {});
 
-    gpu->vk.CmdClearColorImage(commands->buffer, image->handle(), VK_IMAGE_LAYOUT_GENERAL,
-        ptr_to(VkClearColorValue{.float32{1,0,0,1}}),
-        1, ptr_to(VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
-
-    auto done = gpu_submit(commands.get(), {});
-    output->commit(image.get(), done, io_output_commit_flag::vsync);
+    output->commit(image.get(), gpu_flush(gpu), io_output_commit_flag::vsync);
 }
 
 static

@@ -75,9 +75,9 @@ int main()
                     }))
                 });
 
-                auto done = scene_render(scene.get(), target.get(), scene_output_get_viewport(output->scene.get()));
+                scene_render(scene.get(), target.get(), scene_output_get_viewport(output->scene.get()));
 
-                output->io->commit(target.get(), done, io_output_commit_flag::vsync);
+                output->io->commit(target.get(), gpu_flush(gpu.get()), io_output_commit_flag::vsync);
             }
         }
     });
