@@ -46,7 +46,7 @@ void tranche_formats(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf
 static
 void configure(void* udata, xdg_surface* xdg_surface, u32 serial)
 {
-    auto* output = static_cast<io_output_wayland*>(udata);
+    auto* output = static_cast<io_wayland_output*>(udata);
 
     xdg_surface_ack_configure(xdg_surface, serial);
     wl_surface_commit(output->wl_surface);
@@ -77,7 +77,7 @@ IO_WL_LISTENER(zxdg_toplevel_decoration_v1) = {
 static
 void toplevel_configure(void* udata, xdg_toplevel* toplevel, i32 width, i32 height, wl_array* states)
 {
-    auto output = static_cast<io_output_wayland*>(udata);
+    auto output = static_cast<io_wayland_output*>(udata);
 
     output->configure.size = (width && height) ? vec2i32{width, height} : vec2i32{1920, 1080};
 }
@@ -85,7 +85,7 @@ void toplevel_configure(void* udata, xdg_toplevel* toplevel, i32 width, i32 heig
 static
 void toplevel_close(void* udata, xdg_toplevel*)
 {
-    auto* output = static_cast<io_output_wayland*>(udata);
+    auto* output = static_cast<io_wayland_output*>(udata);
     auto* ctx = output->ctx;
     ctx->wayland->outputs.erase(output);
     if (ctx->wayland->outputs.empty()) {
@@ -114,10 +114,10 @@ IO_WL_LISTENER(zwp_linux_dmabuf_feedback_v1) = {
 
 IO_WL_LISTENER(zwp_locked_pointer_v1) = {
     .locked   = [](void* udata, zwp_locked_pointer_v1*) {
-        static_cast<io_output_wayland*>(udata)->pointer_locked = true;
+        static_cast<io_wayland_output*>(udata)->pointer_locked = true;
     },
     .unlocked = [](void* udata, zwp_locked_pointer_v1*) {
-        static_cast<io_output_wayland*>(udata)->pointer_locked = false;
+        static_cast<io_wayland_output*>(udata)->pointer_locked = false;
     },
 };
 
@@ -129,7 +129,7 @@ void io_add_output(io_context* ctx)
     static u32 window_id = 0;
     auto title = std::format("WL-{}", ++window_id);
 
-    auto output = core_create<io_output_wayland>();
+    auto output = core_create<io_wayland_output>();
     output->ctx = ctx;
 
     wl->outputs.emplace_back(output.get());
@@ -213,7 +213,7 @@ wp_linux_drm_syncobj_timeline_v1* get_syncobj_proxy(io_context* ctx, gpu_syncobj
 static
 void on_present_frame(void* udata, wl_callback*, u32 time)
 {
-    auto* output = static_cast<io_output_wayland*>(udata);
+    auto* output = static_cast<io_wayland_output*>(udata);
 
     wl_callback_destroy(output->frame_callback);
     output->frame_callback = nullptr;
@@ -224,7 +224,7 @@ void on_present_frame(void* udata, wl_callback*, u32 time)
     }
 }
 
-void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, flags<io_output_commit_flag> flags)
+void io_wayland_output::commit(gpu_image* image, gpu_syncpoint done, flags<io_output_commit_flag> flags)
 {
     core_assert(commit_available);
 
@@ -269,7 +269,7 @@ void io_output_wayland::commit(gpu_image* image, gpu_syncpoint done, flags<io_ou
 }
 
 
-io_output_wayland::~io_output_wayland()
+io_wayland_output::~io_wayland_output()
 {
     IO_WL_DESTROY(wp_linux_drm_syncobj_surface_v1);
 

@@ -10,7 +10,6 @@
 static struct {
     core_log_level log_level = core_log_level::trace;
     std::ofstream log_file;
-    MessageConnection* ipc_sink = {};
 
     struct {
         std::string buffer;
@@ -23,19 +22,14 @@ static struct {
     std::recursive_mutex mutex;
 } core_log_state = {};
 
-void core_log_set_message_sink(struct MessageConnection* conn)
-{
-    core_log_state.ipc_sink = conn;
-}
-
-core_log_level core_get_log_level()
+core_log_level core_log_get_level()
 {
     return core_log_state.log_level;
 }
 
-bool core_is_log_level_enabled(core_log_level level)
+bool core_log_is_enabled(core_log_level level)
 {
-    return level >= core_get_log_level();
+    return level >= core_log_get_level();
 }
 
 bool core_log_is_history_enabled()
@@ -165,7 +159,7 @@ void core_log(core_log_level level, std::string_view message)
     }
 }
 
-void core_init_log(core_log_level log_level,  const char* log_file)
+void core_log_init(core_log_level log_level,  const char* log_file)
 {
     core_log_state.log_level = log_level;
     if (log_file) core_log_state.log_file = std::ofstream(log_file);

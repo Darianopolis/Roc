@@ -145,7 +145,7 @@ public:
         : values(other.values)
     {
         for (auto* value : values) {
-            core_add_ref(value);
+            core_object_add_ref(value);
         }
     }
 
@@ -155,7 +155,7 @@ public:
             clear();
             values = other.values;
             for (auto* value : values) {
-                core_add_ref(value);
+                core_object_add_ref(value);
             }
         }
         return *this;
@@ -180,7 +180,7 @@ public:
 public:
     T* emplace_back(T* value)
     {
-        return values.emplace_back(core_add_ref(value));
+        return values.emplace_back(core_object_add_ref(value));
     }
 
     T* emplace_back(ref<T>&& value)
@@ -193,7 +193,7 @@ public:
     {
         return std::erase_if(values, [&](auto* c) {
             if (fn(c)) {
-                core_remove_ref(c);
+                core_object_remove_ref(c);
                 return true;
             }
             return false;
@@ -212,27 +212,27 @@ public:
 
     void clear()
     {
-        for (auto* v : values) core_remove_ref(v);
+        for (auto* v : values) core_object_remove_ref(v);
         values.clear();
     }
 
     auto pop_front() -> ref<T>
     {
-        auto value = core_adopt_ref(values.front());
+        auto value = core_ref_adopt(values.front());
         values.pop_front();
         return value;
     }
 
     auto pop_back() -> ref<T>
     {
-        auto value = core_adopt_ref(values.back());
+        auto value = core_ref_adopt(values.back());
         values.pop_back();
         return value;
     }
 
     auto insert(const_iterator i, T* v)
     {
-        core_add_ref(v);
+        core_object_add_ref(v);
         return values.insert(i, v);
     }
 
@@ -241,6 +241,6 @@ public:
 
     ~core_ref_vector()
     {
-        for (auto* v : values) core_remove_ref(v);
+        for (auto* v : values) core_object_remove_ref(v);
     }
 };

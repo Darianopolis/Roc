@@ -33,6 +33,8 @@ CORE_UNIX_ERROR_BEHAVIOUR(epoll_wait,      negative_one)
 CORE_UNIX_ERROR_BEHAVIOUR(epoll_ctl,       negative_one)
 CORE_UNIX_ERROR_BEHAVIOUR(poll,            negative_one)
 CORE_UNIX_ERROR_BEHAVIOUR(eventfd,         negative_one)
+CORE_UNIX_ERROR_BEHAVIOUR(eventfd_write,   negative_one)
+CORE_UNIX_ERROR_BEHAVIOUR(eventfd_read,    negative_one)
 
 // Capabilities
 

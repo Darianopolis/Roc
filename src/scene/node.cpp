@@ -176,26 +176,26 @@ void reparent_unsafe(scene_node* node, scene_tree* tree)
 }
 
 static
-void tree_place(scene_tree* tree, scene_node* reference, scene_node* node, bool above)
+void tree_place(scene_tree* tree, scene_node* sibling, scene_node* node, bool above)
 {
     auto end = tree->children.end();
-    auto cur =             std::ranges::find(tree->children, node);
-    auto ref = reference ? std::ranges::find(tree->children, reference) : end;
+    auto cur =           std::ranges::find(tree->children, node);
+    auto sib = sibling ? std::ranges::find(tree->children, sibling) : end;
 
-    if (ref == end) {
+    if (sib == end) {
         if (tree->children.empty()) {
             tree->children.emplace_back(node);
             return;
         }
-        ref = above ? end - 1 : tree->children.begin();
+        sib = above ? end - 1 : tree->children.begin();
     }
 
     if (cur == end) {
-        if (above) tree->children.insert(ref + 1, node);
-        else       tree->children.insert(ref,     node);
-    } else if (cur != ref) {
-        if (cur > ref) std::rotate(ref + i32(above), cur, cur + 1);
-        else           std::rotate(cur, cur + 1, ref + i32(above));
+        if (above) tree->children.insert(sib + 1, node);
+        else       tree->children.insert(sib,     node);
+    } else if (cur != sib) {
+        if (cur > sib) std::rotate(sib + i32(above), cur, cur + 1);
+        else           std::rotate(cur, cur + 1, sib + i32(above));
     }
 
     NODE_LOG("scene.tree{{{}}}.place_{}({}, {})", (void*)tree, above ? "above" : "below", (void*)reference, (void*)node);

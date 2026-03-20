@@ -83,7 +83,9 @@ ref<exec_context> exec_create()
 
     ctx->task_fd = core_fd(unix_check<eventfd>(0, EFD_CLOEXEC | EFD_NONBLOCK).value);
     exec_fd_listen(ctx.get(), ctx->task_fd.get(), exec_fd_event_bit::readable, [ctx = ctx.get()](int fd, flags<exec_fd_event_bit> events) {
-        ctx->tasks_available += core_eventfd_read(fd);
+        eventfd_t tasks = {};
+        unix_check<eventfd_read>(fd, &tasks);
+        ctx->tasks_available += tasks;
 
         // Don't double dip task event stats
         ctx->stats.events_handled--;

@@ -79,9 +79,9 @@ wl_resource* way_resource_create_(wl_client* client, const wl_interface* interfa
 {
     auto resource = wl_resource_create(client, interface, version, id);
     if (refcount) {
-        core_add_ref(data);
+        core_object_add_ref(data);
         wl_resource_set_implementation(resource, impl, data, [](wl_resource* resource) {
-            core_remove_ref(wl_resource_get_user_data(resource));
+            core_object_remove_ref(wl_resource_get_user_data(resource));
         });
     } else {
         wl_resource_set_implementation(resource, impl, data, nullptr);

@@ -68,8 +68,8 @@ void way_on_client_create(wl_listener* listener, void* data)
     client->server = server;
     client->wl_client = wl_client;
 
-    wl_client_set_user_data(wl_client, core_add_ref(client.get()), [](void* data) {
-        core_remove_ref(way_get_userdata<way_client>(data));
+    wl_client_set_user_data(wl_client, core_object_add_ref(client.get()), [](void* data) {
+        core_object_remove_ref(way_get_userdata<way_client>(data));
     });
 
     client->scene = scene_client_create(server->scene);

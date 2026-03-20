@@ -84,7 +84,8 @@ u64 gpu_syncobj_get_value(gpu_syncobj* syncobj)
 static
 void handle_waits(gpu_syncobj* syncobj)
 {
-    auto count = core_eventfd_read(syncobj->wait.fd.get());
+    eventfd_t count = {};
+    unix_check<eventfd_read>(syncobj->wait.fd.get(), &count);
 
     if (count > syncobj->wait.skips) {
         count -= syncobj->wait.skips;

@@ -51,7 +51,7 @@ u8   core_registry_get_bin_index(usz size)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* core_create_uninitialized()
+T* core_object_create_uninitialized()
 {
     static constexpr auto bin = core_registry_get_bin_index(sizeof(T));
     auto header = core_registry_allocate(bin);
@@ -65,13 +65,13 @@ T* core_create_uninitialized()
 }
 
 template<typename T>
-T* core_create_unsafe(auto&&... args)
+T* core_object_create_unsafe(auto&&... args)
 {
-    return new (core_create_uninitialized<T>()) T(std::forward<decltype(args)>(args)...);
+    return new (core_object_create_uninitialized<T>()) T(std::forward<decltype(args)>(args)...);
 }
 
 inline
-void core_destroy(void* v)
+void core_object_destroy(void* v)
 {
     auto header = core_allocation_from(v);
     header->free(header);
@@ -80,14 +80,14 @@ void core_destroy(void* v)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* core_add_ref(T* t)
+T* core_object_add_ref(T* t)
 {
     if (t) core_allocation_from(t)->ref_count++;
     return t;
 }
 
 template<typename T>
-T* core_remove_ref(T* t)
+T* core_object_remove_ref(T* t)
 {
     if (!t) return nullptr;
     auto header = core_allocation_from(t);
@@ -111,7 +111,7 @@ struct core_ref
 
     ~core_ref()
     {
-        core_remove_ref(value);
+        core_object_remove_ref(value);
     }
 
     void destroy()
@@ -129,7 +129,7 @@ struct core_ref
     core_ref(T* t)
         : value(t)
     {
-        core_add_ref(value);
+        core_object_add_ref(value);
     }
 
     core_ref(T* t, core_ref_adopt_tag)
@@ -139,8 +139,8 @@ struct core_ref
     void reset(T* t = nullptr)
     {
         if (t == value) return;
-        core_remove_ref(value);
-        value = core_add_ref(t);
+        core_object_remove_ref(value);
+        value = core_object_add_ref(t);
     }
 
     core_ref& operator=(T* t)
@@ -150,14 +150,14 @@ struct core_ref
     }
 
     core_ref(const core_ref& other)
-        : value(core_add_ref(other.value))
+        : value(core_object_add_ref(other.value))
     {}
 
     core_ref& operator=(const core_ref& other)
     {
         if (value != other.value) {
-            core_remove_ref(value);
-            value = core_add_ref(other.value);
+            core_object_remove_ref(value);
+            value = core_object_add_ref(other.value);
         }
         return *this;
     }
@@ -169,7 +169,7 @@ struct core_ref
     core_ref& operator=(core_ref&& other)
     {
         if (value != other.value) {
-            core_remove_ref(value);
+            core_object_remove_ref(value);
             value = std::exchange(other.value, nullptr);
         }
         return *this;
@@ -191,7 +191,7 @@ struct core_ref
 };
 
 template<typename T>
-auto core_adopt_ref(T* t) -> core_ref<T>
+auto core_ref_adopt(T* t) -> core_ref<T>
 {
     return {t, core_ref_adopt_tag{}};
 }
@@ -199,7 +199,7 @@ auto core_adopt_ref(T* t) -> core_ref<T>
 template<typename T>
 auto core_create(auto&&... args) -> core_ref<T>
 {
-    return core_adopt_ref(core_create_unsafe<T>(std::forward<decltype(args)>(args)...));
+    return core_ref_adopt(core_object_create_unsafe<T>(std::forward<decltype(args)>(args)...));
 }
 
 // -----------------------------------------------------------------------------

@@ -114,10 +114,3 @@ int core_fd::extract() noexcept
 {
     return core_fd_extract(std::exchange(fd, -1));
 }
-
-// -----------------------------------------------------------------------------
-
-core_fd core_fd_dup(int fd)
-{
-    return fd >= 0 ? core_fd(core_fd_dup_unsafe(fd)) : core_fd();
-}

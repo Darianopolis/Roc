@@ -1,6 +1,6 @@
 #include "wayland.hpp"
 
-io_input_device_wayland_keyboard::~io_input_device_wayland_keyboard()
+io_wayland_keyboard::~io_wayland_keyboard()
 {
     wl_keyboard_destroy(wl_keyboard);
 }
@@ -48,7 +48,7 @@ IO_WL_LISTENER(wl_keyboard) = {
 static
 void set_keyboard(io_context* ctx)
 {
-    auto* kb = (ctx->wayland->keyboard = core_create<io_input_device_wayland_keyboard>()).get();
+    auto* kb = (ctx->wayland->keyboard = core_create<io_wayland_keyboard>()).get();
     kb->wl_keyboard = wl_seat_get_keyboard(ctx->wayland->wl_seat);
     kb->ctx = ctx;
     wl_keyboard_add_listener(kb->wl_keyboard, &io_wl_keyboard_listener, ctx);
@@ -57,14 +57,14 @@ void set_keyboard(io_context* ctx)
 
 // -----------------------------------------------------------------------------
 
-io_input_device_wayland_pointer::~io_input_device_wayland_pointer()
+io_wayland_pointer::~io_wayland_pointer()
 {
     zwp_relative_pointer_v1_destroy(zwp_relative_pointer_v1);
     wl_pointer_destroy(wl_pointer);
 }
 
 static
-io_output_wayland* find_output_for_surface(io_context* ctx, wl_surface* surface)
+io_wayland_output* find_output_for_surface(io_context* ctx, wl_surface* surface)
 {
     for (auto* output : ctx->wayland->outputs) {
         if (output->wl_surface == surface) {
@@ -146,7 +146,7 @@ void pointer_relative(
     wl_fixed_t dx, wl_fixed_t dy,
     wl_fixed_t dx_unaccel, wl_fixed_t dy_unaccel)
 {
-    auto* ptr = static_cast<io_input_device_wayland_pointer*>(udata);
+    auto* ptr = static_cast<io_wayland_pointer*>(udata);
     auto* output = get_impl(ptr->current_output.get());
     if (!output || !output->pointer_locked) return;
     io_input_device_pointer_motion(ptr, {wl_fixed_to_double(dx_unaccel), wl_fixed_to_double(dy_unaccel)});
@@ -159,7 +159,7 @@ IO_WL_LISTENER(zwp_relative_pointer_v1) = {
 static
 void set_pointer(io_context* ctx)
 {
-    auto* ptr = (ctx->wayland->pointer = core_create<io_input_device_wayland_pointer>()).get();
+    auto* ptr = (ctx->wayland->pointer = core_create<io_wayland_pointer>()).get();
     ptr->ctx = ctx;
 
     ptr->wl_pointer = wl_seat_get_pointer(ctx->wayland->wl_seat);

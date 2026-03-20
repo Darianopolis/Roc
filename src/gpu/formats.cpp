@@ -228,7 +228,6 @@ auto gpu_get_format_properties(gpu_context* gpu, gpu_format format, flags<gpu_im
     gpu_format_props_key key { format->vk, gpu_image_usage_to_vk(usage) };
 
     auto iter = gpu->format_props.find(key);
-    if (iter != gpu->format_props.end()) return &iter->second;
 
     return iter == gpu->format_props.end()
         ? load_format_props(gpu, gpu->format_props[key], format, usage)

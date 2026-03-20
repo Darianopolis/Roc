@@ -4,7 +4,6 @@
 #include "core/object.hpp"
 #include "core/enum.hpp"
 #include "core/fd.hpp"
-#include "core/eventfd.hpp"
 
 // -----------------------------------------------------------------------------
 
@@ -75,7 +74,7 @@ void exec_enqueue(exec_context* exec, Lambda&& task)
     if (std::this_thread::get_id() == exec->os_thread) {
         exec->tasks_available++;
     } else {
-        core_eventfd_signal(exec->task_fd.get(), 1);
+        unix_check<eventfd_write>(exec->task_fd.get(), 1);
     }
 }
 
@@ -87,7 +86,7 @@ void exec_enqueue_and_wait(exec_context* exec, Lambda&& task)
     std::atomic_flag done = false;
     // We can avoid moving `task` entirely since its lifetime is guaranteed
     exec->queue.enqueue({ .callback = [&task] { task(); }, .sync = &done });
-    core_eventfd_signal(exec->task_fd.get(), 1);
+    unix_check<eventfd_write>(exec->task_fd.get(), 1);
     done.wait(false);
 }
 

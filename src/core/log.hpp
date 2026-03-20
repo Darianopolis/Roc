@@ -13,11 +13,10 @@ enum class core_log_level : u32
     fatal,
 };
 
-void core_log_set_message_sink(struct MessageConnection*);
-core_log_level core_get_log_level();
-bool core_is_log_level_enabled(core_log_level);
-void core_init_log(core_log_level, const char* log_file);
-void      core_log(core_log_level, std::string_view message);
+auto core_log_get_level() -> core_log_level;
+bool core_log_is_enabled(core_log_level);
+void core_log_init(      core_log_level, const char* log_file);
+void core_log(           core_log_level, std::string_view message);
 
 struct core_log_entry
 {
@@ -40,7 +39,7 @@ struct core_log_history
 
     const core_log_entry* find(u32 line) const noexcept;
 };
-core_log_history core_log_get_history();
+auto core_log_get_history() -> core_log_history;
 void core_log_set_history_enabled(bool enabled);
 bool core_log_is_history_enabled();
 void core_log_clear_history();
@@ -48,12 +47,12 @@ void core_log_clear_history();
 template<typename ...Args>
 void core_log(core_log_level level, std::format_string<Args...> fmt, Args&&... args)
 {
-    if (core_get_log_level() > level) return;
+    if (core_log_get_level() > level) return;
     core_log(level, std::vformat(fmt.get(), std::make_format_args(args...)));
 }
 
-#define log_trace(fmt, ...) do { if (core_is_log_level_enabled(core_log_level::trace)) core_log(core_log_level::trace, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
-#define log_debug(fmt, ...) do { if (core_is_log_level_enabled(core_log_level::debug)) core_log(core_log_level::debug, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
-#define log_info( fmt, ...) do { if (core_is_log_level_enabled(core_log_level::info )) core_log(core_log_level::info,  std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
-#define log_warn( fmt, ...) do { if (core_is_log_level_enabled(core_log_level::warn )) core_log(core_log_level::warn,  std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
-#define log_error(fmt, ...) do { if (core_is_log_level_enabled(core_log_level::error)) core_log(core_log_level::error, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
+#define log_trace(fmt, ...) do { if (core_log_is_enabled(core_log_level::trace)) core_log(core_log_level::trace, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
+#define log_debug(fmt, ...) do { if (core_log_is_enabled(core_log_level::debug)) core_log(core_log_level::debug, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
+#define log_info( fmt, ...) do { if (core_log_is_enabled(core_log_level::info )) core_log(core_log_level::info,  std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
+#define log_warn( fmt, ...) do { if (core_log_is_enabled(core_log_level::warn )) core_log(core_log_level::warn,  std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)
+#define log_error(fmt, ...) do { if (core_log_is_enabled(core_log_level::error)) core_log(core_log_level::error, std::format(fmt __VA_OPT__(,) __VA_ARGS__)); } while (0)

@@ -16,9 +16,9 @@ CORE_UNIX_ERROR_BEHAVIOUR(wl_display_dispatch_timeout, negative_one)
 // -----------------------------------------------------------------------------
 
 struct io_wayland;
-struct io_output_wayland;
-struct io_input_device_wayland_keyboard;
-struct io_input_device_wayland_pointer;
+struct io_wayland_output;
+struct io_wayland_keyboard;
+struct io_wayland_pointer;
 
 // -----------------------------------------------------------------------------
 
@@ -82,12 +82,12 @@ struct io_wayland
         gpu_format_set set;
     } format;
 
-    core_ref_vector<io_output_wayland> outputs;
+    core_ref_vector<io_wayland_output> outputs;
 
     std::chrono::steady_clock::time_point current_dispatch_time;
 
-    ref<io_input_device_wayland_keyboard> keyboard;
-    ref<io_input_device_wayland_pointer>  pointer;
+    ref<io_wayland_keyboard> keyboard;
+    ref<io_wayland_pointer>  pointer;
 
     bool in_keyboard_enter;
 
@@ -99,7 +99,7 @@ struct io_wayland
 
 // -----------------------------------------------------------------------------
 
-struct io_output_wayland : io_output_base
+struct io_wayland_output : io_output_base
 {
     IO_WL_INTERFACE(wl_surface);
     IO_WL_INTERFACE(xdg_surface);
@@ -134,25 +134,25 @@ struct io_output_wayland : io_output_base
 
     virtual void commit(gpu_image*, gpu_syncpoint done, flags<io_output_commit_flag>) final override;
 
-    ~io_output_wayland();
+    ~io_wayland_output();
 };
 
 inline
-auto get_impl(io_output* output) -> io_output_wayland*
+auto get_impl(io_output* output) -> io_wayland_output*
 {
-    return dynamic_cast<io_output_wayland*>(output);
+    return dynamic_cast<io_wayland_output*>(output);
 }
 
 // -----------------------------------------------------------------------------
 
-struct io_input_device_wayland_keyboard : io_input_device_base
+struct io_wayland_keyboard : io_input_device_base
 {
     IO_WL_INTERFACE(wl_keyboard);
 
-    ~io_input_device_wayland_keyboard();
+    ~io_wayland_keyboard();
 };
 
-struct io_input_device_wayland_pointer : io_input_device_base
+struct io_wayland_pointer : io_input_device_base
 {
     IO_WL_INTERFACE(wl_pointer);
     IO_WL_INTERFACE(zwp_relative_pointer_v1);
@@ -160,7 +160,7 @@ struct io_input_device_wayland_pointer : io_input_device_base
     weak<io_output> current_output;
     u32 last_serial;
 
-    ~io_input_device_wayland_pointer();
+    ~io_wayland_pointer();
 };
 
 // -----------------------------------------------------------------------------

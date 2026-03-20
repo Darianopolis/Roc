@@ -1,4 +1,4 @@
 #pragma once
 
-bool core_capability_has( cap_value_t cap);
-void core_capability_drop(cap_value_t cap);
+bool core_process_has_cap( cap_value_t cap);
+void core_process_drop_cap(cap_value_t cap);

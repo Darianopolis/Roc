@@ -21,16 +21,16 @@ vec4u8 core_color_from_hex(std::string_view str)
     vec4u8 color;
     if (str.starts_with("#")) str.remove_prefix(1);
 
-    auto hex_to_value = [&](u32 i) -> u8 {
+    auto hex_pair_to_value = [&](u32 i) -> u8 {
         return core_hex_to_value(str[i]) * 16 + core_hex_to_value(str[i + 1]);
     };
 
     core_assert(str.size() >= 6);
 
-    color.x = hex_to_value(0);
-    color.y = hex_to_value(2);
-    color.z = hex_to_value(4);
-    color.w = str.size() >= 8 ? hex_to_value(6) : 255;
+    color.x = hex_pair_to_value(0);
+    color.y = hex_pair_to_value(2);
+    color.z = hex_pair_to_value(4);
+    color.w = str.size() >= 8 ? hex_pair_to_value(6) : 255;
 
     return color;
 }

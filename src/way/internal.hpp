@@ -158,7 +158,6 @@ public:
 
 struct way_surface;
 struct way_buffer;
-struct way_buffer_lock;
 
 // -----------------------------------------------------------------------------
 

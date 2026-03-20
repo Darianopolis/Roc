@@ -251,7 +251,7 @@ VkBool32 VKAPI_CALL debug_callback(
             core_unreachable();
     }
 
-    if (!core_is_log_level_enabled(level)) return VK_FALSE;
+    if (!core_log_is_enabled(level)) return VK_FALSE;
 
     if (data->messageIdNumber) {
         auto message = std::format("Validation {}: [ {} ] | MessageID = {:#x}\n",
@@ -494,7 +494,7 @@ ref<gpu_context> gpu_create(exec_context* exec, flags<gpu_feature> _features)
         }), nullptr, &gpu->device), VK_ERROR_NOT_PERMITTED);
     };
 
-    if (core_capability_has(CAP_SYS_NICE)) {
+    if (core_process_has_cap(CAP_SYS_NICE)) {
         log_debug("NICE system capability detected, requesting high global queue priority");
         if (create_device(true) == VK_ERROR_NOT_PERMITTED) {
             log_warn("Failed to acquire global queue priority, falling back to normal queue priorities");
@@ -502,7 +502,7 @@ ref<gpu_context> gpu_create(exec_context* exec, flags<gpu_feature> _features)
         } else {
             log_info("Sucessfully created device with high global queue priority");
         }
-        core_capability_drop(CAP_SYS_NICE);
+        core_process_drop_cap(CAP_SYS_NICE);
     } else {
         create_device(false);
     }
