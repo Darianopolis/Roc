@@ -4,7 +4,7 @@
 
 #include "io/io.hpp"
 
-#include "imui/imui.hpp"
+#include "ui/ui.hpp"
 #include "way/way.hpp"
 #include "way/internal.hpp"
 
@@ -271,8 +271,8 @@ int main()
     // ImGui
 
     std::string ui_text_edit = "Hello, world!";
-    auto imui = ui_create(gpu.get(), scene.get());
-    ui_add_frame_handler(imui.get(), [&] {
+    auto ui = ui_create(gpu.get(), scene.get());
+    ui_add_frame_handler(ui.get(), [&] {
         ImGui::ShowDemoWindow();
 
         defer { ImGui::End(); };
@@ -336,7 +336,7 @@ int main()
             ImGui::InputText("Text", &ui_text_edit);
         }
     });
-    ui_request_frame(imui.get());
+    ui_request_frame(ui.get());
 
     // Hotkey
 

@@ -248,11 +248,11 @@ target_link_libraries(scene PUBLIC io)
 
 # ------------------------------------------------------------------------------
 
-init_library(imui)
-target_sources(imui PUBLIC
-    src/imui/imgui.cpp
+init_library(ui)
+target_sources(ui PUBLIC
+    src/ui/ui.cpp
     )
-target_link_libraries(imui PUBLIC scene)
+target_link_libraries(ui PUBLIC scene)
 
 # ------------------------------------------------------------------------------
 
@@ -285,4 +285,4 @@ target_sources(roc PUBLIC
     src/wm/wm.cpp
     src/wm/movesize.cpp
     )
-target_link_libraries(roc PUBLIC scene way imui)
+target_link_libraries(roc PUBLIC scene way ui)

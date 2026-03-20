@@ -87,7 +87,7 @@ An internal protocol-independent "display server".
    - Selection buffers
    - Drag and drop **❗**
 
-### Immediate Mode UI - `imui`
+### Immediate Mode UI - `ui`
 
 An internal layer for writing in-process GUI clients.
 

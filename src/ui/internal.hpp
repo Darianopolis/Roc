@@ -1,6 +1,6 @@
 #pragma once
 
-#include "imui.hpp"
+#include "ui.hpp"
 
 struct ui_viewport_data {
     ref<scene_window>       window;
