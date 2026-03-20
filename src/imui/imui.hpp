@@ -2,24 +2,24 @@
 
 #include "scene/scene.hpp"
 
-struct imui_context;
+struct ui_context;
 
-auto imui_create(gpu_context*, scene_context*) -> ref<imui_context>;
+auto ui_create(gpu_context*, scene_context*) -> ref<ui_context>;
 
 // -----------------------------------------------------------------------------
 
-using imui_frame_fn = void();
+using ui_frame_fn = void();
 
-void imui_request_frame(imui_context*);
-void imui_add_frame_handler(imui_context*, std::move_only_function<imui_frame_fn>&&);
-auto imui_get_texture(imui_context*, gpu_image*, gpu_sampler*, gpu_blend_mode) -> ImTextureID;
+void ui_request_frame(ui_context*);
+void ui_add_frame_handler(ui_context*, std::move_only_function<ui_frame_fn>&&);
+auto ui_get_texture(ui_context*, gpu_image*, gpu_sampler*, gpu_blend_mode) -> ImTextureID;
 
-auto imui_get_window(ImGuiWindow*) -> scene_window*;
+auto ui_get_window(ImGuiWindow*) -> scene_window*;
 
 // -----------------------------------------------------------------------------
 
 template<typename ...Args>
-void imui_text(std::format_string<Args...> fmt, Args&&... args)
+void ui_text(std::format_string<Args...> fmt, Args&&... args)
 {
     ImGui::TextUnformatted(std::vformat(fmt.get(), std::make_format_args(args...)).c_str());
 }
