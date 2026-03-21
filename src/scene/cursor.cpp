@@ -86,7 +86,7 @@ auto get_xcursor(scene_context* ctx, const char* semantic) -> scene_node*
 
 void scene_pointer_set_xcursor(scene_pointer* pointer, const char* semantic)
 {
-    auto visual = semantic ? get_xcursor(pointer->ctx, semantic) : nullptr;
+    auto visual = semantic ? get_xcursor(pointer->seat->ctx, semantic) : nullptr;
 
     if (visual != get_visual(pointer)) {
         log_trace("scene.pointer.set_xcursor({})", semantic ?: "nullptr");

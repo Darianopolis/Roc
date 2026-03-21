@@ -448,6 +448,12 @@ auto ui_create(gpu_context* gpu, scene_context* scene, const std::filesystem::pa
     scene_client_set_event_handler(ctx->client.get(), [ctx = ctx.get()](scene_event* event) {
         ui_context_guard _{ctx->context};
         switch (event->type) {
+            // seat
+            break;case scene_event_type::seat_add:
+                  case scene_event_type::seat_configure:
+                  case scene_event_type::seat_remove:
+                ;
+
             // keyboard
             break;case scene_event_type::keyboard_enter:
                 ui_handle_keyboard_enter(ctx, event->keyboard.keyboard, event->keyboard.focus.region);

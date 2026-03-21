@@ -51,11 +51,7 @@ struct scene_context
     std::vector<scene_window*> windows;
     scene_system_id            window_system;
 
-    struct {
-        ref<scene_keyboard> keyboard;
-        ref<scene_pointer>  pointer;
-        std::vector<io_input_device*> led_devices;
-    } seat;
+    core_ref_vector<scene_seat> seats;
 
     struct {
         flags<scene_damage_type> queued;
@@ -71,6 +67,21 @@ struct scene_context
 void scene_broadcast_event(scene_context*, scene_event*);
 
 void scene_render_init(scene_context*);
+
+// -----------------------------------------------------------------------------
+
+struct scene_seat
+{
+    scene_context* ctx;
+
+    ref<scene_keyboard> keyboard;
+    ref<scene_pointer>  pointer;
+    std::vector<io_input_device*> led_devices;
+};
+
+void scene_seat_init(scene_context*);
+
+auto scene_get_exclusive_seat(scene_context*) -> scene_seat*;
 
 // -----------------------------------------------------------------------------
 
@@ -119,7 +130,7 @@ struct scene_hotkey_map {
 struct scene_input_device
 {
     scene_input_device_type type;
-    scene_context* ctx;
+    scene_seat* seat;
 
     scene_hotkey_map hotkeys;
     scene_focus focus;
@@ -140,7 +151,7 @@ struct scene_keyboard : scene_input_device, scene_keyboard_info
     ~scene_keyboard();
 };
 
-auto scene_keyboard_create(scene_context*) -> ref<scene_keyboard>;
+auto scene_keyboard_create(scene_seat*) -> ref<scene_keyboard>;
 
 // -----------------------------------------------------------------------------
 
@@ -153,7 +164,7 @@ struct scene_pointer : scene_input_device
     std::move_only_function<scene_pointer_accel_fn> accel;
 };
 
-auto scene_pointer_create(scene_context*) -> ref<scene_pointer>;
+auto scene_pointer_create(scene_seat*) -> ref<scene_pointer>;
 
 void scene_update_pointers(scene_context*);
 
@@ -182,9 +193,9 @@ void scene_output_request_frame(scene_output*);
 
 // -----------------------------------------------------------------------------
 
-void scene_handle_input_added(  scene_context*, io_input_device*);
-void scene_handle_input_removed(scene_context*, io_input_device*);
-void scene_handle_input(        scene_context*, const io_input_event&);
+void scene_handle_input_added(  scene_seat*, io_input_device*);
+void scene_handle_input_removed(scene_seat*, io_input_device*);
+void scene_handle_input(        scene_seat*, const io_input_event&);
 
 // -----------------------------------------------------------------------------
 

@@ -125,11 +125,21 @@ int main()
 
     // Pointer
 
-    scene_pointer_set_xcursor(scene_get_pointer(scene.get()), "default");
-    scene_pointer_set_accel(  scene_get_pointer(scene.get()), wm_linear_accel {
-        .offset     = 2.f,
-        .rate       = 0.05f,
-        .multiplier = 0.3f
+    auto seat_listener = scene_client_create(scene.get());
+    scene_client_set_event_handler(seat_listener.get(), [&](scene_event* event) {
+        switch (event->type) {
+            break;case scene_event_type::seat_add: {
+                auto* pointer = scene_seat_get_pointer(event->seat);
+                scene_pointer_set_xcursor(pointer, "default");
+                scene_pointer_set_accel(  pointer, wm_linear_accel {
+                    .offset     = 2.f,
+                    .rate       = 0.05f,
+                    .multiplier = 0.3f
+                });
+            }
+            break;default:
+                ;
+        }
     });
 
     // Background
@@ -220,6 +230,13 @@ int main()
 
     scene_client_set_event_handler(client.get(), [&](scene_event* event) {
         switch (event->type) {
+            break;case scene_event_type::seat_add:
+                log_trace("seat_add({})", (void*)event->seat);
+            break;case scene_event_type::seat_configure:
+                log_trace("seat_configure({})", (void*)event->seat);
+            break;case scene_event_type::seat_remove:
+                log_trace("seat_remove({})", (void*)event->seat);
+
             break;case scene_event_type::keyboard_key:
                 log_trace("keyboard_key({}, {})",
                     libevdev_event_code_get_name(EV_KEY, event->keyboard.key.code),

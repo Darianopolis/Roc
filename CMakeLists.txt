@@ -240,6 +240,7 @@ target_sources(scene PUBLIC
     src/scene/render.cpp
     src/scene/node.cpp
     src/scene/window.cpp
+    src/scene/seat.cpp
     src/scene/input.cpp
     src/scene/cursor.cpp
     src/scene/client.cpp

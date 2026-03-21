@@ -16,6 +16,13 @@ static
 void handle_event(way_client* client, scene_event* event)
 {
     switch (event->type) {
+        break;case scene_event_type::seat_add:
+            log_error("TODO(way): seat_add");
+        break;case scene_event_type::seat_configure:
+            log_error("TODO(way): seat_configure");
+        break;case scene_event_type::seat_remove:
+            log_error("TODO(way): seat_remove");
+
         break;case scene_event_type::window_reposition: {
             auto* surface = find_surface(client, event->window.window);
             way_toplevel_on_reposition(surface, event->window.reposition.frame, event->window.reposition.gravity);

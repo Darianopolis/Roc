@@ -45,9 +45,9 @@ auto scene_list_outputs(scene_context* ctx) -> std::span<scene_output* const>
     return ctx->outputs;
 }
 
-auto scene_output_get_viewport(scene_output* out) -> rect2f32
+auto scene_output_get_viewport(scene_output* output) -> rect2f32
 {
-    return out->viewport;
+    return output->viewport;
 }
 
 auto scene_find_output_for_point(scene_context* ctx, vec2f32 point) -> scene_find_output_result

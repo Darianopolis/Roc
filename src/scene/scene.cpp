@@ -14,11 +14,11 @@ void scene_push_io_event(scene_context* ctx, io_event* event)
             ;
 
         break;case io_event_type::input_added:
-            scene_handle_input_added(ctx, event->input.device);
+            scene_handle_input_added(scene_get_exclusive_seat(ctx), event->input.device);
         break;case io_event_type::input_removed:
-            scene_handle_input_removed(ctx, event->input.device);
+            scene_handle_input_removed(scene_get_exclusive_seat(ctx), event->input.device);
         break;case io_event_type::input_event:
-            scene_handle_input(ctx, event->input);
+            scene_handle_input(scene_get_exclusive_seat(ctx), event->input);
 
         break;case io_event_type::output_configure:
               case io_event_type::output_frame:
@@ -48,8 +48,7 @@ auto scene_create(exec_context* exec, gpu_context* gpu) -> ref<scene_context>
 
     scene_cursor_manager_init(scene.get());
 
-    scene->seat.keyboard = scene_keyboard_create(scene.get());
-    scene->seat.pointer = scene_pointer_create(scene.get());
+    scene_seat_init(scene.get());
 
     return scene;
 }
@@ -79,16 +78,4 @@ auto scene_register_system(scene_context* ctx) -> scene_system_id
 {
     ctx->prev_system_id = scene_system_id(std::to_underlying(ctx->prev_system_id) + 1);
     return ctx->prev_system_id;
-}
-
-// -----------------------------------------------------------------------------
-
-auto scene_get_pointer(scene_context* ctx) -> scene_pointer*
-{
-    return ctx->seat.pointer.get();
-}
-
-auto scene_get_keyboard(scene_context* ctx) -> scene_keyboard*
-{
-    return ctx->seat.keyboard.get();
 }

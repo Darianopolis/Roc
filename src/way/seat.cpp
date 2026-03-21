@@ -20,9 +20,18 @@ auto get_keymap_file(xkb_keymap* keymap) -> way_keymap
     return { .fd = std::move(fd), .size = size };
 }
 
+static
+auto get_keyboard(way_server* server)
+{
+    // TODO: HACK HACK HACK - Handle keyboard per seat dynamically
+    auto seats = scene_get_seats(server->scene);
+    core_assert(seats.size() == 1);
+    return scene_seat_get_keyboard(seats.front());
+}
+
 void way_seat_init(way_server* server)
 {
-    auto& kb_info = scene_keyboard_get_info(scene_get_keyboard(server->scene));
+    auto& kb_info = scene_keyboard_get_info(get_keyboard(server));
 
     server->keyboard.keymap = get_keymap_file(kb_info.keymap);
 }
@@ -42,7 +51,7 @@ void get_keyboard(wl_client* wl_client, wl_resource* resource, u32 id)
         WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,
         server->keyboard.keymap.fd.get(), server->keyboard.keymap.size);
 
-    auto& kb_info = scene_keyboard_get_info(scene_get_keyboard(server->scene));
+    auto& kb_info = scene_keyboard_get_info(get_keyboard(server));
 
     if (wl_resource_get_version(kb) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION) {
         way_send(server, wl_keyboard_send_repeat_info, kb, kb_info.rate, kb_info.delay);

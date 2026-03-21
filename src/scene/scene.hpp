@@ -100,7 +100,7 @@ enum class scene_modifier_flag
 
 using scene_scancode = u32;
 
-auto scene_get_modifiers(scene_context*, flags<scene_modifier_flag> = {}) -> flags<scene_modifier>;
+// -----------------------------------------------------------------------------
 
 enum class scene_input_device_type
 {
@@ -118,8 +118,21 @@ auto scene_input_device_get_pointer( scene_input_device*) -> scene_pointer*;
 auto scene_input_device_get_keyboard(scene_input_device*) -> scene_keyboard*;
 auto scene_input_device_get_focus(   scene_input_device*) -> scene_focus;
 
-auto scene_get_pointer( scene_context*) -> scene_pointer*;
-auto scene_get_keyboard(scene_context*) -> scene_keyboard*;
+// -----------------------------------------------------------------------------
+
+struct scene_seat;
+
+auto scene_get_seats(scene_context*) -> std::span<scene_seat* const>;
+
+auto scene_seat_get_pointer( scene_seat*) -> scene_pointer*;
+auto scene_seat_get_keyboard(scene_seat*) -> scene_keyboard*;
+
+auto scene_pointer_get_seat( scene_pointer*)  -> scene_seat*;
+auto scene_keyboard_get_seat(scene_keyboard*) -> scene_seat*;
+
+auto scene_seat_get_modifiers(scene_seat*, flags<scene_modifier_flag> = {}) -> flags<scene_modifier>;
+
+// -----------------------------------------------------------------------------
 
 void scene_pointer_focus(       scene_pointer*, scene_client*, scene_input_region* = nullptr);
 auto scene_pointer_get_position(scene_pointer*) -> vec2f32;
@@ -403,6 +416,10 @@ enum class scene_event_type
 {
     hotkey,
 
+    seat_add,
+    seat_configure,
+    seat_remove,
+
     keyboard_enter,
     keyboard_leave,
     keyboard_key,
@@ -507,6 +524,7 @@ struct scene_event
     scene_event_type type;
 
     union {
+        scene_seat*          seat;
         scene_hotkey_event   hotkey;
         scene_window_event   window;
         scene_keyboard_event keyboard;
