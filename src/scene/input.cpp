@@ -347,13 +347,6 @@ void update_pointer_focus(scene_pointer* pointer)
     scene_pointer_set_focus(pointer, new_focus);
 }
 
-void scene_update_pointer_focus(scene_context* ctx)
-{
-    if (auto* pointer = scene_get_pointer(ctx)) {
-        update_pointer_focus(pointer);
-    }
-}
-
 auto scene_pointer_get_position(scene_pointer* pointer) -> vec2f32
 {
     return scene_tree_get_position(pointer->tree.get());
@@ -371,6 +364,8 @@ auto scene_pointer_create(scene_context* ctx) -> ref<scene_pointer>
     auto pointer = core_create<scene_pointer>();
     pointer->ctx = ctx;
     pointer->type = scene_input_device_type::pointer;
+
+    pointer->accel = [](vec2f32 delta) { return delta; };
 
     pointer->tree = scene_tree_create(ctx);
     scene_tree_place_above(scene_get_layer(ctx, scene_layer::overlay), nullptr, pointer->tree .get());
@@ -413,12 +408,11 @@ void handle_motion(scene_pointer* pointer, vec2f32 delta)
 {
     auto cur = scene_pointer_get_position(pointer);
 
-    auto res = pointer->driver({
-        .position = cur,
-        .delta    = delta,
-    });
+    auto delta_accel = pointer->accel(delta);
 
-    scene_tree_set_translation(pointer->tree.get(), res.position);
+    auto pos = scene_find_output_for_point(pointer->ctx, cur + delta_accel).position;
+
+    scene_tree_set_translation(pointer->tree.get(), pos);
 
     update_pointer_focus(pointer);
 
@@ -428,11 +422,18 @@ void handle_motion(scene_pointer* pointer, vec2f32 delta)
             .pointer = {
                 .pointer = pointer,
                 .motion = {
-                    .rel_accel   = res.accel,
-                    .rel_unaccel = res.unaccel,
+                    .rel_accel   = delta_accel,
+                    .rel_unaccel = delta,
                 },
             },
         }));
+    }
+}
+
+void scene_update_pointers(scene_context* ctx)
+{
+    if (auto* pointer = scene_get_pointer(ctx)) {
+        handle_motion(pointer, {});
     }
 }
 
@@ -462,10 +463,9 @@ auto scene_pointer_get_focus(scene_pointer* pointer) -> scene_focus
     return scene_input_device_get_focus(pointer);
 }
 
-void scene_pointer_set_driver(scene_pointer* pointer, std::move_only_function<scene_pointer_driver_fn>&& driver)
+void scene_pointer_set_accel(scene_pointer* pointer, std::move_only_function<scene_pointer_accel_fn>&& accel)
 {
-    pointer->driver = std::move(driver);
-    handle_motion(pointer, {});
+    pointer->accel = std::move(accel);
 }
 
 // -----------------------------------------------------------------------------

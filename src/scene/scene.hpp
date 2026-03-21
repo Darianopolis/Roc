@@ -52,7 +52,13 @@ auto scene_client_create(scene_context*) -> ref<scene_client>;
 
 // -----------------------------------------------------------------------------
 
-auto scene_output_create(scene_client*) -> ref<scene_output>;
+enum class scene_output_flag
+{
+    // This output will act as a workarea for desktop layout and pointer constraints
+    workspace = 1 << 0,
+};
+
+auto scene_output_create(scene_client*, flags<scene_output_flag>) -> ref<scene_output>;
 void scene_output_set_viewport(scene_output*, rect2f32 viewport);
 
 auto scene_list_outputs(scene_context*) -> std::span<scene_output* const>;
@@ -142,22 +148,9 @@ auto scene_keyboard_get_focus(    scene_keyboard*) -> scene_focus;
 
 // -----------------------------------------------------------------------------
 
-struct scene_pointer_driver_in
-{
-    vec2f32 position;
-    vec2f32 delta;
-};
+using scene_pointer_accel_fn = auto(vec2f32) -> vec2f32;
 
-struct scene_pointer_driver_out
-{
-    vec2f32 position;
-    vec2f32 accel;
-    vec2f32 unaccel;
-};
-
-using scene_pointer_driver_fn = auto(scene_pointer_driver_in) -> scene_pointer_driver_out;
-
-void scene_pointer_set_driver(scene_pointer*, std::move_only_function<scene_pointer_driver_fn>&&);
+void scene_pointer_set_accel(scene_pointer*, std::move_only_function<scene_pointer_accel_fn>&&);
 
 // -----------------------------------------------------------------------------
 
@@ -330,6 +323,8 @@ auto scene_visit(scene_node* node, Visit&& visit)
         break;case scene_node_type::tree:
             return visit(static_cast<scene_tree*>(node));
     }
+
+    core_unreachable();
 }
 
 template<scene_iterate_direction Dir, typename Pre, typename Leaf, typename Post>

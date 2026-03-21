@@ -8,6 +8,32 @@
 #include "way/way.hpp"
 #include "way/internal.hpp"
 
+struct wm_linear_accel
+{
+    f32 offset;
+    f32 rate;
+    f32 multiplier;
+
+    auto operator()(vec2f32 delta) -> vec2f32
+    {
+        // Apply a linear mouse acceleration curve
+        //
+        // Offset     - speed before acceleration is applied.
+        // Accel      - rate that sensitivity increases with motion.
+        // Multiplier - total multplier for sensitivity.
+        //
+        //      /
+        //     / <- Accel
+        // ___/
+        //  ^-- Offset
+
+        f32 speed = glm::length(delta);
+        vec2f32 sens = vec2f32(multiplier * (1 + (std::max(speed, offset) - offset) * rate));
+
+        return delta * sens;
+    }
+};
+
 int main()
 {
     // Directories
@@ -54,7 +80,7 @@ int main()
 
             // output
             break;case io_event_type::output_added:
-                outputs.emplace_back(scene_output_create(output_client.get()), event->output.output);
+                outputs.emplace_back(scene_output_create(output_client.get(), scene_output_flag::workspace), event->output.output);
                 reflow_outputs();
             break;case io_event_type::output_configure:
                 reflow_outputs();
@@ -100,35 +126,10 @@ int main()
     // Pointer
 
     scene_pointer_set_xcursor(scene_get_pointer(scene.get()), "default");
-
-    scene_pointer_set_driver(scene_get_pointer(scene.get()), [scene = scene.get()](scene_pointer_driver_in in) -> scene_pointer_driver_out {
-
-        // Apply a linear mouse acceleration curve
-        //
-        // Offset     - speed before acceleration is applied.
-        // Accel      - rate that sensitivity increases with motion.
-        // Multiplier - total multplier for sensitivity.
-        //
-        //      /
-        //     / <- Accel
-        // ___/
-        //  ^-- Offset
-
-        static constexpr f32 offset     = 2.f;
-        static constexpr f32 rate       = 0.05f;
-        static constexpr f32 multiplier = 0.3f;
-
-        f32 speed = glm::length(in.delta);
-        vec2f32 sens = vec2f32(multiplier * (1 + (std::max(speed, offset) - offset) * rate));
-        vec2f32 delta = in.delta * sens;
-
-        vec2f32 new_pos = in.position + delta;
-
-        return {
-            .position = scene_find_output_for_point(scene, new_pos).position,
-            .accel    = delta,
-            .unaccel  = in.delta
-        };
+    scene_pointer_set_accel(  scene_get_pointer(scene.get()), wm_linear_accel {
+        .offset     = 2.f,
+        .rate       = 0.05f,
+        .multiplier = 0.3f
     });
 
     // Background

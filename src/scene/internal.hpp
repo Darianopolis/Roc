@@ -6,9 +6,12 @@
 
 // -----------------------------------------------------------------------------
 
-struct scene_output {
+struct scene_output
+{
     scene_client* client;
     rect2f32      viewport;
+
+    flags<scene_output_flag> flags;
 
     ~scene_output();
 };
@@ -147,12 +150,12 @@ struct scene_pointer : scene_input_device
 
     ref<scene_tree> tree;
 
-    std::move_only_function<scene_pointer_driver_fn> driver;
+    std::move_only_function<scene_pointer_accel_fn> accel;
 };
 
-void scene_update_pointer_focus(scene_context*);
-
 auto scene_pointer_create(scene_context*) -> ref<scene_pointer>;
+
+void scene_update_pointers(scene_context*);
 
 // -----------------------------------------------------------------------------
 

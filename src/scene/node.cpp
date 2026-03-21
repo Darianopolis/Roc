@@ -34,7 +34,7 @@ void dispatch_damage(scene_context* ctx)
     defer { ctx->damage.queued = {}; };
 
     if (ctx->damage.queued.contains(scene_damage_type::input)) {
-        scene_update_pointer_focus(ctx);
+        scene_update_pointers(ctx);
     }
 
     if (ctx->damage.queued.contains(scene_damage_type::visual)) {
@@ -353,7 +353,7 @@ scene_input_region::~scene_input_region()
         scene_node_unparent(this);
     }
 
-    scene_update_pointer_focus(client->ctx);
+    scene_update_pointers(client->ctx);
 }
 
 auto scene_input_region_create(scene_client* client, scene_window* window) -> ref<scene_input_region>
