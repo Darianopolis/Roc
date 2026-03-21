@@ -120,7 +120,10 @@ auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_sour
     for (auto& mime : scene_data_source_get_offered(offer->source.get())) {
         way_send(server, wl_data_offer_send_offer, offer->resource, mime.c_str());
     }
-    way_send(server, wl_data_offer_send_source_actions, offer->resource, 0);
+
+    if (wl_resource_get_version(offer->resource) >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION) {
+        way_send(server, wl_data_offer_send_source_actions, offer->resource, 0);
+    }
 
     return offer;
 }
