@@ -41,10 +41,11 @@ WAY_INTERFACE(wl_shm) = {
 
 WAY_BIND_GLOBAL(wl_shm, bind)
 {
-    auto resource = way_resource_create_unsafe(wl_shm, bind.client, bind.version, bind.id, bind.server);
+    auto* server = way_get_userdata<way_server>(bind.data);
+    auto resource = way_resource_create_unsafe(wl_shm, bind.client, bind.version, bind.id, server);
 
-    way_send(bind.server, wl_shm_send_format, resource, WL_SHM_FORMAT_ARGB8888);
-    way_send(bind.server, wl_shm_send_format, resource, WL_SHM_FORMAT_XRGB8888);
+    way_send(server, wl_shm_send_format, resource, WL_SHM_FORMAT_ARGB8888);
+    way_send(server, wl_shm_send_format, resource, WL_SHM_FORMAT_XRGB8888);
 }
 
 // -----------------------------------------------------------------------------

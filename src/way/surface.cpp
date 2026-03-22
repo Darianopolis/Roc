@@ -53,7 +53,8 @@ WAY_INTERFACE(wl_compositor) = {
 
 WAY_BIND_GLOBAL(wl_compositor, bind)
 {
-    way_resource_create_unsafe(wl_compositor, bind.client, bind.version, bind.id, bind.server);
+    log_error("COMPOSITOR 1: {}", (void*)static_cast<way_object*>(way_get_userdata<way_server>(bind.data)));
+    way_resource_create_unsafe(wl_compositor, bind.client, bind.version, bind.id, way_get_userdata<way_server>(bind.data));
 }
 
 // -----------------------------------------------------------------------------

@@ -16,7 +16,7 @@ WAY_INTERFACE(xdg_wm_base) = {
 
 WAY_BIND_GLOBAL(xdg_wm_base, bind)
 {
-    way_resource_create_unsafe(xdg_wm_base, bind.client, bind.version, bind.id, bind.server);
+    way_resource_create_unsafe(xdg_wm_base, bind.client, bind.version, bind.id, way_get_userdata<way_server>(bind.data));
 }
 
 // -----------------------------------------------------------------------------

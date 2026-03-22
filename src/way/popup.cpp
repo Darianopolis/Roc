@@ -25,7 +25,7 @@ struct way_positioner_rules
     u32 parent_configure;
 };
 
-struct way_positioner
+struct way_positioner : way_object
 {
     way_server* server;
 

@@ -13,15 +13,39 @@ auto find_surface(way_client* client, scene_window* window) -> way_surface*
 }
 
 static
+auto get_seat_client(way_client* client, scene_seat* seat) -> way_seat_client*
+{
+    for (auto* seat_client : client->seat_clients) {
+        if (seat_client->seat->scene_seat == seat) {
+            return seat_client;
+        }
+    }
+    return nullptr;
+}
+
+static
+void handle_keyboard_event(way_client* client, scene_event* event, auto&& fn)
+{
+    if (auto* seat_client = get_seat_client(client, scene_keyboard_get_seat(event->keyboard.keyboard))) {
+        fn(seat_client, event);
+    }
+}
+
+static
+void handle_pointer_event(way_client* client, scene_event* event, auto&& fn)
+{
+    if (auto* seat_client = get_seat_client(client, scene_pointer_get_seat(event->pointer.pointer))) {
+        fn(seat_client, event);
+    }
+}
+
+static
 void handle_event(way_client* client, scene_event* event)
 {
     switch (event->type) {
         break;case scene_event_type::seat_add:
-            log_error("TODO(way): seat_add");
-        break;case scene_event_type::seat_configure:
-            log_error("TODO(way): seat_configure");
-        break;case scene_event_type::seat_remove:
-            log_error("TODO(way): seat_remove");
+              case scene_event_type::seat_configure:
+              case scene_event_type::seat_remove:
 
         break;case scene_event_type::window_reposition: {
             auto* surface = find_surface(client, event->window.window);
@@ -38,16 +62,16 @@ void handle_event(way_client* client, scene_event* event)
             }
         }
 
-        break;case scene_event_type::keyboard_enter:    way_seat_on_keyboard_enter(client, event);
-        break;case scene_event_type::keyboard_leave:    way_seat_on_keyboard_leave(client, event);
-        break;case scene_event_type::keyboard_key:      way_seat_on_key(           client, event);
-        break;case scene_event_type::keyboard_modifier: way_seat_on_modifier(      client, event);
+        break;case scene_event_type::keyboard_enter:    handle_pointer_event(client, event, way_seat_on_keyboard_enter);
+        break;case scene_event_type::keyboard_leave:    handle_pointer_event(client, event, way_seat_on_keyboard_leave);
+        break;case scene_event_type::keyboard_key:      handle_pointer_event(client, event, way_seat_on_key);
+        break;case scene_event_type::keyboard_modifier: handle_pointer_event(client, event, way_seat_on_modifier);
 
-        break;case scene_event_type::pointer_enter:     way_seat_on_pointer_enter( client, event);
-        break;case scene_event_type::pointer_leave:     way_seat_on_pointer_leave( client, event);
-        break;case scene_event_type::pointer_motion:    way_seat_on_motion(        client, event);
-        break;case scene_event_type::pointer_button:    way_seat_on_button(        client, event);
-        break;case scene_event_type::pointer_scroll:    way_seat_on_scroll(        client, event);
+        break;case scene_event_type::pointer_enter:  handle_pointer_event(client, event, way_seat_on_pointer_enter);
+        break;case scene_event_type::pointer_leave:  handle_pointer_event(client, event, way_seat_on_pointer_leave);
+        break;case scene_event_type::pointer_motion: handle_pointer_event(client, event, way_seat_on_motion);
+        break;case scene_event_type::pointer_button: handle_pointer_event(client, event, way_seat_on_button);
+        break;case scene_event_type::pointer_scroll: handle_pointer_event(client, event, way_seat_on_scroll);
 
         break;case scene_event_type::output_added:
               case scene_event_type::output_removed:
@@ -60,7 +84,9 @@ void handle_event(way_client* client, scene_event* event)
             ;
 
         break;case scene_event_type::selection:
-            way_data_offer_selection(client);
+            if (auto* seat_client = get_seat_client(client, event->data.seat)) {
+                way_data_offer_selection(seat_client);
+            }
     }
 }
 

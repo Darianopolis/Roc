@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-struct way_decoration
+struct way_decoration : way_object
 {
     weak<way_surface> surface;
     way_resource resource;
@@ -37,7 +37,7 @@ WAY_INTERFACE(zxdg_decoration_manager_v1) = {
 
 WAY_BIND_GLOBAL(zxdg_decoration_manager_v1, bind)
 {
-    way_resource_create_unsafe(zxdg_decoration_manager_v1, bind.client, bind.version, bind.id, bind.server);
+    way_resource_create_unsafe(zxdg_decoration_manager_v1, bind.client, bind.version, bind.id, way_get_userdata<way_server>(bind.data));
 }
 
 // -----------------------------------------------------------------------------
@@ -81,8 +81,9 @@ WAY_INTERFACE(org_kde_kwin_server_decoration_manager) {
 
 WAY_BIND_GLOBAL(org_kde_kwin_server_decoration_manager, bind)
 {
-    auto resource = way_resource_create_unsafe(org_kde_kwin_server_decoration_manager, bind.client, bind.version, bind.id, bind.server);
-    way_send(bind.server, org_kde_kwin_server_decoration_manager_send_default_mode, resource, kde_decoration_mode);
+    auto* server = way_get_userdata<way_server>(bind.data);
+    auto resource = way_resource_create_unsafe(org_kde_kwin_server_decoration_manager, bind.client, bind.version, bind.id, server);
+    way_send(server, org_kde_kwin_server_decoration_manager_send_default_mode, resource, kde_decoration_mode);
 }
 
 static

@@ -117,7 +117,8 @@ WAY_INTERFACE(zwp_linux_dmabuf_v1) = {
 
 WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
 {
-    auto resource = way_resource_create_unsafe(zwp_linux_dmabuf_v1, bind.client, bind.version, bind.id, bind.server);
+    auto* server = way_get_userdata<way_server>(bind.data);
+    auto resource = way_resource_create_unsafe(zwp_linux_dmabuf_v1, bind.client, bind.version, bind.id, server);
 
     if (bind.version >= ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION) {
         return;
@@ -128,11 +129,11 @@ WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
     auto send_modifier = [&](u32 format, u64 modifier) {
         u32 modifier_hi =  modifier >> 32;
         u32 modifier_lo = modifier & 0xFFFF'FFFF;
-        way_send(bind.server, zwp_linux_dmabuf_v1_send_modifier, resource, format, modifier_hi, modifier_lo);
+        way_send(server, zwp_linux_dmabuf_v1_send_modifier, resource, format, modifier_hi, modifier_lo);
     };
 
-    for (auto[format, modifiers] : get_formats(bind.server)) {
-        way_send(bind.server, zwp_linux_dmabuf_v1_send_format, resource, format->drm);
+    for (auto[format, modifiers] : get_formats(server)) {
+        way_send(server, zwp_linux_dmabuf_v1_send_format, resource, format->drm);
 
         for (auto modifier : modifiers) {
             send_modifier(format->drm, modifier);
@@ -142,7 +143,7 @@ WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
 
 // -----------------------------------------------------------------------------
 
-struct way_dma_params
+struct way_dma_params : way_object
 {
     way_server* server;
 

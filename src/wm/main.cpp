@@ -406,7 +406,9 @@ int main()
     scene_data_source_offer(data_source.get(), "text/plain;charset=utf-8");
     scene_data_source_offer(data_source.get(), "text/plain");
     scene_data_source_offer(data_source.get(), "text/html");
-    scene_set_selection(scene.get(), data_source.get());
+    for (auto* seat : scene_get_seats(scene.get())) {
+        scene_seat_set_selection(seat, data_source.get());
+    }
 
     // Run
 

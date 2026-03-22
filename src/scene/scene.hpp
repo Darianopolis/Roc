@@ -180,10 +180,10 @@ auto scene_data_source_create(scene_client*, scene_data_source_ops&&) -> ref<sce
 void scene_data_source_offer(      scene_data_source*, const char* mime_type);
 auto scene_data_source_get_offered(scene_data_source*) -> std::span<const std::string>;
 
-void scene_data_source_send(scene_data_source*, const char* mime_type, int fd);
+void scene_data_source_receive(scene_data_source*, const char* mime_type, int fd);
 
-void scene_set_selection(scene_context*, scene_data_source*);
-auto scene_get_selection(scene_context*) -> scene_data_source*;
+void scene_seat_set_selection(scene_seat*, scene_data_source*);
+auto scene_seat_get_selection(scene_seat*) -> scene_data_source*;
 
 // -----------------------------------------------------------------------------
 
@@ -517,6 +517,7 @@ struct scene_redraw_event
 struct scene_data_event
 {
     scene_data_source* source;
+    scene_seat*        seat;
 };
 
 struct scene_event

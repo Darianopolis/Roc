@@ -8,6 +8,8 @@ int get_loop_fd(wl_display* display)
 
 way_server::~way_server()
 {
+    seats.clear();
+
     exec_fd_unlisten(exec, get_loop_fd(wl_display));
     wl_display_terminate(wl_display);
     wl_display_destroy(wl_display);
@@ -23,8 +25,6 @@ auto way_create(exec_context* exec, gpu_context* gpu, scene_context* scene) -> r
     server->gpu = gpu;
     server->scene = scene;
     server->scene_system = scene_register_system(scene);
-
-    way_seat_init(server.get());
 
     server->wl_display = wl_display_create();
 
@@ -42,7 +42,6 @@ auto way_create(exec_context* exec, gpu_context* gpu, scene_context* scene) -> r
     way_global(server.get(), wl_compositor);
     way_global(server.get(), wl_subcompositor);
     way_global(server.get(), xdg_wm_base);
-    way_global(server.get(), wl_seat);
     way_global(server.get(), wl_data_device_manager);
     way_global(server.get(), wp_viewporter);
     way_global(server.get(), zwp_pointer_gestures_v1);
@@ -51,6 +50,8 @@ auto way_create(exec_context* exec, gpu_context* gpu, scene_context* scene) -> r
     way_global(server.get(), org_kde_kwin_server_decoration_manager);
     way_output_init(server.get());
     way_dmabuf_init(server.get());
+
+    way_seat_init(server.get());
 
     server->sampler = gpu_sampler_create(gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -69,13 +70,13 @@ auto way_get_elapsed(way_server* server) -> std::chrono::steady_clock::duration
     return std::chrono::steady_clock::now() - server->epoch;
 }
 
-wl_global* way_global_(way_server* server, const wl_interface* interface, i32 version, wl_global_bind_func_t bind, void* data)
+wl_global* way_global_(way_server* server, const wl_interface* interface, i32 version, wl_global_bind_func_t bind, way_object* data)
 {
     core_assert(version <= interface->version);
     return wl_global_create(server->wl_display, interface, version, data ?: server, bind);
 }
 
-wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, void* data, bool refcount)
+wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, way_object* data, bool refcount)
 {
     auto resource = wl_resource_create(client, interface, version, id);
     if (refcount) {

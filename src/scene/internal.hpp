@@ -57,8 +57,6 @@ struct scene_context
         flags<scene_damage_type> queued;
     } damage;
 
-    ref<scene_data_source> selection;
-
     ref<scene_cursor_manager> cursor_manager;
 
     ~scene_context();
@@ -77,6 +75,8 @@ struct scene_seat
     ref<scene_keyboard> keyboard;
     ref<scene_pointer>  pointer;
     std::vector<io_input_device*> led_devices;
+
+    ref<scene_data_source> selection;
 };
 
 void scene_seat_init(scene_context*);

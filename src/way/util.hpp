@@ -26,10 +26,22 @@ wl_array way_to_wl_array(std::span<T> span)
 
 // -----------------------------------------------------------------------------
 
+struct way_object
+{
+    virtual ~way_object() = default;
+};
+
 template<typename T>
 T* way_get_userdata(void* data)
 {
-    return static_cast<T*>(data);
+    auto* base = static_cast<way_object*>(data);
+    if (!base) return nullptr;
+    auto* derived = dynamic_cast<T*>(base);
+    if (!derived) {
+        log_error("way_get_userdata<{}> failed, got {}", typeid(T).name(), typeid(*base).name());
+        core_debugkill();
+    }
+    return derived;
 }
 
 template<typename T>

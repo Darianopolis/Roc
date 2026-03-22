@@ -34,6 +34,8 @@ struct ui_context
 
     std::move_only_function<ui_frame_fn> frame_handler;
 
+    std::flat_set<scene_seat*> seats;
+
     scene_keyboard* keyboard;
     scene_pointer*  pointer;
 

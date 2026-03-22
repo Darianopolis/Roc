@@ -13,7 +13,7 @@ WAY_INTERFACE(wp_viewporter) = {
 
 WAY_BIND_GLOBAL(wp_viewporter, bind)
 {
-    way_resource_create_unsafe(wp_viewporter, bind.client, bind.version, bind.id, bind.server);
+    way_resource_create_unsafe(wp_viewporter, bind.client, bind.version, bind.id, way_get_userdata<way_server>(bind.data));
 }
 
 // -----------------------------------------------------------------------------

@@ -1,30 +1,30 @@
 #include "internal.hpp"
 
 static
-void create_data_source(wl_client* client, wl_resource* resource, u32 id)
+void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 {
-    auto* server = way_get_userdata<way_server>(resource);
+    auto* seat_client = way_get_userdata<way_seat_client>(resource);
+    auto* client = seat_client->client;
 
     auto source = core_create<way_data_source>();
-    source->client = way_client_from(server, client);
-    source->resource = way_resource_create_refcounted(wl_data_source, client, resource, id, source.get());
-    source->source = scene_data_source_create(source->client->scene.get(), {
+    source->seat_client = seat_client;
+    source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, source.get());
+    source->source = scene_data_source_create(client->scene.get(), {
         .cancel = [source = source.get()] {
-            way_send(source->client->server, wl_data_source_send_cancelled, source->resource);
+            way_send(source->seat_client->seat->server, wl_data_source_send_cancelled, source->resource);
         },
         .send = [source = source.get()](const char* mime, int fd) {
-            way_send(source->client->server, wl_data_source_send_send, source->resource, mime, fd);
+            way_send(source->seat_client->seat->server, wl_data_source_send_send, source->resource, mime, fd);
         }
     });
 }
 
 static
-void get_data_device(wl_client* wl_client, wl_resource* resource, u32 id, wl_resource* seat)
+void get_data_device(wl_client* wl_client, wl_resource* resource, u32 id, wl_resource* wl_seat)
 {
-    auto* server = way_get_userdata<way_server>(resource);
-    auto* client = way_client_from(server, wl_client);
+    auto* seat_client = way_get_userdata<way_seat_client>(wl_seat);
 
-    client->data_devices.emplace_back(way_resource_create_refcounted(wl_data_device, wl_client, resource, id, client));
+    seat_client->data_devices.emplace_back(way_resource_create_refcounted(wl_data_device, wl_client, resource, id, seat_client));
 }
 
 WAY_INTERFACE(wl_data_device_manager) = {
@@ -34,7 +34,7 @@ WAY_INTERFACE(wl_data_device_manager) = {
 
 WAY_BIND_GLOBAL(wl_data_device_manager, bind)
 {
-    way_resource_create_unsafe(wl_data_device_manager, bind.client, bind.version, bind.id, bind.server);
+    way_resource_create_unsafe(wl_data_device_manager, bind.client, bind.version, bind.id, way_get_userdata<way_server>(bind.data));
 }
 
 // -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ void receive(wl_client* client, wl_resource* resource, const char* mime_type, in
     auto write = core_fd(fd);
 
     auto* offer = way_get_userdata<way_data_offer>(resource);
-    scene_data_source_send(offer->source.get(), mime_type, write.get());
+    scene_data_source_receive(offer->source.get(), mime_type, write.get());
 }
 
 WAY_INTERFACE(wl_data_offer) = {
@@ -94,7 +94,7 @@ static
 void set_selection(wl_client* wl_client, wl_resource* resource, wl_resource* wl_data_source, u32 serial)
 {
     auto* source = way_get_userdata<way_data_source>(wl_data_source);
-    scene_set_selection(source->client->server->scene, source->source.get());
+    scene_seat_set_selection(source->seat_client->seat->scene_seat, source->source.get());
 }
 
 WAY_INTERFACE(wl_data_device) = {
@@ -106,15 +106,15 @@ WAY_INTERFACE(wl_data_device) = {
 // -----------------------------------------------------------------------------
 
 static
-auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_source* source) -> ref<way_data_offer>
+auto make_offer(way_seat_client* seat_client, wl_resource* wl_data_device, scene_data_source* source) -> ref<way_data_offer>
 {
-    auto* server = client->server;
+    auto* server = seat_client->seat->server;
 
     auto offer = core_create<way_data_offer>();
-    offer->client = client;
+    offer->seat_client = seat_client;
     offer->source = source;
 
-    offer->resource = way_resource_create_refcounted(wl_data_offer, client->wl_client, wl_data_device, 0, offer.get());
+    offer->resource = way_resource_create_refcounted(wl_data_offer, seat_client->client->wl_client, wl_data_device, 0, offer.get());
 
     way_send(server, wl_data_device_send_data_offer, wl_data_device, offer->resource);
     for (auto& mime : scene_data_source_get_offered(offer->source.get())) {
@@ -128,16 +128,17 @@ auto make_offer(way_client* client, wl_resource* wl_data_device, scene_data_sour
     return offer;
 }
 
-void way_data_offer_selection(way_client* client)
+void way_data_offer_selection(way_seat_client* seat_client)
 {
-    auto* server = client->server;
-    auto* source = scene_get_selection(server->scene);
+    auto* seat = seat_client->seat;
+    auto* server = seat->server;
+    auto* source = scene_seat_get_selection(seat->scene_seat);
 
     if (!source) return;
-    if (!server->focus.keyboard || !server->focus.keyboard->client) return;
+    if (!seat->focus.keyboard || !seat->focus.keyboard->client) return;
 
-    for (auto* wl_data_device : client->data_devices) {
-        auto offer = make_offer(client, wl_data_device, source);
+    for (auto* wl_data_device : seat_client->data_devices) {
+        auto offer = make_offer(seat_client, wl_data_device, source);
         way_send(server, wl_data_device_send_selection, wl_data_device, offer->resource);
     }
 }

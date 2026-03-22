@@ -23,6 +23,8 @@ CORE_UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)
 
 struct way_client;
 struct way_surface;
+struct way_data_offer;
+struct way_seat;
 
 // -----------------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ struct way_keymap
 
 // -----------------------------------------------------------------------------
 
-struct way_server
+struct way_server : way_object
 {
     exec_context* exec;
 
@@ -44,14 +46,38 @@ struct way_server
     scene_context*  scene;
     scene_system_id scene_system;
 
+    ref<scene_client> seat_listener;
+
     wl_display* wl_display;
     std::string socket_name;
 
     ref<gpu_sampler> sampler;
 
+    core_ref_vector<way_seat> seats;
+
     struct {
         way_listener created;
     } client;
+
+    struct {
+        core_fd format_table;
+        usz format_table_size;
+        std::vector<u16> tranche_formats;
+    } dmabuf;
+
+    ~way_server();
+};
+
+auto way_get_elapsed(way_server*) -> std::chrono::steady_clock::duration;
+
+// -----------------------------------------------------------------------------
+
+struct way_seat : way_object
+{
+    way_server* server;
+    scene_seat* scene_seat;
+
+    wl_global* global;
 
     struct {
         scene_keyboard* scene;
@@ -67,16 +93,59 @@ struct way_server
         weak<way_surface> keyboard;
     } focus;
 
-    struct {
-        core_fd format_table;
-        usz format_table_size;
-        std::vector<u16> tranche_formats;
-    } dmabuf;
-
-    ~way_server();
+    ~way_seat();
 };
 
-auto way_get_elapsed(way_server*) -> std::chrono::steady_clock::duration;
+struct way_seat_client : way_object
+{
+    way_seat* seat;
+    way_client* client;
+
+    way_resource_list keyboards;
+    way_resource_list pointers;
+    way_resource_list data_devices;
+
+    struct {
+        ref<way_data_offer> offer;
+    } drag;
+
+    ~way_seat_client();
+};
+
+// -----------------------------------------------------------------------------
+
+void way_seat_init(way_server*);
+
+void way_seat_on_keyboard_enter(way_seat_client*, scene_event*);
+void way_seat_on_keyboard_leave(way_seat_client*, scene_event*);
+void way_seat_on_key(           way_seat_client*, scene_event*);
+void way_seat_on_modifier(      way_seat_client*, scene_event*);
+
+void way_seat_on_pointer_enter(way_seat_client*, scene_event*);
+void way_seat_on_pointer_leave(way_seat_client*, scene_event*);
+void way_seat_on_motion(       way_seat_client*, scene_event*);
+void way_seat_on_button(       way_seat_client*, scene_event*);
+void way_seat_on_scroll(       way_seat_client*, scene_event*);
+
+// -----------------------------------------------------------------------------
+
+struct way_client : way_object
+{
+    way_server* server;
+
+    wl_client* wl_client;
+
+    ref<scene_client> scene;
+
+    std::vector<way_surface*> surfaces;
+    std::vector<way_seat_client*> seat_clients;
+};
+
+void way_on_client_create(wl_listener*, void* data);
+
+way_client* way_client_from(way_server*, const wl_client*);
+
+auto way_client_is_behind(way_client*) -> bool;
 
 // -----------------------------------------------------------------------------
 
@@ -84,22 +153,7 @@ void way_dmabuf_init(way_server*);
 
 // -----------------------------------------------------------------------------
 
-void way_seat_init(way_server* server);
-
-void way_seat_on_keyboard_enter(way_client*, scene_event*);
-void way_seat_on_keyboard_leave(way_client*, scene_event*);
-void way_seat_on_key(           way_client*, scene_event*);
-void way_seat_on_modifier(      way_client*, scene_event*);
-
-void way_seat_on_pointer_enter(way_client*, scene_event*);
-void way_seat_on_pointer_leave(way_client*, scene_event*);
-void way_seat_on_motion(       way_client*, scene_event*);
-void way_seat_on_button(       way_client*, scene_event*);
-void way_seat_on_scroll(       way_client*, scene_event*);
-
-// -----------------------------------------------------------------------------
-
-struct way_region
+struct way_region : way_object
 {
     way_resource resource;
 
@@ -288,7 +342,7 @@ struct way_surface_state
     ~way_surface_state();
 };
 
-struct way_surface
+struct way_surface : way_object
 {
     way_client* client;
 
@@ -381,29 +435,29 @@ void way_output_init(way_server*);
 
 // -----------------------------------------------------------------------------
 
-struct way_data_source
+struct way_data_source : way_object
 {
-    way_client* client;
+    way_seat_client* seat_client;
 
     way_resource resource;
 
     ref<scene_data_source> source;
 };
 
-struct way_data_offer
+struct way_data_offer : way_object
 {
-    way_client* client;
+    way_seat_client* seat_client;
 
     way_resource resource;
 
     ref<scene_data_source> source;
 };
 
-void way_data_offer_selection(way_client*);
+void way_data_offer_selection(way_seat_client*);
 
 // -----------------------------------------------------------------------------
 
-struct way_buffer
+struct way_buffer : way_object
 {
     vec2u32 extent;
 
@@ -418,7 +472,7 @@ protected:
 
 struct way_shm_pool;
 
-struct way_shm_pool
+struct way_shm_pool : way_object
 {
     way_server* server;
 
@@ -430,33 +484,6 @@ struct way_shm_pool
 
     ~way_shm_pool();
 };
-
-// -----------------------------------------------------------------------------
-
-struct way_client
-{
-    way_server* server;
-
-    wl_client* wl_client;
-
-    ref<scene_client> scene;
-
-    std::vector<way_surface*> surfaces;
-
-    way_resource_list keyboards;
-    way_resource_list pointers;
-    way_resource_list data_devices;
-
-    struct {
-        ref<way_data_offer> offer;
-    } drag;
-};
-
-void way_on_client_create(wl_listener*, void* data);
-
-way_client* way_client_from(way_server*, const wl_client*);
-
-auto way_client_is_behind(way_client*) -> bool;
 
 // -----------------------------------------------------------------------------
 
@@ -512,7 +539,7 @@ void way_simple_destroy(wl_client* client, wl_resource* resource);
 
 // -----------------------------------------------------------------------------
 
-wl_global* way_global_(way_server*, const wl_interface*, i32 version, wl_global_bind_func_t, void* data = nullptr);
+wl_global* way_global_(way_server*, const wl_interface*, i32 version, wl_global_bind_func_t, way_object* data = nullptr);
 #define way_global(Server, Interface, ...) \
     way_global_(Server, &Interface##_interface, way_##Interface##_version, way_##Interface##_bind_global __VA_OPT__(,) __VA_ARGS__)
 
@@ -531,16 +558,16 @@ wl_global* way_global_(way_server*, const wl_interface*, i32 version, wl_global_
 struct way_bind_global_data
 {
     wl_client* client;
-    way_server* server;
-    u32 version;
-    u32 id;
+    void*      data;
+    u32        version;
+    u32        id;
 };
 
 #define WAY_BIND_GLOBAL(Name, Data) \
     static void way_##Name##_bind_global_impl(const way_bind_global_data& Data); \
            void way_##Name##_bind_global(wl_client* client, void* data, u32 version, u32 id) \
     { \
-        way_##Name##_bind_global_impl({client, way_get_userdata<way_server>(data), version, id}); \
+        way_##Name##_bind_global_impl({client, data, version, id}); \
     } \
     static void way_##Name##_bind_global_impl(const way_bind_global_data& Data)
 
@@ -554,10 +581,10 @@ struct way_bind_global_data
 
 // -----------------------------------------------------------------------------
 
-wl_resource* way_resource_create_(wl_client*, const wl_interface*, int version, int id, const void* impl, void*, bool refcount);
+wl_resource* way_resource_create_(wl_client*, const wl_interface*, int version, int id, const void* impl, way_object*, bool refcount);
 
 inline
-wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, void* object, bool refcount)
+wl_resource* way_resource_create_(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, way_object* object, bool refcount)
 {
     return way_resource_create_(client, interface, wl_resource_get_version(parent), id, impl, object, refcount);
 }

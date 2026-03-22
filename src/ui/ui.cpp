@@ -164,7 +164,10 @@ void Platform_SetClipboardTextFn(ImGuiContext* imctx, const char* text)
     for (auto* mime : text_mime_types) {
         scene_data_source_offer(data_source.get(), mime);
     }
-    scene_set_selection(ctx->scene, data_source.get());
+
+    for (auto* seat : ctx->seats) {
+        scene_seat_set_selection(seat, data_source.get());
+    }
 }
 
 static
@@ -185,20 +188,22 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imctx) -> const char*
 {
     auto* ctx = get_context(imctx);
 
-    if (auto* source = scene_get_selection(ctx->scene)) {
-        auto available = scene_data_source_get_offered(source);
-        for (auto mime : text_mime_types) {
-            if (std::ranges::contains(available, std::string_view(mime))) {
-                auto[read, write] = [] {
-                    int fd[2] = {-1, -1};
-                    unix_check<pipe>(fd);
-                    return std::make_pair(core_fd(fd[0]), core_fd(fd[1]));
-                }();
-                scene_data_source_send(source, mime, write.get());
-                write.reset();
+    for (auto* seat : ctx->seats) {
+        if (auto* source = scene_seat_get_selection(seat)) {
+            auto available = scene_data_source_get_offered(source);
+            for (auto mime : text_mime_types) {
+                if (std::ranges::contains(available, std::string_view(mime))) {
+                    auto[read, write] = [] {
+                        int fd[2] = {-1, -1};
+                        unix_check<pipe>(fd);
+                        return std::make_pair(core_fd(fd[0]), core_fd(fd[1]));
+                    }();
+                    scene_data_source_receive(source, mime, write.get());
+                    write.reset();
 
-                ctx->clipboard.text = read_to_string(read.get());
-                return ctx->clipboard.text.c_str();
+                    ctx->clipboard.text = read_to_string(read.get());
+                    return ctx->clipboard.text.c_str();
+                }
             }
         }
     }
@@ -517,6 +522,8 @@ void ui_handle_keyboard_enter(ui_context* ctx, scene_keyboard* keyboard, scene_i
 {
     ctx->keyboard = keyboard;
 
+    ctx->seats.emplace(scene_keyboard_get_seat(keyboard));
+
     if (auto* vp = find_viewport_for_input_region(ctx, region)) {
         scene_window_raise(get_data(vp)->window.get());
     }
@@ -529,6 +536,8 @@ void ui_handle_keyboard_enter(ui_context* ctx, scene_keyboard* keyboard, scene_i
 
 void ui_handle_keyboard_leave(ui_context* ctx)
 {
+    ctx->seats.emplace(scene_keyboard_get_seat(ctx->keyboard));
+
     ctx->keyboard = nullptr;
 
     auto& io = ImGui::GetIO();
