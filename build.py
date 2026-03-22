@@ -12,7 +12,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-U", "--update", action="store_true", help="Update")
 parser.add_argument("-C", "--configure", action="store_true", help="Force configure")
 parser.add_argument("-B", "--build", action="store_true", help="Build")
-parser.add_argument("-S", "--shader", action="store_true", help="Build Shaders")
 parser.add_argument("-R", "--release", action="store_true", help="Release")
 parser.add_argument("-I", "--install", action="store_true", help="Install")
 parser.add_argument("--asan", action="store_true", help="Enable Address Sanitizer")
@@ -172,7 +171,7 @@ generate_wayland_protocols()
 
 def build_shaders():
     shaders = [
-        ("src/scene/render.slang",        "scene_render_shader"),
+        ("src/scene/render.slang", "scene_render_shader"),
     ]
 
     shader_include_dirs = [
@@ -183,6 +182,7 @@ def build_shaders():
     shader_gen_spv_dir     = ensure_dir(shader_gen_dir / "spv")
     shader_gen_include_dir = ensure_dir(shader_gen_dir / "include")
     shader_gen_source_dir  = ensure_dir(shader_gen_dir / "src")
+    shader_gen_deps_dir    = ensure_dir(shader_gen_dir / "deps")
 
     target_name = "shaders"
 
@@ -192,21 +192,34 @@ def build_shaders():
     cmake_out += f"target_compile_options({target_name} PRIVATE -std=c++26 -Wno-c23-extensions)\n"
     cmake_out += f"target_sources({target_name} PRIVATE\n"
 
-    any_skipped = False
-
     for shader_src, prefix in shaders:
 
         cmake_out += f"    src/{prefix}.cpp\n"
 
         header_path = shader_gen_include_dir / f"{prefix}.hpp"
         source_path = shader_gen_source_dir  / f"{prefix}.cpp"
+        deps_path   = shader_gen_deps_dir / f"{prefix}.deps"
+        stamp_path  = shader_gen_deps_dir / f"{prefix}.stamp"
+        spv_path    = shader_gen_spv_dir  / f"{prefix}.spv"
 
-        if source_path.exists() and header_path.exists() and not args.shader:
-            any_skipped = True
+        def needs_rebuild() -> bool:
+            if any(not f.exists() for f in [deps_path, stamp_path, source_path, header_path]):
+                return True
+            content = deps_path.read_text()
+            deps_str = content[content.index(':') + 1:]
+            stamp_mtime = stamp_path.stat().st_mtime
+            for dep in deps_str.split():
+                dep_path = Path(dep)
+                if not dep_path.exists() or dep_path.stat().st_mtime > stamp_mtime:
+                    return True
+            return False
+
+        if not needs_rebuild():
             continue
 
-        tmp_path    = shader_gen_spv_dir / f"{prefix}.spv.tmp"
-        spv_path    = shader_gen_spv_dir / f"{prefix}.spv"
+        print(f"Compiling shader: {shader_src} as {prefix}")
+
+        tmp_path = shader_gen_spv_dir / f"{prefix}.spv.tmp"
 
         # Compile shader
 
@@ -217,17 +230,22 @@ def build_shaders():
         cmd += ["-emit-spirv-directly"]
         cmd += ["-matrix-layout-column-major"]
         cmd += ["-force-glsl-scalar-layout"]
+        cmd += ["-depfile", deps_path]
         for i in shader_include_dirs:
             cmd += [f"-I{i}"]
 
         cmd += [shader_src]
 
-        subprocess.run(cmd, executable=slangc)
+        res = subprocess.run(cmd, executable=slangc)
+        if res.returncode != 0 or not tmp_path.exists():
+            print("Shader compilation failed")
+            os._exit(1)
 
         # SPIR-V binary
 
         write_file_lazy(spv_path, tmp_path.read_bytes())
         tmp_path.unlink()
+        stamp_path.touch()
 
         # C++ source
 
@@ -250,10 +268,7 @@ def build_shaders():
     cmake_out += "    )\n"
     write_file_lazy(cmake_path, cmake_out)
 
-    return not any_skipped
-
-if not build_shaders():
-    print("Shader recompilation skipped (pass -S to recompile shaders)")
+build_shaders()
 
 # -----------------------------------------------------------------------------
 
