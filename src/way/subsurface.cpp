@@ -14,7 +14,7 @@ void get_subsurface(wl_client* client, wl_resource* resource, u32 id, wl_resourc
     surface->subsurface.synchronized = true;
 
     // Place into parent's surface stack
-    parent->pending->subsurface.places.emplace_back(way_subsurface_place {
+    parent->queue.pending->subsurface.places.emplace_back(way_subsurface_place {
         .reference = nullptr,
         .subsurface = surface,
         .above = true,
@@ -38,7 +38,7 @@ void set_position(wl_client* client, wl_resource* resource, i32 x, i32 y)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
     if (!surface->parent) return;
-    surface->parent->pending->subsurface.moves.emplace_back(way_subsurface_move {
+    surface->parent->queue.pending->subsurface.moves.emplace_back(way_subsurface_move {
         .subsurface = surface,
         .position = {x, y},
     });
@@ -49,7 +49,7 @@ void place(wl_client* client, wl_resource* resource, wl_resource* sibling)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
     if (!surface->parent) return;
-    surface->parent->pending->subsurface.places.emplace_back(way_subsurface_place {
+    surface->parent->queue.pending->subsurface.places.emplace_back(way_subsurface_place {
         .reference = way_get_userdata<way_surface>(sibling),
         .subsurface = surface,
         .above = above,

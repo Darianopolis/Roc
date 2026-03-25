@@ -229,6 +229,74 @@ enum class way_surface_role : u32
 
 // -----------------------------------------------------------------------------
 
+template<typename Enum>
+struct way_state
+{
+    way_commit_id commit;
+
+    struct {
+        u32 set   = 0;
+        u32 unset = 0;
+    } committed;
+
+    static_assert(sizeof(u32) * CHAR_BIT >
+        std::to_underlying(*std::ranges::max_element(magic_enum::enum_values<Enum>())));
+
+    bool is_set(  Enum state) const { return committed.set   & (1 << std::to_underlying(state)); }
+    bool is_unset(Enum state) const { return committed.unset & (1 << std::to_underlying(state)); }
+
+    bool empty() const { return !committed.set && !committed.unset; }
+
+    void set(Enum state)
+    {
+        committed.set   |=  (1 << std::to_underlying(state));
+        committed.unset &= ~(1 << std::to_underlying(state));
+    }
+
+    void unset(Enum state)
+    {
+        committed.unset |=  (1 << std::to_underlying(state));
+        committed.set   &= ~(1 << std::to_underlying(state));
+    }
+};
+
+template<typename T>
+struct way_state_queue
+{
+    ref<T> pending;
+    std::deque<ref<T>> cached;
+
+    way_state_queue()
+    {
+        pending = core_create<T>();
+    }
+
+    T* commit(way_commit_id id)
+    {
+        if (pending->empty()) {
+            return nullptr;
+        }
+        pending->id = id;
+        auto* prev_pending = pending.get();
+        cached.emplace_back(std::move(pending));
+        pending = core_create<T>();
+        return prev_pending;
+    }
+
+    template<typename ApplyFn>
+    void apply(way_commit_id id, ApplyFn&& apply_fn)
+    {
+        while (cached.empty()) {
+            auto& packet = cached.front();
+            if (packet.id > id) break;
+            apply_fn(packet.state, packet.id);
+            cached.pop_front();
+        }
+    }
+};
+
+// -----------------------------------------------------------------------------
+
 enum class way_surface_committed_state : u32
 {
     // wl_surface
@@ -274,33 +342,8 @@ static constexpr aabb2f32 way_infinite_aabb = {{-INFINITY, -INFINITY}, {INFINITY
 
 struct way_positioner;
 
-struct way_surface_state
+struct way_surface_state : way_state<way_surface_committed_state>
 {
-    way_commit_id commit;
-
-    struct {
-        u32 set   = 0;
-        u32 unset = 0;
-    } committed;
-
-    static_assert(sizeof(u32) * CHAR_BIT >
-        std::to_underlying(*std::ranges::max_element(magic_enum::enum_values<way_surface_committed_state>())));
-
-    bool is_set(  way_surface_committed_state state) { return committed.set   & (1 << std::to_underlying(state)); }
-    bool is_unset(way_surface_committed_state state) { return committed.unset & (1 << std::to_underlying(state)); }
-
-    void set(way_surface_committed_state state)
-    {
-        committed.set   |=  (1 << std::to_underlying(state));
-        committed.unset &= ~(1 << std::to_underlying(state));
-    }
-
-    void unset(way_surface_committed_state state)
-    {
-        committed.unset |=  (1 << std::to_underlying(state));
-        committed.set   &= ~(1 << std::to_underlying(state));
-    }
-
     struct {
         way_commit_id commit;
     } parent;
@@ -354,8 +397,7 @@ struct way_surface : way_object
 
     // state tracking
     way_commit_id last_commit_id;
-    way_surface_state* pending;
-    std::deque<way_surface_state> cached;
+    way_state_queue<way_surface_state> queue;
     way_surface_state current;
 
     // wl_subsurface
@@ -490,8 +532,8 @@ struct way_shm_pool : way_object
 #define WAY_ADDON_SIMPLE_STATE_REQUEST(Type, Field, Name, Expr, ...) \
     [](wl_client* client, wl_resource* resource, __VA_ARGS__) { \
         auto* surface = way_get_userdata<way_surface>(resource); \
-        surface->pending->Field = Expr; \
-        surface->pending->set(way_surface_committed_state::Name); \
+        surface->queue.pending->Field = Expr; \
+        surface->queue.pending->set(way_surface_committed_state::Name); \
     }
 
 /**

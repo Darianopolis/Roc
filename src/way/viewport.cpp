@@ -22,8 +22,8 @@ static
 void set_destination(wl_client* client, wl_resource* resource, i32 width, i32 height)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    surface->pending->buffer_destination = {width, height};
-    surface->pending->set(way_surface_committed_state::buffer_destination);
+    surface->queue.pending->buffer_destination = {width, height};
+    surface->queue.pending->set(way_surface_committed_state::buffer_destination);
 }
 
 static
@@ -38,10 +38,10 @@ void set_source(wl_client* client, wl_resource* resource, wl_fixed_t x, wl_fixed
     };
 
     if (src == rect2f32{{-1, -1}, {-1, -1}, core_xywh}) {
-        surface->pending->unset(way_surface_committed_state::buffer_source);
+        surface->queue.pending->unset(way_surface_committed_state::buffer_source);
     } else {
-        surface->pending->buffer_source = src;
-        surface->pending->set(way_surface_committed_state::buffer_source);
+        surface->queue.pending->buffer_source = src;
+        surface->queue.pending->set(way_surface_committed_state::buffer_source);
     }
 }
 

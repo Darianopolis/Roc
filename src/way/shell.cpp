@@ -53,8 +53,8 @@ void ack_configure(wl_client* client, wl_resource* resource, u32 serial)
         return;
     }
 
-    surface->pending->xdg.acked_serial = serial;
-    surface->pending->set(way_surface_committed_state::acked_serial);
+    surface->queue.pending->xdg.acked_serial = serial;
+    surface->queue.pending->set(way_surface_committed_state::acked_serial);
 
     surface->acked_serial = serial;
 }

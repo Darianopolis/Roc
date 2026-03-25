@@ -393,7 +393,7 @@ void ui_frame(ui_context* ctx)
 
     reset_frame_textures(ctx);
     io.Fonts->SetTexID(ui_get_texture(ctx, ctx->font_image.get(), ctx->sampler.get(),
-                                        gpu_blend_mode::postmultiplied));
+                                      gpu_blend_mode::postmultiplied));
 
     ImGui::NewFrame();
     ctx->frame_handler();

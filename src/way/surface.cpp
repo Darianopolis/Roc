@@ -27,8 +27,6 @@ void create_surface(wl_client* client, wl_resource* resource, u32 id)
     surface->client = way_client_from(way_get_userdata<way_server>(resource), client);
     surface->client->surfaces.emplace_back(surface.get());
 
-    surface->pending = &surface->cached.emplace_back();
-
     auto* server = surface->client->server;
     auto* scene = server->scene;
 
@@ -63,14 +61,14 @@ static
 void offset(wl_client* client, wl_resource* resource, i32 dx, i32 dy)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    surface->pending->surface.offset += vec2i32{dx, dy};
+    surface->queue.pending->surface.offset += vec2i32{dx, dy};
 }
 
 static
 void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i32 dx, i32 dy)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    auto* pending = surface->pending;
+    auto* pending = surface->queue.pending.get();
 
     core_assert(!pending->image);
 
@@ -83,36 +81,33 @@ void attach(wl_client* client, wl_resource* resource, wl_resource* wl_buffer, i3
     pending->buffer = way_get_userdata<way_buffer>(wl_buffer);
     pending->set(way_surface_committed_state::buffer);
 
-    surface->pending->surface.offset += vec2i32{dx, dy};
+    pending->surface.offset += vec2i32{dx, dy};
 }
 
 static
 void damage(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    auto* pending = surface->pending;
 
-    pending->surface.damage.damage({{x, y}, {width, height}, core_xywh});
+    surface->queue.pending->surface.damage.damage({{x, y}, {width, height}, core_xywh});
 }
 
 static
 void damage_buffer(wl_client* client, wl_resource* resource, i32 x, i32 y, i32 width, i32 height)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    auto* pending = surface->pending;
 
-    pending->buffer_damage.damage({{x, y}, {width, height}, core_xywh});
+    surface->queue.pending->buffer_damage.damage({{x, y}, {width, height}, core_xywh});
 }
 
 static
 void frame(wl_client* client, wl_resource* resource, u32 id)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    auto* pending = surface->pending;
 
     auto callback = way_resource_create_(client, &wl_callback_interface, resource, id, nullptr, nullptr, false);
 
-    pending->surface.frame_callbacks.emplace_back(callback);
+    surface->queue.pending->surface.frame_callbacks.emplace_back(callback);
 }
 
 void way_surface_on_redraw(way_surface* surface)
@@ -128,9 +123,9 @@ void way_surface_on_redraw(way_surface* surface)
     };
 
     send_frame_callbacks(surface->current.surface.frame_callbacks);
-    for (auto& pending : surface->cached) {
-        if (!pending.commit) continue;
-        send_frame_callbacks(pending.surface.frame_callbacks);
+    for (auto& pending : surface->queue.cached) {
+        if (!pending->commit) continue;
+        send_frame_callbacks(pending->surface.frame_callbacks);
     }
 
     way_queue_client_flush(server);
@@ -140,7 +135,7 @@ static
 void set_input_region(wl_client* client, wl_resource* resource, wl_resource* region)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
-    auto* pending = surface->pending;
+    auto* pending = surface->queue.pending.get();
 
     if (region) {
         pending->surface.input_region = way_get_userdata<way_region>(region)->region;
@@ -291,8 +286,8 @@ void flush(way_surface* surface)
 
     auto prev_applied_commit_id = surface->current.commit;
 
-    while (surface->cached.size() > 1) {
-        auto& packet = surface->cached.front();
+    while (!surface->queue.cached.empty()) {
+        auto& packet = *surface->queue.cached.front().get();
 
         if (is_blocked_by_parent(surface, packet)) break;
 
@@ -324,7 +319,7 @@ void flush(way_surface* surface)
 
         apply(surface, packet);
 
-        surface->cached.pop_front();
+        surface->queue.cached.pop_front();
     }
 
     if (surface->current.commit == prev_applied_commit_id) return;
@@ -346,9 +341,10 @@ void commit(wl_client* client, wl_resource* resource)
 {
     auto* surface = way_get_userdata<way_surface>(resource);
 
-    auto* pending = surface->pending;
+    auto pending = surface->queue.pending;
     pending->commit = ++surface->last_commit_id;
-    surface->pending = &surface->cached.emplace_back();
+    surface->queue.cached.emplace_back(pending);
+    surface->queue.pending = core_create<way_surface_state>();
 
     // Queue frame request for frame callbacks
 
@@ -359,7 +355,7 @@ void commit(wl_client* client, wl_resource* resource)
     // Apply subsurface synchronization barriers
 
     if (surface->role == way_surface_role::subsurface) {
-        way_subsurface_commit(surface, *pending);
+        way_subsurface_commit(surface, *pending.get());
     }
 
     if (!pending->is_set(way_surface_committed_state::buffer)) {
