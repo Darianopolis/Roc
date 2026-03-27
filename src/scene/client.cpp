@@ -2,6 +2,8 @@
 
 scene_client::~scene_client()
 {
+    // TODO: Allow deletion of client resources in any order safely
+
     core_assert(input_regions == 0);
 
     // All client windows must be destroyed before the client
@@ -9,14 +11,10 @@ scene_client::~scene_client()
         core_assert(window->client != this);
     }
 
+    // Focus must have been dropped before the client can safely be destroyed
     for (auto* seat : scene_get_seats(ctx)) {
-        if (auto* keyboard = scene_seat_get_keyboard(seat); keyboard->focus.client == this) {
-            scene_keyboard_set_focus(keyboard, {});
-        }
-
-        if (auto* pointer = scene_seat_get_pointer(seat); pointer->focus.client == this) {
-            scene_pointer_set_focus(pointer, {});
-        }
+        core_assert(seat->keyboard->focus.client != this);
+        core_assert(seat->pointer->focus.client != this);
     }
 
     std::erase(ctx->clients, this);

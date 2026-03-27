@@ -353,6 +353,12 @@ scene_input_region::~scene_input_region()
         scene_node_unparent(this);
     }
 
+    for (auto* seat : scene_get_seats(client->ctx)) {
+        if (seat->keyboard->focus.region == this) {
+            scene_keyboard_set_focus(seat->keyboard.get(), {});
+        }
+    }
+
     scene_update_pointers(client->ctx);
 }
 
