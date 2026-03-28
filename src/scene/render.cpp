@@ -2,20 +2,20 @@
 
 #include "core/math.hpp"
 
-#include "render.h"
-#include "scene_render_shader.hpp"
+#include "scene_render_vert.hpp"
+#include "scene_render_frag.hpp"
 
 void scene_render_init(Scene* ctx)
 {
     ctx->render.vertex   = gpu_shader_create(ctx->gpu, {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .code = scene_render_shader,
-        .entry = "vertex"
+        .code  = scene_render_vert,
+        .entry = "main",
     });
     ctx->render.fragment = gpu_shader_create(ctx->gpu, {
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .code = scene_render_shader,
-        .entry = "fragment"
+        .code  = scene_render_frag,
+        .entry = "main",
     });
 
     ctx->render.white = gpu_image_create(ctx->gpu, {

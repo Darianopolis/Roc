@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SCENE_RENDER_H
+#define SCENE_RENDER_H
 
 #include "gpu/shaders/shared.h"
 
@@ -9,10 +10,14 @@ struct SceneVertex
     vec4u8 color;
 };
 
+GPU_CONST_PTR_DECLARE(SceneVertex);
+
 struct SceneRenderInput
 {
-    GpuConstPtr<SceneVertex> vertices;
+    GPU_CONST_PTR(SceneVertex) vertices;
     vec2f32 scale;
     vec2f32 offset;
-    image4f32 texture;
+    GpuImageHandle texture;
 };
+
+#endif // SCENE_RENDER_H

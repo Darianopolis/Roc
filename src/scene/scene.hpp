@@ -4,7 +4,7 @@
 #include "core/object.hpp"
 #include "gpu/gpu.hpp"
 
-#include "render.h"
+#include "shader/render.h"
 
 // -----------------------------------------------------------------------------
 

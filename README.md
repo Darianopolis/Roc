@@ -132,6 +132,7 @@ Builds on `scene` to implement opinionated window management, styling, and behav
 - libgio2
 - mold (optional)
 - clang/gcc (C++26 capable version at minimum)
+- glslang
 
 ### Quickstart
 

@@ -1,14 +1,12 @@
-#pragma once
+#ifndef GPU_SHARED_H
+#define GPU_SHARED_H
 
 #ifdef __cplusplus
-
-#include "gpu/gpu.hpp"
-
-using image4f32 = GpuImageHandle<vec4f32>;
-
-template<typename T>
-using GpuConstPtr = const T*;
-
+# include "gpu/gpu.hpp"
+# define GPU_CONST_PTR(T) const T*
+# define GPU_CONST_PTR_DECLARE(T)
 #else
-#include "shared.slang"
-#endif
+# include "gpu/shaders/shared.glsl"
+#endif // __cplusplus
+
+#endif // GPU_SHARED_H

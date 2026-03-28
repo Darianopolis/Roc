@@ -24,13 +24,13 @@ enum class GpuImageUsage : u32;
 
 // -----------------------------------------------------------------------------
 
-enum class GpuDescriptorId : u32 { invalid = 0 };
+enum class GpuDescriptorId : u16 { invalid = 0 };
 
 struct GpuDescriptorIdAllocator
 {
     std::vector<GpuDescriptorId> freelist;
-    u32 next_id;
-    u32 capacity;
+    u16 next_id;
+    u16 capacity;
 
     GpuDescriptorIdAllocator() = default;
     GpuDescriptorIdAllocator(u32 count);
@@ -499,7 +499,7 @@ struct GpuDrawInfo {
 
 struct GpuRenderpass
 {
-    Gpu*    gpu;
+    Gpu* gpu;
     VkCommandBuffer cmd;
 
     void push_constants(   u32 offset, std::span<const byte> data);
@@ -538,8 +538,8 @@ constexpr static u32 gpu_dma_max_planes = 4;
 struct GpuDmaPlane
 {
     Fd fd;
-    u32     offset;
-    u32     stride;
+    u32 offset;
+    u32 stride;
 };
 
 struct GpuDmaParams
@@ -557,16 +557,15 @@ auto gpu_image_export(GpuImage*) -> GpuDmaParams;
 
 // -----------------------------------------------------------------------------
 
-template<typename T>
 struct GpuImageHandle
 {
-    u32 image   : 20 = {};
-    u32 sampler : 12 = {};
+    u16 image   = 0;
+    u16 sampler = 0;
 
     GpuImageHandle() = default;
 
     GpuImageHandle(GpuImage* image, GpuSampler* sampler)
-        : image(std::to_underlying(image->descriptor()))
+        : image  (std::to_underlying(image->descriptor()))
         , sampler(sampler ? std::to_underlying(sampler->id) : 0)
     {}
 };

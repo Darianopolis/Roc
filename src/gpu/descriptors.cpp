@@ -7,7 +7,7 @@ void gpu_init_descriptors(Gpu* gpu)
     VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
         | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
-    constexpr auto num_image_descriptors_each = 65536;
+    constexpr auto num_image_descriptors_each = 65535;
     constexpr auto num_sampler_descriptors    =    16;
 
     gpu->image_descriptor_allocator   = GpuDescriptorIdAllocator(num_image_descriptors_each);
@@ -80,7 +80,9 @@ void gpu_init_descriptors(Gpu* gpu)
 GpuDescriptorIdAllocator::GpuDescriptorIdAllocator(u32 count)
     : next_id(1)
     , capacity(count)
-{}
+{
+    debug_assert(count <= UINT16_MAX);
+}
 
 GpuDescriptorId GpuDescriptorIdAllocator::allocate()
 {

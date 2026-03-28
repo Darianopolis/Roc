@@ -122,18 +122,15 @@ generate_wayland_protocols()
 
 def build_shaders():
     shaders = [
-        ("src/scene/render.slang", "scene_render_shader"),
+        ("src/scene/shader/render.frag.glsl", "scene_render_frag", "frag"),
+        ("src/scene/shader/render.vert.glsl", "scene_render_vert", "vert"),
     ]
 
-    shader_include_dirs = [
-        "src"
-    ]
-
-    shader_gen_dir = ensure_dir(build_dir / "shaders")
+    shader_gen_dir         = ensure_dir(build_dir / "shaders")
     shader_gen_spv_dir     = ensure_dir(shader_gen_dir / "spv")
     shader_gen_include_dir = ensure_dir(shader_gen_dir / "include")
     shader_gen_source_dir  = ensure_dir(shader_gen_dir / "src")
-    shader_gen_deps_dir    = ensure_dir(shader_gen_dir / "deps")
+    shader_gen_stamp_dir   = ensure_dir(shader_gen_dir / "stamp")
 
     target_name = "shaders"
 
@@ -143,49 +140,38 @@ def build_shaders():
     cmake_out += f"target_compile_options({target_name} PRIVATE -std=c++26 -Wno-c23-extensions)\n"
     cmake_out += f"target_sources({target_name} PRIVATE\n"
 
-    for shader_src, prefix in shaders:
+    # Dependency tracking: glslang doesn't give us dependency info,
+    # so we just check mtime against all .glsl/.h files.
+    shader_source_files = list(cwd.glob("src/**/*.glsl")) + list(cwd.glob("src/**/*.h"))
+    shader_dep_mtime = max((f.stat().st_mtime for f in shader_source_files if f.exists()), default=0.0)
 
+    for src_file, prefix, stage_flag in shaders:
         cmake_out += f"    src/{prefix}.cpp\n"
 
+        src_path    = cwd / src_file
+        spv_path    = shader_gen_spv_dir     / f"{prefix}.spv"
         header_path = shader_gen_include_dir / f"{prefix}.hpp"
         source_path = shader_gen_source_dir  / f"{prefix}.cpp"
-        deps_path   = shader_gen_deps_dir / f"{prefix}.deps"
-        stamp_path  = shader_gen_deps_dir / f"{prefix}.stamp"
-        spv_path    = shader_gen_spv_dir  / f"{prefix}.spv"
+        stamp_path  = shader_gen_stamp_dir   / f"{prefix}.stamp"
 
         def needs_rebuild() -> bool:
-            if any(not f.exists() for f in [deps_path, stamp_path, source_path, header_path]):
-                return True
-            content = deps_path.read_text()
-            deps_str = content[content.index(':') + 1:]
-            stamp_mtime = stamp_path.stat().st_mtime
-            for dep in deps_str.split():
-                dep_path = Path(dep)
-                if not dep_path.exists() or dep_path.stat().st_mtime > stamp_mtime:
-                    return True
-            return False
+            return (any(not f.exists() for f in [stamp_path, spv_path, header_path, source_path])
+                    or shader_dep_mtime > stamp_path.stat().st_mtime)
 
         if not needs_rebuild():
             continue
 
-        print(f"Compiling shader: {shader_src} as {prefix}")
+        print(f"Compiling shader: {src_path} [{stage_flag}] as {prefix}")
 
         tmp_path = shader_gen_spv_dir / f"{prefix}.spv.tmp"
 
-        # Compile shader
-
-        cmd  = ["slangc"]
+        cmd  = ["glslang"]
+        cmd += ["-V"]
+        cmd += ["-S", stage_flag]
+        cmd += ["-Isrc"]
+        cmd += ["--target-env", "vulkan1.4"]
         cmd += ["-o", tmp_path]
-        cmd += ["-target", "spirv"]
-        cmd += ["-fvk-use-entrypoint-name"]
-        cmd += ["-emit-spirv-directly"]
-        cmd += ["-matrix-layout-column-major"]
-        cmd += ["-force-glsl-scalar-layout"]
-        cmd += ["-depfile", deps_path]
-        for i in shader_include_dirs:
-            cmd += [f"-I{i}"]
-
-        cmd += [shader_src]
+        cmd += [str(src_path)]
 
         res = subprocess.run(cmd)
         if res.returncode != 0 or not tmp_path.exists():
