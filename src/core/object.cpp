@@ -54,7 +54,7 @@ Registry::~Registry()
     }
 #endif
 
-    log_debug("Peak registry allocation: {}", to_string(FmtBytes(total_allocation_size)));
+    log_debug("Peak registry allocation: {}", FmtBytes(total_allocation_size));
 }
 
 auto registry_get_stats() -> RegistryStats

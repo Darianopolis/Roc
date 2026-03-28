@@ -151,11 +151,11 @@ void log(LogLevel level, std::string_view message)
             fmt = { VT_COLOR(90, "{}") " [" VT_COLOR(91, "FATAL") "] {}\n",                          "{} [FATAL] {}\n" };
     }
 
-    auto time_str = to_string(timestamp, TimeFormat::time_ms);
-    std::cout << std::vformat(fmt.vt, std::make_format_args(time_str, message));
+    auto time_ms = FmtTime{timestamp, TimeFormat::time_ms};
+    std::cout << std::vformat(fmt.vt, std::make_format_args(time_ms, message));
     if (state.log_file.is_open()) {
-        auto datetime_str = to_string(timestamp, TimeFormat::datetime_ms);
-        state.log_file << std::vformat(fmt.plain, std::make_format_args(datetime_str, message)) << std::flush;
+        auto datetime_ms = FmtTime{timestamp, TimeFormat::datetime_ms};
+        state.log_file << std::vformat(fmt.plain, std::make_format_args(datetime_ms, message)) << std::flush;
     }
 }
 

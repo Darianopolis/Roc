@@ -362,14 +362,13 @@ struct WaySurfaceState : WayState<WaySurfaceStateComponent>
         WayDamageRegion damage;
     } surface;
 
-
-    Ref<WayBuffer>     buffer;
-    Ref<GpuImage>      image;
+    Ref<WayBuffer>      buffer;
+    Ref<GpuImage>       image;
     wl_output_transform buffer_transform;
     i32                 buffer_scale = 1;
     rect2f32            buffer_source;
     vec2i32             buffer_destination;
-    WayDamageRegion   buffer_damage;
+    WayDamageRegion     buffer_damage;
 
     struct {
         rect2i32 geometry;
@@ -420,7 +419,7 @@ struct WaySurface : WayObject
     // xdg_popup
     struct {
         WayResource resource;
-        vec2f32      position;
+        vec2f32 position;
     } popup;
 
     // xdg_toplevel
@@ -431,13 +430,13 @@ struct WaySurface : WayObject
         Ref<SceneWindow> window;
 
         WaySerial pending; // commit response to resize configure is pending
-        bool       queued;  // new reposition request received while pending
+        bool queued;  // new reposition request received while pending
     } toplevel;
 
     // scene
     struct {
-        Ref<SceneTree>         tree;
-        Ref<SceneTexture>      texture;
+        Ref<SceneTree> tree;
+        Ref<SceneTexture> texture;
         Ref<SceneInputRegion> input_region;
     } scene;
 

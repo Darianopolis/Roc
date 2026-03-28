@@ -101,7 +101,7 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     buffer->offset = offset;
 
     if (!buffer->format) {
-        way_post_error(server, resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", to_string(wl_shm_format(_format)));
+        way_post_error(server, resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", wl_shm_format(_format));
         return;
     }
 }
@@ -143,8 +143,8 @@ auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*
     if (candidate->format() != buffer->format) return nullptr;
 
 #if NOISY_SHM_BUFFER_IMAGES
-    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  to_string(candidate->extent()));
-    else                      log_debug("STEALING shm buffer image {}", to_string(candidate->extent()));
+    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  candidate->extent());
+    else                      log_debug("STEALING shm buffer image {}", candidate->extent());
 #endif
 
     return candidate;
@@ -168,7 +168,7 @@ auto WayShmBuffer::acquire(WaySurface* surface, WaySurfaceState& packet) -> Ref<
         damage.damage({{}, extent, minmax});
 
 #if NOISY_SHM_BUFFER_IMAGES
-        log_warn("ALLOCATING shm buffer image {}", to_string(extent));
+        log_warn("ALLOCATING shm buffer image {}", extent);
 #endif
     }
 
@@ -178,7 +178,7 @@ auto WayShmBuffer::acquire(WaySurface* surface, WaySurfaceState& packet) -> Ref<
         aabb2i32 aabb = damage.bounds();
         rect2i32 rect = aabb;
 #if NOISY_SHM_BUFFER_IMAGES
-        log_trace("  damage {}", to_string(rect));
+        log_trace("  damage {}", rect);
 #endif
 
         auto* gpu = server->gpu;

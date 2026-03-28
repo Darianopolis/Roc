@@ -9,21 +9,50 @@ constexpr vec2f64 round_to_zero(vec2f64 v)            { return copysign(glm::flo
 
 // -----------------------------------------------------------------------------
 
-template<typename T> std::string to_string(const Vec<2, T>& vec) { return std::format("({}, {})",         vec.x, vec.y);               }
-template<typename T> std::string to_string(const Vec<3, T>& vec) { return std::format("({}, {}, {})",     vec.x, vec.y, vec.z);        }
-template<typename T> std::string to_string(const Vec<4, T>& vec) { return std::format("({}, {}, {}, {})", vec.x, vec.y, vec.z, vec.w); }
+template<typename T>
+struct std::formatter<Vec<2, T>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Vec<2, T>& v, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "({}, {})", v.x, v.y);
+    }
+};
 
 template<typename T>
-std::string to_string(const Rect<T>& rect)
-{
-    return std::format("(({}, {}) : ({}, {}))", rect.origin.x, rect.origin.y, rect.extent.x, rect.extent.y);
-}
+struct std::formatter<Vec<3, T>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Vec<3, T>& v, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "({}, {}, {})", v.x, v.y, v.z);
+    }
+};
 
 template<typename T>
-std::string to_string(const Aabb<T>& aabb)
-{
-    return std::format("(({}, {}) < ({}, {}))", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
-}
+struct std::formatter<Vec<4, T>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Vec<4, T>& v, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "({}, {}, {}, {})", v.x, v.y, v.z, v.w);
+    }
+};
+
+template<typename T>
+struct std::formatter<Rect<T>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Rect<T>& r, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "(({}, {}) : ({}, {}))", r.origin.x, r.origin.y, r.extent.x, r.extent.y);
+    }
+};
+
+template<typename T>
+struct std::formatter<Aabb<T>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Aabb<T>& a, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "(({}, {}) < ({}, {}))", a.min.x, a.min.y, a.max.x, a.max.y);
+    }
+};
 
 // -----------------------------------------------------------------------------
 

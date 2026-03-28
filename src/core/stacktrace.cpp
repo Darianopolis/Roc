@@ -1,17 +1,6 @@
 #include "stacktrace.hpp"
 #include "debug.hpp"
 
-std::string to_string(const Stacktrace& st)
-{
-    std::string str;
-    for (u32 i = 0; i < st.entries.size(); ++i) {
-        if (!str.empty()) str += '\n';
-        auto& e = st.entries[i];
-        str += std::format("{:4}# {:4} at {}:{}", i, e.description(), e.source_file().c_str(), e.source_line());
-    }
-    return str;
-}
-
 std::pair<const Stacktrace*, bool> StacktraceCache::insert(const std::stacktrace& st)
 {
     auto& entry = traces[st];

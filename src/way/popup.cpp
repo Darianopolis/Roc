@@ -262,7 +262,7 @@ void position(WaySurface* surface, const WayPositionerRules& rules, std::optiona
     }
 
     auto geometry = positioner_apply(rules, constraint);
-    log_debug("popup geometry: {}", to_string(geometry));
+    log_debug("popup geometry: {}", geometry);
     surface->popup.position = geometry.origin;
 
     if (token) {

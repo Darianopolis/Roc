@@ -34,7 +34,21 @@ struct Stacktrace
     auto end() const noexcept { return entries.end(); }
 };
 
-std::string to_string(const Stacktrace& st);
+template<>
+struct std::formatter<Stacktrace> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(const Stacktrace& st, auto& ctx) const
+    {
+        bool first = true;
+        auto out = ctx.out();
+        for (u32 i = 0; i < st.entries.size(); ++i) {
+            if (!std::exchange(first, false)) out = std::format_to(out, "\n");
+            auto& e = st.entries[i];
+            out = std::format_to(out, "{:4}# {:4} at {}:{}", i, e.description(), e.source_file().c_str(), e.source_line());
+        }
+        return ctx.out();
+    }
+};
 
 struct StacktraceCache
 {

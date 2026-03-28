@@ -260,7 +260,7 @@ auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuF
     params.extent = extent;
 
     log_debug("DMA-BUF {} - {} : {}",
-        to_string(buffer->extent), format->name, gpu_get_modifier_name(params.modifier));
+        buffer->extent, format->name, gpu_get_modifier_name(params.modifier));
     buffer->image = gpu_image_import(server->gpu, params, GpuImageUsage::texture);
 
     dma_params->params = {};

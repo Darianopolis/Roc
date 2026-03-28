@@ -32,7 +32,7 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
 
     switch (event->type) {
         break;case IoEventType::shutdown_requested:
-            log_error("io::shutdown_requested({})", to_string(event->shutdown.reason));
+            log_error("io::shutdown_requested({})", event->shutdown.reason);
             io_stop(io);
         break;case IoEventType::input_event:
             static constexpr auto channel_to_str = [](auto& e) {
@@ -42,7 +42,7 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
                 input.channels | std::views::transform(channel_to_str) | std::views::join_with(", "sv),
                 input.quiet ? ", QUIET" : "");
         break;case IoEventType::output_configure:
-            log_info("io::output_configure{}", to_string(event->output.output->info().size));
+            log_info("io::output_configure{}", event->output.output->info().size);
             event->output.output->request_frame();
         break;case IoEventType::output_frame:
             render(gpu, event->output.output, pool);
@@ -50,7 +50,7 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
               case IoEventType::input_removed:
               case IoEventType::output_added:
               case IoEventType::output_removed:
-            log_warn("io::{}", to_string(event->type));
+            log_warn("io::{}", event->type);
     }
 }
 

@@ -24,7 +24,28 @@ struct FmtBytes
     FmtBytes(u64 size): bytes(size) {}
 };
 
-std::string to_string(FmtBytes size);
+template<>
+struct std::formatter<FmtBytes> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(FmtBytes size, auto& ctx) const
+    {
+        auto bytes = size.bytes;
+
+        auto with_suffix = [&](std::string_view suffix, f64 amount) {
+            u32 decimals = amount < 10 ? 2 : (amount < 100 ? 1 : 0);
+            return std::format_to(ctx.out(), "{:.{}f}{}", amount, decimals, suffix);
+        };
+
+        if (bytes >= (1ul << 60)) return with_suffix("EiB", f64(bytes) / (1ul << 60));
+        if (bytes >= (1ul << 50)) return with_suffix("PiB", f64(bytes) / (1ul << 50));
+        if (bytes >= (1ul << 40)) return with_suffix("TiB", f64(bytes) / (1ul << 40));
+        if (bytes >= (1ul << 30)) return with_suffix("GiB", f64(bytes) / (1ul << 30));
+        if (bytes >= (1ul << 20)) return with_suffix("MiB", f64(bytes) / (1ul << 20));
+        if (bytes >= (1ul << 10)) return with_suffix("KiB", f64(bytes) / (1ul << 10));
+
+        return std::format_to(ctx.out(), "{} byte{}", bytes, bytes == 1 ? "" : "s");
+    }
+};
 
 // -----------------------------------------------------------------------------
 

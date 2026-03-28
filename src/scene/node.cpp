@@ -1,5 +1,7 @@
 #include "internal.hpp"
 
+#include <core/math.hpp>
+
 #define SCENE_NOISY_NODES 0
 
 #if SCENE_NOISY_NODES
@@ -198,7 +200,7 @@ void tree_place(SceneTree* tree, SceneNode* sibling, SceneNode* node, bool above
         else           std::rotate(cur, cur + 1, sib + i32(above));
     }
 
-    NODE_LOG("scene.tree{{{}}}.place_{}({}, {})", (void*)tree, above ? "above" : "below", (void*)reference, (void*)node);
+    NODE_LOG("scene.tree{{{}}}.place_{}({}, {})", (void*)tree, above ? "above" : "below", (void*)sibling, (void*)node);
 
     // TODO: We only need to damage regions that were visually affected by the rotate
     damage_node(tree);
@@ -232,7 +234,7 @@ void scene_tree_set_translation(SceneTree* tree, vec2f32 position)
 {
     if (tree->translation == position) return;
 
-    NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, to_string(position));
+    NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, position);
 
     damage_node(tree);
     tree->translation = position;
@@ -262,7 +264,7 @@ void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler*
 #if SCENE_NOISY_NODES
     if (texture->image.get()   != image)   NODE_LOG("scene.texture{{{}}}.set_image({})",   (void*)texture, (void*)image);
     if (texture->sampler.get() != sampler) NODE_LOG("scene.texture{{{}}}.set_sampler({})", (void*)texture, (void*)sampler);
-    if (texture->blend         != blend)   NODE_LOG("scene.texture{{{}}}.set_blend({})",   (void*)texture, to_string(blend));
+    if (texture->blend         != blend)   NODE_LOG("scene.texture{{{}}}.set_blend({})",   (void*)texture, blend);
 #endif
 
     texture->image = image;
@@ -278,7 +280,7 @@ void scene_texture_set_tint(SceneTexture* texture, vec4u8 tint)
 {
     if (texture->tint == tint) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, to_string(tint));
+    NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, tint);
 
     texture->tint = tint;
     damage_node(texture);
@@ -288,7 +290,7 @@ void scene_texture_set_src(SceneTexture* texture, aabb2f32 source)
 {
     if (source == texture->src) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, to_string(source));
+    NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, source);
 
     texture->src = source;
     damage_node(texture);
@@ -298,7 +300,7 @@ void scene_texture_set_dst(SceneTexture* texture, rect2f32 extent)
 {
     if (extent == texture->dst) return;
 
-    NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, to_string(extent));
+    NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, extent);
 
     damage_node(texture);
     texture->dst = extent;
@@ -307,7 +309,7 @@ void scene_texture_set_dst(SceneTexture* texture, rect2f32 extent)
 
 void scene_texture_damage(SceneTexture* texture, aabb2i32 damage)
 {
-    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, to_string(rect2i32(damage)));
+    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, rect2i32(damage));
 
     damage_node(texture);
 }
@@ -326,8 +328,8 @@ void scene_mesh_update(SceneMesh* mesh, GpuImage* image, GpuSampler* sampler, Gp
 #if SCENE_NOISY_NODES
     if (mesh->image.get()   != image)   NODE_LOG("scene.mesh{{{}}}.set_image({})",   (void*)mesh, (void*)image);
     if (mesh->sampler.get() != sampler) NODE_LOG("scene.mesh{{{}}}.set_sampler({})", (void*)mesh, (void*)sampler);
-    if (mesh->blend         != blend)   NODE_LOG("scene.mesh{{{}}}.set_blend({})",   (void*)mesh, to_string(blend));
-    if (mesh->clip          != clip)    NODE_LOG("scene.mesh{{{}}}.set_clip{}",      (void*)mesh, to_string(clip));
+    if (mesh->blend         != blend)   NODE_LOG("scene.mesh{{{}}}.set_blend({})",   (void*)mesh, blend);
+    if (mesh->clip          != clip)    NODE_LOG("scene.mesh{{{}}}.set_clip{}",      (void*)mesh, clip);
 
     NODE_LOG("scene.mesh{{{}}}.set_vertices({}, {})", (void*)mesh, (void*)vertices.data(), vertices.size());
     NODE_LOG("scene.mesh{{{}}}.set_indices({}, {})",  (void*)mesh, (void*)indices.data(),  indices.size());
@@ -379,7 +381,7 @@ void scene_input_region_set_region(SceneInputRegion* input_region, region2f32 re
 #if SCENE_NOISY_NODES
     NODE_LOG("scene.input_region{{{}}}.set_region([{:s}])", (void*)input_region,
         region.aabbs
-            | std::views::transform((std::string(&)(const aabb2f32&))to_string)
+            | std::views::transform([&](auto& aabb) { return std::format("{}", aabb); })
             | std::views::join_with(", "sv));
 #endif
 

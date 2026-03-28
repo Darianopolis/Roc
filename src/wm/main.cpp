@@ -1,5 +1,7 @@
 #include "wm.hpp"
 
+#include <core/chrono.hpp>
+
 #include "scene/scene.hpp"
 
 #include "io/io.hpp"
@@ -242,19 +244,19 @@ int main()
                     libevdev_event_code_get_name(EV_KEY, event->keyboard.key.code),
                     event->keyboard.key.pressed ? "pressed" : "released");
             break;case SceneEventType::keyboard_modifier:
-                log_trace("keyboard_modifier({})", to_string(scene_keyboard_get_modifiers(event->keyboard.keyboard)));
+                log_trace("keyboard_modifier({})", scene_keyboard_get_modifiers(event->keyboard.keyboard));
             break;case SceneEventType::pointer_motion:
                 log_trace("pointer_motion(accel: {}, unaccel: {}, pos: {})",
-                    to_string(event->pointer.motion.rel_accel),
-                    to_string(event->pointer.motion.rel_unaccel),
-                    to_string(scene_pointer_get_position(event->pointer.pointer)));
+                    event->pointer.motion.rel_accel,
+                    event->pointer.motion.rel_unaccel,
+                    scene_pointer_get_position(event->pointer.pointer));
             break;case SceneEventType::pointer_button:
                 log_trace("pointer_button({}, {})",
                     libevdev_event_code_get_name(EV_KEY, event->pointer.button.code),
                     event->pointer.button.pressed ? "pressed" : "released");
                 scene_window_raise(window.get());
             break;case SceneEventType::pointer_scroll:
-                log_trace("pointer_scroll(delta: {})", to_string(event->pointer.scroll.delta));
+                log_trace("pointer_scroll(delta: {})", event->pointer.scroll.delta);
             break;case SceneEventType::pointer_enter:
                 log_trace("pointer_enter({}, region: {})", (void*)event->pointer.pointer, (void*)event->pointer.focus.region);
             break;case SceneEventType::pointer_leave:
@@ -340,7 +342,7 @@ int main()
                         if (tree->system == way->scene_system
                                 && (surface = way_get_userdata<WaySurface>(tree))) {
                             log_warn("{}tree({}{}) {{", indent(),
-                                to_string(surface->role),
+                                surface->role,
                                 tree->enabled ? "": ", disabled");
                         } else {
                             log_warn("{}tree{} {{", indent(), tree->enabled ? "": "(disabled)");
@@ -348,7 +350,7 @@ int main()
                         depth += 2;
                     },
                     [&](SceneNode* node) {
-                        log_warn("{}{}", indent(), to_string(node->type));
+                        log_warn("{}{}", indent(), node->type);
                     },
                     [&](SceneTree* tree) {
                         depth -= 2;

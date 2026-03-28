@@ -5,18 +5,6 @@
 // -----------------------------------------------------------------------------
 
 constexpr
-u32 decimals_for_3sf(f64 value)
-{
-    if (value < 10) return 2;
-    if (value < 100) return 1;
-    return 0;
-}
-
-std::string format_with_suffix(std::string_view suffix, f64 amount, u32 decimals);
-
-// -----------------------------------------------------------------------------
-
-constexpr
 std::string ascii_to_upper(std::string_view in)
 {
     std::string out(in);

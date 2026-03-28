@@ -2,13 +2,15 @@
 
 #include "types.hpp"
 
-template<typename Enum>
-    requires std::is_enum_v<Enum>
-std::string_view to_string(Enum value)
-{
-    std::string_view name = magic_enum::enum_name(value);
-    return name;
-}
+template<typename E>
+    requires std::is_enum_v<E>
+struct std::formatter<E> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(E v, auto& ctx) const
+    {
+        return std::format_to(ctx.out(), "{}", magic_enum::enum_name(v));
+    }
+};
 
 // -----------------------------------------------------------------------------
 
@@ -58,21 +60,23 @@ constexpr Flags<E> operator|(E a, E b)
     return Flags(a) | b;
 }
 
-template<typename Enum>
-    requires std::is_enum_v<Enum>
-std::string to_string(Flags<Enum> bitfield)
-{
-    std::string result;
-
-    using Type = Flags<Enum>::underlying_type;
-    Type v = bitfield.value;
-
-    while (v) {
-        Type lsb = Type(1) << std::countr_zero(v);
-        if (!result.empty()) result += "|";
-        result += to_string(Enum(lsb));
-        v &= ~lsb;
+template<typename E>
+    requires std::is_enum_v<E>
+struct std::formatter<Flags<E>> {
+    constexpr auto parse(auto& ctx) { return ctx.begin(); }
+    constexpr auto format(Flags<E> bitfield, auto& ctx) const
+    {
+        using Type = Flags<E>::underlying_type;
+        Type v = bitfield.value;
+        bool first = true;
+        auto out = ctx.out();
+        while (v) {
+            Type lsb = Type(1) << std::countr_zero(v);
+            if (!std::exchange(first, false)) out = std::format_to(out, "|");
+            first = false;
+            out = std::format_to(out, "{}", magic_enum::enum_name(E(lsb)));
+            v &= ~lsb;
+        }
+        return out;
     }
-
-    return result;
-}
+};
