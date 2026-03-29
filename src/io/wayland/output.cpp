@@ -24,9 +24,7 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
     ctx->wayland->format.table.clear();
     ctx->wayland->format.set.clear();
     for (auto& entry : formats) {
-        if (auto format = gpu_format_from_drm(entry.format)) {
-            ctx->wayland->format.table.emplace_back(format, entry.modifier);
-        }
+        ctx->wayland->format.table.emplace_back(gpu_format_from_drm(entry.format), entry.modifier);
     }
 }
 
@@ -37,7 +35,9 @@ void tranche_formats(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf
 
     for (auto[i, idx] : io_to_span<u16>(indices) | std::views::enumerate) {
         auto[format, modifier] = ctx->wayland->format.table[idx];
-        ctx->wayland->format.set.add(format, modifier);
+        if (format) {
+            ctx->wayland->format.set.add(format, modifier);
+        }
     }
 }
 

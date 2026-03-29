@@ -428,6 +428,7 @@ Ref<Gpu> gpu_create(ExecContext* exec, Flags<GpuFeature> _features)
                 }),
                 ptr_to(VkPhysicalDeviceVulkan12Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+                    .storageBuffer8BitAccess = true,
                     .storagePushConstant8 = true,
                     .shaderInt8 = true,
                     .descriptorIndexing = true,

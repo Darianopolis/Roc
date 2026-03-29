@@ -129,7 +129,7 @@ add_subdirectory(${VENDOR_DIR}/vulkan-memory-allocator  EXCLUDE_FROM_ALL)
 add_library(vma-object)
 target_generated_source(   vma-object PRIVATE vk_mem_alloc.cpp "#define VMA_IMPLEMENTATION" "#include <vk_mem_alloc.h>")
 target_compile_options(    vma-object PRIVATE -w)
-target_link_libraries(     vma-object PUBLIC GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(     vma-object PUBLIC GPUOpen::VulkanMemoryAllocator Vulkan::Headers)
 target_compile_definitions(vma-object PUBLIC "VMA_STATIC_VULKAN_FUNCTIONS=0" "VMA_DYNAMIC_VULKAN_FUNCTIONS=1")
 
 # ------------------------------------------------------------------------------
