@@ -26,6 +26,10 @@ Gpu::~Gpu()
 
     vmaDestroyAllocator(vma);
 
+    for (auto* binary_sema : free_binary_semaphores) {
+        vk.DestroySemaphore(device, binary_sema, nullptr);
+    }
+
     vk.DestroyPipelineLayout(device, pipeline_layout, nullptr);
     vk.DestroyDescriptorSetLayout(device, set_layout, nullptr);
     vk.DestroyDescriptorPool(device, pool, nullptr);
@@ -289,6 +293,45 @@ VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
+static
+bool test_timeline_syncobj_export(Gpu* gpu)
+{
+    // Create dummy timeline semaphore
+
+    VkSemaphore semaphore = nullptr;
+    defer { gpu->vk.DestroySemaphore(gpu->device, semaphore, nullptr); };
+    gpu_check(gpu->vk.CreateSemaphore(gpu->device, ptr_to(VkSemaphoreCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = gpu_vk_make_chain_in({
+            ptr_to(VkSemaphoreTypeCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+                .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
+            }),
+            ptr_to(VkExportSemaphoreCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO,
+                .handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,
+            }),
+        })
+    }), nullptr, &semaphore));
+
+    // Export as OPAQUE_FD
+
+    int fd = -1;
+    defer { close(fd); };
+    gpu_check(gpu->vk.GetSemaphoreFdKHR(gpu->device, ptr_to(VkSemaphoreGetFdInfoKHR {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+        .semaphore = semaphore,
+        .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,
+    }), &fd));
+
+    // Check if importable as DRM syncobj
+
+    u32 handle;
+    auto err = drmSyncobjFDToHandle(gpu->drm.fd, fd, &handle);
+    if (!err) drmSyncobjDestroy(gpu->drm.fd, handle);
+    return !err;
+}
+
 Ref<Gpu> gpu_create(ExecContext* exec, Flags<GpuFeature> _features)
 {
     auto gpu = ref_create<Gpu>();
@@ -506,6 +549,14 @@ Ref<Gpu> gpu_create(ExecContext* exec, Flags<GpuFeature> _features)
     }
 
     gpu_load_device_functions(gpu.get());
+
+    if (test_timeline_syncobj_export(gpu.get())) {
+        log_info("Timeline semaphores importable as DRM syncobj");
+        gpu->features |= GpuFeature::timelines;
+    } else {
+        log_warn("Timeline semaphores cannot be imported as DRM syncobj: falling back to binary semaphores");
+        gpu->features -= GpuFeature::timelines;
+    }
 
     gpu_queue_init(gpu.get());
 

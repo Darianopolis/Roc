@@ -204,3 +204,32 @@ void gpu_syncobj_signal_value(GpuSyncobj* syncobj, u64 value)
 
     unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &value, 1);
 }
+
+// -----------------------------------------------------------------------------
+
+GpuBinarySemaphore::~GpuBinarySemaphore()
+{
+    gpu->free_binary_semaphores.emplace_back(semaphore);
+}
+
+auto gpu_get_binary_semaphore(Gpu* gpu) -> Ref<GpuBinarySemaphore>
+{
+    auto binary = ref_create<GpuBinarySemaphore>();
+    binary->gpu = gpu;
+
+    if (gpu->free_binary_semaphores.empty()) {
+        log_warn("Allocating new binary semaphore");
+        gpu_check(gpu->vk.CreateSemaphore(gpu->device, ptr_to(VkSemaphoreCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            .pNext = ptr_to(VkExportSemaphoreCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO,
+                .handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+            }),
+        }), nullptr, &binary->semaphore));
+    } else {
+        binary->semaphore = gpu->free_binary_semaphores.back();
+        gpu->free_binary_semaphores.pop_back();
+    }
+
+    return binary;
+}

@@ -173,6 +173,7 @@ auto gpu_get_modifier_name(GpuDrmModifier) -> std::string;
 enum class GpuFeature : u32
 {
     validation = 1 << 0,
+    timelines  = 1 << 1,
 };
 
 struct Gpu
@@ -216,6 +217,8 @@ struct Gpu
 
         u32 active_samplers;
     } stats;
+
+    std::vector<VkSemaphore> free_binary_semaphores;
 
     VkDescriptorSetLayout set_layout;
     VkPipelineLayout pipeline_layout;

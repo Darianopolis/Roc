@@ -111,6 +111,7 @@
     DO(CmdBindShadersEXT) \
     DO(GetSemaphoreCounterValue) \
 
+
 #define GPU_DECLARE_FUNCTION(funcName, ...) PFN_vk##funcName funcName;
 
 struct Gpu;
