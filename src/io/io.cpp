@@ -7,6 +7,7 @@ auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     ctx->exec = exec;
     ctx->gpu = gpu;
 
+    io_udev_init(    ctx.get());
     io_session_init( ctx.get());
     io_libinput_init(ctx.get());
     io_evdev_init(   ctx.get());
@@ -24,6 +25,7 @@ void shutdown(IoContext* ctx)
     io_evdev_deinit(ctx);
     io_drm_deinit(ctx);
     io_wayland_deinit(ctx);
+    io_udev_deinit(ctx);
 
     exec_stop(ctx->exec);
 }

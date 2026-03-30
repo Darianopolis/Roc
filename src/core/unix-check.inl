@@ -70,10 +70,20 @@ UNIX_ERROR_BEHAVIOUR(drmPrimeFDToHandle,         negative_one)
 UNIX_ERROR_BEHAVIOUR(drmModeAddFB2WithModifiers, negative_one)
 UNIX_ERROR_BEHAVIOUR(drmModeAtomicCommit,        negative_one)
 
+// udev
+
+UNIX_ERROR_BEHAVIOUR(udev_new, null)
+
+// evdev
+
+UNIX_ERROR_BEHAVIOUR(libevdev_new_from_fd, negative_errno)
+UNIX_ERROR_BEHAVIOUR(libevdev_next_event,  negative_errno)
+
 // libseat
 
 UNIX_ERROR_BEHAVIOUR(libseat_open_seat, null)
 UNIX_ERROR_BEHAVIOUR(libseat_get_fd,    negative_one)
+UNIX_ERROR_BEHAVIOUR(libseat_dispatch,  negative_one)
 
 // libinput
 

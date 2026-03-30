@@ -2,7 +2,6 @@
 
 #include "io.hpp"
 
-struct IoUdev;
 void io_udev_init(  IoContext*);
 void io_udev_deinit(IoContext*);
 
@@ -42,7 +41,8 @@ struct IoContext
     std::vector<IoInputDeviceBase*> input_devices;
     std::vector<IoOutputBase*>       outputs;
 
-    Ref<IoUdev>     udev;
+    struct udev*    udev;
+
     Ref<IoSession>  session;
     Ref<IoLibinput> libinput; // input_device
     Ref<IoEvdev>    evdev;    // input_device

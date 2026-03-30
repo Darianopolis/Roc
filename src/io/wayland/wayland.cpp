@@ -81,6 +81,11 @@ void display_read(IoContext* ctx, Flags<FdEventBit> events)
 
 void io_wayland_init(IoContext* ctx)
 {
+    if (ctx->session) {
+        log_info("Session enabled, skipping io::Wayland backend");
+        return;
+    }
+
     ctx->wayland = ref_create<IoWayland>();
     auto* wl = ctx->wayland.get();
 

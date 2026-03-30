@@ -1,12 +1,11 @@
 #include "../internal.hpp"
 
-struct IoUdev
+void io_udev_init(IoContext* ctx)
 {
-};
-
-void io_udev_init(IoContext*)
-{
-    log_error("IO - udev backend not implemented");
+    ctx->udev = unix_check<udev_new>().value;
 }
 
-void io_udev_deinit(IoContext*) {}
+void io_udev_deinit(IoContext* ctx)
+{
+    udev_unref(ctx->udev);
+}
