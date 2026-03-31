@@ -16,6 +16,7 @@ static struct {
         std::vector<LogEntry> entries;
         u32 lines;
         bool enabled;
+        std::vector<std::move_only_function<void(LogEntry*)>> listeners;
     } history;
 
     StacktraceCache stacktraces;
@@ -32,21 +33,26 @@ bool log_is_enabled(LogLevel level)
     return level >= log_get_level();
 }
 
-bool log_is_history_enabled()
+bool log_history_is_enabled()
 {
     std::scoped_lock _ { log_state.mutex };
 
     return log_state.history.enabled;
 }
 
-void log_set_history_enabled(bool enabled)
+void log_history_enable(bool enabled)
 {
     std::scoped_lock _ { log_state.mutex };
 
     log_state.history.enabled = enabled;
 }
 
-void log_clear_history()
+void log_history_add_listener(std::move_only_function<void(LogEntry*)> listener)
+{
+    log_state.history.listeners.emplace_back(std::move(listener));
+}
+
+void log_history_clear()
 {
     std::scoped_lock _ { log_state.mutex };
 
@@ -55,7 +61,7 @@ void log_clear_history()
     log_state.history.lines = 0;
 }
 
-LogHistory log_get_history()
+LogHistory log_history_get()
 {
     std::unique_lock lock { log_state.mutex };
     return {
@@ -119,7 +125,7 @@ void log(LogLevel level, std::string_view message)
         auto start = state.history.buffer.size();
         state.history.buffer.append(message);
         auto lines = u32(std::ranges::count(message, '\n') + 1);
-        state.history.entries.emplace_back(LogEntry {
+        auto& entry = state.history.entries.emplace_back(LogEntry {
             .level = level,
             .timestamp = timestamp,
             .start = u32(start),
@@ -129,6 +135,10 @@ void log(LogLevel level, std::string_view message)
             .stacktrace = stacktrace,
         });
         state.history.lines += lines;
+
+        for (auto& listener : state.history.listeners) {
+            listener(&entry);
+        }
     }
 
     struct {

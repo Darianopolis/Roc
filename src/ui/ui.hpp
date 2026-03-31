@@ -4,7 +4,7 @@
 
 struct UiContext;
 
-auto ui_create(Gpu*, Scene*, const std::filesystem::path&) -> Ref<UiContext>;
+auto ui_create(Gpu*, Scene*, const std::filesystem::path& ini_dir) -> Ref<UiContext>;
 
 // -----------------------------------------------------------------------------
 

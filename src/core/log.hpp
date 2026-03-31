@@ -39,10 +39,11 @@ struct LogHistory
 
     const LogEntry* find(u32 line) const noexcept;
 };
-auto log_get_history() -> LogHistory;
-void log_set_history_enabled(bool enabled);
-bool log_is_history_enabled();
-void log_clear_history();
+auto log_history_get() -> LogHistory;
+void log_history_enable(bool enabled);
+void log_history_add_listener(std::move_only_function<void(LogEntry*)>);
+bool log_history_is_enabled();
+void log_history_clear();
 
 template<typename ...Args>
 void log(LogLevel level, std::format_string<Args...> fmt, Args&&... args)

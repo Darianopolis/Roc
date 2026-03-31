@@ -49,7 +49,7 @@ int main()
     auto gpu   = gpu_create(  exec.get(), {});
     auto io    = io_create(   exec.get(), gpu.get());
     auto scene = scene_create(exec.get(), gpu.get());
-    auto wm    = wm_create(scene.get());
+    auto wm    = wm_create(gpu.get(), scene.get(), app_share);
 
     // I/O event plumbing
 

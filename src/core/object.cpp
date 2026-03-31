@@ -32,6 +32,9 @@ static struct Registry registry;
 
 Registry::~Registry()
 {
+    // TODO: The destruction order of different systems is a mess here
+    log_history_enable(false);
+
     if (stats.active_allocations) {
         log_error("Registry found {} remaining active allocations", stats.active_allocations);
     }
