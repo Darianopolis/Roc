@@ -264,7 +264,7 @@ struct SceneMesh : SceneNode
     aabb2f32 clip;
 
     std::vector<SceneVertex> vertices;
-    std::vector<u16>          indices;
+    std::vector<u16>         indices;
 };
 
 auto scene_mesh_create(Scene*) -> Ref<SceneMesh>;

@@ -180,15 +180,20 @@ void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
         .clear_color = {0,0,0,1},
     }, [&](GpuRenderpass& pass) {
         pass.set_viewports({{{}, target->extent(), xywh}});
+
+        rect2f32 scissor = default_clip;
+        scissor.origin -= viewport.origin;
+        pass.set_scissors({scissor});
+
         pass.bind_shaders({ctx->render.vertex.get(), ctx->render.fragment.get()});
         pass.bind_index_buffer(gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {
             pass.set_blend_state({draw.blend});
 
-            rect2f32 scissor = draw.clip;
-            scissor.origin -= viewport.origin;
-            pass.set_scissors({scissor});
+            rect2f32 clip = draw.clip;
+            clip.extent /= 2.f;
+            clip.origin += clip.extent - viewport.origin;
 
             auto draw_scale = 2.f / viewport.extent;
             pass.push_constants(0, view_bytes(SceneRenderInput {
@@ -196,6 +201,7 @@ void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
                 .scale = draw_scale,
                 .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
                 .texture = {draw.image, render.sampler.get()},
+                .clip = clip,
             }));
 
             pass.draw_indexed({

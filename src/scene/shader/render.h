@@ -18,6 +18,8 @@ struct SceneRenderInput
     vec2f32 scale;
     vec2f32 offset;
     GpuImageHandle texture;
+    rect2f32 clip;
+    vec4f32 radius;
 };
 
 #endif // SCENE_RENDER_H
