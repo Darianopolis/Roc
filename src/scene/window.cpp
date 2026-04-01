@@ -26,6 +26,11 @@ auto scene_window_create(SceneClient* client) -> Ref<SceneWindow>
     return window;
 }
 
+auto scene_window_get_client(SceneWindow* window) -> SceneClient*
+{
+    return window->client;
+}
+
 auto scene_window_get_tree(SceneWindow* window) -> SceneTree*
 {
     return window->tree.get();

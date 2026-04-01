@@ -21,7 +21,7 @@ auto scene_input_device_get_keyboard(SceneInputDevice* device) -> SceneKeyboard*
         : nullptr;
 }
 
-auto scene_input_device_get_focus(SceneInputDevice* device) -> SceneFocus
+auto scene_input_device_get_focus(SceneInputDevice* device) -> SceneInputRegion*
 {
     return device->focus;
 }
@@ -146,8 +146,8 @@ Flags<xkb_state_component> handle_key(SceneKeyboard* keyboard, SceneScancode cod
         auto changed_components = xkb_state_update_key(keyboard->state, evdev_to_xkb(code), pressed ? XKB_KEY_DOWN : XKB_KEY_UP);
 
         if (!try_send_hotkey(keyboard, code, pressed)) {
-            if (auto* client = keyboard->focus.client) {
-                scene_client_post_event(client, ptr_to(SceneEvent {
+            if (keyboard->focus) {
+                scene_client_post_event(keyboard->focus->client, ptr_to(SceneEvent {
                     .type = SceneEventType::keyboard_key,
                     .keyboard = {
                         .keyboard = keyboard,
@@ -198,8 +198,8 @@ void handle_xkb_component_updates(SceneKeyboard* keyboard, Flags<xkb_state_compo
     if (changed & XKB_STATE_MODS_LOCKED)    keyboard->depressed = get_modifiers(keyboard, XKB_STATE_MODS_LOCKED);
 
     if (changed & XKB_STATE_MODS_EFFECTIVE) {
-        if (keyboard->focus.client) {
-            scene_client_post_event(keyboard->focus.client, ptr_to(SceneEvent {
+        if (keyboard->focus) {
+            scene_client_post_event(keyboard->focus->client, ptr_to(SceneEvent {
                 .type = SceneEventType::keyboard_modifier,
                 .keyboard = {
                     .keyboard = keyboard,
@@ -211,7 +211,7 @@ void handle_xkb_component_updates(SceneKeyboard* keyboard, Flags<xkb_state_compo
     if (changed & XKB_STATE_LEDS) update_leds(scene_keyboard_get_seat(keyboard));
 }
 
-void scene_keyboard_set_focus(SceneKeyboard* keyboard, SceneFocus new_focus)
+void scene_keyboard_focus(SceneKeyboard* keyboard, SceneInputRegion* new_focus)
 {
     auto old_focus = keyboard->focus;
 
@@ -219,8 +219,11 @@ void scene_keyboard_set_focus(SceneKeyboard* keyboard, SceneFocus new_focus)
 
     if (old_focus == new_focus) return;
 
-    if (old_focus.client && (new_focus.client != old_focus.client)) {
-        scene_client_post_event(old_focus.client, ptr_to(SceneEvent {
+    auto old_client = scene_get_focus_client(old_focus);
+    auto new_client = scene_get_focus_client(new_focus);
+
+    if (old_client && (old_client != new_client)) {
+        scene_client_post_event(old_client, ptr_to(SceneEvent {
             .type = SceneEventType::keyboard_leave,
             .keyboard = {
                 .keyboard = keyboard,
@@ -228,25 +231,18 @@ void scene_keyboard_set_focus(SceneKeyboard* keyboard, SceneFocus new_focus)
         }));
     }
 
-    if (new_focus.client) {
-        scene_client_post_event(new_focus.client, ptr_to(SceneEvent {
+    if (new_focus) {
+        scene_client_post_event(new_client, ptr_to(SceneEvent {
             .type = SceneEventType::keyboard_enter,
             .keyboard = {
                 .keyboard = keyboard,
-                .focus = {
-                    .region = new_focus.region,
-                },
+                .focus = new_focus,
             },
         }));
     }
 }
 
-void scene_keyboard_clear_focus(SceneKeyboard* keyboard)
-{
-    scene_keyboard_set_focus(keyboard, {});
-}
-
-auto scene_keyboard_get_focus(SceneKeyboard* keyboard) -> SceneFocus
+auto scene_keyboard_get_focus(SceneKeyboard* keyboard) -> SceneInputRegion*
 {
     return scene_input_device_get_focus(keyboard);
 }
@@ -302,16 +298,19 @@ auto scene_find_input_region_at(SceneTree* tree, vec2f32 pos) -> SceneInputRegio
     return region;
 }
 
-void scene_pointer_set_focus(ScenePointer* pointer, SceneFocus new_focus)
+void scene_pointer_focus(ScenePointer* pointer, SceneInputRegion* new_focus)
 {
-    SceneFocus old_focus = pointer->focus;
+    auto* old_focus = pointer->focus;
 
     if (old_focus == new_focus) return;
 
+    auto old_client = scene_get_focus_client(old_focus);
+    auto new_client = scene_get_focus_client(new_focus);
+
     pointer->focus = new_focus;
 
-    if (old_focus.client && old_focus.client != new_focus.client) {
-        scene_client_post_event(old_focus.client, ptr_to(SceneEvent {
+    if (old_client && old_client != new_client) {
+        scene_client_post_event(old_client, ptr_to(SceneEvent {
             .type = SceneEventType::pointer_leave,
             .pointer = {
                 .pointer = pointer,
@@ -319,19 +318,17 @@ void scene_pointer_set_focus(ScenePointer* pointer, SceneFocus new_focus)
         }));
     }
 
-    if (new_focus.client) {
-        scene_client_post_event(new_focus.client, ptr_to(SceneEvent {
+    if (new_client) {
+        scene_client_post_event(new_client, ptr_to(SceneEvent {
             .type = SceneEventType::pointer_enter,
             .pointer = {
                 .pointer = pointer,
-                .focus = {
-                    .region = new_focus.region,
-                }
+                .focus= new_focus,
             }
         }));
     }
 
-    if (!new_focus.client) {
+    if (!new_focus) {
         scene_pointer_set_xcursor(pointer, "default");
     }
 }
@@ -339,17 +336,17 @@ void scene_pointer_set_focus(ScenePointer* pointer, SceneFocus new_focus)
 static
 void update_pointer_focus(ScenePointer* pointer)
 {
-    SceneFocus new_focus;
+    SceneInputRegion* new_focus = nullptr;
 
     if (!scene_pointer_get_pressed(pointer).empty()) {
         // Pointer retains old focus while any pointer buttons pressed
         new_focus = pointer->focus;
 
     } else if (auto* region = scene_find_input_region_at(pointer->seat->scene->root_tree.get(), scene_pointer_get_position(pointer))) {
-        new_focus = {region->client, region};
+        new_focus = region;
     }
 
-    scene_pointer_set_focus(pointer, new_focus);
+    scene_pointer_focus(pointer, new_focus);
 }
 
 auto scene_pointer_get_seat(ScenePointer* pointer) -> SceneSeat*
@@ -388,13 +385,13 @@ void handle_button(ScenePointer* pointer, SceneScancode code, bool pressed, bool
 {
     if (pressed ? pointer->pressed.inc(code) : pointer->pressed.dec(code)) {
         if (!try_send_hotkey(pointer, code, pressed)) {
-            if (auto* focus = pointer->focus.client) {
+            if (pointer->focus) {
                 if (pressed) {
-                    scene_keyboard_set_focus(
+                    scene_keyboard_focus(
                         scene_seat_get_keyboard(pointer->seat),
-                        {focus, pointer->focus.region});
+                        pointer->focus);
                 }
-                scene_client_post_event(focus, ptr_to(SceneEvent {
+                scene_client_post_event(pointer->focus->client, ptr_to(SceneEvent {
                     .type = SceneEventType::pointer_button,
                     .pointer = {
                         .pointer = pointer,
@@ -406,7 +403,7 @@ void handle_button(ScenePointer* pointer, SceneScancode code, bool pressed, bool
                     }
                 }));
             } else if (pressed) {
-                scene_keyboard_set_focus(scene_seat_get_keyboard(pointer->seat), {});
+                scene_keyboard_focus(scene_seat_get_keyboard(pointer->seat), nullptr);
             }
         }
         if (!pressed) {
@@ -428,8 +425,8 @@ void handle_motion(ScenePointer* pointer, vec2f32 delta)
 
     update_pointer_focus(pointer);
 
-    if (auto* focus = pointer->focus.client) {
-        scene_client_post_event(focus, ptr_to(SceneEvent {
+    if (pointer->focus) {
+        scene_client_post_event(pointer->focus->client, ptr_to(SceneEvent {
             .type = SceneEventType::pointer_motion,
             .pointer = {
                 .pointer = pointer,
@@ -454,8 +451,8 @@ void scene_update_pointers(Scene* scene)
 static
 void handle_scroll(ScenePointer* pointer, vec2f32 delta)
 {
-    if (auto* focus = pointer->focus.client) {
-        scene_client_post_event(focus, ptr_to(SceneEvent {
+    if (pointer->focus) {
+        scene_client_post_event(pointer->focus->client, ptr_to(SceneEvent {
             .type = SceneEventType::pointer_scroll,
             .pointer = {
                 .pointer = pointer,
@@ -467,12 +464,7 @@ void handle_scroll(ScenePointer* pointer, vec2f32 delta)
     }
 }
 
-void scene_pointer_focus(ScenePointer* pointer, SceneClient* client, SceneInputRegion* region)
-{
-    scene_pointer_set_focus(pointer, {client, region});
-}
-
-auto scene_pointer_get_focus(ScenePointer* pointer) -> SceneFocus
+auto scene_pointer_get_focus(ScenePointer* pointer) -> SceneInputRegion*
 {
     return scene_input_device_get_focus(pointer);
 }

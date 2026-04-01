@@ -5,7 +5,7 @@
 struct UiViewportData {
     Ref<SceneWindow> window;
     RefVector<SceneMesh> meshes;
-    Ref<SceneInputRegion> input_plane;
+    Ref<SceneInputRegion> input_region;
 
     // Pending reposition request. Requests are double-buffered so that
     // resizes requested during ImGui frames are handled correctly.
@@ -48,14 +48,14 @@ struct Ui
     ~Ui();
 };
 
-void ui_frame(Ui*);
-void ui_handle_key(Ui*, SceneScancode, bool pressed);
-void ui_handle_mods(Ui*);
-void ui_handle_motion(Ui*);
-void ui_handle_button(Ui*, SceneScancode, bool pressed);
-void ui_handle_wheel(Ui*, vec2f32 delta);
+void ui_frame(                Ui*);
+void ui_handle_key(           Ui*, SceneScancode, bool pressed);
+void ui_handle_mods(          Ui*);
+void ui_handle_motion(        Ui*);
+void ui_handle_button(        Ui*, SceneScancode, bool pressed);
+void ui_handle_wheel(         Ui*, vec2f32 delta);
 void ui_handle_keyboard_enter(Ui*, SceneKeyboard*, SceneInputRegion*);
 void ui_handle_keyboard_leave(Ui*);
-void ui_handle_pointer_enter(Ui*, ScenePointer*, SceneInputRegion*);
-void ui_handle_pointer_leave(Ui*);
-void ui_handle_output_layout(Ui*);
+void ui_handle_pointer_enter( Ui*, ScenePointer*, SceneInputRegion*);
+void ui_handle_pointer_leave( Ui*);
+void ui_handle_output_layout( Ui*);

@@ -21,7 +21,7 @@ static
 auto get_seat_client(WayClient* client, SceneSeat* seat) -> WaySeatClient*
 {
     for (auto* seat_client : client->seat_clients) {
-        if (seat_client->seat->SceneSeat == seat) {
+        if (seat_client->seat->scene == seat) {
             return seat_client;
         }
     }

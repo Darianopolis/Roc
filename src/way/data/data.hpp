@@ -4,11 +4,12 @@
 
 #include "scene/scene.hpp"
 
+struct WayClient;
 struct WaySeatClient;
 
 struct WayDataSource : WayObject
 {
-    WaySeatClient* seat_client;
+    WayClient* client;
 
     WayResource resource;
 

@@ -128,7 +128,7 @@ void handle_hotkey(WindowManager* wm, SceneHotkeyEvent event)
 
     wm->mode = WmInteractionMode::zone;
 
-    scene_pointer_focus(pointer, wm->client.get());
+    scene_pointer_focus(pointer, wm->focus.get());
     wm->zone.pointer = pointer;
 
     auto window = scene_find_window_at(wm->scene, scene_pointer_get_position(pointer));

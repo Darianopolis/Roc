@@ -134,7 +134,7 @@ struct SceneInputDevice
     SceneSeat* seat;
 
     SceneHotkeyMap hotkeys;
-    SceneFocus focus;
+    SceneInputRegion* focus;
 };
 
 // -----------------------------------------------------------------------------
@@ -173,6 +173,12 @@ void scene_update_pointers(Scene*);
 
 auto scene_find_input_region_at(SceneTree*, vec2f32 pos) -> SceneInputRegion*;
 
+inline
+auto scene_get_focus_client(SceneInputRegion* focus)
+{
+    return focus ? focus->client : nullptr;
+}
+
 // -----------------------------------------------------------------------------
 
 struct SceneDataSource
@@ -197,8 +203,3 @@ void scene_output_request_frame(SceneOutput*);
 void scene_handle_input_added(  SceneSeat*, IoInputDevice*);
 void scene_handle_input_removed(SceneSeat*, IoInputDevice*);
 void scene_handle_input(        SceneSeat*, const IoInputEvent&);
-
-// -----------------------------------------------------------------------------
-
-void scene_keyboard_set_focus(SceneKeyboard*, SceneFocus new_focus);
-void scene_pointer_set_focus( ScenePointer*,  SceneFocus new_focus);

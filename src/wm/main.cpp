@@ -258,7 +258,7 @@ int main()
             break;case SceneEventType::pointer_scroll:
                 log_trace("pointer_scroll(delta: {})", event->pointer.scroll.delta);
             break;case SceneEventType::pointer_enter:
-                log_trace("pointer_enter({}, region: {})", (void*)event->pointer.pointer, (void*)event->pointer.focus.region);
+                log_trace("pointer_enter({}, focus: {})", (void*)event->pointer.pointer, (void*)event->pointer.focus);
             break;case SceneEventType::pointer_leave:
                 log_trace("pointer_leave({})", (void*)event->pointer.pointer);
             break;case SceneEventType::keyboard_enter:
@@ -376,9 +376,9 @@ int main()
 
     auto close_hotkey = [](SceneEvent* event) {
         if (!event->hotkey.pressed) return;
-        auto[_, input_region] = scene_input_device_get_focus(event->hotkey.input_device);
-        if (input_region && input_region->window) {
-            scene_window_request_close(input_region->window.get());
+        auto focus = scene_input_device_get_focus(event->hotkey.input_device);
+        if (focus && focus->window) {
+            scene_window_request_close(focus->window.get());
         }
     };
     hotkeys[{ main_mod, KEY_Q      }] = close_hotkey;
@@ -388,7 +388,7 @@ int main()
         if (!event->hotkey.pressed) return;
         auto keyboard = scene_input_device_get_keyboard(event->hotkey.input_device);
         if (!keyboard) return;
-        scene_keyboard_clear_focus(keyboard);
+        scene_keyboard_focus(keyboard, nullptr);
     };
 
     for (auto&[hotkey, _] : hotkeys) {

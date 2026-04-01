@@ -31,7 +31,7 @@ void init_seat(WayServer* server, SceneSeat* SceneSeat)
 {
     auto seat = ref_create<WaySeat>();
     seat->server = server;
-    seat->SceneSeat = SceneSeat;
+    seat->scene = SceneSeat;
 
     server->seats.emplace_back(seat.get());
 
@@ -57,7 +57,7 @@ void way_seat_init(WayServer* server)
             break;case SceneEventType::seat_configure:
                 log_error("TODO(way): seat_configure");
             break;case SceneEventType::seat_remove:
-                server->seats.erase_if([&](WaySeat* seat) { return seat->SceneSeat == event->seat; });
+                server->seats.erase_if([&](WaySeat* seat) { return seat->scene == event->seat; });
 
             break;default:
                 ;
@@ -81,7 +81,7 @@ void get_keyboard(wl_client* wl_client, wl_resource* resource, u32 id)
         WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,
         seat->keyboard.keymap.fd.get(), seat->keyboard.keymap.size);
 
-    auto& kb_info = scene_keyboard_get_info(scene_seat_get_keyboard(seat_client->seat->SceneSeat));
+    auto& kb_info = scene_keyboard_get_info(scene_seat_get_keyboard(seat_client->seat->scene));
 
     if (wl_resource_get_version(kb) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION) {
         way_send(server, wl_keyboard_send_repeat_info, kb, kb_info.rate, kb_info.delay);
@@ -227,7 +227,7 @@ void way_seat_on_keyboard_enter(WaySeatClient* seat_client, SceneEvent* event)
     auto* seat = seat_client->seat;
     auto* server = seat->server;
 
-    auto* surface = find_surface(seat_client->client, event->keyboard.focus.region);
+    auto* surface = find_surface(seat_client->client, event->keyboard.focus);
 
     // xdg_popup and wl_subsurface cannot have keyboard focus
     surface = find_root_toplevel(surface);
@@ -302,7 +302,7 @@ void way_seat_on_pointer_enter(WaySeatClient* seat_client, SceneEvent* event)
     auto serial = way_next_serial(server);
 
     auto* old_surface = seat->focus.pointer.get();
-    auto* new_surface = find_surface(seat_client->client, event->pointer.focus.region);
+    auto* new_surface = find_surface(seat_client->client, event->pointer.focus);
 
     if (old_surface && new_surface && old_surface != new_surface) {
         pointer_leave_surface(seat_client, old_surface, serial);

@@ -22,6 +22,7 @@ struct WindowManager
 
     WmInteractionMode mode;
     Ref<SceneClient> client;
+    Ref<SceneInputRegion> focus;
 
     struct {
         ScenePointer* pointer;

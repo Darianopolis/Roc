@@ -13,8 +13,8 @@ SceneClient::~SceneClient()
 
     // Focus must have been dropped before the client can safely be destroyed
     for (auto* seat : scene_get_seats(scene)) {
-        debug_assert(seat->keyboard->focus.client != this);
-        debug_assert(seat->pointer->focus.client != this);
+        debug_assert(scene_get_focus_client(seat->keyboard->focus) != this);
+        debug_assert(scene_get_focus_client(seat->pointer->focus)  != this);
     }
 
     std::erase(scene->clients, this);

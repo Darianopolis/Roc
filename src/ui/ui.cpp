@@ -50,15 +50,15 @@ auto get_data(ImGuiViewport* vp) -> UiViewportData*
 // -----------------------------------------------------------------------------
 
 static
-auto find_viewport_for_input_region(Ui* ui, SceneInputRegion* region) -> ImGuiViewport*
+auto find_viewport_for_input_region(Ui* ui, SceneInputRegion* focus) -> ImGuiViewport*
 {
     for (auto* vp : get_viewports()) {
-        if (auto* data = get_data(vp); data && data->input_plane.get() == region) {
+        if (auto* data = get_data(vp); data && data->input_region.get() == focus) {
             return vp;
         }
     }
 
-    debug_assert_fail("find_viewport_for_input_plane", "Failed to find viewport for region");
+    debug_assert_fail("find_viewport_for_focus", "Failed to find viewport for focus");
 }
 
 static
@@ -90,8 +90,8 @@ void Platform_CreateWindow(ImGuiViewport* vp)
 
     data->window = scene_window_create(ui->client.get());
 
-    data->input_plane = scene_input_region_create(ui->client.get(), data->window.get());
-    scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->input_plane.get());
+    data->input_region = scene_input_region_create(ui->client.get(), data->window.get());
+    scene_tree_place_above(scene_window_get_tree(data->window.get()), nullptr, data->input_region.get());
 
     vp->PlatformUserData = data;
 }
@@ -106,7 +106,13 @@ void Platform_DestroyWindow(ImGuiViewport* vp)
 static
 void Platform_ShowWindow(ImGuiViewport* vp)
 {
-    scene_window_map(get_data(vp)->window.get());
+    auto* ui = get_context();
+    auto* data = get_data(vp);
+
+    scene_window_map(data->window.get());
+    for (auto* seat : scene_get_seats(ui->scene)) {
+        scene_keyboard_focus(scene_seat_get_keyboard(seat), data->input_region.get());
+    }
 }
 
 static
@@ -210,17 +216,17 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imgui) -> const char*
 
 // -----------------------------------------------------------------------------
 
-struct ui_context_guard
+struct UiContextGuard
 {
     ImGuiContext* old;
 
-    ui_context_guard(ImGuiContext* imgui)
+    UiContextGuard(ImGuiContext* imgui)
         : old(ImGui::GetCurrentContext())
     {
         ImGui::SetCurrentContext(imgui);
     }
 
-    ~ui_context_guard()
+    ~UiContextGuard()
     {
         ImGui::SetCurrentContext(old);
     }
@@ -228,7 +234,7 @@ struct ui_context_guard
 
 Ui::~Ui()
 {
-    ui_context_guard _{context};
+    UiContextGuard _{context};
     ImGui::DestroyPlatformWindows();
     ImGui::GetIO().BackendPlatformUserData = nullptr;
     ImGui::DestroyContext(context);
@@ -257,7 +263,7 @@ void ui_init(Ui* ui, const std::filesystem::path& path)
 {
     ui->context = ImGui::CreateContext();
     ImGui::SetCurrentContext(nullptr);
-    ui_context_guard _{ui->context};
+    UiContextGuard _{ui->context};
 
     auto& style = ImGui::GetStyle();
     style.FrameRounding     = 3;
@@ -381,7 +387,7 @@ void render_viewport(Ui* ui, ImGuiViewport* vp)
     {
         rect2f32 rect {translation, from_imvec(vp->Size), xywh};
         if (rect != scene_window_get_frame(data->window.get())) {
-            scene_input_region_set_region(data->input_plane.get(), {{{}, rect.extent, xywh}});
+            scene_input_region_set_region(data->input_region.get(), {{{}, rect.extent, xywh}});
             scene_window_set_frame(data->window.get(), rect);
         }
     }
@@ -473,7 +479,7 @@ auto ui_create(Gpu* gpu, Scene* scene, const std::filesystem::path& path) -> Ref
     ui_init(ui.get(), path);
 
     scene_client_set_event_handler(ui->client.get(), [ui = ui.get()](SceneEvent* event) {
-        ui_context_guard _{ui->context};
+        UiContextGuard _{ui->context};
         switch (event->type) {
             // seat
             break;case SceneEventType::seat_add:
@@ -483,7 +489,7 @@ auto ui_create(Gpu* gpu, Scene* scene, const std::filesystem::path& path) -> Ref
 
             // keyboard
             break;case SceneEventType::keyboard_enter:
-                ui_handle_keyboard_enter(ui, event->keyboard.keyboard, event->keyboard.focus.region);
+                ui_handle_keyboard_enter(ui, event->keyboard.keyboard, event->keyboard.focus);
             break;case SceneEventType::keyboard_leave:
                 ui_handle_keyboard_leave(ui);
             break;case SceneEventType::keyboard_key:
@@ -493,7 +499,7 @@ auto ui_create(Gpu* gpu, Scene* scene, const std::filesystem::path& path) -> Ref
 
             // pointer
             break;case SceneEventType::pointer_enter:
-                ui_handle_pointer_enter(ui, event->pointer.pointer, event->pointer.focus.region);
+                ui_handle_pointer_enter(ui, event->pointer.pointer, event->pointer.focus);
             break;case SceneEventType::pointer_leave:
                 ui_handle_pointer_leave(ui);
             break;case SceneEventType::pointer_motion:
@@ -626,14 +632,14 @@ void ui_handle_wheel(Ui* ui, vec2f32 delta)
     ui_request_frame(ui);
 }
 
-void ui_handle_pointer_enter(Ui* ui, ScenePointer* pointer, SceneInputRegion* region)
+void ui_handle_pointer_enter(Ui* ui, ScenePointer* pointer, SceneInputRegion* focus)
 {
     ui->pointer = pointer;
 
     auto& io = ImGui::GetIO();
 
-    if (region) {
-        io.AddMouseViewportEvent(find_viewport_for_input_region(ui, region)->ID);
+    if (focus) {
+        io.AddMouseViewportEvent(find_viewport_for_input_region(ui, focus)->ID);
     }
 
     auto pos = scene_pointer_get_position(pointer);

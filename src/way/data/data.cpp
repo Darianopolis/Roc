@@ -7,18 +7,18 @@
 static
 void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 {
-    auto* seat_client = way_get_userdata<WaySeatClient>(resource);
-    auto* client = seat_client->client;
+    auto* server = way_get_userdata<WayServer>(resource);
+    auto* client = way_client_from(server, wl_client);
 
     auto source = ref_create<WayDataSource>();
-    source->seat_client = seat_client;
+    source->client = client;
     source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, source.get());
     source->source = scene_data_source_create(client->scene.get(), {
         .cancel = [source = source.get()] {
-            way_send(source->seat_client->seat->server, wl_data_source_send_cancelled, source->resource);
+            way_send(source->client->server, wl_data_source_send_cancelled, source->resource);
         },
         .send = [source = source.get()](const char* mime, int fd) {
-            way_send(source->seat_client->seat->server, wl_data_source_send_send, source->resource, mime, fd);
+            way_send(source->client->server, wl_data_source_send_send, source->resource, mime, fd);
         }
     });
 }
@@ -95,10 +95,11 @@ void start_drag(
 }
 
 static
-void set_selection(wl_client* wl_client, wl_resource* resource, wl_resource* wl_data_source, u32 serial)
+void set_selection(wl_client* wl_client, wl_resource* wl_data_device, wl_resource* wl_data_source, u32 serial)
 {
+    auto* seat_client = way_get_userdata<WaySeatClient>(wl_data_device);
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
-    scene_seat_set_selection(source->seat_client->seat->SceneSeat, source->source.get());
+    scene_seat_set_selection(seat_client->seat->scene, source->source.get());
 }
 
 WAY_INTERFACE(wl_data_device) = {
@@ -136,7 +137,7 @@ void way_data_offer_selection(WaySeatClient* seat_client)
 {
     auto* seat = seat_client->seat;
     auto* server = seat->server;
-    auto* source = scene_seat_get_selection(seat->SceneSeat);
+    auto* source = scene_seat_get_selection(seat->scene);
 
     if (!source) return;
     if (!seat->focus.keyboard || !seat->focus.keyboard->client) return;

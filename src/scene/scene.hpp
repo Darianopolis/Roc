@@ -75,14 +75,6 @@ void scene_frame(Scene* scene, SceneOutput*);
 
 // -----------------------------------------------------------------------------
 
-struct SceneFocus
-{
-    SceneClient*       client = nullptr;
-    SceneInputRegion* region = nullptr;
-
-    constexpr bool operator==(const SceneFocus&) const noexcept = default;
-};
-
 enum class SceneModifier : u32
 {
     super = 1 << 0,
@@ -116,7 +108,7 @@ struct ScenePointer;
 auto scene_input_device_get_type(    SceneInputDevice*) -> SceneInputDeviceType;
 auto scene_input_device_get_pointer( SceneInputDevice*) -> ScenePointer*;
 auto scene_input_device_get_keyboard(SceneInputDevice*) -> SceneKeyboard*;
-auto scene_input_device_get_focus(   SceneInputDevice*) -> SceneFocus;
+auto scene_input_device_get_focus(   SceneInputDevice*) -> SceneInputRegion*;
 
 // -----------------------------------------------------------------------------
 
@@ -134,10 +126,10 @@ auto scene_seat_get_modifiers(SceneSeat*, Flags<SceneModifierFlag> = {}) -> Flag
 
 // -----------------------------------------------------------------------------
 
-void scene_pointer_focus(       ScenePointer*, SceneClient*, SceneInputRegion* = nullptr);
+void scene_pointer_focus(       ScenePointer*, SceneInputRegion*);
 auto scene_pointer_get_position(ScenePointer*) -> vec2f32;
 auto scene_pointer_get_pressed( ScenePointer*) -> std::span<const SceneScancode>;
-auto scene_pointer_get_focus(   ScenePointer*) -> SceneFocus;
+auto scene_pointer_get_focus(   ScenePointer*) -> SceneInputRegion*;
 
 void scene_pointer_set_cursor( ScenePointer*, SceneNode*);
 void scene_pointer_set_xcursor(ScenePointer*, const char* xcursor_semantic);
@@ -151,13 +143,13 @@ struct SceneKeyboardInfo
     i32          delay;
 };
 
-void scene_keyboard_clear_focus(  SceneKeyboard*);
+void scene_keyboard_focus(        SceneKeyboard*, SceneInputRegion*);
 auto scene_keyboard_get_modifiers(SceneKeyboard*, Flags<SceneModifierFlag> = {}) -> Flags<SceneModifier>;
 auto scene_keyboard_get_pressed(  SceneKeyboard*) -> std::span<const SceneScancode>;
 auto scene_keyboard_get_sym(      SceneKeyboard*, SceneScancode) -> xkb_keysym_t;
 auto scene_keyboard_get_utf8(     SceneKeyboard*, SceneScancode) -> std::string;
 auto scene_keyboard_get_info(     SceneKeyboard*) -> const SceneKeyboardInfo&;
-auto scene_keyboard_get_focus(    SceneKeyboard*) -> SceneFocus;
+auto scene_keyboard_get_focus(    SceneKeyboard*) -> SceneInputRegion*;
 
 // -----------------------------------------------------------------------------
 
@@ -309,7 +301,8 @@ void scene_window_map(  SceneWindow*);
 void scene_window_unmap(SceneWindow*);
 void scene_window_raise(SceneWindow*);
 
-auto scene_window_get_tree(SceneWindow*) -> SceneTree*;
+auto scene_window_get_tree(  SceneWindow*) -> SceneTree*;
+auto scene_window_get_client(SceneWindow*) -> SceneClient*;
 
 void scene_window_request_reposition(SceneWindow*, rect2f32 frame, vec2f32 gravity);
 void scene_window_request_close(     SceneWindow*);
@@ -471,7 +464,7 @@ struct SceneHotkeyEvent
     SceneInputDevice* input_device;
 
     SceneHotkey hotkey;
-    bool         pressed;
+    bool        pressed;
 };
 
 struct SceneKeyboardEvent
@@ -480,12 +473,10 @@ struct SceneKeyboardEvent
     union {
         struct {
             SceneScancode code;
-            bool           pressed;
-            bool           quiet;
+            bool          pressed;
+            bool          quiet;
         } key;
-        struct {
-            SceneInputRegion* region;
-        } focus;
+        SceneInputRegion* focus;
     };
 };
 
@@ -495,8 +486,8 @@ struct ScenePointerEvent
     union {
         struct {
             SceneScancode code;
-            bool           pressed;
-            bool           quiet;
+            bool          pressed;
+            bool          quiet;
         } button;
         struct {
             vec2f32 rel_accel;
@@ -505,9 +496,7 @@ struct ScenePointerEvent
         struct {
             vec2f32 delta;
         } scroll;
-        struct {
-            SceneInputRegion* region;
-        } focus;
+        SceneInputRegion* focus;
     };
 };
 
@@ -530,7 +519,7 @@ struct SceneRedrawEvent
 struct SceneDataEvent
 {
     SceneDataSource* source;
-    SceneSeat*        seat;
+    SceneSeat*       seat;
 };
 
 struct SceneEvent
@@ -538,13 +527,13 @@ struct SceneEvent
     SceneEventType type;
 
     union {
-        SceneSeat*          seat;
+        SceneSeat*         seat;
         SceneHotkeyEvent   hotkey;
         SceneWindowEvent   window;
         SceneKeyboardEvent keyboard;
         ScenePointerEvent  pointer;
         SceneRedrawEvent   redraw;
-        SceneOutput*        output;
+        SceneOutput*       output;
         SceneDataEvent     data;
     };
 };

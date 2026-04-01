@@ -27,7 +27,7 @@ struct WayKeymap
 struct WaySeat : WayObject
 {
     WayServer* server;
-    SceneSeat* SceneSeat;
+    SceneSeat* scene;
 
     wl_global* global;
 

@@ -3,7 +3,7 @@
 static
 void begin_interaction(WindowManager* wm, ScenePointer* pointer, WmInteractionMode initial_mode)
 {
-    scene_pointer_focus(pointer, wm->client.get());
+    scene_pointer_focus(pointer, wm->focus.get());
     wm->movesize.pointer = pointer;
 
     auto pos = scene_pointer_get_position(pointer);

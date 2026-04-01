@@ -26,6 +26,7 @@ void handle_event(WindowManager* wm, SceneEvent* event)
 void wm_interaction_init(WindowManager* wm)
 {
     wm->client = scene_client_create(wm->scene);
+    wm->focus = scene_input_region_create(wm->client.get(), nullptr);
 
     debug_assert(scene_client_hotkey_register(wm->client.get(), {wm->main_mod, BTN_LEFT}));
     debug_assert(scene_client_hotkey_register(wm->client.get(), {wm->main_mod, BTN_RIGHT}));

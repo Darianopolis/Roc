@@ -372,8 +372,8 @@ SceneInputRegion::~SceneInputRegion()
     }
 
     for (auto* seat : scene_get_seats(client->scene)) {
-        if (seat->keyboard->focus.region == this) {
-            scene_keyboard_set_focus(seat->keyboard.get(), {});
+        if (seat->keyboard->focus == this) {
+            scene_keyboard_focus(seat->keyboard.get(), nullptr);
         }
     }
 
@@ -386,7 +386,9 @@ auto scene_input_region_create(SceneClient* client, SceneWindow* window) -> Ref<
     region->type = SceneNodeType::input_region;
     region->client = client;
     region->window = window;
+
     client->input_regions++;
+
     return region;
 }
 
