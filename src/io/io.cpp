@@ -2,32 +2,32 @@
 
 auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 {
-    auto ctx = ref_create<IoContext>();
+    auto io = ref_create<IoContext>();
 
-    ctx->exec = exec;
-    ctx->gpu = gpu;
+    io->exec = exec;
+    io->gpu = gpu;
 
-    io_udev_init(    ctx.get());
-    io_session_init( ctx.get());
-    io_libinput_init(ctx.get());
-    io_evdev_init(   ctx.get());
-    io_drm_init(     ctx.get());
-    io_wayland_init( ctx.get());
+    io_udev_init(    io.get());
+    io_session_init( io.get());
+    io_libinput_init(io.get());
+    io_evdev_init(   io.get());
+    io_drm_init(     io.get());
+    io_wayland_init( io.get());
 
-    return ctx;
+    return io;
 }
 
 static
-void shutdown(IoContext* ctx)
+void shutdown(IoContext* io)
 {
-    io_session_deinit(ctx);
-    io_libinput_deinit(ctx);
-    io_evdev_deinit(ctx);
-    io_drm_deinit(ctx);
-    io_wayland_deinit(ctx);
-    io_udev_deinit(ctx);
+    io_session_deinit(io);
+    io_libinput_deinit(io);
+    io_evdev_deinit(io);
+    io_drm_deinit(io);
+    io_wayland_deinit(io);
+    io_udev_deinit(io);
 
-    exec_stop(ctx->exec);
+    exec_stop(io->exec);
 }
 
 IoContext::~IoContext()
@@ -39,9 +39,9 @@ IoContext::~IoContext()
     debug_assert(!session);
 }
 
-void io_set_event_handler(IoContext* ctx, std::move_only_function<IoEventHandler>&& handler)
+void io_set_event_handler(IoContext* io, std::move_only_function<IoEventHandler>&& handler)
 {
-    ctx->event_handler = std::move(handler);
+    io->event_handler = std::move(handler);
 }
 
 static
@@ -63,33 +63,33 @@ void signal_handler(int sig)
     }
 }
 
-void io_run(IoContext* ctx)
+void io_run(IoContext* io)
 {
-    debug_assert(ctx->event_handler);
+    debug_assert(io->event_handler);
 
-    signal_context = ctx;
+    signal_context = io;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    if (ctx->wayland) {
-        io_wayland_start(ctx);
+    if (io->wayland) {
+        io_wayland_start(io);
     }
 
-    if (ctx->drm) {
-        io_drm_start(ctx);
+    if (io->drm) {
+        io_drm_start(io);
     }
 
-    exec_run(ctx->exec);
+    exec_run(io->exec);
 
     signal_context = nullptr;
     signal(SIGINT, SIG_DFL);
     signal(SIGTERM, SIG_IGN);
 }
 
-void io_request_shutdown(IoContext* ctx, IoShutdownReason reason)
+void io_request_shutdown(IoContext* io, IoShutdownReason reason)
 {
-    exec_enqueue(ctx->exec, [ctx, reason] {
-        io_post_event(ctx, ptr_to(IoEvent {
+    exec_enqueue(io->exec, [io, reason] {
+        io_post_event(io, ptr_to(IoEvent {
             .type = IoEventType::shutdown_requested,
             .shutdown {
                 .reason = reason,
@@ -98,17 +98,17 @@ void io_request_shutdown(IoContext* ctx, IoShutdownReason reason)
     });
 }
 
-void io_stop(IoContext* ctx)
+void io_stop(IoContext* io)
 {
-    if (ctx->stop_requested) return;
-    ctx->stop_requested = true;
+    if (io->stop_requested) return;
+    io->stop_requested = true;
 
-    exec_enqueue(ctx->exec, [ctx] {
-        shutdown(ctx);
+    exec_enqueue(io->exec, [io] {
+        shutdown(io);
     });
 }
 
-void io_post_event(IoContext* ctx, IoEvent* event)
+void io_post_event(IoContext* io, IoEvent* event)
 {
-    ctx->event_handler(event);
+    io->event_handler(event);
 }

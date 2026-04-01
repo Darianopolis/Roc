@@ -71,7 +71,7 @@ void scene_render_init(Scene*);
 
 struct SceneSeat
 {
-    Scene* ctx;
+    Scene* scene;
 
     Ref<SceneKeyboard> keyboard;
     Ref<ScenePointer> pointer;
@@ -88,7 +88,7 @@ auto scene_get_exclusive_seat(Scene*) -> SceneSeat*;
 
 struct SceneClient
 {
-    Scene* ctx;
+    Scene* scene;
 
     std::move_only_function<SceneEventHandlerFn> event_handler;
 

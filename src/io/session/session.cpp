@@ -10,32 +10,32 @@ static constexpr libseat_seat_listener io_seat_listener
     },
 };
 
-void io_session_init(IoContext* ctx)
+void io_session_init(IoContext* io)
 {
-    ctx->session = ref_create<IoSession>();
-    ctx->session->seat = libseat_open_seat(&io_seat_listener, nullptr);
-    if (!ctx->session->seat) {
+    io->session = ref_create<IoSession>();
+    io->session->seat = libseat_open_seat(&io_seat_listener, nullptr);
+    if (!io->session->seat) {
         log_warn("Failed to open seat, falling back to nested mode");
-        ctx->session.destroy();
+        io->session.destroy();
         return;
     }
 
-    log_info("Opened seat: {}", libseat_seat_name(ctx->session->seat));
+    log_info("Opened seat: {}", libseat_seat_name(io->session->seat));
 
-    auto fd = libseat_get_fd(ctx->session->seat);
-    exec_fd_listen(ctx->exec, fd, FdEventBit::readable, [ctx](int fd, Flags<FdEventBit>) {
-        unix_check<libseat_dispatch>(ctx->session->seat, 0);
+    auto fd = libseat_get_fd(io->session->seat);
+    exec_fd_listen(io->exec, fd, FdEventBit::readable, [io](int fd, Flags<FdEventBit>) {
+        unix_check<libseat_dispatch>(io->session->seat, 0);
     });
 }
 
-void io_session_deinit(IoContext* ctx)
+void io_session_deinit(IoContext* io)
 {
-    if (ctx->session) {
-        exec_fd_unlisten(ctx->exec, libseat_get_fd(ctx->session->seat));
-        libseat_close_seat(ctx->session->seat);
+    if (io->session) {
+        exec_fd_unlisten(io->exec, libseat_get_fd(io->session->seat));
+        libseat_close_seat(io->session->seat);
     }
 
-    ctx->session.destroy();
+    io->session.destroy();
 }
 
 auto io_session_get_seat_name(IoSession* session) -> const char*

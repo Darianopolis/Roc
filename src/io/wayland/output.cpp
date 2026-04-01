@@ -4,7 +4,7 @@ static
 void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_feedback_v1, int fd, u32 size)
 {
     auto _ = Fd(fd);
-    auto* ctx = static_cast<IoContext*>(udata);
+    auto* io = static_cast<IoContext*>(udata);
 
     struct entry {
         u32 format;
@@ -21,22 +21,22 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
     auto count = size / sizeof(entry);
     auto formats = std::span(mapped, count);
 
-    ctx->wayland->format.table.clear();
-    ctx->wayland->format.set.clear();
+    io->wayland->format.table.clear();
+    io->wayland->format.set.clear();
     for (auto& entry : formats) {
-        ctx->wayland->format.table.emplace_back(gpu_format_from_drm(entry.format), entry.modifier);
+        io->wayland->format.table.emplace_back(gpu_format_from_drm(entry.format), entry.modifier);
     }
 }
 
 static
 void tranche_formats(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_feedback_v1, wl_array* indices)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
+    auto* io = static_cast<IoContext*>(udata);
 
     for (auto[i, idx] : io_to_span<u16>(indices) | std::views::enumerate) {
-        auto[format, modifier] = ctx->wayland->format.table[idx];
+        auto[format, modifier] = io->wayland->format.table[idx];
         if (format) {
-            ctx->wayland->format.set.add(format, modifier);
+            io->wayland->format.set.add(format, modifier);
         }
     }
 }
@@ -86,10 +86,10 @@ static
 void toplevel_close(void* udata, xdg_toplevel*)
 {
     auto* output = static_cast<IoWaylandOutput*>(udata);
-    auto* ctx = output->ctx;
-    ctx->wayland->outputs.erase(output);
-    if (ctx->wayland->outputs.empty()) {
-        io_request_shutdown(ctx, IoShutdownReason::no_more_outputs);
+    auto* io = output->io;
+    io->wayland->outputs.erase(output);
+    if (io->wayland->outputs.empty()) {
+        io_request_shutdown(io, IoShutdownReason::no_more_outputs);
     }
 }
 
@@ -121,16 +121,16 @@ IO_WL_LISTENER(zwp_locked_pointer_v1) = {
     },
 };
 
-void io_add_output(IoContext* ctx)
+void io_add_output(IoContext* io)
 {
-    auto* wl = ctx->wayland.get();
+    auto* wl = io->wayland.get();
     if (!wl) return;
 
     static u32 window_id = 0;
     auto title = std::format("WL-{}", ++window_id);
 
     auto output = ref_create<IoWaylandOutput>();
-    output->ctx = ctx;
+    output->io = io;
 
     wl->outputs.emplace_back(output.get());
 
@@ -171,9 +171,9 @@ void io_add_output(IoContext* ctx)
 // -----------------------------------------------------------------------------
 
 static
-wl_buffer* get_image_proxy(IoContext* ctx, GpuImage* image)
+wl_buffer* get_image_proxy(IoContext* io, GpuImage* image)
 {
-    auto* wl = ctx->wayland.get();
+    auto* wl = io->wayland.get();
 
     image = image->base();
 
@@ -198,9 +198,9 @@ wl_buffer* get_image_proxy(IoContext* ctx, GpuImage* image)
 }
 
 static
-wp_linux_drm_syncobj_timeline_v1* get_syncobj_proxy(IoContext* ctx, GpuSyncobj* syncobj)
+wp_linux_drm_syncobj_timeline_v1* get_syncobj_proxy(IoContext* io, GpuSyncobj* syncobj)
 {
-    auto* wl = ctx->wayland.get();
+    auto* wl = io->wayland.get();
 
     if (auto* found = wl->syncobj_cache.find(syncobj)) return found;
 
@@ -231,7 +231,7 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
     auto release = std::ranges::find_if(release_slots, [](auto& s) { return !s.image; });
     if (release == release_slots.end()) {
         release = release_slots.insert(release_slots.end(), release_slot {
-            .syncobj = gpu_syncobj_create(ctx->gpu),
+            .syncobj = gpu_syncobj_create(io->gpu),
         });
     }
 
@@ -244,9 +244,9 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
         release->image = nullptr;
     });
 
-    auto* wl_buffer = get_image_proxy(ctx, image);
-    auto* acquire_proxy = get_syncobj_proxy(ctx, done.syncobj);
-    auto* release_proxy = get_syncobj_proxy(ctx, release->syncobj.get());
+    auto* wl_buffer = get_image_proxy(io, image);
+    auto* acquire_proxy = get_syncobj_proxy(io, done.syncobj);
+    auto* release_proxy = get_syncobj_proxy(io, release->syncobj.get());
 
     wl_surface_attach(wl_surface, wl_buffer, 0, 0);
     wl_surface_damage_buffer(wl_surface, 0, 0, INT32_MAX, INT32_MAX);
@@ -265,7 +265,7 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
     }
 
     wl_surface_commit(wl_surface);
-    wl_display_flush(ctx->wayland->wl_display);
+    wl_display_flush(io->wayland->wl_display);
 }
 
 

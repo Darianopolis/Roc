@@ -17,7 +17,7 @@ static
 void offer_selection(SceneSeat* seat, SceneDataSource* source)
 {
     // TODO: Only offer to clients with focus
-    for (auto* client : seat->ctx->clients) {
+    for (auto* client : seat->scene->clients) {
         scene_offer_selection(client, source);
     }
 }

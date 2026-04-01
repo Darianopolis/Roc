@@ -7,9 +7,9 @@ IoOutputBase::~IoOutputBase()
 
 void io_output_add(IoOutputBase* output)
 {
-    debug_assert(!std::ranges::contains(output->ctx->outputs, output));
-    output->ctx->outputs.emplace_back(output);
-    io_post_event(output->ctx, ptr_to(IoEvent {
+    debug_assert(!std::ranges::contains(output->io->outputs, output));
+    output->io->outputs.emplace_back(output);
+    io_post_event(output->io, ptr_to(IoEvent {
         .type = IoEventType::output_added,
         .output = {
             .output = output
@@ -19,8 +19,8 @@ void io_output_add(IoOutputBase* output)
 
 void io_output_remove(IoOutputBase* output)
 {
-    if (std::erase(output->ctx->outputs, output)) {
-        io_post_event(output->ctx, ptr_to(IoEvent {
+    if (std::erase(output->io->outputs, output)) {
+        io_post_event(output->io, ptr_to(IoEvent {
             .type = IoEventType::output_removed,
             .output = {
                 .output = output
@@ -39,7 +39,7 @@ void io_output_try_redraw(IoOutputBase* output)
 
     output->frame_requested = false;
 
-    io_post_event(output->ctx, ptr_to(IoEvent {
+    io_post_event(output->io, ptr_to(IoEvent {
         .type = IoEventType::output_frame,
         .output = {
             .output = output,
@@ -49,7 +49,7 @@ void io_output_try_redraw(IoOutputBase* output)
 
 void io_output_try_redraw_later(IoOutputBase* output)
 {
-    exec_enqueue(output->ctx->exec, [output = Weak(output)] {
+    exec_enqueue(output->io->exec, [output = Weak(output)] {
         if (output) {
             io_output_try_redraw(output.get());
         }
@@ -64,7 +64,7 @@ void IoOutputBase::request_frame()
 
 void io_output_post_configure(IoOutputBase* output)
 {
-    io_post_event(output->ctx, ptr_to(IoEvent {
+    io_post_event(output->io, ptr_to(IoEvent {
         .type = IoEventType::output_configure,
         .output = {
             .output = output,

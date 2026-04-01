@@ -119,7 +119,7 @@ struct IoWaylandOutput : IoOutputBase
     {
         return {
             .size = size,
-            .formats = &ctx->wayland->format.set,
+            .formats = &io->wayland->format.set,
         };
     }
 

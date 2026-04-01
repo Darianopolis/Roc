@@ -12,7 +12,7 @@ struct UiViewportData {
     std::optional<rect2f32> reposition;
 };
 
-struct UiContext
+struct Ui
 {
     Gpu* gpu;
     Scene* scene;
@@ -26,12 +26,12 @@ struct UiContext
     ImGuiContext* context;
     u32 frames_requested = 0;
 
-    struct texture {
+    struct Texture {
         Ref<GpuImage>   image;
         Ref<GpuSampler> sampler;
         GpuBlendMode    blend;
     };
-    std::vector<texture> textures;
+    std::vector<Texture> textures;
     Ref<GpuImage> font_image;
 
     std::move_only_function<UiFrameFn> frame_handler;
@@ -45,17 +45,17 @@ struct UiContext
         std::string text;
     } clipboard;
 
-    ~UiContext();
+    ~Ui();
 };
 
-void ui_frame(UiContext*);
-void ui_handle_key(UiContext*, SceneScancode, bool pressed);
-void ui_handle_mods(UiContext*);
-void ui_handle_motion(UiContext*);
-void ui_handle_button(UiContext*, SceneScancode, bool pressed);
-void ui_handle_wheel(UiContext*, vec2f32 delta);
-void ui_handle_keyboard_enter(UiContext*, SceneKeyboard*, SceneInputRegion*);
-void ui_handle_keyboard_leave(UiContext*);
-void ui_handle_pointer_enter(UiContext*, ScenePointer*, SceneInputRegion*);
-void ui_handle_pointer_leave(UiContext*);
-void ui_handle_output_layout(UiContext*);
+void ui_frame(Ui*);
+void ui_handle_key(Ui*, SceneScancode, bool pressed);
+void ui_handle_mods(Ui*);
+void ui_handle_motion(Ui*);
+void ui_handle_button(Ui*, SceneScancode, bool pressed);
+void ui_handle_wheel(Ui*, vec2f32 delta);
+void ui_handle_keyboard_enter(Ui*, SceneKeyboard*, SceneInputRegion*);
+void ui_handle_keyboard_leave(Ui*);
+void ui_handle_pointer_enter(Ui*, ScenePointer*, SceneInputRegion*);
+void ui_handle_pointer_leave(Ui*);
+void ui_handle_output_layout(Ui*);

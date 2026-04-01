@@ -11,8 +11,6 @@ struct IoLibinput
 
 struct IoLibinputDevice : IoInputDeviceBase
 {
-    IoContext* io;
-
     libinput_device* handle;
 
     virtual auto info() -> IoInputDeviceInfo final override

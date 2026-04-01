@@ -7,24 +7,24 @@ SceneClient::~SceneClient()
     debug_assert(input_regions == 0);
 
     // All client windows must be destroyed before the client
-    for (auto* window : ctx->windows) {
+    for (auto* window : scene->windows) {
         debug_assert(window->client != this);
     }
 
     // Focus must have been dropped before the client can safely be destroyed
-    for (auto* seat : scene_get_seats(ctx)) {
+    for (auto* seat : scene_get_seats(scene)) {
         debug_assert(seat->keyboard->focus.client != this);
         debug_assert(seat->pointer->focus.client != this);
     }
 
-    std::erase(ctx->clients, this);
+    std::erase(scene->clients, this);
 }
 
-auto scene_client_create(Scene* ctx) -> Ref<SceneClient>
+auto scene_client_create(Scene* scene) -> Ref<SceneClient>
 {
     auto client = ref_create<SceneClient>();
-    client->ctx = ctx;
-    ctx->clients.emplace_back(client.get());
+    client->scene = scene;
+    scene->clients.emplace_back(client.get());
     return client;
 }
 
@@ -32,7 +32,7 @@ void scene_client_set_event_handler(SceneClient* client, std::move_only_function
 {
     client->event_handler = std::move(event_handler);
 
-    for (auto* seat : scene_get_seats(client->ctx)) {
+    for (auto* seat : scene_get_seats(client->scene)) {
         client->event_handler(ptr_to(SceneEvent {
             .type = SceneEventType::seat_add,
             .seat = seat,

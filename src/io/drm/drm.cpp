@@ -64,7 +64,7 @@ void add_output(IoContext* io, IoDrmResources* resources, drmModeConnector* conn
     log_warn("  extent: ({}, {})", crtc->width, crtc->height);
 
     auto output = ref_create<IoDrmOutput>();
-    output->ctx = io;
+    output->io = io;
 
     output->primary_plane_id = plane->plane_id;
     output->crtc_id = crtc->crtc_id;
@@ -230,7 +230,7 @@ void IoDrmOutput::commit(
     debug_assert(commit_available);
     commit_available = false;
 
-    auto fb2_handle = get_image_fb2(ctx, image);
+    auto fb2_handle = get_image_fb2(io, image);
 
     auto req = drmModeAtomicAlloc();
     defer { drmModeAtomicFree(req); };
@@ -256,7 +256,7 @@ void IoDrmOutput::commit(
 
     drmModeAtomicAddProperty(req, crtc_id, crtc_prop.get_prop_id("VRR_ENABLED"), true);
 
-    if (unix_check<drmModeAtomicCommit>(ctx->drm->fd, req, flags, this).err()) {
+    if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, this).err()) {
         debug_assert_fail("IoDrmOutput::commit", "TODO: FAILED TO COMMIT");
     }
 

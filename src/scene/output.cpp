@@ -4,20 +4,20 @@
 
 SceneOutput::~SceneOutput()
 {
-    auto* ctx = client->ctx;
-    scene_broadcast_event(ctx, ptr_to(SceneEvent { .type = SceneEventType::output_removed, .output = this }));
-    std::erase(ctx->outputs, this);
-    scene_broadcast_event(ctx, ptr_to(SceneEvent { .type = SceneEventType::output_layout }));
+    auto* scene = client->scene;
+    scene_broadcast_event(scene, ptr_to(SceneEvent { .type = SceneEventType::output_removed, .output = this }));
+    std::erase(scene->outputs, this);
+    scene_broadcast_event(scene, ptr_to(SceneEvent { .type = SceneEventType::output_layout }));
 }
 
 auto scene_output_create(SceneClient* client, Flags<SceneOutputFlag> flags) -> Ref<SceneOutput>
 {
-    auto* ctx = client->ctx;
+    auto* scene = client->scene;
     auto output = ref_create<SceneOutput>();
     output->client = client;
     output->flags = flags;
-    ctx->outputs.push_back(output.get());
-    scene_broadcast_event(ctx, ptr_to(SceneEvent { .type = SceneEventType::output_added, .output = output.get() }));
+    scene->outputs.push_back(output.get());
+    scene_broadcast_event(scene, ptr_to(SceneEvent { .type = SceneEventType::output_added, .output = output.get() }));
     return output;
 }
 
@@ -32,17 +32,17 @@ void scene_output_request_frame(SceneOutput* output)
 void scene_output_set_viewport(SceneOutput* output, rect2f32 viewport)
 {
     if (output->viewport == viewport) return;
-    auto* ctx = output->client->ctx;
+    auto* scene = output->client->scene;
     output->viewport = viewport;
-    scene_broadcast_event(ctx, ptr_to(SceneEvent { .type = SceneEventType::output_configured, .output = output }));
-    scene_broadcast_event(ctx, ptr_to(SceneEvent { .type = SceneEventType::output_layout }));
-    scene_update_pointers(ctx);
+    scene_broadcast_event(scene, ptr_to(SceneEvent { .type = SceneEventType::output_configured, .output = output }));
+    scene_broadcast_event(scene, ptr_to(SceneEvent { .type = SceneEventType::output_layout }));
+    scene_update_pointers(scene);
     scene_output_request_frame(output);
 }
 
-auto scene_list_outputs(Scene* ctx) -> std::span<SceneOutput* const>
+auto scene_list_outputs(Scene* scene) -> std::span<SceneOutput* const>
 {
-    return ctx->outputs;
+    return scene->outputs;
 }
 
 auto scene_output_get_viewport(SceneOutput* output) -> rect2f32
@@ -50,12 +50,12 @@ auto scene_output_get_viewport(SceneOutput* output) -> rect2f32
     return output->viewport;
 }
 
-auto scene_find_output_for_point(Scene* ctx, vec2f32 point) -> SceneFindOutputResult
+auto scene_find_output_for_point(Scene* scene, vec2f32 point) -> SceneFindOutputResult
 {
     vec2f32       best_position = point;
     f32           best_distance = INFINITY;
     SceneOutput* best_output   = nullptr;
-    for (auto* output : scene_list_outputs(ctx)) {
+    for (auto* output : scene_list_outputs(scene)) {
         if (!output->flags.contains(SceneOutputFlag::workspace)) continue;
         auto clamped = rect_clamp_point(scene_output_get_viewport(output), point);
         if (point == clamped) {

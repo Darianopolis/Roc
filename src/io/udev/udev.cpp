@@ -1,11 +1,11 @@
 #include "../internal.hpp"
 
-void io_udev_init(IoContext* ctx)
+void io_udev_init(IoContext* io)
 {
-    ctx->udev = unix_check<udev_new>().value;
+    io->udev = unix_check<udev_new>().value;
 }
 
-void io_udev_deinit(IoContext* ctx)
+void io_udev_deinit(IoContext* io)
 {
-    udev_unref(ctx->udev);
+    udev_unref(io->udev);
 }

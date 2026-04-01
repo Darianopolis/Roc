@@ -5,8 +5,8 @@
 static
 void registry_global(void* data, wl_registry*, u32 name, const char* interface, u32 version)
 {
-    auto* ctx = static_cast<IoContext*>(data);
-    auto* wl = ctx->wayland.get();
+    auto* io = static_cast<IoContext*>(data);
+    auto* wl = io->wayland.get();
 
     auto match_interface = [&](const wl_interface* wl_interface, auto member) -> bool {
         if (strcmp(interface, wl_interface->name) != 0) {
@@ -31,17 +31,17 @@ void registry_global(void* data, wl_registry*, u32 name, const char* interface, 
     BIND_BEGIN
     BIND_INTERFACE(wl_compositor) {}
     BIND_INTERFACE(xdg_wm_base) {
-        xdg_wm_base_add_listener(wl->xdg_wm_base, &io_xdg_wm_base_listener, ctx);
+        xdg_wm_base_add_listener(wl->xdg_wm_base, &io_xdg_wm_base_listener, io);
     }
     BIND_INTERFACE(zxdg_decoration_manager_v1) {}
     BIND_INTERFACE(wl_seat) {
-        wl_seat_add_listener(wl->wl_seat, &io_wl_seat_listener, ctx);
+        wl_seat_add_listener(wl->wl_seat, &io_wl_seat_listener, io);
     }
     BIND_INTERFACE(zwp_relative_pointer_manager_v1){}
     BIND_INTERFACE(zwp_pointer_constraints_v1) {}
     BIND_INTERFACE(zwp_linux_dmabuf_v1) {
         auto feedback = zwp_linux_dmabuf_v1_get_default_feedback(wl->zwp_linux_dmabuf_v1);
-        zwp_linux_dmabuf_feedback_v1_add_listener(feedback, &io_zwp_linux_dmabuf_feedback_v1_listener, ctx);
+        zwp_linux_dmabuf_feedback_v1_add_listener(feedback, &io_zwp_linux_dmabuf_feedback_v1_listener, io);
     }
     BIND_INTERFACE(wp_linux_drm_syncobj_manager_v1) {}
     BIND_END
@@ -67,37 +67,37 @@ IO_WL_LISTENER(xdg_wm_base) = {
 // -----------------------------------------------------------------------------
 
 static
-void display_read(IoContext* ctx, Flags<FdEventBit> events)
+void display_read(IoContext* io, Flags<FdEventBit> events)
 {
-    ctx->wayland->current_dispatch_time = std::chrono::steady_clock::now();
+    io->wayland->current_dispatch_time = std::chrono::steady_clock::now();
 
     timespec timeout = {};
-    if (unix_check<wl_display_dispatch_timeout>(ctx->wayland->wl_display, &timeout).err()) {
+    if (unix_check<wl_display_dispatch_timeout>(io->wayland->wl_display, &timeout).err()) {
         debug_kill();
     }
 
-    wl_display_flush(ctx->wayland->wl_display);
+    wl_display_flush(io->wayland->wl_display);
 }
 
-void io_wayland_init(IoContext* ctx)
+void io_wayland_init(IoContext* io)
 {
-    if (ctx->session) {
+    if (io->session) {
         log_info("Session enabled, skipping io::Wayland backend");
         return;
     }
 
-    ctx->wayland = ref_create<IoWayland>();
-    auto* wl = ctx->wayland.get();
+    io->wayland = ref_create<IoWayland>();
+    auto* wl = io->wayland.get();
 
     wl->wl_display = wl_display_connect(nullptr);
 }
 
-void io_wayland_start(IoContext* ctx)
+void io_wayland_start(IoContext* io)
 {
-    auto* wl = ctx->wayland.get();
+    auto* wl = io->wayland.get();
 
     wl->wl_registry = wl_display_get_registry(wl->wl_display);
-    wl_registry_add_listener(wl->wl_registry, &io_wl_registry_listener, ctx);
+    wl_registry_add_listener(wl->wl_registry, &io_wl_registry_listener, io);
 
     // First roundtrip binds interfaces
     wl_display_roundtrip(wl->wl_display);
@@ -105,19 +105,19 @@ void io_wayland_start(IoContext* ctx)
     // Second roundtrip ensure that all events expected in response to binding are received
     wl_display_roundtrip(wl->wl_display);
 
-    exec_fd_listen(ctx->exec, wl_display_get_fd(wl->wl_display), FdEventBit::readable,
-        [ctx = Weak(ctx)](int, Flags<FdEventBit> events) {
-            if (ctx) display_read(ctx.get(), events);
+    exec_fd_listen(io->exec, wl_display_get_fd(wl->wl_display), FdEventBit::readable,
+        [io = Weak(io)](int, Flags<FdEventBit> events) {
+            if (io) display_read(io.get(), events);
         });
 
-    io_add_output(ctx);
+    io_add_output(io);
 }
 
-void io_wayland_deinit(IoContext* ctx)
+void io_wayland_deinit(IoContext* io)
 {
-    exec_fd_unlisten(ctx->exec, wl_display_get_fd(ctx->wayland->wl_display));
+    exec_fd_unlisten(io->exec, wl_display_get_fd(io->wayland->wl_display));
 
-    ctx->wayland.destroy();
+    io->wayland.destroy();
 }
 
 IoWayland::~IoWayland()

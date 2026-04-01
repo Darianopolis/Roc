@@ -345,7 +345,7 @@ void update_pointer_focus(ScenePointer* pointer)
         // Pointer retains old focus while any pointer buttons pressed
         new_focus = pointer->focus;
 
-    } else if (auto* region = scene_find_input_region_at(pointer->seat->ctx->root_tree.get(), scene_pointer_get_position(pointer))) {
+    } else if (auto* region = scene_find_input_region_at(pointer->seat->scene->root_tree.get(), scene_pointer_get_position(pointer))) {
         new_focus = {region->client, region};
     }
 
@@ -377,8 +377,8 @@ auto scene_pointer_create(SceneSeat* seat) -> Ref<ScenePointer>
 
     pointer->accel = [](vec2f32 delta) { return delta; };
 
-    pointer->tree = scene_tree_create(seat->ctx);
-    scene_tree_place_above(scene_get_layer(seat->ctx, SceneLayer::overlay), nullptr, pointer->tree .get());
+    pointer->tree = scene_tree_create(seat->scene);
+    scene_tree_place_above(scene_get_layer(seat->scene, SceneLayer::overlay), nullptr, pointer->tree .get());
 
     return pointer;
 }
@@ -422,7 +422,7 @@ void handle_motion(ScenePointer* pointer, vec2f32 delta)
 
     auto delta_accel = pointer->accel(delta);
 
-    auto pos = scene_find_output_for_point(pointer->seat->ctx, cur + delta_accel).position;
+    auto pos = scene_find_output_for_point(pointer->seat->scene, cur + delta_accel).position;
 
     scene_tree_set_translation(pointer->tree.get(), pos);
 
@@ -442,9 +442,9 @@ void handle_motion(ScenePointer* pointer, vec2f32 delta)
     }
 }
 
-void scene_update_pointers(Scene* ctx)
+void scene_update_pointers(Scene* scene)
 {
-    for (auto* seat : scene_get_seats(ctx)) {
+    for (auto* seat : scene_get_seats(scene)) {
         if (auto* pointer = scene_seat_get_pointer(seat)) {
             handle_motion(pointer, {});
         }
@@ -568,7 +568,7 @@ auto get_map_for_code(SceneSeat* seat, SceneScancode code) -> SceneHotkeyMap*
 auto scene_client_hotkey_register(SceneClient* client, SceneHotkey hotkey) -> bool
 {
     // TODO: Multi-seat hotkeys
-    auto* seat = scene_get_exclusive_seat(client->ctx);
+    auto* seat = scene_get_exclusive_seat(client->scene);
 
     auto* map = get_map_for_code(seat, hotkey.code);
     if (!map) return false;
@@ -579,7 +579,7 @@ auto scene_client_hotkey_register(SceneClient* client, SceneHotkey hotkey) -> bo
 void scene_client_hotkey_unregister(SceneClient* client, SceneHotkey hotkey)
 {
     // TODO: Multi-seat hotkeys
-    auto* seat = scene_get_exclusive_seat(client->ctx);
+    auto* seat = scene_get_exclusive_seat(client->scene);
 
     auto* map = get_map_for_code(seat, hotkey.code);
     if (!map) return;

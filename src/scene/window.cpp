@@ -6,7 +6,7 @@ SceneWindow::~SceneWindow()
 {
     tree->userdata = nullptr;
     scene_window_unmap(this);
-    std::erase(client->ctx->windows, this);
+    std::erase(client->scene->windows, this);
 }
 
 auto scene_window_create(SceneClient* client) -> Ref<SceneWindow>
@@ -14,13 +14,13 @@ auto scene_window_create(SceneClient* client) -> Ref<SceneWindow>
     auto window = ref_create<SceneWindow>();
     window->client = client;
 
-    auto* ctx = client->ctx;
+    auto* scene = client->scene;
 
-    ctx->windows.emplace_back(window.get());
+    scene->windows.emplace_back(window.get());
 
-    window->tree = scene_tree_create(ctx);
+    window->tree = scene_tree_create(scene);
 
-    window->tree->system = client->ctx->window_system;
+    window->tree->system = client->scene->window_system;
     window->tree->userdata = window.get();
 
     return window;
@@ -79,7 +79,7 @@ void scene_window_map(SceneWindow* window)
 {
     if (window->mapped) return;
 
-    scene_tree_place_above(scene_get_layer(window->client->ctx, SceneLayer::window), nullptr, window->tree.get());
+    scene_tree_place_above(scene_get_layer(window->client->scene, SceneLayer::window), nullptr, window->tree.get());
 
     window->mapped = true;
 }
@@ -88,7 +88,7 @@ void scene_window_raise(SceneWindow* window)
 {
     if (!window->mapped) return;
 
-    scene_tree_place_above(scene_get_layer(window->client->ctx, SceneLayer::window), nullptr, window->tree.get());
+    scene_tree_place_above(scene_get_layer(window->client->scene, SceneLayer::window), nullptr, window->tree.get());
 }
 
 void scene_window_unmap(SceneWindow* window)
@@ -102,7 +102,7 @@ void scene_window_unmap(SceneWindow* window)
 
 // -----------------------------------------------------------------------------
 
-auto scene_find_window_at(Scene* ctx, vec2f32 point) -> SceneWindow*
+auto scene_find_window_at(Scene* scene, vec2f32 point) -> SceneWindow*
 {
     // TODO: This will ignore any `input_plane`s currently.
     //       Should we provide (optional) mappings from `input_plane` back to windows
@@ -110,11 +110,11 @@ auto scene_find_window_at(Scene* ctx, vec2f32 point) -> SceneWindow*
 
     SceneWindow* window = nullptr;
 
-    scene_iterate<SceneIterateDirection::front_to_back>(ctx->root_tree.get(),
+    scene_iterate<SceneIterateDirection::front_to_back>(scene->root_tree.get(),
         scene_iterate_default,
         scene_iterate_default,
         [&](SceneTree* tree) {
-            if (tree->system == ctx->window_system) {
+            if (tree->system == scene->window_system) {
                 auto w = static_cast<SceneWindow*>(tree->userdata);
                 if (rect_contains(scene_window_get_frame(w), point)) {
                     window = w;

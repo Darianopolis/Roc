@@ -88,7 +88,7 @@ void handle_device_added(IoContext* io, struct libinput_device* libinput_device)
     log_debug("Adding {} [{}:{}]", name, vendor, product);
 
     auto device = ref_create<IoLibinputDevice>();
-    device->ctx = io;
+    device->io = io;
     device->handle = libinput_device_ref(libinput_device);
     libinput_device_set_user_data(libinput_device, device.get());
 

@@ -11,10 +11,10 @@ struct IoEvdevDevice
         debug_assert(!fd_is_valid(fd) && !evdev);
     }
 
-    void destroy(IoContext* ctx)
+    void destroy(IoContext* io)
     {
         libevdev_free(std::exchange(evdev, nullptr));
-        exec_fd_unlisten(ctx->exec, fd);
+        exec_fd_unlisten(io->exec, fd);
         close(std::exchange(fd, -1));
     }
 };
@@ -27,7 +27,7 @@ struct IoEvdev
 };
 
 static
-void handle_evdev_event(IoContext* ctx, IoEvdevDevice* device)
+void handle_evdev_event(IoContext* io, IoEvdevDevice* device)
 {
     input_event event;
     for (;;) {
@@ -52,8 +52,8 @@ void handle_evdev_event(IoContext* ctx, IoEvdevDevice* device)
             return;
         } else if (res.error == ENODEV) {
             log_debug("Device disconnected");
-            device->destroy(ctx);
-            ctx->evdev->devices.erase(device);
+            device->destroy(io);
+            io->evdev->devices.erase(device);
             return;
         } else {
             log_trace("Event ({}) = {}", libevdev_event_code_get_name(event.type, event.code), event.value);
@@ -67,7 +67,7 @@ void handle_evdev_event(IoContext* ctx, IoEvdevDevice* device)
 }
 
 static
-void handle_device(IoContext* ctx, udev_device* dev)
+void handle_device(IoContext* io, udev_device* dev)
 {
     auto devnode = udev_device_get_devnode(dev);
     if (!devnode) return;
@@ -87,31 +87,31 @@ void handle_device(IoContext* ctx, udev_device* dev)
     auto device = ref_create<IoEvdevDevice>();
     device->fd    = std::exchange(fd,    -1);
     device->evdev = std::exchange(evdev, nullptr);
-    ctx->evdev->devices.emplace_back(device.get());
+    io->evdev->devices.emplace_back(device.get());
 
-    exec_fd_listen(ctx->exec, device->fd, FdEventBit::readable, [ctx, device = device.get()](int, Flags<FdEventBit>) {
-        handle_evdev_event(ctx, device);
+    exec_fd_listen(io->exec, device->fd, FdEventBit::readable, [io, device = device.get()](int, Flags<FdEventBit>) {
+        handle_evdev_event(io, device);
     });
 }
 
 static
-void handle_monitor_events(IoContext* ctx)
+void handle_monitor_events(IoContext* io)
 {
     for (;;) {
-        auto dev = udev_monitor_receive_device(ctx->evdev->monitor);
+        auto dev = udev_monitor_receive_device(io->evdev->monitor);
         if (!dev) break;
         defer { udev_device_unref(dev); };
 
         auto action = udev_device_get_action(dev);
-        if ("add"sv == action) handle_device(ctx, dev);
+        if ("add"sv == action) handle_device(io, dev);
     }
 }
 
-void io_evdev_init(IoContext* ctx)
+void io_evdev_init(IoContext* io)
 {
-    ctx->evdev = ref_create<IoEvdev>();
+    io->evdev = ref_create<IoEvdev>();
 
-    auto enumerate = udev_enumerate_new(ctx->udev);
+    auto enumerate = udev_enumerate_new(io->udev);
     defer { udev_enumerate_unref(enumerate); };
 
     udev_enumerate_add_match_subsystem(enumerate, "input");
@@ -121,29 +121,29 @@ void io_evdev_init(IoContext* ctx)
     udev_list_entry* entry;
     udev_list_entry_foreach(entry, devices) {
         auto syspath = udev_list_entry_get_name(entry);
-        auto dev = udev_device_new_from_syspath(ctx->udev, syspath);
+        auto dev = udev_device_new_from_syspath(io->udev, syspath);
         defer { udev_device_unref(dev); };
 
-        handle_device(ctx, dev);
+        handle_device(io, dev);
     }
 
-    ctx->evdev->monitor = udev_monitor_new_from_netlink(ctx->udev, "udev");
-    udev_monitor_filter_add_match_subsystem_devtype(ctx->evdev->monitor, "input", nullptr);
-    udev_monitor_enable_receiving(ctx->evdev->monitor);
-    auto fd = udev_monitor_get_fd(ctx->evdev->monitor);
-    exec_fd_listen(ctx->exec, fd, FdEventBit::readable, [ctx](int, Flags<FdEventBit>) {
-        handle_monitor_events(ctx);
+    io->evdev->monitor = udev_monitor_new_from_netlink(io->udev, "udev");
+    udev_monitor_filter_add_match_subsystem_devtype(io->evdev->monitor, "input", nullptr);
+    udev_monitor_enable_receiving(io->evdev->monitor);
+    auto fd = udev_monitor_get_fd(io->evdev->monitor);
+    exec_fd_listen(io->exec, fd, FdEventBit::readable, [io](int, Flags<FdEventBit>) {
+        handle_monitor_events(io);
     });
 }
 
-void io_evdev_deinit(IoContext* ctx)
+void io_evdev_deinit(IoContext* io)
 {
-    for (auto& device : ctx->evdev->devices) {
-        device->destroy(ctx);
+    for (auto& device : io->evdev->devices) {
+        device->destroy(io);
     }
 
-    exec_fd_unlisten(ctx->exec, udev_monitor_get_fd(ctx->evdev->monitor));
-    udev_monitor_unref(ctx->evdev->monitor);
+    exec_fd_unlisten(io->exec, udev_monitor_get_fd(io->evdev->monitor));
+    udev_monitor_unref(io->evdev->monitor);
 
-    ctx->evdev.destroy();
+    io->evdev.destroy();
 }

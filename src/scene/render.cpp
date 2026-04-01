@@ -5,44 +5,44 @@
 #include "scene_render_vert.hpp"
 #include "scene_render_frag.hpp"
 
-void scene_render_init(Scene* ctx)
+void scene_render_init(Scene* scene)
 {
-    ctx->render.vertex   = gpu_shader_create(ctx->gpu, {
+    scene->render.vertex   = gpu_shader_create(scene->gpu, {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .code  = scene_render_vert,
         .entry = "main",
     });
-    ctx->render.fragment = gpu_shader_create(ctx->gpu, {
+    scene->render.fragment = gpu_shader_create(scene->gpu, {
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
         .code  = scene_render_frag,
         .entry = "main",
     });
 
-    ctx->render.white = gpu_image_create(ctx->gpu, {
+    scene->render.white = gpu_image_create(scene->gpu, {
         .extent = {1, 1},
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer_dst
     });
 
-    gpu_copy_memory_to_image(ctx->render.white.get(), as_bytes(ptr_to(vec4u8{255, 255, 255, 255}), 4), {{{1, 1}}});
+    gpu_copy_memory_to_image(scene->render.white.get(), as_bytes(ptr_to(vec4u8{255, 255, 255, 255}), 4), {{{1, 1}}});
 
-    ctx->render.sampler = gpu_sampler_create(ctx->gpu, {
+    scene->render.sampler = gpu_sampler_create(scene->gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
 }
 
-void scene_frame(Scene* ctx, SceneOutput* output)
+void scene_frame(Scene* scene, SceneOutput* output)
 {
-    scene_broadcast_event(ctx, ptr_to(SceneEvent {
+    scene_broadcast_event(scene, ptr_to(SceneEvent {
         .type = SceneEventType::output_frame,
         .redraw = { .output = output },
     }));
 }
 
-void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
+void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 {
-    auto& render = ctx->render;
+    auto& render = scene->render;
 
     struct Draw
     {
@@ -145,7 +145,7 @@ void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
         push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
     };
 
-    scene_iterate<SceneIterateDirection::back_to_front>(ctx->root_tree.get(),
+    scene_iterate<SceneIterateDirection::back_to_front>(scene->root_tree.get(),
         scene_iterate_default,
         OverloadSet {
             draw_mesh,
@@ -154,7 +154,7 @@ void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
         },
         scene_iterate_default);
 
-    auto gpu = ctx->gpu;
+    auto gpu = scene->gpu;
 
     auto make_gpu = [&]<typename T>(std::span<T> data) {
         GpuArray<T> arr{gpu_buffer_create(gpu, data.size_bytes(), {}), 0};
@@ -187,7 +187,7 @@ void scene_render(Scene* ctx, GpuImage* target, rect2f32 viewport)
         scissor.origin -= viewport.origin;
         pass.set_scissors({scissor});
 
-        pass.bind_shaders({ctx->render.vertex.get(), ctx->render.fragment.get()});
+        pass.bind_shaders({scene->render.vertex.get(), scene->render.fragment.get()});
         pass.bind_index_buffer(gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {

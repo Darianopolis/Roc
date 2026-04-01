@@ -40,9 +40,9 @@ struct IoContext
     Gpu* gpu;
 
     std::vector<IoInputDeviceBase*> input_devices;
-    std::vector<IoOutputBase*>       outputs;
+    std::vector<IoOutputBase*>      outputs;
 
-    struct udev*    udev;
+    struct udev* udev;
 
     Ref<IoSession>  session;
     Ref<IoLibinput> libinput; // input_device
@@ -53,13 +53,13 @@ struct IoContext
     ~IoContext();
 };
 
-void io_request_shutdown(IoContext* ctx, IoShutdownReason reason);
+void io_request_shutdown(IoContext* io, IoShutdownReason reason);
 
 // -----------------------------------------------------------------------------
 
 struct IoOutputBase : IoOutput
 {
-    IoContext* ctx;
+    IoContext* io;
 
     bool frame_requested;
 
@@ -90,7 +90,7 @@ void io_output_remove(IoOutputBase*);
  */
 struct IoInputDeviceBase : IoInputDevice
 {
-    IoContext* ctx;
+    IoContext* io;
 
     Flags<IoInputDeviceCapability> capabilities;
 

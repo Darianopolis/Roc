@@ -7,18 +7,18 @@ Scene::~Scene()
     debug_assert(windows.empty());
 }
 
-void scene_push_io_event(Scene* ctx, IoEvent* event)
+void scene_push_io_event(Scene* scene, IoEvent* event)
 {
     switch (event->type) {
         break;case IoEventType::shutdown_requested:
             ;
 
         break;case IoEventType::input_added:
-            scene_handle_input_added(scene_get_exclusive_seat(ctx), event->input.device);
+            scene_handle_input_added(scene_get_exclusive_seat(scene), event->input.device);
         break;case IoEventType::input_removed:
-            scene_handle_input_removed(scene_get_exclusive_seat(ctx), event->input.device);
+            scene_handle_input_removed(scene_get_exclusive_seat(scene), event->input.device);
         break;case IoEventType::input_event:
-            scene_handle_input(scene_get_exclusive_seat(ctx), event->input);
+            scene_handle_input(scene_get_exclusive_seat(scene), event->input);
 
         break;case IoEventType::output_configure:
               case IoEventType::output_frame:
@@ -53,29 +53,29 @@ auto scene_create(ExecContext* exec, Gpu* gpu) -> Ref<Scene>
     return scene;
 }
 
-auto scene_get_layer(Scene* ctx, SceneLayer layer) -> SceneTree*
+auto scene_get_layer(Scene* scene, SceneLayer layer) -> SceneTree*
 {
-    return ctx->layers[layer].get();
+    return scene->layers[layer].get();
 }
 
-void scene_request_frame(Scene* ctx)
+void scene_request_frame(Scene* scene)
 {
-    for (auto* output : ctx->outputs) {
+    for (auto* output : scene->outputs) {
         scene_output_request_frame(output);
     }
 }
 
-void scene_broadcast_event(Scene* ctx, SceneEvent* event)
+void scene_broadcast_event(Scene* scene, SceneEvent* event)
 {
-    for (auto* client : ctx->clients) {
+    for (auto* client : scene->clients) {
         scene_client_post_event(client, event);
     }
 }
 
 // -----------------------------------------------------------------------------
 
-auto scene_register_system(Scene* ctx) -> SceneSystemId
+auto scene_register_system(Scene* scene) -> SceneSystemId
 {
-    ctx->prev_system_id = SceneSystemId(std::to_underlying(ctx->prev_system_id) + 1);
-    return ctx->prev_system_id;
+    scene->prev_system_id = SceneSystemId(std::to_underlying(scene->prev_system_id) + 1);
+    return scene->prev_system_id;
 }

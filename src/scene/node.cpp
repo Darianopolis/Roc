@@ -25,37 +25,37 @@ auto is_enabled_in_scene(SceneNode* node)
         ? static_cast<SceneTree*>(node)
         : node->parent;
 
-    return tree && get_enabled_tree_root(tree) == tree->ctx->root_tree.get();
+    return tree && get_enabled_tree_root(tree) == tree->scene->root_tree.get();
 }
 
 // -----------------------------------------------------------------------------
 
 static
-void dispatch_damage(Scene* ctx)
+void dispatch_damage(Scene* scene)
 {
-    defer { ctx->damage.queued = {}; };
+    defer { scene->damage.queued = {}; };
 
-    if (ctx->damage.queued.contains(SceneDamageType::input)) {
-        scene_update_pointers(ctx);
+    if (scene->damage.queued.contains(SceneDamageType::input)) {
+        scene_update_pointers(scene);
     }
 
-    if (ctx->damage.queued.contains(SceneDamageType::visual)) {
-        for (auto* output : ctx->outputs) {
+    if (scene->damage.queued.contains(SceneDamageType::visual)) {
+        for (auto* output : scene->outputs) {
             scene_output_request_frame(output);
         }
     }
 }
 
 static
-void enqueue_damage(Scene* ctx, SceneDamageType type)
+void enqueue_damage(Scene* scene, SceneDamageType type)
 {
-    auto enqueue = ctx->damage.queued.empty();
-    ctx->damage.queued |= type;
+    auto enqueue = scene->damage.queued.empty();
+    scene->damage.queued |= type;
 
     if (!enqueue) return;
 
-    exec_enqueue(ctx->exec, [ctx = Weak(ctx)] {
-        if (ctx) dispatch_damage(ctx.get());
+    exec_enqueue(scene->exec, [scene = Weak(scene)] {
+        if (scene) dispatch_damage(scene.get());
     });
 }
 
@@ -66,7 +66,7 @@ void basic_damage(SceneNode* node)
 {
     if (node->parent) {
         // TODO: Damage affected regions only.
-        enqueue_damage(node->parent->ctx, SceneDamageType::visual);
+        enqueue_damage(node->parent->scene, SceneDamageType::visual);
     }
 }
 
@@ -93,8 +93,8 @@ void damage_node(SceneInputRegion* input)
 {
     if (CheckInScene && !is_enabled_in_scene(input)) return;
 
-    auto* ctx = input->client->ctx;
-    enqueue_damage(ctx, SceneDamageType::input);
+    auto* scene = input->client->scene;
+    enqueue_damage(scene, SceneDamageType::input);
 }
 
 static
@@ -132,11 +132,11 @@ SceneTree::~SceneTree()
     }
 }
 
-auto scene_tree_create(Scene* ctx) -> Ref<SceneTree>
+auto scene_tree_create(Scene* scene) -> Ref<SceneTree>
 {
     auto tree = ref_create<SceneTree>();
     tree->type = SceneNodeType::tree;
-    tree->ctx = ctx;
+    tree->scene = scene;
     tree->enabled = true;
     return tree;
 }
@@ -316,7 +316,7 @@ void scene_texture_damage(SceneTexture* texture, aabb2i32 damage)
 
 // -----------------------------------------------------------------------------
 
-auto scene_mesh_create(Scene* ctx) -> Ref<SceneMesh>
+auto scene_mesh_create(Scene* scene) -> Ref<SceneMesh>
 {
     auto mesh = ref_create<SceneMesh>();
     mesh->type = SceneNodeType::mesh;
@@ -371,13 +371,13 @@ SceneInputRegion::~SceneInputRegion()
         scene_node_unparent(this);
     }
 
-    for (auto* seat : scene_get_seats(client->ctx)) {
+    for (auto* seat : scene_get_seats(client->scene)) {
         if (seat->keyboard->focus.region == this) {
             scene_keyboard_set_focus(seat->keyboard.get(), {});
         }
     }
 
-    scene_update_pointers(client->ctx);
+    scene_update_pointers(client->scene);
 }
 
 auto scene_input_region_create(SceneClient* client, SceneWindow* window) -> Ref<SceneInputRegion>

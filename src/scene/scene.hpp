@@ -33,7 +33,7 @@ void scene_request_frame(Scene*);
 
 // -----------------------------------------------------------------------------
 
-void scene_push_io_event(Scene* ctx, struct IoEvent*);
+void scene_push_io_event(Scene* scene, struct IoEvent*);
 
 // -----------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ struct SceneFindOutputResult
 };
 auto scene_find_output_for_point(Scene*, vec2f32 point) -> SceneFindOutputResult;
 
-void scene_frame(Scene* ctx, SceneOutput*);
+void scene_frame(Scene* scene, SceneOutput*);
 
 // -----------------------------------------------------------------------------
 
@@ -208,7 +208,7 @@ void scene_node_unparent(SceneNode*);
 
 struct SceneTree : SceneNode
 {
-    Scene* ctx;
+    Scene* scene;
 
     vec2f32 translation;
 

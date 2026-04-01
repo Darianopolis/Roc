@@ -16,7 +16,7 @@ struct WindowManager
 {
     Gpu* gpu;
     Scene* scene;
-    Ref<UiContext> ui;
+    Ref<Ui> ui;
 
     SceneModifier main_mod;
 

@@ -8,28 +8,28 @@ IoWaylandKeyboard::~IoWaylandKeyboard()
 static
 void keyboard_enter(void* udata, wl_keyboard*, u32 serial, wl_surface*, wl_array* keys)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
-    auto* kb = ctx->wayland->keyboard.get();
+    auto* io = static_cast<IoContext*>(udata);
+    auto* kb = io->wayland->keyboard.get();
     io_input_device_key_enter(kb, io_to_span<u32>(keys));
 
-    ctx->wayland->in_keyboard_enter = true;
-    wl_display_roundtrip(ctx->wayland->wl_display);
-    ctx->wayland->in_keyboard_enter = false;
+    io->wayland->in_keyboard_enter = true;
+    wl_display_roundtrip(io->wayland->wl_display);
+    io->wayland->in_keyboard_enter = false;
 }
 
 static
 void keyboard_leave(void* udata, wl_keyboard*, u32 serial, wl_surface*)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
-    auto* kb = ctx->wayland->keyboard.get();
+    auto* io = static_cast<IoContext*>(udata);
+    auto* kb = io->wayland->keyboard.get();
     io_input_device_leave(kb);
 }
 
 static
 void keyboard_key(void* udata, wl_keyboard*, u32 serial, u32 time, u32 keycode, u32 state)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
-    auto* kb = ctx->wayland->keyboard.get();
+    auto* io = static_cast<IoContext*>(udata);
+    auto* kb = io->wayland->keyboard.get();
     switch (state) {
         break;case WL_KEYBOARD_KEY_STATE_PRESSED:  io_input_device_key_press(  kb, keycode);
         break;case WL_KEYBOARD_KEY_STATE_RELEASED: io_input_device_key_release(kb, keycode);
@@ -46,12 +46,12 @@ IO_WL_LISTENER(wl_keyboard) = {
 };
 
 static
-void set_keyboard(IoContext* ctx)
+void set_keyboard(IoContext* io)
 {
-    auto* kb = (ctx->wayland->keyboard = ref_create<IoWaylandKeyboard>()).get();
-    kb->wl_keyboard = wl_seat_get_keyboard(ctx->wayland->wl_seat);
-    kb->ctx = ctx;
-    wl_keyboard_add_listener(kb->wl_keyboard, &io_wl_keyboard_listener, ctx);
+    auto* kb = (io->wayland->keyboard = ref_create<IoWaylandKeyboard>()).get();
+    kb->wl_keyboard = wl_seat_get_keyboard(io->wayland->wl_seat);
+    kb->io = io;
+    wl_keyboard_add_listener(kb->wl_keyboard, &io_wl_keyboard_listener, io);
     io_input_device_add(kb);
 }
 
@@ -64,9 +64,9 @@ IoWaylandPointer::~IoWaylandPointer()
 }
 
 static
-IoWaylandOutput* find_output_for_surface(IoContext* ctx, wl_surface* surface)
+IoWaylandOutput* find_output_for_surface(IoContext* io, wl_surface* surface)
 {
-    for (auto* output : ctx->wayland->outputs) {
+    for (auto* output : io->wayland->outputs) {
         if (output->wl_surface == surface) {
             return output;
         }
@@ -78,11 +78,11 @@ IoWaylandOutput* find_output_for_surface(IoContext* ctx, wl_surface* surface)
 static
 void pointer_enter(void* udata, wl_pointer*, u32 serial, wl_surface* surface, wl_fixed_t sx, wl_fixed_t sy)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
-    auto* ptr = ctx->wayland->pointer.get();
+    auto* io = static_cast<IoContext*>(udata);
+    auto* ptr = io->wayland->pointer.get();
 
     ptr->last_serial = serial;
-    ptr->current_output = find_output_for_surface(ctx, surface);
+    ptr->current_output = find_output_for_surface(io, surface);
 
     // Always hide parent compositor cursor
     wl_pointer_set_cursor(ptr->wl_pointer, serial, nullptr, 0, 0);
@@ -100,12 +100,12 @@ void pointer_leave(void* udata, wl_pointer*, u32 serial, wl_surface*)
 static
 void pointer_button(void* udata, wl_pointer*, u32 serial, u32 time, u32 button, u32 state)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
-    auto* ptr = ctx->wayland->pointer.get();
+    auto* io = static_cast<IoContext*>(udata);
+    auto* ptr = io->wayland->pointer.get();
 
     switch (state) {
         break;case WL_POINTER_BUTTON_STATE_PRESSED:
-            if (!ctx->wayland->in_keyboard_enter) {
+            if (!io->wayland->in_keyboard_enter) {
                 io_input_device_key_press(ptr, button);
             }
         break;case WL_POINTER_BUTTON_STATE_RELEASED:
@@ -157,16 +157,16 @@ IO_WL_LISTENER(zwp_relative_pointer_v1) = {
 };
 
 static
-void set_pointer(IoContext* ctx)
+void set_pointer(IoContext* io)
 {
-    auto* ptr = (ctx->wayland->pointer = ref_create<IoWaylandPointer>()).get();
-    ptr->ctx = ctx;
+    auto* ptr = (io->wayland->pointer = ref_create<IoWaylandPointer>()).get();
+    ptr->io = io;
 
-    ptr->wl_pointer = wl_seat_get_pointer(ctx->wayland->wl_seat);
-    wl_pointer_add_listener(ptr->wl_pointer, &io_wl_pointer_listener, ctx);
+    ptr->wl_pointer = wl_seat_get_pointer(io->wayland->wl_seat);
+    wl_pointer_add_listener(ptr->wl_pointer, &io_wl_pointer_listener, io);
 
     ptr->zwp_relative_pointer_v1 = zwp_relative_pointer_manager_v1_get_relative_pointer(
-        ctx->wayland->zwp_relative_pointer_manager_v1,
+        io->wayland->zwp_relative_pointer_manager_v1,
         ptr->wl_pointer);
     zwp_relative_pointer_v1_add_listener(ptr->zwp_relative_pointer_v1, &io_zwp_relative_pointer_v1_listener, ptr);
 
@@ -178,13 +178,13 @@ void set_pointer(IoContext* ctx)
 static
 void seat_capabilities(void* udata, wl_seat*, u32 capabilities)
 {
-    auto* ctx = static_cast<IoContext*>(udata);
+    auto* io = static_cast<IoContext*>(udata);
 
-    if      ( (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && !ctx->wayland->keyboard) set_keyboard(ctx);
-    else if (!(capabilities & WL_SEAT_CAPABILITY_KEYBOARD))    ctx->wayland->keyboard = nullptr;
+    if      ( (capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && !io->wayland->keyboard) set_keyboard(io);
+    else if (!(capabilities & WL_SEAT_CAPABILITY_KEYBOARD))    io->wayland->keyboard = nullptr;
 
-    if      ( (capabilities & WL_SEAT_CAPABILITY_POINTER) && !ctx->wayland->pointer) set_pointer(ctx);
-    else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER))    ctx->wayland->pointer = nullptr;
+    if      ( (capabilities & WL_SEAT_CAPABILITY_POINTER) && !io->wayland->pointer) set_pointer(io);
+    else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER))    io->wayland->pointer = nullptr;
 }
 
 IO_WL_LISTENER(wl_seat) = {

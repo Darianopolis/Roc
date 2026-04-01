@@ -8,9 +8,9 @@ struct scene_cursor_manager
     ankerl::unordered_dense::map<std::string_view, Ref<SceneNode>> cache;
 };
 
-void scene_cursor_manager_init(Scene* ctx)
+void scene_cursor_manager_init(Scene* scene)
 {
-    ctx->cursor_manager = ref_create<scene_cursor_manager>();
+    scene->cursor_manager = ref_create<scene_cursor_manager>();
 }
 
 static
@@ -46,9 +46,9 @@ void scene_pointer_set_cursor(ScenePointer* pointer, SceneNode* visual)
 }
 
 static
-auto get_xcursor(Scene* ctx, const char* semantic) -> SceneNode*
+auto get_xcursor(Scene* scene, const char* semantic) -> SceneNode*
 {
-    auto* manager = ctx->cursor_manager.get();
+    auto* manager = scene->cursor_manager.get();
 
     auto iter = manager->cache.find(semantic);
     if (iter != manager->cache.end()) {
@@ -62,21 +62,21 @@ auto get_xcursor(Scene* ctx, const char* semantic) -> SceneNode*
     if (!cursor) {
         debug_assert("default"sv != semantic);
         log_error("XCursor icon \"{}\" not found, falling back to \"default\"", semantic);
-        auto fallback = get_xcursor(ctx, "default");
+        auto fallback = get_xcursor(scene, "default");
         manager->cache.insert({semantic, fallback});
         return fallback;
     }
 
     defer { XcursorImageDestroy(cursor); };
-    auto image = gpu_image_create(ctx->gpu, {
+    auto image = gpu_image_create(scene->gpu, {
         .extent = {cursor->width, cursor->height},
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer
     });
     gpu_copy_memory_to_image(image.get(), as_bytes(cursor->pixels, cursor->width * cursor->height * 4), {{image->extent()}});
 
-    auto visual = scene_texture_create(ctx);
-    scene_texture_set_image(visual.get(), image.get(), ctx->render.sampler.get(), GpuBlendMode::premultiplied);
+    auto visual = scene_texture_create(scene);
+    scene_texture_set_image(visual.get(), image.get(), scene->render.sampler.get(), GpuBlendMode::premultiplied);
     scene_texture_set_dst(visual.get(), {-vec2f32{cursor->xhot, cursor->yhot}, {cursor->width, cursor->height}, xywh});
 
     manager->cache.insert({semantic, visual});
@@ -86,7 +86,7 @@ auto get_xcursor(Scene* ctx, const char* semantic) -> SceneNode*
 
 void scene_pointer_set_xcursor(ScenePointer* pointer, const char* semantic)
 {
-    auto visual = semantic ? get_xcursor(pointer->seat->ctx, semantic) : nullptr;
+    auto visual = semantic ? get_xcursor(pointer->seat->scene, semantic) : nullptr;
 
     if (visual != get_visual(pointer)) {
         log_trace("scene.pointer.set_xcursor({})", semantic ?: "nullptr");
