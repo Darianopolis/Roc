@@ -1,10 +1,10 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
 #include "core/chrono.hpp"
 #include "core/color.hpp"
 #include "core/stacktrace.hpp"
 
-void wm_log_init(WindowManager* wm)
+void wm_init_log_viewer(WindowManager* wm)
 {
     log_history_enable(true);
 

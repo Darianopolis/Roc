@@ -229,7 +229,7 @@ target_sources(io-test PRIVATE src/io/main.cpp)
 target_link_libraries(io-test PUBLIC io)
 
 # ------------------------------------------------------------------------------
-#       Scene Graph
+#       Scene Compositor
 # ------------------------------------------------------------------------------
 
 init_library(scene)
@@ -290,17 +290,30 @@ target_sources(way PRIVATE
 target_link_libraries(way PUBLIC scene)
 
 # ------------------------------------------------------------------------------
-#       Roc
+#       Window Manager
 # ------------------------------------------------------------------------------
 
-init_executable(roc)
-target_sources(roc PRIVATE
-    src/wm/main.cpp
+init_library(wm)
+target_sources(wm PRIVATE
     src/wm/wm.cpp
+    src/wm/io.cpp
+    src/wm/seat.cpp
+    src/wm/hotkeys.cpp
     src/wm/interaction.cpp
     src/wm/movesize.cpp
     src/wm/zone.cpp
     src/wm/log.cpp
     src/wm/launcher.cpp
+    src/wm/background.cpp
     )
-target_link_libraries(roc PUBLIC scene way ui)
+target_link_libraries(wm PUBLIC scene way ui)
+
+# ------------------------------------------------------------------------------
+#       Roc
+# ------------------------------------------------------------------------------
+
+init_executable(roc)
+target_sources(roc PRIVATE
+    src/roc/main.cpp
+    )
+target_link_libraries(roc PUBLIC wm)

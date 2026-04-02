@@ -1,12 +1,16 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
-auto wm_create(Gpu* gpu, Scene* scene, WayServer* way, std::filesystem::path app_share) -> Ref<WindowManager>
+auto wm_create(const WindowManagerCreateInfo& info) -> Ref<WindowManager>
 {
     auto wm = ref_create<WindowManager>();
-    wm->scene = scene;
-    wm->way = way;
+    wm->gpu = info.gpu;
+    wm->scene = info.scene;
+    wm->way = info.way;
+    wm->io.context = info.io;
 
-    wm->ui = ui_create(gpu, scene, app_share / "wm");
+    wm->main_mod = SceneModifier::alt;
+
+    wm->ui = ui_create(info.gpu, info.scene, info.app_share / "wm");
     ui_set_frame_handler(wm->ui.get(), [wm = wm.get()] {
         wm_log_frame(wm);
         wm_launcher_frame(wm);
@@ -14,10 +18,14 @@ auto wm_create(Gpu* gpu, Scene* scene, WayServer* way, std::filesystem::path app
 
     wm->main_mod = SceneModifier::alt;
 
-    wm_interaction_init(wm.get());
-    wm_zone_init(       wm.get());
-    wm_log_init(        wm.get());
-    wm_launcher_init(   wm.get());
+    wm_init_io(         wm.get());
+    wm_init_seat(       wm.get());
+    wm_init_hotkeys(    wm.get());
+    wm_init_background( wm.get(), info.wallpaper);
+    wm_init_interaction(wm.get());
+    wm_init_zone(       wm.get());
+    wm_init_log_viewer( wm.get());
+    wm_init_launcher(   wm.get());
 
     return wm;
 }

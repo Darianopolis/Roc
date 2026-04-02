@@ -1,4 +1,4 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
 static
 void handle_event(WindowManager* wm, SceneEvent* event)
@@ -23,7 +23,7 @@ void handle_event(WindowManager* wm, SceneEvent* event)
 
 // -----------------------------------------------------------------------------
 
-void wm_interaction_init(WindowManager* wm)
+void wm_init_interaction(WindowManager* wm)
 {
     wm->client = scene_client_create(wm->scene);
     wm->focus = scene_input_region_create(wm->client.get(), nullptr);

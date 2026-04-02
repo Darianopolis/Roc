@@ -1,4 +1,4 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
 static
 void begin_interaction(WindowManager* wm, ScenePointer* pointer, WmInteractionMode initial_mode)

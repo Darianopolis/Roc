@@ -1,6 +1,6 @@
-#include "wm.hpp"
+#include "wm/wm.hpp"
 
-#include <core/chrono.hpp>
+#include "core/chrono.hpp"
 
 #include "scene/scene.hpp"
 
@@ -9,32 +9,6 @@
 #include "ui/ui.hpp"
 #include "way/way.hpp"
 #include "way/surface/surface.hpp"
-
-struct WmLinearAccel
-{
-    f32 offset;
-    f32 rate;
-    f32 multiplier;
-
-    auto operator()(vec2f32 delta) -> vec2f32
-    {
-        // Apply a linear mouse acceleration curve
-        //
-        // Offset     - speed before acceleration is applied.
-        // Accel      - rate that sensitivity increases with motion.
-        // Multiplier - total multplier for sensitivity.
-        //
-        //      /
-        //     / <- Accel
-        // ___/
-        //  ^-- Offset
-
-        f32 speed = glm::length(delta);
-        vec2f32 sens = vec2f32(multiplier * (1 + (std::max(speed, offset) - offset) * rate));
-
-        return delta * sens;
-    }
-};
 
 int main()
 {
@@ -50,159 +24,13 @@ int main()
     auto io    = io_create(   exec.get(), gpu.get());
     auto scene = scene_create(exec.get(), gpu.get());
     auto way   = way_create(exec.get(), gpu.get(), scene.get());
-    auto wm    = wm_create(gpu.get(), scene.get(), way.get(), app_share);
-
-    // I/O event plumbing
-
-    auto image_pool = gpu_image_pool_create(gpu.get());
-    auto output_client = scene_client_create(scene.get());
-    struct Output {
-        Ref<SceneOutput> scene;
-        IoOutput*         io;
-    };
-    std::vector<Output> outputs;
-    auto reflow_outputs = [&] {
-        f32 x = 0;
-        for (auto& output : outputs) {
-            auto size = output.io->info().size;
-            scene_output_set_viewport(output.scene.get(), {{x, 0.f}, size, xywh});
-            x += f32(size.x);
-        }
-    };
-    io_set_event_handler(io.get(), [&](IoEvent* event) {
-        switch (event->type) {
-            // shutdown
-            break;case IoEventType::shutdown_requested:
-                io_stop(io.get());
-
-            // input
-            break;case IoEventType::input_added:
-                  case IoEventType::input_removed:
-                  case IoEventType::input_event:
-                scene_push_io_event(scene.get(), event);
-
-            // output
-            break;case IoEventType::output_added:
-                outputs.emplace_back(scene_output_create(output_client.get(), SceneOutputFlag::workspace), event->output.output);
-                reflow_outputs();
-            break;case IoEventType::output_configure:
-                reflow_outputs();
-            break;case IoEventType::output_removed:
-                std::erase_if(outputs, [&](auto& p) { return p.io == event->output.output; });
-                reflow_outputs();
-            break;case IoEventType::output_frame: {
-                auto output = std::ranges::find_if(outputs, [&](auto& p) { return p.io == event->output.output; });
-                scene_frame(scene.get(), output->scene.get());
-
-                // TODO: Only redraw with damage
-
-                auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-                auto usage = GpuImageUsage::render;
-
-                auto target = image_pool->acquire({
-                    .extent = output->io->info().size,
-                    .format = format,
-                    .usage = usage,
-                    .modifiers = ptr_to(gpu_intersect_format_modifiers({
-                        &gpu_get_format_properties(gpu.get(), format, usage)->mods,
-                        &output->io->info().formats->get(format),
-                    }))
-                });
-
-                scene_render(scene.get(), target.get(), scene_output_get_viewport(output->scene.get()));
-
-                output->io->commit(target.get(), gpu_flush(gpu.get()), IoOutputCommitFlag::vsync);
-            }
-        }
-    });
-    scene_client_set_event_handler(output_client.get(), [&](SceneEvent* event) {
-        switch (event->type) {
-            break;case SceneEventType::output_frame_request: {
-                auto output = std::ranges::find_if(outputs, [&](auto& p) { return p.scene.get() == event->output; });
-                output->io->request_frame();
-            }
-            break;default:
-                ;
-        }
-    });
-
-    // Pointer
-
-    auto seat_listener = scene_client_create(scene.get());
-    scene_client_set_event_handler(seat_listener.get(), [&](SceneEvent* event) {
-        switch (event->type) {
-            break;case SceneEventType::seat_add: {
-                auto* pointer = scene_seat_get_pointer(event->seat);
-                scene_pointer_set_xcursor(pointer, "default");
-                scene_pointer_set_accel(  pointer, WmLinearAccel {
-                    .offset     = 2.f,
-                    .rate       = 0.05f,
-                    .multiplier = 0.3f
-                });
-            }
-            break;default:
-                ;
-        }
-    });
-
-    // Background
-
-    auto sampler = gpu_sampler_create(gpu.get(), {
-        .mag = VK_FILTER_NEAREST,
-        .min = VK_FILTER_LINEAR,
-    });
-
-    auto background_image = [&] {
-        std::filesystem::path path = getenv("WALLPAPER");
-        int w, h;
-        int num_channels;
-        stbi_uc* data = stbi_load(path.c_str(), &w, &h, &num_channels, STBI_rgb_alpha);
-        defer { stbi_image_free(data); };
-        log_info("Loaded background ({}, width = {}, height = {})", path.c_str(), w, h);
-
-        // Create background texture node
-        auto image = gpu_image_create(gpu.get(), {
-            .extent = {w, h},
-            .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
-            .usage = GpuImageUsage::texture | GpuImageUsage::transfer
-        });
-        gpu_copy_memory_to_image(image.get(), as_bytes(data, w * h * 4), {{{image->extent()}}});
-        return image;
-    }();
-
-    auto background_client = scene_client_create(scene.get());
-
-    Ref<SceneTree> background_layer = {};
-    auto unparent_background = [&] {
-        if (background_layer) scene_node_unparent(background_layer.get());
-    };
-    defer { unparent_background(); };
-    auto update_backgrounds = [&] {
-        unparent_background();
-        background_layer = scene_tree_create(scene.get());
-        scene_tree_place_above(scene_get_layer(scene.get(), SceneLayer::background), nullptr, background_layer.get());
-
-        for (auto* output : scene_list_outputs(scene.get())) {
-            vec2f32 image_size = background_image->extent();
-            auto viewport = scene_output_get_viewport(output);
-
-            // Create texture node
-            auto texture = scene_texture_create(scene.get());
-            scene_texture_set_image(texture.get(), background_image.get(), sampler.get(), GpuBlendMode::premultiplied);
-            auto src = rect_fit<f32>(image_size, viewport.extent);
-            scene_texture_set_src(texture.get(), {src.origin / image_size, src.extent / image_size, xywh});
-            scene_texture_set_dst(texture.get(), viewport);
-            scene_tree_place_above(background_layer.get(), nullptr, texture.get());
-        }
-    };
-
-    scene_client_set_event_handler(background_client.get(), [scene = scene.get(), &update_backgrounds](SceneEvent* event) {
-        switch (event->type) {
-            break;case SceneEventType::output_layout:
-                update_backgrounds();
-            break;default:
-                ;
-        }
+    auto wm    = wm_create({
+        .gpu = gpu.get(),
+        .io = io.get(),
+        .scene = scene.get(),
+        .way = way.get(),
+        .app_share = app_share,
+        .wallpaper = getenv("WALLPAPER"),
     });
 
     // Test client
@@ -342,7 +170,7 @@ int main()
                     [&](SceneTree* tree) {
                         WaySurface* surface;
                         if (tree->system == way->scene_system
-                                && (surface = way_get_userdata<WaySurface>(tree))) {
+                                && (surface = way_get_userdata<WaySurface>(tree->userdata))) {
                             log_warn("{}tree({}{}) {{", indent(),
                                 surface->role,
                                 tree->enabled ? "": ", disabled");
@@ -364,38 +192,6 @@ int main()
         }
     });
     ui_request_frame(ui.get());
-
-    // Hotkey
-
-    auto main_mod = SceneModifier::alt;
-    auto hotkey_client = scene_client_create(scene.get());
-    ankerl::unordered_dense::map<SceneHotkey, std::move_only_function<void(SceneEvent*)>> hotkeys;
-
-    auto close_hotkey = [](SceneEvent* event) {
-        if (!event->hotkey.pressed) return;
-        auto focus = scene_input_device_get_focus(event->hotkey.input_device);
-        if (focus && focus->window) {
-            scene_window_request_close(focus->window.get());
-        }
-    };
-    hotkeys[{ main_mod, KEY_Q      }] = close_hotkey;
-    hotkeys[{ main_mod, BTN_MIDDLE }] = close_hotkey;
-
-    hotkeys[{ main_mod, KEY_S }] = [](SceneEvent* event) {
-        if (!event->hotkey.pressed) return;
-        auto keyboard = scene_input_device_get_keyboard(event->hotkey.input_device);
-        if (!keyboard) return;
-        scene_keyboard_focus(keyboard, nullptr);
-    };
-
-    for (auto&[hotkey, _] : hotkeys) {
-        debug_assert(scene_client_hotkey_register(hotkey_client.get(), hotkey));
-    }
-    scene_client_set_event_handler(hotkey_client.get(), [&](SceneEvent* event) {
-        if (event->type == SceneEventType::hotkey) {
-            hotkeys.at(event->hotkey.hotkey)(event);
-        }
-    });
 
     // Selection
 

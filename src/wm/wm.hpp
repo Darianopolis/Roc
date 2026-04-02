@@ -1,76 +1,22 @@
 #pragma once
 
-#include "scene/scene.hpp"
+#include "core/object.hpp"
 
-#include "ui/ui.hpp"
+struct Gpu;
+struct Scene;
+struct WayServer;
+struct WindowManager;
+struct IoContext;
 
-#include "way/way.hpp"
-
-enum class WmInteractionMode
-{
-    none,
-    move,
-    size,
-    zone,
-};
-
-struct WmLauncher;
-
-struct WindowManager
+struct WindowManagerCreateInfo
 {
     Gpu*       gpu;
+    IoContext* io;
     Scene*     scene;
     WayServer* way;
 
-    Ref<Ui> ui;
-
-    SceneModifier main_mod;
-
-    WmInteractionMode mode;
-    Ref<SceneClient> client;
-    Ref<SceneInputRegion> focus;
-
-    Ref<WmLauncher> launcher;
-
-    struct {
-        ScenePointer* pointer;
-
-        Weak<SceneWindow> window;
-
-        vec2f32  grab;
-        rect2f32 frame;
-        vec2f32  relative;
-
-    } movesize;
-
-    struct {
-        ScenePointer* pointer;
-
-        Weak<SceneWindow> window;
-
-        Ref<SceneTexture> texture;
-
-        aabb2f64 initial_zone;
-        aabb2f64 final_zone;
-        bool     selecting = false;
-    } zone;
-
-    struct {
-        bool show_details;
-        i64 selected = -1;
-    } log;
+    std::filesystem::path app_share;
+    std::filesystem::path wallpaper;
 };
 
-auto wm_create(Gpu*, Scene*, WayServer*, std::filesystem::path app_share) -> Ref<WindowManager>;
-
-void wm_interaction_init(WindowManager*);
-void wm_zone_init(       WindowManager*);
-
-void wm_movesize_handle_event(WindowManager*, SceneEvent*);
-void wm_zone_handle_event(    WindowManager*, SceneEvent*);
-
-void wm_log_frame(WindowManager*);
-void wm_log_init( WindowManager*);
-
-void wm_launcher_init(WindowManager*);
-void wm_launcher_frame(WindowManager*);
+auto wm_create(const WindowManagerCreateInfo&) -> Ref<WindowManager>;

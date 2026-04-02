@@ -1,4 +1,4 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
 #include "core/math.hpp"
 
@@ -183,7 +183,7 @@ void wm_zone_handle_event(WindowManager* wm, SceneEvent* event)
 
 // -----------------------------------------------------------------------------
 
-void wm_zone_init(WindowManager* wm)
+void wm_init_zone(WindowManager* wm)
 {
     wm->zone.texture = scene_texture_create(wm->scene);
 }

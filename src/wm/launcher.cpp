@@ -1,4 +1,4 @@
-#include "wm.hpp"
+#include "internal.hpp"
 
 #include "way/server.hpp"
 
@@ -142,7 +142,7 @@ void show(WindowManager* wm)
     scan_apps(wm->launcher.get());
 }
 
-void wm_launcher_init(WindowManager* wm)
+void wm_init_launcher(WindowManager* wm)
 {
     wm->launcher = ref_create<WmLauncher>();
     wm->launcher->wm = wm;
