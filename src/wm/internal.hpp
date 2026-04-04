@@ -4,7 +4,6 @@
 
 #include "core/types.hpp"
 #include "scene/scene.hpp"
-#include "ui/ui.hpp"
 #include "way/way.hpp"
 #include "io/io.hpp"
 
@@ -16,7 +15,7 @@ enum class WmInteractionMode
     zone,
 };
 
-struct WmLauncher;
+struct RocLauncher;
 
 struct WmOutput {
     Ref<SceneOutput> scene;
@@ -28,13 +27,12 @@ struct WindowManager
     ExecContext* exec;
     Gpu*         gpu;
     Scene*       scene;
-    WayServer*   way;
 
     SceneModifier main_mod;
 
     WmInteractionMode mode;
 
-    Ref<WmLauncher> launcher;
+    Ref<RocLauncher> launcher;
 
     struct {
         IoContext*            context;
@@ -50,13 +48,6 @@ struct WindowManager
     struct {
         Ref<SceneEventFilter> filter;
     } hotkeys;
-
-    struct {
-        Ref<SceneClient> client;
-        Ref<GpuImage>    image;
-        Ref<GpuSampler>  sampler;
-        Ref<SceneTree>   layer;
-    } background;
 
     struct {
         Ref<SceneEventFilter> filter;
@@ -78,20 +69,10 @@ struct WindowManager
         aabb2f64 final_zone;
         bool     selecting = false;
     } zone;
-
-    struct {
-        Ref<Ui> ui;
-        bool requested;
-        bool show_details;
-        i64 selected = -1;
-    } log;
 };
 
-void wm_init_io(        WindowManager*);
-void wm_init_seat(      WindowManager*);
-void wm_init_hotkeys(   WindowManager*);
-void wm_init_movesize(  WindowManager*);
-void wm_init_zone(      WindowManager*);
-void wm_init_log_viewer(WindowManager*, const WindowManagerCreateInfo&);
-void wm_init_launcher(  WindowManager*, const WindowManagerCreateInfo&);
-void wm_init_background(WindowManager*, const WindowManagerCreateInfo&);
+void wm_init_io(      WindowManager*);
+void wm_init_seat(    WindowManager*);
+void wm_init_hotkeys( WindowManager*);
+void wm_init_movesize(WindowManager*);
+void wm_init_zone(    WindowManager*);

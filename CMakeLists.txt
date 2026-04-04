@@ -248,6 +248,21 @@ target_sources(scene PRIVATE
 target_link_libraries(scene PUBLIC io)
 
 # ------------------------------------------------------------------------------
+#       Window Manager
+# ------------------------------------------------------------------------------
+
+init_library(wm)
+target_sources(wm PRIVATE
+    src/wm/wm.cpp
+    src/wm/io.cpp
+    src/wm/seat.cpp
+    src/wm/movesize.cpp
+    src/wm/hotkeys.cpp
+    src/wm/zone.cpp
+    )
+target_link_libraries(wm PUBLIC scene)
+
+# ------------------------------------------------------------------------------
 #       UI
 # ------------------------------------------------------------------------------
 
@@ -290,29 +305,14 @@ target_sources(way PRIVATE
 target_link_libraries(way PUBLIC scene)
 
 # ------------------------------------------------------------------------------
-#       Window Manager
-# ------------------------------------------------------------------------------
-
-init_library(wm)
-target_sources(wm PRIVATE
-    src/wm/wm.cpp
-    src/wm/io.cpp
-    src/wm/seat.cpp
-    src/wm/movesize.cpp
-    src/wm/hotkeys.cpp
-    src/wm/zone.cpp
-    src/wm/log.cpp
-    src/wm/launcher.cpp
-    src/wm/background.cpp
-    )
-target_link_libraries(wm PUBLIC scene way ui)
-
-# ------------------------------------------------------------------------------
 #       Roc
 # ------------------------------------------------------------------------------
 
 init_executable(roc)
 target_sources(roc PRIVATE
     src/roc/main.cpp
+    src/roc/app/log-viewer.cpp
+    src/roc/app/launcher.cpp
+    src/roc/app/background.cpp
     )
-target_link_libraries(roc PUBLIC wm)
+target_link_libraries(roc PUBLIC wm ui way)

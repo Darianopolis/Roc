@@ -1,35 +1,50 @@
-#include "internal.hpp"
+#include "../roc.hpp"
 
 #include "core/chrono.hpp"
 #include "core/color.hpp"
 #include "core/stacktrace.hpp"
 
-static
-void frame(WindowManager*);
-
-void wm_init_log_viewer(WindowManager* wm, const WindowManagerCreateInfo& info)
+struct RocLogViewer
 {
+    Ref<Ui> ui;
+    Roc* roc;
+    bool requested;
+    bool show_details;
+    i64 selected = -1;
+};
+
+static
+void frame(RocLogViewer*);
+
+auto roc_init_log_viewer(Roc* roc) -> Ref<void>
+{
+    auto viewer = ref_create<RocLogViewer>();
+    viewer->roc = roc;
+
     log_history_enable(true);
 
-    log_history_add_listener([wm = Weak(wm)](LogEntry*) {
-        if (std::exchange(wm->log.requested, true)) return;
-        exec_enqueue(wm->exec, [wm] {
-            if (wm) {
-                ui_request_frame(wm->log.ui.get());
+    log_history_add_listener([viewer = Weak(viewer.get())](LogEntry*) {
+        if (!viewer) return;
+        if (std::exchange(viewer->requested, true)) return;
+        exec_enqueue(viewer->roc->exec, [viewer] {
+            if (viewer) {
+                ui_request_frame(viewer->ui.get());
             }
         });
     });
 
-    wm->log.ui = ui_create(wm->gpu, wm->scene, info.app_share / "log-viewer");
-    ui_set_frame_handler(wm->log.ui.get(), [wm] {
-        frame(wm);
+    viewer->ui = ui_create(roc->gpu, roc->scene, roc->app_share / "log-viewer");
+    ui_set_frame_handler(viewer->ui.get(), [viewer = viewer.get()] {
+        frame(viewer);
     });
+
+    return viewer;
 }
 
 static
-void frame(WindowManager* wm)
+void frame(RocLogViewer* viewer)
 {
-    wm->log.requested = false;
+    viewer->requested = false;
 
     auto history = log_history_get();
 
@@ -56,7 +71,7 @@ void frame(WindowManager* wm)
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Details", &wm->log.show_details);
+    ImGui::Checkbox("Details", &viewer->show_details);
 
     static constexpr auto make_color = [](std::string_view hex) { return vec4f32(color_from_hex(hex)) / 255.f; };
     static constexpr auto to_imvec =   [](vec4f32 v)            { return ImVec4(v.x, v.y, v.z, v.w); };
@@ -171,9 +186,9 @@ void frame(WindowManager* wm)
         while (line < clipper.DisplayEnd) {
             auto i = entry - history.entries.data();
 
-            bool is_hovered = i == wm->log.selected;
+            bool is_hovered = i == viewer->selected;
             if (draw_entry(i, *entry, &is_hovered)) {
-                wm->log.selected = (wm->log.selected == i) ? -1 : i;
+                viewer->selected = (viewer->selected == i) ? -1 : i;
             }
             if (is_hovered) {
                 hovered = i;
@@ -196,16 +211,16 @@ void frame(WindowManager* wm)
 
     // Log Details for selected log entry
 
-    if (wm->log.selected >= i64(history.entries.size())) {
-        wm->log.selected = -1;
+    if (viewer->selected >= i64(history.entries.size())) {
+        viewer->selected = -1;
     }
 
-    if (wm->log.show_details) {
+    if (viewer->show_details) {
         defer { ImGui::End(); };
-        if (ImGui::Begin(wm->log.selected >= 0
+        if (ImGui::Begin(viewer->selected >= 0
                 ? "Log Details (locked)###Log Details"
-                : "Log Details###Log Details", &wm->log.show_details, ImGuiWindowFlags_HorizontalScrollbar)) {
-            auto effective = wm->log.selected >= 0 ? wm->log.selected : hovered;
+                : "Log Details###Log Details", &viewer->show_details, ImGuiWindowFlags_HorizontalScrollbar)) {
+            auto effective = viewer->selected >= 0 ? viewer->selected : hovered;
             if (effective != -1) {
                 base_x = ImGui::GetCursorPosX();
                 auto& entry = history.entries[effective];
@@ -270,7 +285,7 @@ void frame(WindowManager* wm)
         }
     }
 
-    if (!wm->log.show_details) {
-        wm->log.selected = -1;
+    if (!viewer->show_details) {
+        viewer->selected = -1;
     }
 }

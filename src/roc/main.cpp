@@ -1,21 +1,19 @@
+#include "roc.hpp"
+
 #include "wm/wm.hpp"
 
-#include "core/chrono.hpp"
-
-#include "scene/scene.hpp"
-
-#include "io/io.hpp"
-
-#include "ui/ui.hpp"
 #include "way/way.hpp"
 #include "way/surface/surface.hpp"
 
 int main()
 {
-    // Directories
+    Roc roc = {};
 
-    auto home = std::filesystem::path(getenv("HOME"));
-    auto app_share = home / ".local/share" / PROGRAM_NAME;
+    // Config
+
+    roc.app_share = std::filesystem::path(getenv("HOME")) / ".local/share" / PROGRAM_NAME;
+    roc.main_mod = SceneModifier::alt;
+    roc.wallpaper = getenv("WALLPAPER");
 
     // Systems
 
@@ -29,10 +27,20 @@ int main()
         .gpu = gpu.get(),
         .io = io.get(),
         .scene = scene.get(),
-        .way = way.get(),
-        .app_share = app_share,
-        .wallpaper = getenv("WALLPAPER"),
+        .main_mod = roc.main_mod,
     });
+
+    roc.exec = exec.get();
+    roc.gpu = gpu.get();
+    roc.scene = scene.get();
+    roc.way = way.get();
+    roc.io = io.get();
+
+    // Applets
+
+    auto _ = roc_init_background(&roc);
+    auto _ = roc_init_launcher(&roc);
+    auto _ = roc_init_log_viewer(&roc);
 
     // Test client
 
@@ -120,7 +128,7 @@ int main()
     // ImGui
 
     std::string ui_text_edit = "Hello, world!";
-    auto ui = ui_create(gpu.get(), scene.get(), app_share / "ui");
+    auto ui = ui_create(gpu.get(), scene.get(), roc.app_share / "ui");
     ui_set_frame_handler(ui.get(), [&] {
         ImGui::ShowDemoWindow();
 
