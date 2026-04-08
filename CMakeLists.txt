@@ -200,7 +200,7 @@ target_sources(gpu PRIVATE
     src/gpu/semaphore.cpp
     src/gpu/image-pool.cpp
     )
-target_link_libraries(gpu PUBLIC core shaders)
+target_link_libraries(gpu PRIVATE core)
 
 # ------------------------------------------------------------------------------
 #       Session IO
@@ -222,30 +222,40 @@ target_sources(io PRIVATE
     src/io/wayland/output.cpp
     src/io/wayland/seat.cpp
     )
-target_link_libraries(io PUBLIC core gpu)
+target_link_libraries(io PRIVATE core gpu)
 
 init_executable(io-test)
 target_sources(io-test PRIVATE src/io/main.cpp)
-target_link_libraries(io-test PUBLIC io)
+target_link_libraries(io-test PRIVATE core io)
 
 # ------------------------------------------------------------------------------
-#       Scene Compositor
+#       Scene Graph
 # ------------------------------------------------------------------------------
 
 init_library(scene)
 target_sources(scene PRIVATE
     src/scene/scene.cpp
     src/scene/render.cpp
-    src/scene/node.cpp
-    src/scene/window.cpp
-    src/scene/seat.cpp
-    src/scene/input.cpp
-    src/scene/cursor.cpp
-    src/scene/client.cpp
-    src/scene/output.cpp
-    src/scene/data.cpp
+    src/scene/damage.cpp
+    src/scene/node/mesh.cpp
+    src/scene/node/node.cpp
+    src/scene/node/texture.cpp
+    src/scene/node/tree.cpp
     )
-target_link_libraries(scene PUBLIC io)
+target_link_libraries(scene PRIVATE core gpu shaders)
+
+# ------------------------------------------------------------------------------
+#       Seat
+# ------------------------------------------------------------------------------
+
+init_library(_seat)
+target_sources(_seat PRIVATE
+    src/seat/input-region.cpp
+    src/seat/keyboard.cpp
+    src/seat/pointer.cpp
+    src/seat/seat.cpp
+    )
+target_link_libraries(_seat PRIVATE core scene)
 
 # ------------------------------------------------------------------------------
 #       Window Manager
@@ -256,53 +266,53 @@ target_sources(wm PRIVATE
     src/wm/wm.cpp
     src/wm/io.cpp
     src/wm/seat.cpp
-    src/wm/movesize.cpp
-    src/wm/hotkeys.cpp
-    src/wm/zone.cpp
+    # src/wm/movesize.cpp
+    # src/wm/hotkeys.cpp
+    # src/wm/zone.cpp
     )
-target_link_libraries(wm PUBLIC scene)
+target_link_libraries(wm PRIVATE core io _seat scene)
 
 # ------------------------------------------------------------------------------
 #       UI
 # ------------------------------------------------------------------------------
 
-init_library(ui)
-target_sources(ui PRIVATE
-    src/ui/ui.cpp
-    )
-target_link_libraries(ui PUBLIC scene)
+# init_library(ui)
+# target_sources(ui PRIVATE
+#     src/ui/ui.cpp
+#     )
+# target_link_libraries(ui PRIVATE core scene)
 
 # ------------------------------------------------------------------------------
 #       Wayland
 # ------------------------------------------------------------------------------
 
-init_library(way)
-target_sources(way PRIVATE
-    src/way/client.cpp
-    src/way/server.cpp
-    src/way/util.cpp
+# init_library(way)
+# target_sources(way PRIVATE
+#     src/way/client.cpp
+#     src/way/server.cpp
+#     src/way/util.cpp
 
-    src/way/buffer/buffer.cpp
-    src/way/buffer/dmabuf.cpp
-    src/way/buffer/shm.cpp
+#     src/way/buffer/buffer.cpp
+#     src/way/buffer/dmabuf.cpp
+#     src/way/buffer/shm.cpp
 
-    src/way/data/data.cpp
+#     src/way/data/data.cpp
 
-    src/way/output/output.cpp
+#     src/way/output/output.cpp
 
-    src/way/seat/cursor-shape.cpp
-    src/way/seat/gestures.cpp
-    src/way/seat/seat.cpp
+#     src/way/seat/cursor-shape.cpp
+#     src/way/seat/gestures.cpp
+#     src/way/seat/seat.cpp
 
-    src/way/shell/popup.cpp
-    src/way/shell/shell.cpp
+#     src/way/shell/popup.cpp
+#     src/way/shell/shell.cpp
 
-    src/way/surface/decoration.cpp
-    src/way/surface/subsurface.cpp
-    src/way/surface/surface.cpp
-    src/way/surface/viewport.cpp
-    )
-target_link_libraries(way PUBLIC scene)
+#     src/way/surface/decoration.cpp
+#     src/way/surface/subsurface.cpp
+#     src/way/surface/surface.cpp
+#     src/way/surface/viewport.cpp
+#     )
+# target_link_libraries(way PRIVATE core scene)
 
 # ------------------------------------------------------------------------------
 #       Roc
@@ -311,8 +321,8 @@ target_link_libraries(way PUBLIC scene)
 init_executable(roc)
 target_sources(roc PRIVATE
     src/roc/main.cpp
-    src/roc/app/log-viewer.cpp
-    src/roc/app/launcher.cpp
-    src/roc/app/background.cpp
+    # src/roc/app/log-viewer.cpp
+    # src/roc/app/launcher.cpp
+    # src/roc/app/background.cpp
     )
-target_link_libraries(roc PUBLIC wm ui way)
+target_link_libraries(roc PRIVATE core wm)

@@ -32,14 +32,6 @@ void scene_render_init(Scene* scene)
     });
 }
 
-void scene_frame(Scene* scene, SceneOutput* output)
-{
-    scene_broadcast_event(scene, ptr_to(SceneEvent {
-        .type = SceneEventType::output_frame,
-        .redraw = { .output = output },
-    }));
-}
-
 void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 {
     auto& render = scene->render;
@@ -145,14 +137,20 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         push_vtx({dst.max.x, dst.max.y}, {src.max.x, src.max.y});
     };
 
-    scene_iterate<SceneIterateDirection::back_to_front>(scene->root_tree.get(),
-        scene_iterate_default,
-        OverloadSet {
-            draw_mesh,
-            draw_texture,
-            [](SceneInputRegion*) {},
-        },
-        scene_iterate_default);
+    auto draw_node = [&](this auto&& draw_node, SceneNode* node) -> void {
+        if (auto* texture = dynamic_cast<SceneTexture*>(node)) {
+            draw_texture(texture);
+        } else if (auto* mesh = dynamic_cast<SceneMesh*>(node)) {
+            draw_mesh(mesh);
+        } else {
+            node->visit_children([](void* ud, SceneNode* node) {
+                (*(std::remove_cvref_t<decltype(draw_node)>*)ud)(node);
+            }, &draw_node);
+        }
+    };
+    scene->root->visit_children([](void* ud, SceneNode* node) {
+        (*(decltype(draw_node)*)ud)(node);
+    }, &draw_node);
 
     auto gpu = scene->gpu;
 

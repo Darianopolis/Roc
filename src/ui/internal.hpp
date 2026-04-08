@@ -2,10 +2,12 @@
 
 #include "ui.hpp"
 
+#include "seat/seat.hpp"
+
 struct UiViewportData {
-    Ref<SceneWindow> window;
+    Ref<WmToplevel> window;
     RefVector<SceneMesh> meshes;
-    Ref<SceneInputRegion> input_region;
+    Ref<SeatInputRegion> input_region;
 
     // Pending reposition request. Requests are double-buffered so that
     // resizes requested during ImGui frames are handled correctly.
@@ -22,7 +24,6 @@ struct Ui
     std::string ini_path;
 
     Ref<GpuSampler> sampler;
-    Ref<SceneClient> client;
     ImGuiContext* context;
     u32 frames_requested = 0;
 
@@ -36,10 +37,10 @@ struct Ui
 
     std::move_only_function<UiFrameFn> frame_handler;
 
-    std::flat_set<SceneSeat*> seats;
+    std::flat_set<Seat*> seats;
 
-    SceneKeyboard* keyboard;
-    ScenePointer*  pointer;
+    SeatKeyboard* keyboard;
+    SeatPointer*  pointer;
 
     struct {
         std::string text;
@@ -47,15 +48,3 @@ struct Ui
 
     ~Ui();
 };
-
-void ui_frame(                Ui*);
-void ui_handle_key(           Ui*, SceneScancode, bool pressed);
-void ui_handle_mods(          Ui*);
-void ui_handle_motion(        Ui*);
-void ui_handle_button(        Ui*, SceneScancode, bool pressed);
-void ui_handle_wheel(         Ui*, vec2f32 delta);
-void ui_handle_keyboard_enter(Ui*, SceneKeyboard*, SceneInputRegion*);
-void ui_handle_keyboard_leave(Ui*);
-void ui_handle_pointer_enter( Ui*, ScenePointer*, SceneInputRegion*);
-void ui_handle_pointer_leave( Ui*);
-void ui_handle_output_layout( Ui*);

@@ -6,7 +6,6 @@ struct RocBackground
 {
     Roc* roc;
 
-    Ref<SceneClient> client;
     Ref<GpuImage>    image;
     Ref<GpuSampler>  sampler;
     Ref<SceneTree>   layer;

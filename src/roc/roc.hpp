@@ -1,19 +1,20 @@
 #pragma once
 
 #include "scene/scene.hpp"
-#include "ui/ui.hpp"
-#include "way/way.hpp"
+// #include "ui/ui.hpp"
+// #include "way/way.hpp"
 #include "io/io.hpp"
+#include "seat/seat.hpp"
 
 struct Roc
 {
     ExecContext* exec;
     Gpu*         gpu;
     Scene*       scene;
-    WayServer*   way;
+    // WayServer*   way;
     IoContext*   io;
 
-    SceneModifier main_mod;
+    SeatModifier main_mod;
 
     std::filesystem::path app_share;
     std::filesystem::path wallpaper;

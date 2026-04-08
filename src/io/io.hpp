@@ -50,10 +50,6 @@ struct IoOutputInfo
  * Generic output device interface.
  *
  * TODO: Support multi-plane configuration query and present.
- *       This interface is mostly temporary - the acquire/present
- *       model won't work for direct scanout of client-owned images.
- *       We'll also likely want to share swapchain logic (from `io/output.cpp`)
- *       with other systems - most notably screen video capture.
  */
 struct IoOutput
 {

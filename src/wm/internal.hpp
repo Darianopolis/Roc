@@ -17,9 +17,10 @@ enum class WmInteractionMode
 
 struct RocLauncher;
 
-struct WmOutput {
-    Ref<SceneOutput> scene;
-    IoOutput*        io;
+struct WmOutput
+{
+    IoOutput* output;
+    rect2f32  viewport;
 };
 
 struct WindowManager
@@ -28,47 +29,52 @@ struct WindowManager
     Gpu*         gpu;
     Scene*       scene;
 
-    SceneModifier main_mod;
+    SeatModifier modifier;
 
     WmInteractionMode mode;
 
     Ref<RocLauncher> launcher;
 
+    EnumMap<WmLayer, Ref<SceneTree>> layers;
+
     struct {
         IoContext*            context;
         Ref<GpuImagePool>     pool;
-        Ref<SceneClient>      client;
         std::vector<WmOutput> outputs;
     } io;
 
     struct {
-        Ref<SceneClient> client;
+        Ref<Seat>         seat;
+        Ref<SeatKeyboard> keyboard;
+        Ref<SeatPointer>  pointer;
+        vec2f32           position;
+        Ref<SceneTexture> cursor;
     } seat;
 
-    struct {
-        Ref<SceneEventFilter> filter;
-    } hotkeys;
+    // struct {
+    //     Ref<SceneEventFilter> filter;
+    // } hotkeys;
 
-    struct {
-        Ref<SceneEventFilter> filter;
-        ScenePointer* pointer;
+    // struct {
+    //     Ref<SceneEventFilter> filter;
+    //     ScenePointer* pointer;
 
-        Weak<SceneWindow> window;
-        vec2f32  grab;
-        rect2f32 frame;
-        vec2f32  relative;
-    } movesize;
+    //     Weak<SceneWindow> window;
+    //     vec2f32  grab;
+    //     rect2f32 frame;
+    //     vec2f32  relative;
+    // } movesize;
 
-    struct {
-        Ref<SceneEventFilter> filter;
-        ScenePointer* pointer;
-        Ref<SceneTexture> texture;
+    // struct {
+    //     Ref<SceneEventFilter> filter;
+    //     ScenePointer* pointer;
+    //     Ref<SceneTexture> texture;
 
-        Weak<SceneWindow> window;
-        aabb2f64 initial_zone;
-        aabb2f64 final_zone;
-        bool     selecting = false;
-    } zone;
+    //     Weak<SceneWindow> window;
+    //     aabb2f64 initial_zone;
+    //     aabb2f64 final_zone;
+    //     bool     selecting = false;
+    // } zone;
 };
 
 void wm_init_io(      WindowManager*);
@@ -76,3 +82,5 @@ void wm_init_seat(    WindowManager*);
 void wm_init_hotkeys( WindowManager*);
 void wm_init_movesize(WindowManager*);
 void wm_init_zone(    WindowManager*);
+
+void wm_seat_handle_io_event(WindowManager*, IoEvent*);
