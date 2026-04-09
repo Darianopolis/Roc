@@ -247,7 +247,6 @@ target_sources(scene PRIVATE
     src/scene/input.cpp
     src/scene/cursor.cpp
     src/scene/client.cpp
-    src/scene/output.cpp
     src/scene/data.cpp
     )
 target_link_libraries(scene PUBLIC io)

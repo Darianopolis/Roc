@@ -157,7 +157,7 @@ auto roc_init_launcher(Roc* roc) -> Ref<void>
         frame(launcher);
     });
 
-    launcher->event_filter = scene_add_input_event_filter(roc->scene, [launcher = launcher.get()](SceneEvent* event) -> SceneEventFilterResult {
+    launcher->event_filter = scene_add_input_event_filter(wm_get_scene(roc->wm), [launcher = launcher.get()](SceneEvent* event) -> SceneEventFilterResult {
         if (event->type != SceneEventType::keyboard_key) return {};
 
         auto key = event->keyboard.key;
@@ -202,10 +202,10 @@ void frame(RocLauncher* launcher)
 
     // Window
 
-    auto outputs = scene_list_outputs(launcher->roc->scene);
+    auto outputs = wm_list_outputs(launcher->roc->wm);
     if (outputs.empty()) return;
 
-    auto workarea = scene_output_get_viewport(outputs.front());
+    auto workarea = wm_output_get_viewport(outputs.front());
     auto center = workarea.origin + workarea.extent * 0.5f;
 
     ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_Appearing);

@@ -69,6 +69,19 @@ auto way_create(ExecContext* exec, Gpu* gpu, WindowManager* wm) -> Ref<WayServer
     server->client.created.data = server.get();
     server->client.created.listener.notify = way_on_client_create;
     wl_display_add_client_created_listener(server->wl_display, &server->client.created.listener);
+    wm_add_output_listener(wm, [server = server.get()](WmOutputEvent* event) {
+        switch (event->type) {
+            break;case WmEventType::output_frame:
+                for (auto* client : server->client.list) {
+                    for (auto* surface : client->surfaces) {
+                        way_surface_on_redraw(surface);
+                    }
+                }
+
+            break;default:
+                ;
+        }
+    });
 
     return server;
 }

@@ -20,6 +20,8 @@ struct WayClient : WayObject
 
     std::vector<WaySurface*> surfaces;
     std::vector<WaySeatClient*> seat_clients;
+
+    ~WayClient();
 };
 
 void way_on_client_create(wl_listener*, void* data);

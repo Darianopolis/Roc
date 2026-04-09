@@ -18,8 +18,8 @@ enum class WmInteractionMode
 struct RocLauncher;
 
 struct WmOutput {
-    Ref<SceneOutput> scene;
-    IoOutput*        io;
+    IoOutput* io;
+    rect2f32 viewport;
 };
 
 struct WindowManager
@@ -39,10 +39,11 @@ struct WindowManager
     std::vector<WmWindow*> windows;
 
     struct {
-        IoContext*            context;
-        Ref<GpuImagePool>     pool;
-        Ref<SceneClient>      client;
-        std::vector<WmOutput> outputs;
+        IoContext*          context;
+        Ref<GpuImagePool>   pool;
+        RefVector<WmOutput> outputs;
+
+        std::vector<WmOutputListener> output_listeners;
     } io;
 
     struct {
@@ -94,7 +95,7 @@ struct WmWindow
 
     Ref<SceneTree> tree;
 
-    std::move_only_function<void(WmWindowEvent*)> event_listener;
+    WmWindowListener listener;
 
     std::vector<Weak<SceneInputRegion>> input_regions;
 
@@ -102,3 +103,7 @@ struct WmWindow
 };
 
 void wm_window_post_event(WmWindowEvent* event);
+
+// -----------------------------------------------------------------------------
+
+void wm_post_output_event(WindowManager*, WmOutputEvent*);

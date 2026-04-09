@@ -2,15 +2,43 @@
 
 #include "io/io.hpp"
 
+#include "core/math.hpp"
+
 static
-void reflow_outputs(WindowManager* wm)
+void reflow_outputs(WindowManager* wm, bool any_changed = false)
 {
     f32 x = 0;
-    for (auto& output : wm->io.outputs) {
-        auto size = output.io->info().size;
-        scene_output_set_viewport(output.scene.get(), {{x, 0.f}, size, xywh});
+    for (auto* output : wm->io.outputs) {
+        auto size = output->io->info().size;
+        auto last = output->viewport;
+        output->viewport = {{x, 0.f}, size, xywh};
         x += f32(size.x);
+
+        if (last != output->viewport) {
+            any_changed = true;
+            wm_post_output_event(wm, ptr_to(WmOutputEvent {
+                .type = WmEventType::output_configured,
+                .output = output,
+            }));
+        }
     }
+
+    if (any_changed) {
+        wm_post_output_event(wm, ptr_to(WmOutputEvent {
+            .type = WmEventType::output_layout,
+        }));
+    }
+}
+
+static
+WmOutput* find_output_for_io(WindowManager* wm, IoOutput* io_output)
+{
+    for (auto* output : wm->io.outputs) {
+        if (output->io == io_output) {
+            return output;
+        }
+    }
+    return nullptr;
 }
 
 static
@@ -28,19 +56,34 @@ void handle_io_event(WindowManager* wm, IoEvent* event)
             scene_push_io_event(wm->scene.get(), event);
 
         // output
-        break;case IoEventType::output_added:
-            wm->io.outputs.emplace_back(
-                scene_output_create(wm->io.client.get(), SceneOutputFlag::workspace),
-                event->output.output);
-            reflow_outputs(wm);
+        break;case IoEventType::output_added: {
+            auto output = ref_create<WmOutput>(event->output.output);
+            wm->io.outputs.emplace_back(output.get());
+            wm_post_output_event(wm, ptr_to(WmOutputEvent {
+                .type = WmEventType::output_added,
+                .output = output.get(),
+            }));
+            reflow_outputs(wm, true);
+        }
         break;case IoEventType::output_configure:
             reflow_outputs(wm);
-        break;case IoEventType::output_removed:
-            std::erase_if(wm->io.outputs, [&](auto& p) { return p.io == event->output.output; });
-            reflow_outputs(wm);
+        break;case IoEventType::output_removed: {
+            Ref output = find_output_for_io(wm, event->output.output);
+            wm->io.outputs.erase_if([&](auto* p) { return p->io == event->output.output; });
+            wm_post_output_event(wm, ptr_to(WmOutputEvent {
+                .type = WmEventType::output_removed,
+                .output = output.get(),
+            }));
+            reflow_outputs(wm, true);
+        }
+
         break;case IoEventType::output_frame: {
-            auto output = std::ranges::find_if(wm->io.outputs, [&](auto& p) { return p.io == event->output.output; });
-            scene_frame(wm->scene.get(), output->scene.get());
+            auto output = find_output_for_io(wm, event->output.output);
+
+            wm_post_output_event(wm, ptr_to(WmOutputEvent {
+                .type = WmEventType::output_frame,
+                .output = output,
+            }));
 
             // TODO: Only redraw with damage
 
@@ -57,36 +100,75 @@ void handle_io_event(WindowManager* wm, IoEvent* event)
                 }))
             });
 
-            scene_render(wm->scene.get(), target.get(), scene_output_get_viewport(output->scene.get()));
+            scene_render(wm->scene.get(), target.get(), output->viewport);
 
             output->io->commit(target.get(), gpu_flush(wm->gpu), IoOutputCommitFlag::vsync);
         }
     }
 }
 
-static
-void handle_scene_event(WindowManager* wm, SceneEvent* event)
-{
-    switch (event->type) {
-        break;case SceneEventType::output_frame_request: {
-            auto output = std::ranges::find_if(wm->io.outputs, [&](auto& p) { return p.scene.get() == event->output; });
-            output->io->request_frame();
-        }
-        break;default:
-            ;
-    }
-}
-
 void wm_init_io(WindowManager* wm)
 {
     wm->io.pool = gpu_image_pool_create(wm->gpu);
-    wm->io.client = scene_client_create(wm->scene.get());
 
     io_set_event_handler(wm->io.context, [wm](IoEvent* event) {
         handle_io_event(wm, event);
     });
 
-    scene_client_set_event_handler(wm->io.client.get(), [wm](SceneEvent* event) {
-        handle_scene_event(wm, event);
+    scene_add_damage_listener(wm->scene.get(), [wm] {
+        for (auto* output : wm->io.outputs) {
+            output->io->request_frame();
+        }
     });
+}
+
+// -----------------------------------------------------------------------------
+
+void wm_add_output_listener(WindowManager* wm, WmOutputListener listener)
+{
+    wm->io.output_listeners.emplace_back(std::move(listener));
+}
+
+void wm_post_output_event(WindowManager* wm, WmOutputEvent* event)
+{
+    for (auto& listener : wm->io.output_listeners) {
+        listener(event);
+    }
+}
+
+void wm_request_frame(WindowManager* wm)
+{
+    for (auto* output : wm->io.outputs) {
+        output->io->request_frame();
+    }
+}
+
+auto wm_output_get_viewport(WmOutput* output) -> rect2f32
+{
+    return output->viewport;
+}
+
+auto wm_list_outputs(WindowManager* wm) -> std::span<WmOutput* const>
+{
+    return wm->io.outputs;
+}
+
+auto wm_find_output_at(WindowManager* wm, vec2f32 point) -> WmFindOutputResult
+{
+    vec2f32   best_position = point;
+    f32       best_distance = INFINITY;
+    WmOutput* best_output   = nullptr;
+    for (auto* output : wm->io.outputs) {
+        auto clamped = rect_clamp_point(output->viewport, point);
+        if (point == clamped) {
+            best_position = point;
+            best_output = output;
+            break;
+        } else if (f32 dist = glm::distance(clamped, point); dist < best_distance) {
+            best_position = clamped;
+            best_distance = dist;
+            best_output = output;
+        }
+    }
+    return { best_output, best_position };
 }

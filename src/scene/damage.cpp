@@ -13,6 +13,11 @@ SceneTree* get_root(SceneNode* node)
     return root;
 }
 
+void scene_add_damage_listener(Scene* scene, SceneDamageListener listener)
+{
+    scene->damage_listeners.emplace_back(std::move(listener));
+}
+
 void scene_node_damage(SceneNode* node)
 {
     auto* root = get_root(node);
@@ -34,8 +39,8 @@ void dispatch_damage(Scene* scene)
     }
 
     if (scene->damage.queued.contains(SceneDamageType::visual)) {
-        for (auto* output : scene->outputs) {
-            scene_output_request_frame(output);
+        for (auto& listener : scene->damage_listeners) {
+            listener();
         }
     }
 }

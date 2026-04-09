@@ -14,6 +14,7 @@ DECLARE_TAGGED_INTEGER(WaySerial, u32);
 // -----------------------------------------------------------------------------
 
 struct WaySeat;
+struct WayClient;
 
 struct WayServer : WayObject
 {
@@ -36,6 +37,7 @@ struct WayServer : WayObject
 
     struct {
         WayListener created;
+        std::vector<WayClient*> list;
     } client;
 
     struct {

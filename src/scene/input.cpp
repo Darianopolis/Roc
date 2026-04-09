@@ -389,7 +389,8 @@ void handle_motion(ScenePointer* pointer, vec2f32 delta)
 
     auto delta_accel = pointer->accel(delta);
 
-    auto pos = scene_find_output_for_point(pointer->seat->scene, cur + delta_accel).position;
+    // TODO: Handle pointer constraints in `wm`
+    auto pos = cur + delta_accel;
 
     scene_tree_set_translation(pointer->tree.get(), pos);
 

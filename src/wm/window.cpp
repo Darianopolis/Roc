@@ -33,9 +33,9 @@ auto wm_window_create(WindowManager* wm) -> Ref<WmWindow>
     return window;
 }
 
-void wm_window_set_event_listener(WmWindow* window, std::move_only_function<void(WmWindowEvent*)> listener)
+void wm_window_set_event_listener(WmWindow* window, WmWindowListener listener)
 {
-    window->event_listener = std::move(listener);
+    window->listener = std::move(listener);
 }
 
 auto wm_window_get_tree(WmWindow* window) -> SceneTree*
@@ -50,8 +50,8 @@ void wm_window_set_title(WmWindow* window, std::string_view title)
 
 void wm_window_post_event(WmWindowEvent* event)
 {
-    if (event->window->event_listener) {
-        event->window->event_listener(event);
+    if (event->window->listener) {
+        event->window->listener(event);
     }
 }
 

@@ -253,8 +253,8 @@ void position(WaySurface* surface, const WayPositionerRules& rules, std::optiona
     {
         auto anchor = rules.anchor_rect;
         auto point = vec2f32(anchor.origin) + vec2f32(anchor.extent) * 0.5f;
-        if (auto* output = scene_find_output_for_point(wm_get_scene(server->wm), point).output) {
-            aabb2f32 vp = scene_output_get_viewport(output);
+        if (auto* output = wm_find_output_at(server->wm, point).output) {
+            aabb2f32 vp = wm_output_get_viewport(output);
             auto translation = scene_tree_get_position(surface->parent->scene.tree.get());
             constraint = {
                 vp.min - translation,

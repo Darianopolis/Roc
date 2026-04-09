@@ -6,18 +6,6 @@
 
 // -----------------------------------------------------------------------------
 
-struct SceneOutput
-{
-    SceneClient* client;
-    rect2f32 viewport;
-
-    Flags<SceneOutputFlag> flags;
-
-    ~SceneOutput();
-};
-
-// -----------------------------------------------------------------------------
-
 struct scene_cursor_manager;
 
 void scene_cursor_manager_init(Scene*);
@@ -43,7 +31,7 @@ struct Scene
     Ref<SceneTree> root_tree;
     EnumMap<SceneLayer, Ref<SceneTree>> layers;
 
-    std::vector<SceneOutput*> outputs;
+    std::vector<SceneDamageListener> damage_listeners;
 
     std::vector<SceneClient*> clients;
 
@@ -162,10 +150,6 @@ struct SceneDataSource
 };
 
 void scene_offer_selection(SceneClient*, SceneDataSource*);
-
-// -----------------------------------------------------------------------------
-
-void scene_output_request_frame(SceneOutput*);
 
 // -----------------------------------------------------------------------------
 

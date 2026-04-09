@@ -2,7 +2,6 @@
 
 Scene::~Scene()
 {
-    debug_assert(outputs.empty());
     debug_assert(clients.empty());
 }
 
@@ -54,13 +53,6 @@ auto scene_create(ExecContext* exec, Gpu* gpu) -> Ref<Scene>
 auto scene_get_layer(Scene* scene, SceneLayer layer) -> SceneTree*
 {
     return scene->layers[layer].get();
-}
-
-void scene_request_frame(Scene* scene)
-{
-    for (auto* output : scene->outputs) {
-        scene_output_request_frame(output);
-    }
 }
 
 void scene_broadcast_event(Scene* scene, SceneEvent* event)

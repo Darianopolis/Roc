@@ -9,6 +9,7 @@ struct WindowManager;
 struct IoContext;
 
 struct WmWindow;
+struct WmOutput;
 
 struct WindowManagerCreateInfo
 {
@@ -35,6 +36,12 @@ enum class WmEventType
 
     window_reposition_requested,
     window_close_requested,
+
+    output_added,
+    output_configured,
+    output_removed,
+    output_layout,
+    output_frame,
 };
 
 struct WmWindowEvent
@@ -49,14 +56,25 @@ struct WmWindowEvent
     };
 };
 
+struct WmOutputEvent
+{
+    WmEventType type;
+    WmOutput* output;
+};
+
 union WmEvent
 {
     WmEventType type;
     WmWindowEvent window;
+    WmOutputEvent output;
 };
 
+// -----------------------------------------------------------------------------
+
 auto wm_window_create(WindowManager*) -> Ref<WmWindow>;
-void wm_window_set_event_listener(WmWindow*, std::move_only_function<void(WmWindowEvent*)>);
+
+using WmWindowListener = std::move_only_function<void(WmWindowEvent*)>;
+void wm_window_set_event_listener(WmWindow*, WmWindowListener);
 
 void wm_window_add_input_region(WmWindow*, SceneInputRegion*);
 
@@ -75,3 +93,22 @@ void wm_window_set_frame(WmWindow*, rect2f32 frame);
 auto wm_window_get_frame(WmWindow*) -> rect2f32;
 
 auto wm_find_window_at(WindowManager*, vec2f32 point) -> WmWindow*;
+
+// -----------------------------------------------------------------------------
+
+void wm_request_frame(WindowManager*);
+
+auto wm_list_outputs(WindowManager*) -> std::span<WmOutput* const>;
+
+auto wm_output_get_viewport(WmOutput*) -> rect2f32;
+
+using WmOutputListener = std::move_only_function<void(WmOutputEvent*)>;
+void wm_add_output_listener(WindowManager*, WmOutputListener);
+
+struct WmFindOutputResult
+{
+    WmOutput* output;
+    vec2f32   position;
+};
+
+auto wm_find_output_at(WindowManager*, vec2f32 point) -> WmFindOutputResult;

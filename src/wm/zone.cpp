@@ -61,11 +61,11 @@ void zone_update_regions(WindowManager* wm)
     auto pointer = wm->zone.pointer;
     vec2f64 point = scene_pointer_get_position(pointer);
 
-    auto[output, position] = scene_find_output_for_point(wm->scene.get(), point);
+    auto[output, position] = wm_find_output_at(wm, point);
 
     // TODO: Separate "workarea" concept per output
-    aabb2i32 workarea = scene_output_get_viewport(output);
-    workarea.min += vec2i32{c.external_padding.left, c.external_padding.top};
+    aabb2i32 workarea = output->viewport;
+    workarea.min += vec2i32{c.external_padding.left,  c.external_padding.top};
     workarea.max -= vec2i32{c.external_padding.right, c.external_padding.bottom};
 
     aabb2f64 pointer_zone = {};

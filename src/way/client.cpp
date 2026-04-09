@@ -39,12 +39,7 @@ void handle_event(WayClient* client, SceneEvent* event)
         break;case SceneEventType::seat_add:
               case SceneEventType::seat_configure:
               case SceneEventType::seat_remove:
-
-        break;case SceneEventType::output_frame: {
-            for (auto* surface : client->surfaces) {
-                way_surface_on_redraw(surface);
-            }
-        }
+            ;
 
         break;case SceneEventType::keyboard_enter:    handle_pointer_event(client, event, way_seat_on_keyboard_enter);
         break;case SceneEventType::keyboard_leave:    handle_pointer_event(client, event, way_seat_on_keyboard_leave);
@@ -56,13 +51,6 @@ void handle_event(WayClient* client, SceneEvent* event)
         break;case SceneEventType::pointer_motion: handle_pointer_event(client, event, way_seat_on_motion);
         break;case SceneEventType::pointer_button: handle_pointer_event(client, event, way_seat_on_button);
         break;case SceneEventType::pointer_scroll: handle_pointer_event(client, event, way_seat_on_scroll);
-
-        break;case SceneEventType::output_added:
-              case SceneEventType::output_removed:
-              case SceneEventType::output_configured:
-              case SceneEventType::output_layout:
-              case SceneEventType::output_frame_request:
-            ;
 
         break;case SceneEventType::selection:
             if (auto* seat_client = get_seat_client(client, event->data.seat)) {
@@ -82,6 +70,8 @@ void way_on_client_create(wl_listener* listener, void* data)
     client->server = server;
     client->wl_client = wl_client;
 
+    server->client.list.emplace_back(client.get());
+
     wl_client_set_user_data(wl_client, object_add_ref(client.get()), [](void* data) {
         object_remove_ref(way_get_userdata<WayClient>(data));
     });
@@ -90,6 +80,11 @@ void way_on_client_create(wl_listener* listener, void* data)
     scene_client_set_event_handler(client->scene.get(), [client = client.get()](SceneEvent* event) {
         handle_event(client, event);
     });
+}
+
+WayClient::~WayClient()
+{
+    std::erase(server->client.list, this);
 }
 
 WayClient* way_client_from(WayServer* server, const wl_client* client)

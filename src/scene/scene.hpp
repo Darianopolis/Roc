@@ -9,7 +9,6 @@
 
 // -----------------------------------------------------------------------------
 
-struct SceneOutput;
 struct SceneNode;
 struct SceneTree;
 struct SceneTexture;
@@ -28,9 +27,6 @@ enum class SceneLayer
 
 auto scene_get_layer(Scene*, SceneLayer) -> SceneTree*;
 
-// TODO: Requests should be handled per-output
-void scene_request_frame(Scene*);
-
 // -----------------------------------------------------------------------------
 
 void scene_push_io_event(Scene* scene, union IoEvent*);
@@ -47,26 +43,8 @@ auto scene_client_create(Scene*) -> Ref<SceneClient>;
 
 // -----------------------------------------------------------------------------
 
-enum class SceneOutputFlag
-{
-    // This output will act as a workarea for desktop layout and pointer constraints
-    workspace = 1 << 0,
-};
-
-auto scene_output_create(SceneClient*, Flags<SceneOutputFlag>) -> Ref<SceneOutput>;
-void scene_output_set_viewport(SceneOutput*, rect2f32 viewport);
-
-auto scene_list_outputs(Scene*) -> std::span<SceneOutput* const>;
-auto scene_output_get_viewport(SceneOutput*) -> rect2f32;
-
-struct SceneFindOutputResult
-{
-    SceneOutput* output;
-    vec2f32       position;
-};
-auto scene_find_output_for_point(Scene*, vec2f32 point) -> SceneFindOutputResult;
-
-void scene_frame(Scene* scene, SceneOutput*);
+using SceneDamageListener = std::move_only_function<void()>;
+void scene_add_damage_listener(Scene*, SceneDamageListener);
 
 // -----------------------------------------------------------------------------
 
@@ -386,22 +364,6 @@ enum class SceneEventType
     pointer_button,
     pointer_scroll,
 
-    output_added,
-    output_configured,
-    output_removed,
-    output_layout,
-
-    // Requests the output owner to make a `scene_frame` call at the
-    // next time that the output would accept a content update.
-    output_frame_request,
-
-    // Sent before a frame may be composited to an output.
-    // This may be sent even if there is no new scene graph changes
-    // to commit, in response to a scene frame request.
-    // Scene graph changes made directly in response to this event
-    // will be applied immediately.
-    output_frame,
-
     selection,
 };
 
@@ -438,11 +400,6 @@ struct ScenePointerEvent
     };
 };
 
-struct SceneRedrawEvent
-{
-    SceneOutput* output;
-};
-
 struct SceneDataEvent
 {
     SceneDataSource* source;
@@ -457,8 +414,6 @@ struct SceneEvent
         SceneSeat*         seat;
         SceneKeyboardEvent keyboard;
         ScenePointerEvent  pointer;
-        SceneRedrawEvent   redraw;
-        SceneOutput*       output;
         SceneDataEvent     data;
     };
 };

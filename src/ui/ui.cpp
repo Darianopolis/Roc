@@ -341,7 +341,7 @@ void ui_request_frame(Ui* ui)
     // Double-pump frames: ImGui always works based on last frame state,
     // so input needs a second frame to react against the updated state.
     ui->frames_requested = 2;
-    scene_request_frame(wm_get_scene(ui->wm));
+    wm_request_frame(ui->wm);
 }
 
 static
@@ -425,7 +425,7 @@ void ui_frame(Ui* ui)
     if (!ui->frames_requested) return;
     ui->frames_requested--;
 
-    if (ui->frames_requested) scene_request_frame(wm_get_scene(ui->wm));
+    if (ui->frames_requested) wm_request_frame(ui->wm);
 
     auto& io = ImGui::GetIO();
     io.DisplaySize = {};
@@ -477,6 +477,22 @@ auto ui_create(Gpu* gpu, WindowManager* wm, const std::filesystem::path& path) -
 
     ui_init(ui.get(), path);
 
+    wm_add_output_listener(wm, [ui = ui.get()](WmOutputEvent* event) {
+        switch (event->type) {
+            break;case WmEventType::output_frame: {
+                UiContextGuard _{ui->context};
+                ui_frame(ui);
+            }
+            break;case WmEventType::output_layout: {
+                UiContextGuard _{ui->context};
+                ui_handle_output_layout(ui);
+            }
+
+            break;default:
+                ;
+        }
+    });
+
     scene_client_set_event_handler(ui->client.get(), [ui = ui.get()](SceneEvent* event) {
         UiContextGuard _{ui->context};
         switch (event->type) {
@@ -507,17 +523,6 @@ auto ui_create(Gpu* gpu, WindowManager* wm, const std::filesystem::path& path) -
                 ui_handle_button(ui, event->pointer.button.code, event->pointer.button.pressed);
             break;case SceneEventType::pointer_scroll:
                 ui_handle_wheel(ui, event->pointer.scroll.delta);
-
-            // output
-            break;case SceneEventType::output_added:
-                  case SceneEventType::output_configured:
-                  case SceneEventType::output_removed:
-                  case SceneEventType::output_frame_request:
-                ;
-            break;case SceneEventType::output_frame:
-                ui_frame(ui);
-            break;case SceneEventType::output_layout:
-                ui_handle_output_layout(ui);
 
             // selection
             break;case SceneEventType::selection:
@@ -658,8 +663,8 @@ void ui_handle_output_layout(Ui* ui)
     auto& platform_io = ImGui::GetPlatformIO();
 
     platform_io.Monitors.clear();
-    for (auto* output : scene_list_outputs(wm_get_scene(ui->wm))) {
-        rect2f32 rect = scene_output_get_viewport(output);
+    for (auto* output : wm_list_outputs(ui->wm)) {
+        rect2f32 rect = wm_output_get_viewport(output);
         if (rect.extent.x == 0 || rect.extent.y == 0) continue;
 
         ImGuiPlatformMonitor monitor = {};

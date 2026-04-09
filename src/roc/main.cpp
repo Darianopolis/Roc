@@ -31,7 +31,6 @@ int main()
 
     roc.exec = exec.get();
     roc.gpu = gpu.get();
-    roc.scene = scene;
     roc.way = way.get();
     roc.io = io.get();
     roc.wm = wm.get();
@@ -120,13 +119,6 @@ int main()
                 log_trace("keyboard_enter({})", (void*)event->keyboard.keyboard);
             break;case SceneEventType::keyboard_leave:
                 log_trace("keyboard_leave({})", (void*)event->keyboard.keyboard);
-            break;case SceneEventType::output_frame:
-                  case SceneEventType::output_added:
-                  case SceneEventType::output_removed:
-                  case SceneEventType::output_configured:
-                  case SceneEventType::output_frame_request:
-                  case SceneEventType::output_layout:
-                ;
             break;case SceneEventType::selection:
                 log_trace("selection({})", (void*)event->data.source);
         }
@@ -165,8 +157,8 @@ int main()
                     static u32 capture = 0;
                     gpu->renderdoc->StartFrameCapture(nullptr, nullptr);
                     gpu->renderdoc->SetCaptureTitle(std::format("Roc capture {}", ++capture).c_str());
-                    for (auto* output : scene_list_outputs(scene)) {
-                        auto viewport =  scene_output_get_viewport(output);
+                    for (auto* output : wm_list_outputs(wm.get())) {
+                        auto viewport =  wm_output_get_viewport(output);
                         auto texture = gpu_image_create(gpu.get(), {
                             .extent = viewport.extent,
                             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),

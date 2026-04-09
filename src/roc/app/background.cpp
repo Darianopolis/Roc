@@ -6,7 +6,6 @@ struct RocBackground
 {
     Roc* roc;
 
-    Ref<SceneClient> client;
     Ref<GpuImage>    image;
     Ref<GpuSampler>  sampler;
 
@@ -17,13 +16,13 @@ void update_backgrounds(RocBackground* bg)
 {
     auto* roc = bg->roc;
 
-    auto layer = scene_get_layer(roc->scene, SceneLayer::background);
+    auto layer = scene_get_layer(wm_get_scene(roc->wm), SceneLayer::background);
 
     bg->textures.clear();
 
-    for (auto* output : scene_list_outputs(roc->scene)) {
+    for (auto* output : wm_list_outputs(roc->wm)) {
         vec2f32 image_size = bg->image->extent();
-        auto viewport = scene_output_get_viewport(output);
+        auto viewport = wm_output_get_viewport(output);
 
         // Create texture node
         auto texture = scene_texture_create();
@@ -63,11 +62,9 @@ auto roc_init_background(Roc* roc) -> Ref<void>
         return image;
     }();
 
-    bg->client = scene_client_create(roc->scene);
-
-    scene_client_set_event_handler(bg->client.get(), [bg = bg.get()](SceneEvent* event) {
+    wm_add_output_listener(roc->wm, [bg = bg.get()](WmOutputEvent* event) {
         switch (event->type) {
-            break;case SceneEventType::output_layout:
+            break;case WmEventType::output_layout:
                 update_backgrounds(bg);
             break;default:
                 ;

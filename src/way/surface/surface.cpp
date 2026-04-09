@@ -351,7 +351,7 @@ void commit(wl_client* client, wl_resource* resource)
     // Queue frame request for frame callbacks
 
     if (pending->surface.frame_callbacks.front()) {
-        scene_request_frame(wm_get_scene(surface->client->server->wm));
+        wm_request_frame(surface->client->server->wm);
     }
 
     // Apply subsurface synchronization barriers

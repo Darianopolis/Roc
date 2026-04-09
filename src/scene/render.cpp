@@ -32,14 +32,6 @@ void scene_render_init(Scene* scene)
     });
 }
 
-void scene_frame(Scene* scene, SceneOutput* output)
-{
-    scene_broadcast_event(scene, ptr_to(SceneEvent {
-        .type = SceneEventType::output_frame,
-        .redraw = { .output = output },
-    }));
-}
-
 void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 {
     auto& render = scene->render;
