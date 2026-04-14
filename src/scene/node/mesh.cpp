@@ -13,7 +13,7 @@ SceneMesh::~SceneMesh()
 
 void SceneMesh::damage(Scene* scene)
 {
-    scene_enqueue_damage(scene, SceneDamageType::visual);
+    scene_post_damage(scene, this);
 }
 
 void scene_mesh_update(SceneMesh* mesh, std::span<const SceneVertex>      vertices,

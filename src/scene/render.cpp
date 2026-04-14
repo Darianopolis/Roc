@@ -138,7 +138,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
     };
 
     scene_iterate<SceneIterateDirection::back_to_front>(
-        scene->root_tree.get(),
+        scene->root.get(),
         scene_iterate_default,
         [&](SceneNode* node) {
             if (auto* texture = dynamic_cast<SceneTexture*>(node)) {

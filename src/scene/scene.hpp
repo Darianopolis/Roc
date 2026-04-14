@@ -16,16 +16,9 @@ struct SeatInputRegion;
 
 struct Scene;
 
-auto scene_create(ExecContext*, Gpu*) -> Ref<Scene>;
+auto scene_create(Gpu*) -> Ref<Scene>;
 
-enum class SceneLayer
-{
-    background,
-    window,
-    overlay,
-};
-
-auto scene_get_layer(Scene*, SceneLayer) -> SceneTree*;
+auto scene_get_root(Scene*) -> SceneTree*;
 
 // -----------------------------------------------------------------------------
 
@@ -35,12 +28,18 @@ void scene_render(Scene*, GpuImage* target, rect2f32 viewport);
 
 struct SeatClient;
 
-auto seat_client_create(Scene*) -> Ref<SeatClient>;
+auto seat_client_create() -> Ref<SeatClient>;
 
 // -----------------------------------------------------------------------------
 
-using SceneDamageListener = std::move_only_function<void()>;
+using SceneDamageListener = std::move_only_function<void(SceneNode*)>;
 void scene_add_damage_listener(Scene*, SceneDamageListener);
+
+// -----------------------------------------------------------------------------
+
+struct SeatCursorManager;
+
+auto scene_cursor_manager_create(Gpu*, const char* theme, i32 size) -> Ref<SeatCursorManager>;
 
 // -----------------------------------------------------------------------------
 
@@ -69,9 +68,9 @@ struct Seat;
 
 // -----------------------------------------------------------------------------
 
-void seat_push_io_event(Seat*, union IoEvent*);
+auto seat_create(SeatCursorManager*, SceneTree* pointer_root, SceneTree* pointer_layer) -> Ref<Seat>;
 
-auto scene_get_seats(Scene*) -> std::span<Seat* const>;
+void seat_push_io_event(Seat*, union IoEvent*);
 
 auto seat_get_pointer( Seat*) -> SeatPointer*;
 auto seat_get_keyboard(Seat*) -> SeatKeyboard*;
@@ -85,6 +84,8 @@ auto seat_pointer_get_position(SeatPointer*) -> vec2f32;
 auto seat_pointer_get_pressed( SeatPointer*) -> std::span<const SeatInputCode>;
 auto seat_pointer_get_focus(   SeatPointer*) -> SeatInputRegion*;
 auto seat_pointer_get_seat(    SeatPointer*) -> Seat*;
+
+void seat_update_pointers(Seat*);
 
 void seat_pointer_set_cursor( SeatPointer*, SceneNode*);
 void seat_pointer_set_xcursor(SeatPointer*, const char* xcursor_semantic);

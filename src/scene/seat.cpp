@@ -1,18 +1,13 @@
 #include "internal.hpp"
 
-void seat_init(Scene* scene)
+auto seat_create(SeatCursorManager* cursor_manager, SceneTree* pointer_root, SceneTree* pointer_layer) -> Ref<Seat>
 {
     auto seat = ref_create<Seat>();
-    seat->scene = scene;
-    scene->seats.emplace_back(seat.get());
 
     seat->keyboard = seat_keyboard_create(seat.get());
-    seat->pointer = seat_pointer_create(seat.get());
-}
+    seat->pointer = seat_pointer_create(seat.get(), cursor_manager, pointer_root, pointer_layer);
 
-auto scene_get_seats(Scene* scene) -> std::span<Seat* const>
-{
-    return scene->seats;
+    return seat;
 }
 
 auto seat_get_keyboard(Seat* seat) -> SeatKeyboard*

@@ -10,18 +10,12 @@ SeatInputRegion::~SeatInputRegion()
         scene_node_unparent(this);
     }
 
-    for (auto* seat : scene_get_seats(client->scene)) {
-        if (seat->keyboard->focus == this) {
-            seat_keyboard_focus(seat->keyboard.get(), nullptr);
-        }
-    }
-
-    scene_update_pointers(client->scene);
+    // TODO: Clear focus
 }
 
 void SeatInputRegion::damage(Scene* scene)
 {
-    scene_enqueue_damage(scene, SceneDamageType::input);
+    scene_post_damage(scene, this);
 }
 
 auto scene_input_region_create(SeatClient* client) -> Ref<SeatInputRegion>

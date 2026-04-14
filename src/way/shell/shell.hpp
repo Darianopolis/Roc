@@ -23,7 +23,7 @@ void way_toplevel_on_close(     WaySurface*);
 
 void way_create_positioner(wl_client*, wl_resource*, u32 id);
 void way_get_popup(        wl_client*, wl_resource*, u32 id,
-			               wl_resource* parent, wl_resource* positioner);
+                           wl_resource* parent, wl_resource* positioner);
 
 void way_popup_apply(WaySurface*, WaySurfaceState&);
 

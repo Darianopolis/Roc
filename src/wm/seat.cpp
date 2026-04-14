@@ -28,18 +28,25 @@ struct WmLinearAccel
 
 auto wm_get_seat(WindowManager* wm) -> Seat*
 {
-    return wm->seat.get();
+    debug_assert(wm->seats.size() == 1, "TODO: Support multiple seats");
+    return wm->seats.front();
+}
+
+auto wm_get_seats(WindowManager* wm) -> std::span<Seat* const>
+{
+    return wm->seats;
 }
 
 void wm_init_seat(WindowManager* wm)
 {
-    auto seats = scene_get_seats(wm->scene.get());
-    debug_assert(!seats.empty());
-    wm->seat = seats.front();
+    wm->cursor_manager = scene_cursor_manager_create(wm->gpu, "breeze_cursors", 24);
+
+    auto seat = seat_create(wm->cursor_manager.get(), scene_get_root(wm->scene.get()), wm_get_layer(wm, WmLayer::overlay));
+    wm->seats.emplace_back(seat.get());
 
     // Pointer
 
-    auto* pointer = seat_get_pointer(wm->seat.get());
+    auto* pointer = seat_get_pointer(seat.get());
     seat_pointer_set_xcursor(pointer, "default");
     seat_pointer_set_accel(  pointer, WmLinearAccel {
         .offset     = 2.f,

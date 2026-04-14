@@ -50,7 +50,7 @@ void update_rectangle(WindowManager* wm)
 
     auto color = selecting ? c.color_selected : c.color_initial;
 
-    scene_tree_place_above(scene_get_layer(wm->scene.get(), SceneLayer::overlay), nullptr, wm->zone.texture.get());
+    scene_tree_place_above(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
     scene_texture_set_dst(wm->zone.texture.get(), rect);
     scene_texture_set_tint(wm->zone.texture.get(), color * 255.f);
 }

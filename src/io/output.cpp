@@ -58,8 +58,10 @@ void io_output_try_redraw_later(IoOutputBase* output)
 
 void IoOutputBase::request_frame()
 {
-    frame_requested = true;
-    io_output_try_redraw_later(this);
+    if (!frame_requested) {
+        frame_requested = true;
+        io_output_try_redraw_later(this);
+    }
 }
 
 void io_output_post_configure(IoOutputBase* output)

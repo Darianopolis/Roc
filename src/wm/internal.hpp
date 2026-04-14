@@ -28,6 +28,7 @@ struct WindowManager
     Gpu*         gpu;
 
     Ref<Scene> scene;
+    EnumMap<WmLayer, Ref<SceneTree>> layers;
 
     SeatModifier main_mod;
 
@@ -46,7 +47,8 @@ struct WindowManager
         std::vector<WmOutputListener> output_listeners;
     } io;
 
-    Weak<Seat> seat;
+    Ref<SeatCursorManager> cursor_manager;
+    RefVector<Seat> seats;
 
     struct {
         Ref<SeatEventFilter> filter;

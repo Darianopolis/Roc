@@ -22,7 +22,16 @@ struct WindowManagerCreateInfo
 
 auto wm_create(const WindowManagerCreateInfo&) -> Ref<WindowManager>;
 
+enum class WmLayer
+{
+    background,
+    window,
+    overlay,
+};
+
 auto wm_get_scene(WindowManager*) -> Scene*;
+
+auto wm_get_layer(WindowManager*, WmLayer) -> SceneTree*;
 
 // -----------------------------------------------------------------------------
 
@@ -97,6 +106,7 @@ auto wm_find_window_at(WindowManager*, vec2f32 point) -> WmWindow*;
 // -----------------------------------------------------------------------------
 
 auto wm_get_seat(WindowManager*) -> Seat*;
+auto wm_get_seats(WindowManager*) -> std::span<Seat* const>;
 
 // -----------------------------------------------------------------------------
 

@@ -107,7 +107,7 @@ void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
 {
     if (mapped) {
         wm_window_map(surface->toplevel.window.get());
-        for (auto* seat : scene_get_seats(wm_get_scene(surface->client->server->wm))) {
+        for (auto* seat : wm_get_seats(surface->client->server->wm)) {
             seat_keyboard_focus(seat_get_keyboard(seat), surface->scene.input_region.get());
         }
     } else {

@@ -4,33 +4,23 @@ Scene::~Scene()
 {
 }
 
-auto scene_create(ExecContext* exec, Gpu* gpu) -> Ref<Scene>
+auto scene_create(Gpu* gpu) -> Ref<Scene>
 {
     auto scene = ref_create<Scene>();
 
-    scene->exec = exec;
     scene->gpu = gpu;
 
-    scene->root_tree = scene_tree_create();
-    scene->root_tree->scene = scene.get();
-
-    for (auto layer : magic_enum::enum_values<SceneLayer>()) {
-        auto* tree = (scene->layers[layer] = scene_tree_create()).get();
-        scene_tree_place_above(scene->root_tree.get(), nullptr, tree);
-    }
+    scene->root = scene_tree_create();
+    scene->root->scene = scene.get();
 
     scene_render_init(scene.get());
-
-    scene->cursor_manager = scene_cursor_manager_create("breeze_cursors", 24);
-
-    seat_init(scene.get());
 
     return scene;
 }
 
-auto scene_get_layer(Scene* scene, SceneLayer layer) -> SceneTree*
+auto scene_get_root(Scene* scene) -> SceneTree*
 {
-    return scene->layers[layer].get();
+    return scene->root.get();
 }
 
 // -----------------------------------------------------------------------------

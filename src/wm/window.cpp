@@ -99,7 +99,7 @@ void wm_window_map(WmWindow* window)
 {
     if (window->mapped) return;
 
-    scene_tree_place_above(scene_get_layer(window->wm->scene.get(), SceneLayer::window), nullptr, window->tree.get());
+    scene_tree_place_above(wm_get_layer(window->wm, WmLayer::window), nullptr, window->tree.get());
 
     window->mapped = true;
 
@@ -113,7 +113,7 @@ void wm_window_raise(WmWindow* window)
 {
     if (!window->mapped) return;
 
-    scene_tree_place_above(scene_get_layer(window->wm->scene.get(), SceneLayer::window), nullptr, window->tree.get());
+    scene_tree_place_above(wm_get_layer(window->wm, WmLayer::window), nullptr, window->tree.get());
 }
 
 void wm_window_unmap(WmWindow* window)
@@ -141,7 +141,7 @@ auto wm_find_window_at(WindowManager* wm, vec2f32 point) -> WmWindow*
     WmWindow* window = nullptr;
 
     scene_iterate<SceneIterateDirection::front_to_back>(
-        scene_get_layer(wm->scene.get(), SceneLayer::window),
+        wm_get_layer(wm, WmLayer::window),
         scene_iterate_default,
         scene_iterate_default,
         [&](SceneTree* tree) {

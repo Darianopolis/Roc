@@ -143,7 +143,7 @@ void Platform_ShowWindow(ImGuiViewport* vp)
     auto* data = get_data(vp);
 
     wm_window_map(data->window.get());
-    for (auto* seat : scene_get_seats(wm_get_scene(ui->wm))) {
+    for (auto* seat : wm_get_seats(ui->wm)) {
         seat_keyboard_focus(seat_get_keyboard(seat), data->input_region.get());
     }
 }
@@ -473,7 +473,7 @@ auto ui_create(Gpu* gpu, WindowManager* wm, const std::filesystem::path& path) -
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
-    ui->client  = seat_client_create(wm_get_scene(ui->wm));
+    ui->client  = seat_client_create();
 
     ui_init(ui.get(), path);
 

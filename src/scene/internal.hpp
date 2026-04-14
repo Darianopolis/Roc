@@ -6,19 +6,8 @@
 
 // -----------------------------------------------------------------------------
 
-struct SeatCursorManager;
-
-auto scene_cursor_manager_create(const char* theme, i32 size) -> Ref<SeatCursorManager>;
-
-enum class SceneDamageType : u32
-{
-    visual = 1 << 0,
-    input  = 1 << 1,
-};
-
 struct Scene
 {
-    ExecContext* exec;
     Gpu* gpu;
 
     struct {
@@ -28,18 +17,9 @@ struct Scene
         Ref<GpuSampler> sampler;
     } render;
 
-    Ref<SceneTree> root_tree;
-    EnumMap<SceneLayer, Ref<SceneTree>> layers;
+    Ref<SceneTree> root;
 
     std::vector<SceneDamageListener> damage_listeners;
-
-    RefVector<Seat> seats;
-
-    struct {
-        Flags<SceneDamageType> queued;
-    } damage;
-
-    Ref<SeatCursorManager> cursor_manager;
 
     ~Scene();
 };
@@ -50,8 +30,6 @@ void scene_render_init(Scene*);
 
 struct Seat
 {
-    Scene* scene;
-
     Ref<SeatKeyboard> keyboard;
     Ref<SeatPointer> pointer;
     std::vector<IoInputDevice*> led_devices;
@@ -61,14 +39,10 @@ struct Seat
     std::vector<SeatEventFilter*> input_event_filters;
 };
 
-void seat_init(Scene*);
-
 // -----------------------------------------------------------------------------
 
 struct SeatClient
 {
-    Scene* scene;
-
     std::move_only_function<SeatEventHandlerFn> event_handler;
 
     u32 input_regions = 0;
@@ -84,7 +58,7 @@ struct SeatInputDevice
 {
     Seat* seat;
 
-    SeatInputRegion* focus;
+    Weak<SeatInputRegion> focus;
 };
 
 // -----------------------------------------------------------------------------
@@ -110,21 +84,22 @@ struct SeatPointer : SeatInputDevice
 {
     CountingSet<u32> pressed;
 
+    SeatCursorManager* cursor_manager;
+    SceneTree* root;
+
     Ref<SceneTree> tree;
 
     std::move_only_function<SeatPointerAccelFn> accel;
 };
 
-auto seat_pointer_create(Seat*) -> Ref<SeatPointer>;
-
-void scene_update_pointers(Scene*);
+auto seat_pointer_create(Seat*, SeatCursorManager*, SceneTree* root, SceneTree* layer) -> Ref<SeatPointer>;
 
 // -----------------------------------------------------------------------------
 
-auto scene_find_input_region_at(SceneTree*, vec2f32 pos) -> SeatInputRegion*;
+auto seat_find_input_region_at(SceneTree*, vec2f32 pos) -> SeatInputRegion*;
 
 inline
-auto scene_get_focus_client(SeatInputRegion* focus)
+auto seat_get_focus_client(SeatInputRegion* focus)
 {
     return focus ? focus->client : nullptr;
 }
@@ -142,11 +117,11 @@ struct SeatDataSource
     ~SeatDataSource();
 };
 
-void scene_offer_selection(SeatClient*, SeatDataSource*);
+void seat_offer_selection(SeatClient*, SeatDataSource*);
 
 // -----------------------------------------------------------------------------
 
-void scene_enqueue_damage(Scene*, SceneDamageType);
+void scene_post_damage(Scene*, SceneNode*);
 
 // -----------------------------------------------------------------------------
 

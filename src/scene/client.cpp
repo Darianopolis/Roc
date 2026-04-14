@@ -5,18 +5,11 @@ SeatClient::~SeatClient()
     // TODO: Allow deletion of client resources in any order safely
 
     debug_assert(input_regions == 0);
-
-    // Focus must have been dropped before the client can safely be destroyed
-    for (auto* seat : scene_get_seats(scene)) {
-        debug_assert(scene_get_focus_client(seat->keyboard->focus) != this);
-        debug_assert(scene_get_focus_client(seat->pointer->focus)  != this);
-    }
 }
 
-auto seat_client_create(Scene* scene) -> Ref<SeatClient>
+auto seat_client_create() -> Ref<SeatClient>
 {
     auto client = ref_create<SeatClient>();
-    client->scene = scene;
     return client;
 }
 

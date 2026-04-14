@@ -18,7 +18,7 @@ SceneTexture::~SceneTexture()
 
 void SceneTexture::damage(Scene* scene)
 {
-    scene_enqueue_damage(scene, SceneDamageType::visual);
+    scene_post_damage(scene, this);
 }
 
 void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, GpuBlendMode blend)

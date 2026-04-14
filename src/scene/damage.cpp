@@ -29,30 +29,9 @@ void scene_node_damage(SceneNode* node)
     node->damage(root->scene);
 }
 
-static
-void dispatch_damage(Scene* scene)
+void scene_post_damage(Scene* scene, SceneNode* node)
 {
-    defer { scene->damage.queued = {}; };
-
-    if (scene->damage.queued.contains(SceneDamageType::input)) {
-        scene_update_pointers(scene);
+    for (auto& listener : scene->damage_listeners) {
+        listener(node);
     }
-
-    if (scene->damage.queued.contains(SceneDamageType::visual)) {
-        for (auto& listener : scene->damage_listeners) {
-            listener();
-        }
-    }
-}
-
-void scene_enqueue_damage(Scene* scene, SceneDamageType type)
-{
-    auto enqueue = scene->damage.queued.empty();
-    scene->damage.queued |= type;
-
-    if (!enqueue) return;
-
-    exec_enqueue(scene->exec, [scene = Weak(scene)] {
-        if (scene) dispatch_damage(scene.get());
-    });
 }

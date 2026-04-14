@@ -43,7 +43,7 @@ int main()
 
     // Test client
 
-    auto client = seat_client_create(scene);
+    auto client = seat_client_create();
 
     auto window = wm_window_create(wm.get());
     auto initial_size = vec2f32{256, 256};
@@ -167,7 +167,7 @@ int main()
                 u32 depth = 0;
                 auto indent = [&] { return std::string(depth, ' '); };
                 scene_iterate<SceneIterateDirection::back_to_front>(
-                    scene_get_layer(scene, SceneLayer::window)->parent,
+                    wm_get_layer(wm.get(), WmLayer::window)->parent,
                     [&](SceneTree* tree) {
                         WaySurface* surface;
                         if (tree->userdata.id == way->userdata_id
@@ -196,7 +196,7 @@ int main()
 
     // Selection
 
-    auto data_client = seat_client_create(scene);
+    auto data_client = seat_client_create();
     seat_client_set_event_handler(data_client.get(), [](SeatEvent*) {});
     auto data_source = seat_data_source_create(data_client.get(), {
         .send = [&](const char* mime, int fd) {
@@ -207,7 +207,7 @@ int main()
     seat_data_source_offer(data_source.get(), "text/plain;charset=utf-8");
     seat_data_source_offer(data_source.get(), "text/plain");
     seat_data_source_offer(data_source.get(), "text/html");
-    for (auto* seat : scene_get_seats(scene)) {
+    for (auto* seat : wm_get_seats(wm.get())) {
         seat_set_selection(seat, data_source.get());
     }
 

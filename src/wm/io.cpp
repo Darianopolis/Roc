@@ -53,7 +53,7 @@ void handle_io_event(WindowManager* wm, IoEvent* event)
         break;case IoEventType::input_added:
                 case IoEventType::input_removed:
                 case IoEventType::input_event:
-            seat_push_io_event(wm->seat.get(), event);
+            seat_push_io_event(wm_get_seat(wm), event);
 
         // output
         break;case IoEventType::output_added: {
@@ -115,9 +115,17 @@ void wm_init_io(WindowManager* wm)
         handle_io_event(wm, event);
     });
 
-    scene_add_damage_listener(wm->scene.get(), [wm] {
+    scene_add_damage_listener(wm->scene.get(), [wm](SceneNode* node) {
         for (auto* output : wm->io.outputs) {
             output->io->request_frame();
+        }
+
+        if (dynamic_cast<SeatInputRegion*>(node)) {
+            exec_enqueue(wm->exec, [wm = Weak(wm)] {
+                if (wm) {
+                    seat_update_pointers(wm_get_seat(wm.get()));
+                }
+            });
         }
     });
 }

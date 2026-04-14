@@ -157,14 +157,14 @@ void handle_xkb_component_updates(SeatKeyboard* keyboard, Flags<xkb_state_compon
 
 void seat_keyboard_focus(SeatKeyboard* keyboard, SeatInputRegion* new_focus)
 {
-    auto old_focus = keyboard->focus;
+    auto* old_focus = seat_keyboard_get_focus(keyboard);
 
     keyboard->focus = new_focus;
 
     if (old_focus == new_focus) return;
 
-    auto old_client = scene_get_focus_client(old_focus);
-    auto new_client = scene_get_focus_client(new_focus);
+    auto old_client = seat_get_focus_client(old_focus);
+    auto new_client = seat_get_focus_client(new_focus);
 
     if (old_client && (old_client != new_client)) {
         seat_client_post_event(old_client, ptr_to(SeatEvent {
@@ -188,7 +188,7 @@ void seat_keyboard_focus(SeatKeyboard* keyboard, SeatInputRegion* new_focus)
 
 auto seat_keyboard_get_focus(SeatKeyboard* keyboard) -> SeatInputRegion*
 {
-    return keyboard->focus;
+    return keyboard->focus.get();
 }
 
 auto seat_keyboard_get_seat(SeatKeyboard* keyboard) -> Seat*
@@ -221,7 +221,7 @@ auto seat_keyboard_get_info(SeatKeyboard* keyboard) -> const SeatKeyboardInfo&
 
 // -----------------------------------------------------------------------------
 
-auto scene_find_input_region_at(SceneTree* tree, vec2f32 pos) -> SeatInputRegion*
+auto seat_find_input_region_at(SceneTree* tree, vec2f32 pos) -> SeatInputRegion*
 {
     SeatInputRegion* region = nullptr;
 
@@ -243,12 +243,12 @@ auto scene_find_input_region_at(SceneTree* tree, vec2f32 pos) -> SeatInputRegion
 
 void seat_pointer_focus(SeatPointer* pointer, SeatInputRegion* new_focus)
 {
-    auto* old_focus = pointer->focus;
+    auto* old_focus = seat_pointer_get_focus(pointer);
 
     if (old_focus == new_focus) return;
 
-    auto old_client = scene_get_focus_client(old_focus);
-    auto new_client = scene_get_focus_client(new_focus);
+    auto old_client = seat_get_focus_client(old_focus);
+    auto new_client = seat_get_focus_client(new_focus);
 
     pointer->focus = new_focus;
 
@@ -283,9 +283,9 @@ void update_pointer_focus(SeatPointer* pointer)
 
     if (!seat_pointer_get_pressed(pointer).empty()) {
         // Pointer retains old focus while any pointer buttons pressed
-        new_focus = pointer->focus;
+        new_focus = seat_pointer_get_focus(pointer);
 
-    } else if (auto* region = scene_find_input_region_at(pointer->seat->scene->root_tree.get(), seat_pointer_get_position(pointer))) {
+    } else if (auto* region = seat_find_input_region_at(pointer->root, seat_pointer_get_position(pointer))) {
         new_focus = region;
     }
 
@@ -304,15 +304,17 @@ auto seat_pointer_get_pressed(SeatPointer* pointer) -> std::span<const SeatInput
 
 // -----------------------------------------------------------------------------
 
-auto seat_pointer_create(Seat* seat) -> Ref<SeatPointer>
+auto seat_pointer_create(Seat* seat, SeatCursorManager* cursor_manager, SceneTree* root, SceneTree* layer) -> Ref<SeatPointer>
 {
     auto pointer = ref_create<SeatPointer>();
     pointer->seat = seat;
+    pointer->cursor_manager = cursor_manager;
+    pointer->root = root;
 
     pointer->accel = [](vec2f32 delta) { return delta; };
 
     pointer->tree = scene_tree_create();
-    scene_tree_place_above(scene_get_layer(seat->scene, SceneLayer::overlay), nullptr, pointer->tree .get());
+    scene_tree_place_above(layer, nullptr, pointer->tree .get());
 
     return pointer;
 }
@@ -334,7 +336,7 @@ void handle_button(SeatPointer* pointer, SeatInputCode code, bool pressed, bool 
             if (pressed) {
                 seat_keyboard_focus(
                     seat_get_keyboard(pointer->seat),
-                    pointer->focus);
+                    seat_pointer_get_focus(pointer));
             }
         } else if (pressed) {
             seat_keyboard_focus(seat_get_keyboard(pointer->seat), nullptr);
@@ -371,12 +373,10 @@ void handle_motion(SeatPointer* pointer, vec2f32 delta)
     }));
 }
 
-void scene_update_pointers(Scene* scene)
+void seat_update_pointers(Seat* seat)
 {
-    for (auto* seat : scene_get_seats(scene)) {
-        if (auto* pointer = seat_get_pointer(seat)) {
-            handle_motion(pointer, {});
-        }
+    if (auto* pointer = seat_get_pointer(seat)) {
+        handle_motion(pointer, {});
     }
 }
 
@@ -396,7 +396,7 @@ void handle_scroll(SeatPointer* pointer, vec2f32 delta)
 
 auto seat_pointer_get_focus(SeatPointer* pointer) -> SeatInputRegion*
 {
-    return pointer->focus;
+    return pointer->focus.get();
 }
 
 auto seat_pointer_get_seat(SeatPointer* pointer) -> Seat*

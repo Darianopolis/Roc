@@ -16,8 +16,8 @@ void seat_data_source_offer(SeatDataSource* source, const char* mime_type)
 static
 void offer_selection_to_focus(Seat* seat, SeatDataSource* source)
 {
-    if (auto* focus = seat->keyboard->focus) {
-        scene_offer_selection(focus->client, source);
+    if (auto* focus = seat_keyboard_get_focus(seat->keyboard.get())) {
+        seat_offer_selection(focus->client, source);
     }
 }
 
@@ -39,7 +39,7 @@ SeatDataSource::~SeatDataSource()
 {
 }
 
-void scene_offer_selection(SeatClient* client, SeatDataSource* source)
+void seat_offer_selection(SeatClient* client, SeatDataSource* source)
 {
     seat_client_post_event(client, ptr_to(SeatEvent {
         .data {

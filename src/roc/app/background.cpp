@@ -16,7 +16,7 @@ void update_backgrounds(RocBackground* bg)
 {
     auto* roc = bg->roc;
 
-    auto layer = scene_get_layer(wm_get_scene(roc->wm), SceneLayer::background);
+    auto layer = wm_get_layer(roc->wm, WmLayer::background);
 
     bg->textures.clear();
 
