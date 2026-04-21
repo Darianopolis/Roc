@@ -15,6 +15,7 @@ function(target_generated_source target visibility generated_source_name)
 endfunction()
 
 function(init_target target_name)
+    target_precompile_headers(${target_name} PRIVATE src/core/pch.hpp)
     target_compile_options(${target_name} PRIVATE
         -std=c++26
 
@@ -143,7 +144,6 @@ target_include_directories(renderdoc-api INTERFACE ${VENDOR_DIR}/renderdoc/rende
 # ------------------------------------------------------------------------------
 
 init_library(core)
-target_precompile_headers(core PUBLIC src/core/pch.hpp)
 target_compile_definitions(core PUBLIC PROGRAM_NAME="roc" PROJECT_NAME="Roc")
 target_sources(core PRIVATE
     src/core/log.cpp
