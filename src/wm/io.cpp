@@ -11,12 +11,23 @@
 static
 void reflow_outputs(WindowManager* wm, bool any_changed = false)
 {
+    enum class LayoutDir { LeftToRight, RightToLeft };
+    static constexpr LayoutDir dir = LayoutDir::RightToLeft;
+
     f32 x = 0;
+    bool first = true;
     for (auto* output : wm->io.outputs) {
         auto size = output->io->info().size;
+        if constexpr (dir == LayoutDir::RightToLeft) {
+            if (!std::exchange(first, false)) {
+                x -= f32(size.x);
+            }
+        }
         auto last = output->viewport;
         output->viewport = {{x, 0.f}, size, xywh};
-        x += f32(size.x);
+        if constexpr (dir == LayoutDir::LeftToRight) {
+            x += f32(size.x);
+        }
 
         if (last != output->viewport) {
             any_changed = true;
