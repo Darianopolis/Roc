@@ -5,7 +5,7 @@
 // -----------------------------------------------------------------------------
 
 constexpr
-std::string ascii_to_upper(std::string_view in)
+auto ascii_to_upper(std::string_view in) -> std::string
 {
     std::string out(in);
     for (char& c : out) c = std::toupper(c);
@@ -15,13 +15,13 @@ std::string ascii_to_upper(std::string_view in)
 // -----------------------------------------------------------------------------
 
 inline
-std::string replace_suffix(std::string_view in, std::string_view old_suffix, std::string_view new_suffix)
+auto replace_suffix(std::string_view in, std::string_view old_suffix, std::string_view new_suffix) -> std::string
 {
     return std::format("{}{}", in.substr(0, in.size() - old_suffix.size()), new_suffix);
 }
 
 inline
-std::string escape_utf8(std::string_view in)
+auto escape_utf8(std::string_view in) -> std::string
 {
     std::string out;
     for (char c : in) {

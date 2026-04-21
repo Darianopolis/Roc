@@ -53,7 +53,7 @@ WAY_BIND_GLOBAL(wl_shm, bind)
 // -----------------------------------------------------------------------------
 
 inline
-wl_shm_format from_drm(GpuDrmFormat drm)
+auto from_drm(GpuDrmFormat drm) -> wl_shm_format
 {
     switch (drm) {
         break;case DRM_FORMAT_XRGB8888: return WL_SHM_FORMAT_XRGB8888;
@@ -63,7 +63,7 @@ wl_shm_format from_drm(GpuDrmFormat drm)
 }
 
 inline
-GpuDrmFormat to_drm(wl_shm_format shm)
+auto to_drm(wl_shm_format shm) -> GpuDrmFormat
 {
     switch (shm) {
         break;case WL_SHM_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;

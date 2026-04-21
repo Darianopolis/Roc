@@ -28,7 +28,7 @@ struct Flags
 
 #define BINARY_OP(Name, Op, ...) \
     friend constexpr Flags operator Name(Flags a, Flags b) { return {E(a.value Op __VA_ARGS__ b.value)}; } \
-    constexpr Flags& operator Name##=(Flags other) { value Op##= __VA_ARGS__ other.value; return *this; }
+    constexpr auto operator Name##=(Flags other) -> Flags& { value Op##= __VA_ARGS__ other.value; return *this; }
 
     BINARY_OP(|, |)
     BINARY_OP(&, &)
@@ -36,18 +36,18 @@ struct Flags
 
 #undef BINARY_OP
 
-    constexpr E get() const noexcept { return E(value); }
-    constexpr bool contains(Flags set) const noexcept { return (value & set.value) == set.value; }
-    constexpr bool empty() const noexcept { return !value; }
-    explicit operator bool() const noexcept { return !empty(); }
+    constexpr auto      get()          const noexcept -> E    { return E(value); }
+    constexpr auto contains(Flags set) const noexcept -> bool { return (value & set.value) == set.value; }
+    constexpr auto    empty()          const noexcept -> bool { return !value;   }
+    explicit operator bool()           const noexcept         { return !empty(); }
 
-    friend constexpr bool operator==(Flags a, Flags b) = default;
+    friend constexpr auto operator==(Flags a, Flags b) -> bool = default;
 };
 
 template<typename E>
 struct std::hash<Flags<E>>
 {
-    usz operator()(const Flags<E>& v)
+    auto operator()(const Flags<E>& v) -> usz
     {
         return std::hash<typename Flags<E>::underlying_type>{}(v.value);
     }

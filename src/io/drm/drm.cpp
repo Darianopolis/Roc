@@ -167,7 +167,7 @@ void on_page_flip(int fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, vo
 // -----------------------------------------------------------------------------
 
 static
-u32 get_image_fb2(IoContext* io, GpuImage* image)
+auto get_image_fb2(IoContext* io, GpuImage* image) -> u32
 {
     // We need to cache based on the underlying image, not any lease handle
     image = image->base();

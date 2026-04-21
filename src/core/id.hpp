@@ -29,7 +29,7 @@ struct TaggedInteger
         return bool(value);
     }
 
-    constexpr TaggedInteger& operator++()
+    constexpr auto& operator++()
     {
         value++;
         return *this;

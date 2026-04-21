@@ -9,7 +9,7 @@ struct CommandParser
 
     operator bool() const { return index < args.size(); }
 
-    bool match(std::string_view arg)
+    auto match(std::string_view arg) -> bool
     {
         if (index < args.size() && args[index] == arg) {
             index++;
@@ -18,13 +18,13 @@ struct CommandParser
         return false;
     }
 
-    std::span<const std::string_view> peek_rest() { return args.subspan(index); }
+    auto peek_rest() -> std::span<const std::string_view> { return args.subspan(index); }
 
-    std::string_view peek()       { return index < args.size() ? args[index]   : std::string_view{}; }
-    std::string_view get_string() { return index < args.size() ? args[index++] : std::string_view{}; }
+    auto peek()       -> std::string_view{ return index < args.size() ? args[index]   : std::string_view{}; }
+    auto get_string() -> std::string_view { return index < args.size() ? args[index++] : std::string_view{}; }
 
     template<typename T>
-    std::optional<T> get_from_chars()
+    auto get_from_chars() -> std::optional<T>
     {
         if (index >= args.size()) return std::nullopt;
 
@@ -37,6 +37,6 @@ struct CommandParser
         return value;
     }
 
-    std::optional<int> get_int()    { return get_from_chars<int>(); }
-    std::optional<int> get_double() { return get_from_chars<f64>(); }
+    auto get_int()    -> std::optional<int> { return get_from_chars<int>(); }
+    auto get_double() -> std::optional<int> { return get_from_chars<f64>(); }
 };

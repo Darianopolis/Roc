@@ -29,7 +29,7 @@ struct ThreadStackStorage
         munmap(start, size);
     }
 
-    usz remaining_bytes() const
+    auto remaining_bytes() const -> usz
     {
         return usz(end - head);
     }
@@ -60,7 +60,7 @@ public:
 
     DELETE_COPY_MOVE(ThreadStack);
 
-    void* get_head() noexcept
+    auto get_head() noexcept -> void*
     {
         return stack.head;
     }
@@ -70,7 +70,8 @@ public:
         stack.head = align_up_power2(static_cast<byte*>(address), 16);
     }
 
-    constexpr void* allocate(usz byte_size) noexcept
+    constexpr
+    auto allocate(usz byte_size) noexcept -> void*
     {
         void* ptr = stack.head;
         set_head(stack.head + byte_size);
@@ -79,7 +80,8 @@ public:
 
     template<typename T>
         requires std::is_trivially_default_constructible_v<T>
-    constexpr T* allocate(usz count) noexcept
+    constexpr
+    auto allocate(usz count) noexcept -> T*
     {
         T* ptr = reinterpret_cast<T*>(stack.head);
         set_head(stack.head + sizeof(T) * count);

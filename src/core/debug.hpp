@@ -44,8 +44,8 @@ struct UnixResult
     T   value;
     int error;
 
-    bool ok()  const noexcept { return !error; }
-    bool err() const noexcept { return  error; }
+    auto ok()  const noexcept -> bool { return !error; }
+    auto err() const noexcept -> bool { return  error; }
 };
 
 enum class UnixErrorBehavior

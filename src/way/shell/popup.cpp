@@ -76,7 +76,7 @@ struct WayPositionerAxisRules
 #define WAY_NOISY_POSITIONERS 1
 
 static
-WayAxisRegion positioner_apply_axis(const WayPositionerAxisRules& rules, WayAxisRegion constraint)
+auto positioner_apply_axis(const WayPositionerAxisRules& rules, WayAxisRegion constraint) -> WayAxisRegion
 {
 #if WAY_NOISY_POSITIONERS
     log_debug("way_xdg_position_apply_axis");
@@ -172,7 +172,7 @@ WayAxisRegion positioner_apply_axis(const WayPositionerAxisRules& rules, WayAxis
     case Prefix##_BOTTOM_RIGHT: return {rel.x,     rel.y    };
 
 template<typename T>
-Vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, Vec<2, T> rel)
+auto positioner_anchor_to_rel(xdg_positioner_anchor anchor, Vec<2, T> rel) -> Vec<2, T>
 {
     switch (anchor) {
         EDGES_TO_REL_CASES(XDG_POSITIONER_ANCHOR)
@@ -182,7 +182,7 @@ Vec<2, T> positioner_anchor_to_rel(xdg_positioner_anchor anchor, Vec<2, T> rel)
 }
 
 template<typename T>
-Vec<2, T> positioner_gravity_to_rel(xdg_positioner_gravity gravity, Vec<2, T> rel)
+auto positioner_gravity_to_rel(xdg_positioner_gravity gravity, Vec<2, T> rel) -> Vec<2, T>
 {
     switch (gravity) {
         EDGES_TO_REL_CASES(XDG_POSITIONER_GRAVITY)
@@ -223,7 +223,7 @@ void positioner_apply_axis_from_rules(const WayPositionerRules& rules, rect2i32 
 }
 
 static
-rect2i32 positioner_apply(const WayPositionerRules& rules, rect2i32 constraint)
+auto positioner_apply(const WayPositionerRules& rules, rect2i32 constraint) -> rect2i32
 {
     rect2i32 target;
     positioner_apply_axis_from_rules(rules, constraint, target, 0);

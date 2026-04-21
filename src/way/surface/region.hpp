@@ -55,7 +55,7 @@ public:
             && region.max.y > region.min.y;
     }
 
-    aabb2i32 bounds()
+    auto bounds() -> aabb2i32
     {
         debug_assert(*this);
         return region;

@@ -3,7 +3,7 @@
 #include <core/util.hpp>
 #include <core/string.hpp>
 
-std::vector<GpuFormatInfo> generate_formats()
+auto generate_formats() -> std::vector<GpuFormatInfo>
 {
 #include "formats.inl"
 
@@ -40,14 +40,14 @@ std::vector<GpuFormatInfo> generate_formats()
 static
 const std::vector<GpuFormatInfo> gpu_format_infos = generate_formats();
 
-std::span<const GpuFormatInfo> gpu_get_format_infos()
+auto gpu_get_format_infos() -> std::span<const GpuFormatInfo>
 {
     return gpu_format_infos;
 }
 
 // -----------------------------------------------------------------------------
 
-GpuFormat gpu_format_from_drm(GpuDrmFormat drm_format)
+auto gpu_format_from_drm(GpuDrmFormat drm_format) -> GpuFormat
 {
     for (auto[i, f] : gpu_format_infos | std::views::enumerate) {
         if (f.drm == drm_format) return GpuFormat(i);
@@ -55,7 +55,7 @@ GpuFormat gpu_format_from_drm(GpuDrmFormat drm_format)
     return {};
 }
 
-GpuFormat gpu_format_from_vk(VkFormat vk_format, Flags<GpuVulkanFormatFlag> vk_flags)
+auto gpu_format_from_vk(VkFormat vk_format, Flags<GpuVulkanFormatFlag> vk_flags) -> GpuFormat
 {
     for (auto[i, f] : gpu_format_infos | std::views::enumerate) {
         if (f.vk == vk_format && f.vk_flags == vk_flags) return GpuFormat(i);
@@ -64,14 +64,14 @@ GpuFormat gpu_format_from_vk(VkFormat vk_format, Flags<GpuVulkanFormatFlag> vk_f
 }
 
 static
-bool query_format_support(
+auto query_format_support(
     Gpu* gpu,
     VkFormat format, VkFormat srgb_format,
     VkImageUsageFlags usage,
     const VkDrmFormatModifierProperties2EXT* drm_props,
     bool* has_mutable_srgb,
     VkImageFormatProperties* out,
-    VkExternalMemoryProperties* out_external_memory_properties)
+    VkExternalMemoryProperties* out_external_memory_properties) -> bool
 {
     bool has_srgb_format = srgb_format != VK_FORMAT_UNDEFINED;
 

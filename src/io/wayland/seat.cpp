@@ -64,7 +64,7 @@ IoWaylandPointer::~IoWaylandPointer()
 }
 
 static
-IoWaylandOutput* find_output_for_surface(IoContext* io, wl_surface* surface)
+auto find_output_for_surface(IoContext* io, wl_surface* surface) -> IoWaylandOutput*
 {
     for (auto* output : io->wayland->outputs) {
         if (output->wl_surface == surface) {

@@ -9,10 +9,10 @@ struct IoDrmResources
     std::vector<drmModeCrtc*>      crtcs;
     std::vector<drmModePlane*>     planes;
 
-    drmModeConnector* find_connector(u32 id);
-    drmModeEncoder*   find_encoder(  u32 id);
-    drmModeCrtc*      find_crtc(     u32 id);
-    drmModePlane*     find_plane(    u32 id);
+    auto find_connector(u32 id) -> drmModeConnector*;
+    auto find_encoder(  u32 id) -> drmModeEncoder*;
+    auto find_crtc(     u32 id) -> drmModeCrtc*;
+    auto find_plane(    u32 id) -> drmModePlane*;
 
     IoDrmResources(int drm_fd);
     ~IoDrmResources();
@@ -38,13 +38,13 @@ struct IoDrmPropertyMap
     IoDrmPropertyMap(int drm, u32 object_id, u32 object_type);
 
     IoDrmPropertyMap(IoDrmPropertyMap&& other);
-    IoDrmPropertyMap& operator=(IoDrmPropertyMap&& other);
+    DEFINE_BASIC_MOVE(IoDrmPropertyMap)
 
     ~IoDrmPropertyMap();
 
-    u32 get_prop_id(   std::string_view prop_name);
-    u64 get_prop_value(std::string_view prop_name);
-    int get_enum_value(std::string_view prop_name, std::string_view enum_name);
+    auto get_prop_id(   std::string_view prop_name) -> u32;
+    auto get_prop_value(std::string_view prop_name) -> u64;
+    auto get_enum_value(std::string_view prop_name, std::string_view enum_name) -> int;
 };
 
 // -----------------------------------------------------------------------------

@@ -69,26 +69,17 @@ IoDrmPropertyMap::IoDrmPropertyMap(IoDrmPropertyMap&& other)
     , properties(std::move(other.properties))
 {}
 
-IoDrmPropertyMap& IoDrmPropertyMap::operator=(IoDrmPropertyMap&& other)
-{
-    if (this != &other) {
-        this->~IoDrmPropertyMap();
-        new(this) IoDrmPropertyMap(std::move(other));
-    }
-    return *this;
-}
-
 IoDrmPropertyMap::~IoDrmPropertyMap()
 {
     for (auto[_, prop] : properties) drmModeFreeProperty(prop);
 }
 
-u32 IoDrmPropertyMap::get_prop_id(std::string_view prop_name)
+auto IoDrmPropertyMap::get_prop_id(std::string_view prop_name) -> u32
 {
     return properties.at(prop_name)->prop_id;
 }
 
-u64 IoDrmPropertyMap::get_prop_value(std::string_view prop_name)
+auto IoDrmPropertyMap::get_prop_value(std::string_view prop_name) -> u64
 {
     auto id = get_prop_id(prop_name);
     for (u32 i = 0; i < props->count_props; ++i) {
@@ -99,7 +90,7 @@ u64 IoDrmPropertyMap::get_prop_value(std::string_view prop_name)
     debug_assert_fail("Failed to find property");
 }
 
-int IoDrmPropertyMap::get_enum_value(std::string_view prop_name, std::string_view enum_name)
+auto IoDrmPropertyMap::get_enum_value(std::string_view prop_name, std::string_view enum_name) -> int
 {
     auto* prop = properties.at(prop_name);
 

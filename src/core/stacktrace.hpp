@@ -14,9 +14,9 @@ struct StacktraceEntry
 {
     const StacktraceEntryData* data;
 
-    const std::string& description() const noexcept { return data->description; }
-    const std::filesystem::path& source_file() const noexcept { return data->source_file; }
-    u32 source_line() const noexcept { return data->source_line; }
+    auto description() const noexcept -> const std::string&           { return data->description; }
+    auto source_file() const noexcept -> const std::filesystem::path& { return data->source_file; }
+    auto source_line() const noexcept -> u32                          { return data->source_line; }
 };
 
 struct Stacktrace
@@ -55,5 +55,5 @@ struct StacktraceCache
     ankerl::unordered_dense::segmented_map<std::stacktrace_entry, StacktraceEntryData> entries;
     ankerl::unordered_dense::segmented_map<std::stacktrace, Stacktrace> traces;
 
-    std::pair<const Stacktrace*, bool> insert(const std::stacktrace& st);
+    auto insert(const std::stacktrace& st) -> std::pair<const Stacktrace*, bool>;
 };

@@ -23,17 +23,17 @@ static struct {
     std::recursive_mutex mutex;
 } log_state = {};
 
-LogLevel log_get_level()
+auto log_get_level() -> LogLevel
 {
     return log_state.log_level;
 }
 
-bool log_is_enabled(LogLevel level)
+auto log_is_enabled(LogLevel level) -> bool
 {
     return level >= log_get_level();
 }
 
-bool log_history_is_enabled()
+auto log_history_is_enabled() -> bool
 {
     std::scoped_lock _ { log_state.mutex };
 
@@ -61,7 +61,7 @@ void log_history_clear()
     log_state.history.lines = 0;
 }
 
-LogHistory log_history_get()
+auto log_history_get() -> LogHistory
 {
     std::unique_lock lock { log_state.mutex };
     return {
@@ -72,23 +72,23 @@ LogHistory log_history_get()
     };
 }
 
-std::string_view LogEntry::message() const noexcept
+auto LogEntry::message() const noexcept -> std::string_view
 {
     return std::string_view(log_state.history.buffer).substr(start, len);
 }
 
-const LogEntry* LogHistory::find(u32 line) const noexcept
+auto LogHistory::find(u32 line) const noexcept -> const LogEntry*
 {
     auto& state = log_state;
 
     struct Compare
     {
-        bool operator()(const LogEntry& entry, u32 line)
+        auto operator()(const LogEntry& entry, u32 line) -> bool
         {
             return entry.line_start < line;
         }
 
-        bool operator()(u32 line, const LogEntry& entry)
+        auto operator()(u32 line, const LogEntry& entry) -> bool
         {
             return line < entry.line_start;
         }

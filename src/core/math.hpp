@@ -4,8 +4,8 @@
 
 // -----------------------------------------------------------------------------
 
-constexpr vec2f64 copysign(     vec2f64 v, vec2f64 s) { return vec2f64(std::copysign(v.x, s.x), std::copysign(v.y, s.y)); }
-constexpr vec2f64 round_to_zero(vec2f64 v)            { return copysign(glm::floor(glm::abs(v)), v);                 }
+constexpr auto copysign(     vec2f64 v, vec2f64 s) -> vec2f64 { return vec2f64(std::copysign(v.x, s.x), std::copysign(v.y, s.y)); }
+constexpr auto round_to_zero(vec2f64 v)            -> vec2f64 { return copysign(glm::floor(glm::abs(v)), v);                      }
 
 // -----------------------------------------------------------------------------
 
@@ -57,32 +57,32 @@ struct std::formatter<Aabb<T>> {
 // -----------------------------------------------------------------------------
 
 template<typename T>
-Vec<2, T> aabb_clamp_point(const Aabb<T>& rect, Vec<2, T> point)
+auto aabb_clamp_point(const Aabb<T>& rect, Vec<2, T> point) -> Vec<2, T>
 {
     return glm::clamp(point, rect.min, rect.max);
 }
 
 template<typename T>
-bool aabb_contains(const Aabb<T>& rect, Vec<2, T> point)
+auto aabb_contains(const Aabb<T>& rect, Vec<2, T> point) -> bool
 {
     return point.x >= rect.min.x && point.x < rect.max.x
         && point.y >= rect.min.y && point.y < rect.max.y;
 }
 
 template<typename T>
-Aabb<T> aabb_outer(const Aabb<T>& a, const Aabb<T>& b)
+auto aabb_outer(const Aabb<T>& a, const Aabb<T>& b) -> Aabb<T>
 {
     return {glm::min(a.min, b.min), glm::max(a.max, b.max), minmax};
 }
 
 template<typename T>
-Aabb<T> aabb_inner(const Aabb<T>& a, const Aabb<T>& b)
+auto aabb_inner(const Aabb<T>& a, const Aabb<T>& b) -> Aabb<T>
 {
     return {glm::max(a.min, b.min), glm::min(a.max, b.max), minmax};
 }
 
 template<typename T>
-bool aabb_intersects(const Aabb<T>& a, const Aabb<T>& b, Aabb<T>* intersection = nullptr)
+auto aabb_intersects(const Aabb<T>& a, const Aabb<T>& b, Aabb<T>* intersection = nullptr) -> bool
 {
     auto i = aabb_inner(a, b);
 
@@ -97,7 +97,7 @@ bool aabb_intersects(const Aabb<T>& a, const Aabb<T>& b, Aabb<T>* intersection =
 
 template<typename T>
 static
-u32 aabb_subtract(const Aabb<T>& minuend, const Aabb<T>& subtrahend, Aabb<T>* out)
+auto aabb_subtract(const Aabb<T>& minuend, const Aabb<T>& subtrahend, Aabb<T>* out) -> u32
 {
     Aabb<T> intersection;
     if (aabb_intersects(minuend, subtrahend, &intersection)) {
@@ -116,19 +116,19 @@ u32 aabb_subtract(const Aabb<T>& minuend, const Aabb<T>& subtrahend, Aabb<T>* ou
 // -----------------------------------------------------------------------------
 
 template<typename T>
-Vec<2, T> rect_clamp_point(const Rect<T>& rect, Vec<2, T> point)
+auto rect_clamp_point(const Rect<T>& rect, Vec<2, T> point) -> Vec<2, T>
 {
     return aabb_clamp_point<T>(rect, point);
 }
 
 template<typename T>
-bool rect_contains(const Rect<T>& rect, Vec<2, T> point)
+auto rect_contains(const Rect<T>& rect, Vec<2, T> point) -> bool
 {
     return aabb_contains<T>(rect, point);
 }
 
 template<typename T>
-bool rect_intersects(const Rect<T>& a, const Rect<T>& b, Rect<T>* intersection = nullptr)
+auto rect_intersects(const Rect<T>& a, const Rect<T>& b, Rect<T>* intersection = nullptr) -> bool
 {
     Aabb<T> i;
     bool intersects = aabb_intersects<T>(a, b, &i);
@@ -137,7 +137,7 @@ bool rect_intersects(const Rect<T>& a, const Rect<T>& b, Rect<T>* intersection =
 }
 
 template<typename T>
-Rect<T> rect_constrain(Rect<T> rect, const Rect<T>& bounds)
+auto rect_constrain(Rect<T> rect, const Rect<T>& bounds) -> Rect<T>
 {
     static constexpr auto constrain_axis = [](T start, T length, T& origin, T& extent) {
         if (extent > length) {
@@ -155,7 +155,7 @@ Rect<T> rect_constrain(Rect<T> rect, const Rect<T>& bounds)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-Rect<T> rect_fit(Vec<2, T> outer, Vec<2, T> inner)
+auto rect_fit(Vec<2, T> outer, Vec<2, T> inner) -> Rect<T>
 {
     T scale = glm::min(outer.x / inner.x, outer.y / inner.y);
     auto extent = inner * scale;
@@ -166,7 +166,7 @@ Rect<T> rect_fit(Vec<2, T> outer, Vec<2, T> inner)
 // -----------------------------------------------------------------------------
 
 template<typename Out, typename In>
-Vec<2, Out> round(Vec<2, In> pos, Vec<2, In>* remainder = nullptr)
+auto round(Vec<2, In> pos, Vec<2, In>* remainder = nullptr) -> Vec<2, Out>
 {
     // For points, we floor to treat the position as any point within a given integer region
     auto rounded = glm::floor(pos);
@@ -175,7 +175,7 @@ Vec<2, Out> round(Vec<2, In> pos, Vec<2, In>* remainder = nullptr)
 }
 
 template<typename Out, typename In>
-Rect<Out> round(Rect<In> rect, Rect<In>* remainder = nullptr)
+auto round(Rect<In> rect, Rect<In>* remainder = nullptr) -> Rect<Out>
 {
     Aabb<In> bounds = rect;
     auto min = bounds.min;

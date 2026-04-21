@@ -63,7 +63,7 @@ auto seat_get_modifiers(Seat* seat, Flags<SeatModifierFlag> flags) -> Flags<Seat
 }
 
 static
-xkb_keycode_t evdev_to_xkb(SeatInputCode code)
+auto evdev_to_xkb(SeatInputCode code) -> xkb_keycode_t
 {
     return code + 8;
 }

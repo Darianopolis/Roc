@@ -4,9 +4,9 @@
 
 // -----------------------------------------------------------------------------
 
-const char* gpu_result_to_string(VkResult res);
+auto gpu_result_to_string(VkResult res) -> const char*;
 
-VkResult gpu_check(VkResult res, auto... allowed)
+auto gpu_check(VkResult res, auto... allowed) -> VkResult
 {
     if (res == VK_SUCCESS || (... || (res == allowed))) return res;
 
@@ -37,7 +37,7 @@ auto gpu_vk_make_chain_in(std::span<void* const> structures)
 {
     VkBaseInStructure* last = nullptr;
     for (auto* s : structures) {
-        auto vk_base = static_cast<VkBaseInStructure*>(s);
+        auto* vk_base = static_cast<VkBaseInStructure*>(s);
         vk_base->pNext = last;
         last = vk_base;
     }
@@ -47,9 +47,9 @@ auto gpu_vk_make_chain_in(std::span<void* const> structures)
 
 // -----------------------------------------------------------------------------
 
-u32 gpu_find_vk_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags properties);
+auto gpu_find_vk_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags properties) -> u32;
 
-VkFormatFeatureFlags gpu_get_required_format_features(GpuFormat, Flags<GpuImageUsage>);
+auto gpu_get_required_format_features(GpuFormat, Flags<GpuImageUsage>) -> VkFormatFeatureFlags;
 
 // -----------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ struct GpuImageBase : GpuImage
 
 void gpu_image_init(GpuImageBase*);
 
-Ref<GpuImage> gpu_image_create_dmabuf(Gpu*, const GpuImageCreateInfo&);
+auto gpu_image_create_dmabuf(Gpu*, const GpuImageCreateInfo&) -> Ref<GpuImage>;
 
 // -----------------------------------------------------------------------------
 
@@ -109,7 +109,7 @@ struct GpuCommands
     ~GpuCommands();
 };
 
-void gpu_queue_init(Gpu*);
+void gpu_queue_init(  Gpu*);
 auto gpu_get_commands(Gpu*) -> GpuCommands*;
 
 // -----------------------------------------------------------------------------

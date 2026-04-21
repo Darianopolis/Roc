@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-Ref<GpuBuffer> gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags)
+auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<GpuBuffer>
 {
     auto buffer = ref_create<GpuBuffer>();
     buffer->gpu = gpu;

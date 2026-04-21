@@ -14,7 +14,7 @@ auto fd_dup_unsafe(int fd) -> int;
 // -----------------------------------------------------------------------------
 
 inline
-bool fd_is_valid(int fd)
+auto fd_is_valid(int fd) -> bool
 {
     return fd >= 0 && fd < fd_limit;
 }
@@ -46,7 +46,7 @@ struct Fd
         fd_add_ref(fd);
     }
 
-    Fd& operator=(const Fd& other)
+    auto& operator=(const Fd& other)
     {
         if (this != &other) {
             reset(other.fd);
@@ -58,7 +58,7 @@ struct Fd
         : fd(std::exchange(other.fd, -1))
     {}
 
-    Fd& operator=(Fd&& other)
+    auto& operator=(Fd&& other)
     {
         if (this != &other) {
             fd_remove_ref(fd);
@@ -78,15 +78,15 @@ struct Fd
         fd = fd_add_ref(new_fd);
     }
 
-    Fd& operator=(std::nullptr_t)
+    auto& operator=(std::nullptr_t)
     {
         reset();
         return *this;
     }
 
-    int get() const noexcept { return fd; }
+    auto get() const noexcept -> int { return fd; }
 
-    int extract() noexcept;
+    auto extract() noexcept -> int;
 
     explicit operator bool() const noexcept { return fd >= 0; }
 };

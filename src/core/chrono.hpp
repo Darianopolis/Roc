@@ -5,7 +5,7 @@
 #include "util.hpp"
 
 inline
-std::chrono::system_clock::time_point time_current()
+auto time_current() -> std::chrono::system_clock::time_point
 {
     return std::chrono::system_clock::now();
 }
@@ -16,7 +16,7 @@ std::chrono::system_clock::time_point time_current()
 static constexpr int steady_clock_id = CLOCK_MONOTONIC;
 
 template<int ClockID>
-std::chrono::steady_clock::time_point steady_clock_from_timespec(const timespec& ts)
+auto steady_clock_from_timespec(const timespec& ts) -> std::chrono::steady_clock::time_point
 {
     static_assert(steady_clock_id == ClockID);
 
@@ -26,7 +26,7 @@ std::chrono::steady_clock::time_point steady_clock_from_timespec(const timespec&
 }
 
 template<int ClockID>
-timespec steady_clock_to_timespec(std::chrono::steady_clock::time_point tp)
+auto steady_clock_to_timespec(std::chrono::steady_clock::time_point tp) -> timespec
 {
     static_assert(steady_clock_id == ClockID);
 

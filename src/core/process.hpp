@@ -2,5 +2,5 @@
 
 #include "pch.hpp"
 
-bool process_has_cap( cap_value_t cap);
+auto process_has_cap( cap_value_t cap) -> bool;
 void process_drop_cap(cap_value_t cap);

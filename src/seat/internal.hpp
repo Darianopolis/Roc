@@ -49,7 +49,7 @@ struct SeatInputDevice
     SeatInputRegion* focus;
 };
 
-bool seat_post_input_event(Weak<SeatInputDevice>, SeatEvent*);
+auto seat_post_input_event(Weak<SeatInputDevice>, SeatEvent*) -> bool;
 
 // -----------------------------------------------------------------------------
 

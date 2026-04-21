@@ -31,7 +31,7 @@ struct IoWaylandProxyCache
     void(*destroy)(V*);
     std::vector<entry> entries;
 
-    V* find(K* needle)
+    auto find(K* needle) -> V*
     {
         V* found = nullptr;
         std::erase_if(entries, [&](const auto& entry) {
@@ -42,14 +42,14 @@ struct IoWaylandProxyCache
         return found;
     }
 
-    V* insert(K* key, V* value)
+    auto insert(K* key, V* value) -> V*
     {
         return entries.emplace_back(key, Vptr(value, destroy)).value.get();
     }
 };
 
 template<typename T>
-std::span<T> io_to_span(wl_array* array)
+auto io_to_span(wl_array* array) -> std::span<T>
 {
     usz count = array->size / sizeof(T);
     return std::span<T>(static_cast<T*>(array->data), count);

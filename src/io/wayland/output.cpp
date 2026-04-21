@@ -180,7 +180,7 @@ void io_output_create(IoContext* io)
 // -----------------------------------------------------------------------------
 
 static
-wl_buffer* get_image_proxy(IoContext* io, GpuImage* image)
+auto get_image_proxy(IoContext* io, GpuImage* image) -> wl_buffer*
 {
     auto* wl = io->wayland.get();
 
@@ -207,7 +207,7 @@ wl_buffer* get_image_proxy(IoContext* io, GpuImage* image)
 }
 
 static
-wp_linux_drm_syncobj_timeline_v1* get_syncobj_proxy(IoContext* io, GpuSyncobj* syncobj)
+auto get_syncobj_proxy(IoContext* io, GpuSyncobj* syncobj) -> wp_linux_drm_syncobj_timeline_v1*
 {
     auto* wl = io->wayland.get();
 

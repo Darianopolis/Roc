@@ -14,8 +14,8 @@ struct EnumMap
 
     static constexpr auto enum_values = magic_enum::enum_values<E>();
 
-    constexpr       T& operator[](E value)       { return _data[magic_enum::enum_index(value).value()]; }
-    constexpr const T& operator[](E value) const { return _data[magic_enum::enum_index(value).value()]; }
+    constexpr auto operator[](E value)       ->       T& { return _data[magic_enum::enum_index(value).value()]; }
+    constexpr auto operator[](E value) const -> const T& { return _data[magic_enum::enum_index(value).value()]; }
 };
 
 // -----------------------------------------------------------------------------
@@ -29,12 +29,12 @@ struct CountingSet
 
     std::flat_map<T, u32> counts;
 
-    bool inc(auto&& t)
+    auto inc(auto&& t) -> bool
     {
         return !counts[t]++;
     }
 
-    bool dec(auto&& t)
+    auto dec(auto&& t) -> bool
     {
         auto iter = counts.find(t);
         debug_assert(iter != counts.end());
@@ -48,9 +48,9 @@ struct CountingSet
     auto begin() const { return counts.keys().begin(); }
     auto   end() const { return counts.keys().end();   }
 
-    bool contains(const T& t) const { return counts.contains(t); }
-    usz      size()           const { return counts.size();      }
-    bool    empty()           const { return counts.empty();     }
+    auto contains(const T& t) const -> bool { return counts.contains(t); }
+    auto size()               const -> usz  { return counts.size();      }
+    auto empty()              const -> bool { return counts.empty();     }
 };
 
 // -----------------------------------------------------------------------------
@@ -93,7 +93,7 @@ struct IntrusiveListIterator
         cur->next = base;
     }
 
-    IntrusiveListIterator remove()
+    auto remove() -> IntrusiveListIterator
     {
         cur->next->prev = cur->prev;
         cur->prev->next = cur->next;
@@ -104,27 +104,27 @@ struct IntrusiveListIterator
         return *this;
     }
 
-    Base* operator->() { return get(); }
-    Base* get() { return static_cast<Base*>(cur); }
+    auto operator->() -> Base* { return get(); }
+    auto get() -> Base* { return static_cast<Base*>(cur); }
 
-    bool operator==(const IntrusiveListIterator&) const noexcept = default;
+    auto operator==(const IntrusiveListIterator&) const noexcept -> bool = default;
 
-    IntrusiveListIterator next() { return {cur->next}; }
-    IntrusiveListIterator prev() { return {cur->prev}; }
+    auto next() -> IntrusiveListIterator { return {cur->next}; }
+    auto prev() -> IntrusiveListIterator { return {cur->prev}; }
 };
 
 template<typename Base>
 struct IntrusiveList
 {
-    using iterator = IntrusiveListIterator<Base>;
+    using Iterator = IntrusiveListIterator<Base>;
 
     IntrusiveListBase<Base> root;
 
-    iterator first() { return {root.next}; }
-    iterator last()  { return {root.prev}; }
-    iterator end()   { return {&root};      }
+    auto first() -> Iterator { return {root.next}; }
+    auto last()  -> Iterator { return {root.prev}; }
+    auto end()   -> Iterator { return {&root};     }
 
-    bool empty() const { return root.next == &root; }
+    auto empty() const -> bool { return root.next == &root; }
 };
 
 // -----------------------------------------------------------------------------
@@ -149,7 +149,7 @@ public:
         }
     }
 
-    RefVector& operator=(const RefVector& other)
+    auto& operator=(const RefVector& other)
     {
         if (this != &other) {
             clear();
@@ -167,7 +167,7 @@ public:
         other.values.clear();
     }
 
-    RefVector& operator=(RefVector&& other)
+    auto& operator=(RefVector&& other)
     {
         if (this != &other) {
             clear();
@@ -178,18 +178,18 @@ public:
     }
 
 public:
-    T* emplace_back(T* value)
+    auto emplace_back(T* value) -> T*
     {
         return values.emplace_back(object_add_ref(value));
     }
 
-    T* emplace_back(Ref<T>&& value)
+    auto emplace_back(Ref<T>&& value) -> T*
     {
         return values.emplace_back(std::exchange(value.value, nullptr));
     }
 
     template<typename Fn>
-    usz erase_if(Fn&& fn)
+    auto erase_if(Fn&& fn) -> usz
     {
         return std::erase_if(values, [&](auto* c) {
             if (fn(c)) {
@@ -200,15 +200,15 @@ public:
         });
     }
 
-    usz erase(T* v)
+    auto erase(T* v) -> usz
     {
         return erase_if([v](T* c) { return c == v; });
     }
 
-    usz  size()  const { return values.size();  }
-    bool empty() const { return values.empty(); }
-    T*   front() const { return values.front(); }
-    T*   back()  const { return values.back();  }
+    auto size()  const -> usz  { return values.size();  }
+    auto empty() const -> bool { return values.empty(); }
+    auto front() const -> T*   { return values.front(); }
+    auto back()  const -> T*   { return values.back();  }
 
     T* operator[](usz index) const
     {

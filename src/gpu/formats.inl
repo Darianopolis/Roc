@@ -3,8 +3,8 @@
 using enum GpuVulkanFormatFlag;
 
 struct GpuDrmVulkanFormatPair {
-    GpuDrmFormat  drm;
-    VkFormat         vk;
+    GpuDrmFormat drm;
+    VkFormat vk;
     Flags<GpuVulkanFormatFlag> flags;
 };
 

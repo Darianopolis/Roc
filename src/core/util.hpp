@@ -34,12 +34,22 @@ constexpr auto ptr_to(auto&& value) { return &value; }
 
 #define DELETE_COPY(Type) \
                Type(const Type& ) = delete; \
-    Type& operator=(const Type& ) = delete; \
+    auto& operator=(const Type& ) = delete; \
 
 #define DELETE_COPY_MOVE(Type) \
     DELETE_COPY(Type) \
                Type(Type&&) = delete; \
-    Type& operator=(Type&&) = delete;
+    auto& operator=(Type&&) = delete;
+
+#define DEFINE_BASIC_MOVE(Type) \
+    auto& operator=(Type&& other) \
+    { \
+        if (this != &other) { \
+            this->~Type(); \
+            new (this) Type(std::move(other)); \
+        } \
+        return *this; \
+    }
 
 // -----------------------------------------------------------------------------
 
@@ -50,7 +60,7 @@ auto range_count(auto&& range)
 
 // -----------------------------------------------------------------------------
 
-constexpr usz round_up_power2(usz v) noexcept
+constexpr auto round_up_power2(usz v) noexcept -> usz
 {
     v--;
     v |= v >> 1;

@@ -1,7 +1,7 @@
 #include "internal.hpp"
 
 static
-SceneTree* get_root(SceneNode* node)
+auto get_root(SceneNode* node) -> SceneTree*
 {
     auto* root = dynamic_cast<SceneTree*>(node) ?: node->parent;
     if (!root) return nullptr;

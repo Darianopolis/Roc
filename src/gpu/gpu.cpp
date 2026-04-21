@@ -7,7 +7,7 @@
 
 #include <sys/sysmacros.h>
 
-const char* gpu_result_to_string(VkResult res)
+auto gpu_result_to_string(VkResult res) -> const char*
 {
     return string_VkResult(res);
 }
@@ -88,7 +88,7 @@ std::array required_device_extensions = {
 };
 
 static
-bool open_drm(Gpu* gpu, drmDevice* device)
+auto open_drm(Gpu* gpu, drmDevice* device) -> bool
 {
     // Prefer to open the render node for normal render operations,
     // even the requested drm was opened from a primary node
@@ -120,7 +120,7 @@ bool open_drm(Gpu* gpu, drmDevice* device)
 }
 
 static
-bool try_physical_device(Gpu* gpu, VkPhysicalDevice phdev)
+auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
 {
     {
         VkPhysicalDeviceProperties2 props { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -233,11 +233,11 @@ bool try_physical_device(Gpu* gpu, VkPhysicalDevice phdev)
     return true;
 }
 
-VkBool32 VKAPI_CALL debug_callback(
+auto VKAPI_CALL debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     u32 type,
     const VkDebugUtilsMessengerCallbackDataEXT* data,
-    void* userdata)
+    void* userdata) -> VkBool32
 {
     if (!data->pMessage) return VK_FALSE;
 
@@ -294,7 +294,7 @@ VkBool32 VKAPI_CALL debug_callback(
 }
 
 static
-bool test_timeline_syncobj_export(Gpu* gpu)
+auto test_timeline_syncobj_export(Gpu* gpu) -> bool
 {
     // Create dummy timeline semaphore
 
@@ -332,7 +332,7 @@ bool test_timeline_syncobj_export(Gpu* gpu)
     return !err;
 }
 
-Ref<Gpu> gpu_create(ExecContext* exec, Flags<GpuFeature> _features)
+auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
 {
     auto gpu = ref_create<Gpu>();
     gpu->features = _features;

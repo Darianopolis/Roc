@@ -21,7 +21,7 @@ struct Region
         : aabbs(other.aabbs)
     {}
 
-    Region& operator=(const Region& other)
+    auto& operator=(const Region& other)
     {
         if (this != &other) {
             aabbs = other.aabbs;
@@ -35,7 +35,7 @@ struct Region
         : aabbs(std::move(other.aabbs))
     {}
 
-    Region& operator=(Region&& other)
+    auto& operator=(Region&& other)
     {
         if (this != &other) {
             aabbs = std::move(other.aabbs);
@@ -45,7 +45,7 @@ struct Region
 
 // -----------------------------------------------------------------------------
 
-    constexpr bool operator==(const Region& other) const noexcept = default;
+    constexpr auto operator==(const Region& other) const noexcept -> bool = default;
 
 // -----------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ struct Region
         aabbs.clear();
     }
 
-    bool empty() const
+    auto empty() const -> bool
     {
         return aabbs.empty();
     }
@@ -96,7 +96,7 @@ struct Region
     }
 
     template<typename T2>
-    bool contains(Vec<2, T2> point) const
+    auto contains(Vec<2, T2> point) const -> bool
     {
         for (auto aabb : aabbs) {
             if (aabb_contains<T2>(aabb, point)) {
@@ -107,7 +107,7 @@ struct Region
     }
 
     template<typename T2>
-    bool contains(Aabb<T2> needle) const
+    auto contains(Aabb<T2> needle) const -> bool
     {
         for (auto aabb : aabbs) {
             Aabb<T2> overlap;
@@ -118,7 +118,7 @@ struct Region
     }
 
     template<typename T2>
-    Vec<2, T2> constrain(Vec<2, T2> point) const
+    auto constrain(Vec<2, T2> point) const -> Vec<2, T2>
     {
         f64 closest_dist = INFINITY;
         Vec<2, T2> closest = {};

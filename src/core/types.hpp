@@ -84,7 +84,7 @@ struct Rect
         : Rect(other.min, other.max, minmax)
     {}
 
-    constexpr bool operator==(const Rect<T>& other) const = default;
+    constexpr auto operator==(const Rect<T>& other) const -> bool = default;
 };
 
 using rect2i32 = Rect<i32>;
@@ -121,7 +121,7 @@ struct Aabb
         : Aabb(other.origin, other.extent, xywh)
     {}
 
-    constexpr bool operator==(const Aabb<T>& other) const = default;
+    constexpr auto operator==(const Aabb<T>& other) const -> bool = default;
 };
 
 using aabb2i32 = Aabb<i32>;

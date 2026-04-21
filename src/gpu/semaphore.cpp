@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const GpuSyncpoint& syncpoint)
+auto gpu_syncpoint_to_submit_info(const GpuSyncpoint& syncpoint) -> VkSemaphoreSubmitInfo
 {
     auto[syncobj, value, stages] = syncpoint;
 
@@ -38,7 +38,7 @@ VkSemaphoreSubmitInfo gpu_syncpoint_to_submit_info(const GpuSyncpoint& syncpoint
 
 // -----------------------------------------------------------------------------
 
-Ref<GpuSyncobj> gpu_syncobj_create(Gpu* gpu)
+auto gpu_syncobj_create(Gpu* gpu) -> Ref<GpuSyncobj>
 {
     auto syncobj = ref_create<GpuSyncobj>();
     syncobj->gpu = gpu;
@@ -48,7 +48,7 @@ Ref<GpuSyncobj> gpu_syncobj_create(Gpu* gpu)
     return syncobj;
 }
 
-Ref<GpuSyncobj> gpu_syncobj_import(Gpu* gpu, int syncobj_fd)
+auto gpu_syncobj_import(Gpu* gpu, int syncobj_fd) -> Ref<GpuSyncobj>
 {
     auto syncobj = ref_create<GpuSyncobj>();
     syncobj->gpu = gpu;
@@ -111,7 +111,7 @@ GpuSyncobj::~GpuSyncobj()
     unix_check<drmSyncobjDestroy>(gpu->drm.fd, syncobj);
 }
 
-u64 gpu_syncobj_get_value(GpuSyncobj* syncobj)
+auto gpu_syncobj_get_value(GpuSyncobj* syncobj) -> u64
 {
     auto* gpu = syncobj->gpu;
 
@@ -189,7 +189,7 @@ void gpu_wait(GpuSyncpoint syncpoint)
     unix_check<drmSyncobjTimelineWait>(gpu->drm.fd, &syncobj->syncobj, &value, 1, INT64_MAX, 0, &first_signalled);
 
     if (std::this_thread::get_id() == gpu->exec->os_thread) {
-        decltype(syncobj->wait.list)::iterator w;
+        decltype(syncobj->wait.list)::Iterator w;
         while (w = syncobj->wait.list.first(), w != syncobj->wait.list.end() && w->point <= value) {
             syncobj->wait.skips++;
             w.remove()->handle(value);

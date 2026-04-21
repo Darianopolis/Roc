@@ -1,6 +1,6 @@
 #include "util.hpp"
 
-wl_resource* way_resource_create(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, WayObject* data, bool refcount)
+auto way_resource_create(wl_client* client, const wl_interface* interface, int version, int id, const void* impl, WayObject* data, bool refcount) -> wl_resource*
 {
     auto resource = wl_resource_create(client, interface, version, id);
     if (refcount) {

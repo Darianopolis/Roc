@@ -4,7 +4,7 @@
 #include "debug.hpp"
 
 constexpr
-vec4u8 color_from_hex(std::string_view str)
+auto color_from_hex(std::string_view str) -> vec4u8
 {
     vec4u8 color;
     if (str.starts_with("#")) str.remove_prefix(1);

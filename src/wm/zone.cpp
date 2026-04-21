@@ -19,7 +19,7 @@ struct {
 } c;
 
 static
-rect2i32 get_zone_rect(rect2i32 workarea, vec2i32 zone)
+auto get_zone_rect(rect2i32 workarea, vec2i32 zone) -> rect2i32
 {
     rect2i32 out;
 
@@ -102,7 +102,7 @@ void zone_update_regions(WindowManager* wm)
 }
 
 static
-bool is_interactable(WmWindow* window)
+auto is_interactable(WmWindow* window) -> bool
 {
     return true;
 }

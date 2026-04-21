@@ -56,7 +56,7 @@ SeatEventFilter::~SeatEventFilter()
     }
 }
 
-bool seat_post_input_event(Weak<SeatInputDevice> device, SeatEvent* event)
+auto seat_post_input_event(Weak<SeatInputDevice> device, SeatEvent* event) -> bool
 {
     for (auto* filter : device->seat->input_event_filters) {
         if (filter->filter(event) == SeatEventFilterResult::capture) {

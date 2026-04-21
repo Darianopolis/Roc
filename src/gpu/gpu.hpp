@@ -75,7 +75,7 @@ struct GpuFormat
     // Formats are stored as indices into the static format_infos table.
     u8 index;
 
-    constexpr bool operator==(const GpuFormat&) const noexcept = default;
+    constexpr auto operator==(const GpuFormat&) const noexcept -> bool = default;
 
     constexpr explicit operator bool() const noexcept { return index; }
 
@@ -133,7 +133,7 @@ struct GpuFormatPropertiesKey
     VkFormat format;
     VkImageUsageFlags usage;
 
-    constexpr bool operator==(const GpuFormatPropertiesKey&) const noexcept = default;
+    constexpr auto operator==(const GpuFormatPropertiesKey&) const noexcept -> bool = default;
 };
 MAKE_STRUCT_HASHABLE(GpuFormatPropertiesKey, v.format, v.usage);
 
@@ -154,8 +154,8 @@ struct GpuFormatSet
         return iter == entries.end() ? gpu_empty_modifier_set : iter->second;
     }
 
-    usz   size() const { return entries.size(); }
-    bool empty() const { return !entries.empty(); }
+    auto  size() const -> usz  { return entries.size(); }
+    auto empty() const -> bool { return !entries.empty(); }
 
     auto begin() const { return entries.begin(); }
     auto   end() const { return entries.end(); }
@@ -284,7 +284,7 @@ auto gpu_syncobj_export(GpuSyncobj*) -> Fd;
 void gpu_syncobj_import_syncfile(GpuSyncobj*, u64 target_point, int sync_fd);
 auto gpu_syncobj_export_syncfile(GpuSyncobj*, u64 source_point) -> Fd;
 
-u64  gpu_syncobj_get_value(   GpuSyncobj*);
+auto gpu_syncobj_get_value(   GpuSyncobj*) -> u64;
 void gpu_syncobj_signal_value(GpuSyncobj*, u64 value);
 
 void gpu_syncobj_wait(GpuSyncobj*, GpuWaitFn*);
@@ -374,12 +374,12 @@ struct GpuArray
         , byte_offset(byte_offset)
     {}
 
-    T* device() const
+    auto device() const -> T*
     {
         return buffer->device<T>(byte_offset);
     }
 
-    T* host() const
+    auto host() const -> T*
     {
         return buffer->host<T>(byte_offset);
     }
@@ -420,9 +420,9 @@ struct GpuImage
 
 struct GpuImageCreateInfo
 {
-    vec2u32                        extent;
-    GpuFormat                     format;
-    Flags<GpuImageUsage>         usage;
+    vec2u32                     extent;
+    GpuFormat                   format;
+    Flags<GpuImageUsage>        usage;
     const GpuFormatModifierSet* modifiers;
 };
 

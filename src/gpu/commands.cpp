@@ -88,7 +88,7 @@ auto submit_info(GpuBinarySemaphore* semaphore, VkPipelineStageFlags2 stages) ->
     };
 }
 
-GpuSyncpoint gpu_flush(Gpu* gpu)
+auto gpu_flush(Gpu* gpu) -> GpuSyncpoint
 {
     auto* commands = gpu->queue.commands.get();
 

@@ -9,7 +9,7 @@
 #include "client.hpp"
 
 static
-int get_loop_fd(wl_display* display)
+auto get_loop_fd(wl_display* display) -> int
 {
     return wl_event_loop_get_fd(wl_display_get_event_loop(display));
 }
@@ -91,7 +91,7 @@ auto way_get_elapsed(WayServer* server) -> std::chrono::steady_clock::duration
     return std::chrono::steady_clock::now() - server->epoch;
 }
 
-wl_global* way_global_interface(WayServer* server, const wl_interface* interface, i32 version, wl_global_bind_func_t bind, WayObject* data)
+auto way_global_interface(WayServer* server, const wl_interface* interface, i32 version, wl_global_bind_func_t bind, WayObject* data) -> wl_global*
 {
     debug_assert(version <= interface->version);
     return wl_global_create(server->wl_display, interface, version, data ?: server, bind);

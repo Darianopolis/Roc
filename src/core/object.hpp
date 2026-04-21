@@ -43,7 +43,7 @@ auto registry_allocate(u8 bin) -> Allocation*;
 void registry_free(Allocation*, u8 bin);
 
 constexpr
-u8   registry_get_bin_index(usz size)
+auto registry_get_bin_index(usz size) -> u8
 {
     return std::countr_zero(round_up_power2(size + sizeof(Allocation)));
 }
@@ -51,7 +51,7 @@ u8   registry_get_bin_index(usz size)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* object_create_uninitialized()
+auto object_create_uninitialized() -> T*
 {
     static constexpr auto bin = registry_get_bin_index(sizeof(T));
     auto header = registry_allocate(bin);
@@ -65,7 +65,7 @@ T* object_create_uninitialized()
 }
 
 template<typename T>
-T* object_create_unsafe(auto&&... args)
+auto object_create_unsafe(auto&&... args) -> T*
 {
     return new (object_create_uninitialized<T>()) T(std::forward<decltype(args)>(args)...);
 }
@@ -80,14 +80,14 @@ void object_destroy(void* v)
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* object_add_ref(T* t)
+auto object_add_ref(T* t) -> T*
 {
     if (t) allocation_from(t)->ref_count++;
     return t;
 }
 
 template<typename T>
-T* object_remove_ref(T* t)
+auto object_remove_ref(T* t) -> T*
 {
     if (!t) return nullptr;
     auto header = allocation_from(t);
@@ -143,7 +143,7 @@ struct Ref
         value = object_add_ref(t);
     }
 
-    Ref& operator=(T* t)
+    auto& operator=(T* t)
     {
         reset(t);
         return *this;
@@ -153,7 +153,7 @@ struct Ref
         : value(object_add_ref(other.value))
     {}
 
-    Ref& operator=(const Ref& other)
+    auto& operator=(const Ref& other)
     {
         if (value != other.value) {
             object_remove_ref(value);
@@ -166,7 +166,7 @@ struct Ref
         : value(std::exchange(other.value, nullptr))
     {}
 
-    Ref& operator=(Ref&& other)
+    auto& operator=(Ref&& other)
     {
         if (value != other.value) {
             object_remove_ref(value);
@@ -178,11 +178,11 @@ struct Ref
     // Queries
 
     template<typename T2>
-    bool operator==(const Ref<T2>& other) const { return value == other.value; };
+    auto operator==(const Ref<T2>& other) const -> bool { return value == other.value; };
 
-    explicit operator bool() const { return value; }
-    T*                 get() const { return value; }
-    T*          operator->() const { return value; }
+    explicit operator bool() const       { return value; }
+    auto               get() const -> T* { return value; }
+    auto        operator->() const -> T* { return value; }
 
     // Conversions
 
@@ -225,7 +225,7 @@ struct Weak
         version = value ? allocation_from(value)->version : 0;
     }
 
-    Weak& operator=(T* t)
+    auto& operator=(T* t)
     {
         reset(t);
         return *this;
@@ -233,14 +233,14 @@ struct Weak
 
     // Queries
 
-    bool operator==(const Weak& other) const = default;
+    auto operator==(const Weak& other) const -> bool = default;
 
     template<typename T2>
-    bool operator==(const Weak<T2>& other) const { return value == other.value && version == other.version; };
+    auto operator==(const Weak<T2>& other) const -> bool { return value == other.value && version == other.version; };
 
-    explicit operator bool() const { return value && allocation_from(value)->version == version; }
-    T*                 get() const { return *this ? value : nullptr; }
-    T*          operator->() const { return value; }
+    explicit operator bool() const       { return value && allocation_from(value)->version == version; }
+    auto               get() const -> T* { return *this ? value : nullptr; }
+    auto        operator->() const -> T* { return value; }
 
     // Conversions
 

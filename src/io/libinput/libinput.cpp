@@ -15,7 +15,7 @@ static constexpr libinput_interface io_libinput_interface {
 };
 
 static
-int handle_libinput_readable(IoContext* io)
+auto handle_libinput_readable(IoContext* io) -> int
 {
     unix_check<libinput_dispatch>(io->libinput->libinput);
 

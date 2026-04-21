@@ -14,7 +14,7 @@ enum class LogLevel : u32
 };
 
 auto log_get_level() -> LogLevel;
-bool log_is_enabled(LogLevel);
+auto log_is_enabled(LogLevel) -> bool;
 void log_init(      LogLevel, const char* log_file);
 void log(           LogLevel, std::string_view message);
 
@@ -28,7 +28,7 @@ struct LogEntry
     u32 lines;
     const struct Stacktrace* stacktrace;
 
-    std::string_view message() const noexcept;
+    auto message() const noexcept -> std::string_view;
 };
 
 struct LogHistory
@@ -38,13 +38,13 @@ struct LogHistory
     u32 lines;
     usz buffer_size;
 
-    const LogEntry* find(u32 line) const noexcept;
+    auto find(u32 line) const noexcept -> const LogEntry*;
 };
 
 auto log_history_get() -> LogHistory;
 void log_history_enable(bool enabled);
 void log_history_add_listener(std::move_only_function<void(LogEntry*)>);
-bool log_history_is_enabled();
+auto log_history_is_enabled() -> bool;
 void log_history_clear();
 
 template<typename ...Args>

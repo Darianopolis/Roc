@@ -46,7 +46,7 @@ void reflow_outputs(WindowManager* wm, bool any_changed = false)
 }
 
 static
-WmOutput* find_output_for_io(WindowManager* wm, IoOutput* io_output)
+auto find_output_for_io(WindowManager* wm, IoOutput* io_output) -> WmOutput*
 {
     for (auto* output : wm->io.outputs) {
         if (output->io == io_output) {
@@ -142,7 +142,7 @@ void handle_key(WindowManager* wm, Seat* seat, const IoInputEvent& event, const 
 }
 
 static
-vec2f32 apply_accel(vec2f32 delta)
+auto apply_accel(vec2f32 delta) -> vec2f32
 {
     static constexpr f32 offset     = 2.f;
     static constexpr f32 rate       = 0.05f;

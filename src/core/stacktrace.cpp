@@ -1,7 +1,7 @@
 #include "stacktrace.hpp"
 #include "debug.hpp"
 
-std::pair<const Stacktrace*, bool> StacktraceCache::insert(const std::stacktrace& st)
+auto StacktraceCache::insert(const std::stacktrace& st) -> std::pair<const Stacktrace*, bool>
 {
     auto& entry = traces[st];
     bool added = entry.size() != st.size();

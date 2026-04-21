@@ -57,7 +57,7 @@ void place(wl_client* client, wl_resource* resource, wl_resource* sibling)
 }
 
 static
-bool is_synchronized(WaySurface* surface)
+auto is_synchronized(WaySurface* surface) -> bool
 {
     if (surface->role != WaySurfaceRole::subsurface) return false;
     return surface->subsurface.synchronized || (surface->parent && is_synchronized(surface->parent.get()));

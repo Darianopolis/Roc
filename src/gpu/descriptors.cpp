@@ -84,7 +84,7 @@ GpuDescriptorIdAllocator::GpuDescriptorIdAllocator(u32 count)
     debug_assert(count <= std::numeric_limits<GpuDescriptorId::underlying_type>::max());
 }
 
-GpuDescriptorId GpuDescriptorIdAllocator::allocate()
+auto GpuDescriptorIdAllocator::allocate() -> GpuDescriptorId
 {
     if (!freelist.empty()) {
         auto id = freelist.back();

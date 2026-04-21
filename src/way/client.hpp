@@ -27,6 +27,6 @@ struct WayClient : WayObject
 
 void way_on_client_create(wl_listener*, void* data);
 
-WayClient* way_client_from(WayServer*, const wl_client*);
+auto way_client_from(WayServer*, const wl_client*) -> WayClient*;
 
 auto way_client_is_behind(WayClient*) -> bool;

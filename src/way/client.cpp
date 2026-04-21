@@ -82,7 +82,7 @@ WayClient::~WayClient()
     std::erase(server->client.list, this);
 }
 
-WayClient* way_client_from(WayServer* server, const wl_client* client)
+auto way_client_from(WayServer* server, const wl_client* client) -> WayClient*
 {
     // NOTE: `wl_client_get_user_data` does not actually require a non-const client.
     return way_get_userdata<WayClient>(wl_client_get_user_data(const_cast<wl_client*>(client)));

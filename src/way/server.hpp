@@ -80,6 +80,6 @@ void way_post_error(WayServer* server, wl_resource* resource, u32 code, std::for
 
 // -----------------------------------------------------------------------------
 
-wl_global* way_global_interface(WayServer*, const wl_interface*, i32 version, wl_global_bind_func_t, WayObject* data = nullptr);
+auto way_global_interface(WayServer*, const wl_interface*, i32 version, wl_global_bind_func_t, WayObject* data = nullptr) -> wl_global*;
 #define way_global(Server, Interface, ...) \
     way_global_interface(Server, &Interface##_interface, way_##Interface##_version, way_##Interface##_bind_global __VA_OPT__(,) __VA_ARGS__)

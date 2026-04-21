@@ -3,7 +3,7 @@
 #include "debug.hpp"
 #include "log.hpp"
 
-bool fd_are_same(int fd0, int fd1)
+auto fd_are_same(int fd0, int fd1) -> bool
 {
     struct stat st0 = {};
     if (unix_check<fstat>(fd0, &st0).err()) return false;
@@ -14,7 +14,7 @@ bool fd_are_same(int fd0, int fd1)
     return st0.st_ino == st1.st_ino;
 }
 
-int fd_dup_unsafe(int fd)
+auto fd_dup_unsafe(int fd) -> int
 {
     if (fd < 0) return {};
 
@@ -110,7 +110,7 @@ auto fd_extract(int fd) -> int
     return fd;
 }
 
-int Fd::extract() noexcept
+auto Fd::extract() noexcept -> int
 {
     return fd_extract(std::exchange(fd, -1));
 }

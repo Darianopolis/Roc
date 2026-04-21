@@ -50,7 +50,7 @@ struct std::formatter<FmtBytes> {
 // -----------------------------------------------------------------------------
 
 template<typename T>
-T* byte_offset_pointer(void* source, isz offset)
+auto byte_offset_pointer(void* source, isz offset) -> T*
 {
     return reinterpret_cast<T*>(reinterpret_cast<byte*>(source) + offset);
 }
@@ -58,7 +58,7 @@ T* byte_offset_pointer(void* source, isz offset)
 // -----------------------------------------------------------------------------
 
 inline
-usz compute_geometric_growth(usz current_size, usz new_min_size)
+auto compute_geometric_growth(usz current_size, usz new_min_size) -> usz
 {
     usz geometric = current_size + (current_size >> 1);
     return std::max(geometric, new_min_size);
@@ -68,7 +68,7 @@ usz compute_geometric_growth(usz current_size, usz new_min_size)
 
 template<typename T>
 constexpr
-T align_up_power2(T v, u64 align) noexcept
+auto align_up_power2(T v, u64 align) noexcept -> T
 {
     return T((u64(v) + (align - 1)) &~ (align - 1));
 }

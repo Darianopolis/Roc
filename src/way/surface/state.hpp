@@ -33,10 +33,10 @@ struct WayState
     static_assert(sizeof(u32) * CHAR_BIT >
         std::to_underlying(*std::ranges::max_element(magic_enum::enum_values<Component>())));
 
-    bool is_set(  Component component) const { return committed.set   & (1 << std::to_underlying(component)); }
-    bool is_unset(Component component) const { return committed.unset & (1 << std::to_underlying(component)); }
+    auto is_set(  Component component) const -> bool { return committed.set   & (1 << std::to_underlying(component)); }
+    auto is_unset(Component component) const -> bool { return committed.unset & (1 << std::to_underlying(component)); }
 
-    bool empty() const { return !committed.set && !committed.unset; }
+    auto empty() const -> bool { return !committed.set && !committed.unset; }
 
     void set(Component component)
     {
@@ -83,7 +83,7 @@ struct WayStateQueue
         pending = ref_create<T>();
     }
 
-    T* commit(WayCommitId id)
+    auto commit(WayCommitId id) -> T*
     {
         if (pending->empty()) {
             return nullptr;

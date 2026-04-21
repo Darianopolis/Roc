@@ -3,7 +3,7 @@
 #include <core/stack.hpp>
 #include <core/util.hpp>
 
-VkImageUsageFlags gpu_image_usage_to_vk(Flags<GpuImageUsage> usage)
+auto gpu_image_usage_to_vk(Flags<GpuImageUsage> usage) -> VkImageUsageFlags
 {
     VkImageUsageFlags vk_usage = {};
     if (usage.contains(GpuImageUsage::storage))      vk_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -14,7 +14,7 @@ VkImageUsageFlags gpu_image_usage_to_vk(Flags<GpuImageUsage> usage)
     return vk_usage;
 }
 
-VkFormatFeatureFlags gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usage)
+auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usage) -> VkFormatFeatureFlags
 {
     VkFormatFeatureFlags features = {};
     if (usage.contains(GpuImageUsage::storage)) features |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
@@ -32,7 +32,7 @@ VkFormatFeatureFlags gpu_get_required_format_features(GpuFormat format, Flags<Gp
 }
 
 static
-VkImageAspectFlagBits gpu_plane_to_aspect(u32 i)
+auto gpu_plane_to_aspect(u32 i) -> VkImageAspectFlagBits
 {
     return std::array {
         VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT,
@@ -50,7 +50,7 @@ GpuImageBase::~GpuImageBase()
 }
 
 static
-GpuImageBase* get_base(GpuImage* image)
+auto get_base(GpuImage* image) -> GpuImageBase*
 {
     return static_cast<GpuImageBase*>(image->base());
 }
@@ -87,7 +87,7 @@ gpu_image_vma::~gpu_image_vma()
     vmaDestroyImage(gpu->vma, handle(), vma.allocation);
 }
 
-Ref<GpuImage> gpu_image_create(Gpu* gpu, const GpuImageCreateInfo& info)
+auto gpu_image_create(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<GpuImage>
 {
     if (info.modifiers) {
         return gpu_image_create_dmabuf(gpu, info);
@@ -127,7 +127,7 @@ Ref<GpuImage> gpu_image_create(Gpu* gpu, const GpuImageCreateInfo& info)
 }
 
 static
-VkCommandBuffer get_cmdbuf(Gpu* gpu)
+auto get_cmdbuf(Gpu* gpu) -> VkCommandBuffer
 {
     return gpu_get_commands(gpu)->buffer;
 }
@@ -239,7 +239,7 @@ auto gpu_image_compute_linear_offset(GpuFormat format, vec2u32 pos, u32 row_stri
 
 // -----------------------------------------------------------------------------
 
-Ref<GpuSampler> gpu_sampler_create(Gpu* gpu, const GpuSamplerCreateInfo& info)
+auto gpu_sampler_create(Gpu* gpu, const GpuSamplerCreateInfo& info) -> Ref<GpuSampler>
 {
     Ref sampler = ref_create<GpuSampler>();
     sampler->gpu = gpu;
@@ -275,7 +275,7 @@ GpuSampler::~GpuSampler()
 
 // -----------------------------------------------------------------------------
 
-u32 gpu_find_vk_memory_type_index(Gpu* gpu, u32 type_filter, VkMemoryPropertyFlags properties)
+auto gpu_find_vk_memory_type_index(Gpu* gpu, u32 type_filter, VkMemoryPropertyFlags properties) -> u32
 {
     VkPhysicalDeviceMemoryProperties props;
     gpu->vk.GetPhysicalDeviceMemoryProperties(gpu->physical_device, &props);
@@ -317,7 +317,7 @@ gpu_image_dmabuf::~gpu_image_dmabuf()
     }
 }
 
-Ref<GpuImage> gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info)
+auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<GpuImage>
 {
     auto image = ref_create<gpu_image_dmabuf>();
     image->gpu = gpu;
@@ -402,7 +402,7 @@ Ref<GpuImage> gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info)
     return image;
 }
 
-GpuDmaParams gpu_image_export(GpuImage* _image)
+auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
 {
     auto* image = dynamic_cast<gpu_image_dmabuf*>(_image->base());
     debug_assert(image);
@@ -456,7 +456,7 @@ GpuDmaParams gpu_image_export(GpuImage* _image)
     return params;
 }
 
-Ref<GpuImage> gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage> usage)
+auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage> usage) -> Ref<GpuImage>
 {
     debug_assert(!usage.empty());
 

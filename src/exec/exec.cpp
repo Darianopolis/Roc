@@ -6,7 +6,7 @@
 // -----------------------------------------------------------------------------
 
 static
-u32 to_epoll_events(Flags<FdEventBit> events)
+auto to_epoll_events(Flags<FdEventBit> events) -> u32
 {
     u32 out = 0;
     if (events.contains(FdEventBit::readable)) out |= EPOLLIN;
@@ -15,7 +15,7 @@ u32 to_epoll_events(Flags<FdEventBit> events)
 }
 
 static
-Flags<FdEventBit> from_epoll_events(u32 events)
+auto from_epoll_events(u32 events) -> Flags<FdEventBit>
 {
     Flags<FdEventBit> out = {};
     if (events & EPOLLIN)  out |= FdEventBit::readable;
@@ -68,7 +68,7 @@ void handle_timer(ExecContext* exec, int fd)
     }
 }
 
-Ref<ExecContext> exec_create()
+auto exec_create() -> Ref<ExecContext>
 {
     auto exec = ref_create<ExecContext>();
 

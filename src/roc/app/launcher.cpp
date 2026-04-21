@@ -42,7 +42,7 @@ RocLauncher::~RocLauncher()
 }
 
 static
-bool match_string(std::string haystack, std::string needle)
+auto match_string(std::string haystack, std::string needle) -> bool
 {
     if (needle.empty()) return true;
 

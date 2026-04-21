@@ -8,14 +8,14 @@
 // -----------------------------------------------------------------------------
 
 template<typename T>
-std::span<T> way_to_span(wl_array* array)
+auto way_to_span(wl_array* array) -> std::span<T>
 {
     usz count = array->size / sizeof(T);
     return std::span<T>(static_cast<T*>(array->data), count);
 }
 
 template<typename T>
-wl_array way_to_wl_array(std::span<T> span)
+auto way_to_wl_array(std::span<T> span) -> wl_array
 {
     return wl_array {
         .size = span.size_bytes(),
@@ -32,7 +32,7 @@ struct WayObject
 };
 
 template<typename T>
-T* way_get_userdata(void* data)
+auto way_get_userdata(void* data) -> T*
 {
     auto* base = static_cast<WayObject*>(data);
     if (!base) return nullptr;
@@ -45,7 +45,7 @@ T* way_get_userdata(void* data)
 }
 
 template<typename T>
-T* way_get_userdata(wl_resource* resource)
+auto way_get_userdata(wl_resource* resource) -> T*
 {
     return resource ? way_get_userdata<T>(wl_resource_get_user_data(resource)) : nullptr;
 }
@@ -84,7 +84,7 @@ public:
         }
     }
 
-    WayResource& operator=(wl_resource* other)
+    auto& operator=(wl_resource* other)
     {
         reset(other);
         return *this;
@@ -160,18 +160,18 @@ class WayResourceList
     {
         const ListNode* current;
 
-        Iterator& operator++()
+        auto operator++() -> Iterator&
         {
             current = current->next;
             return *this;
         }
 
-        bool operator==(const Iterator& other) const
+        auto operator==(const Iterator& other) const -> bool
         {
             return current == other.current;
         }
 
-        wl_resource* operator*() const
+        auto operator*() const -> wl_resource*
         {
             return current->resource;
         }
@@ -222,17 +222,17 @@ public:
         other.root.prev = &other.root;
     }
 
-    wl_resource* front() const
+    auto front() const -> wl_resource*
     {
         return root.next ? root.next->resource : nullptr;
     }
 
-    Iterator begin() const
+    auto begin() const -> Iterator
     {
         return Iterator{root.next};
     }
 
-    Iterator end() const
+    auto end() const -> Iterator
     {
         return Iterator{&root};
     }
@@ -262,13 +262,13 @@ struct WayListener
     }
 
     template<typename T>
-    T* get() const
+    auto get() const -> T*
     {
         return way_get_userdata<T>(data);
     }
 
     static
-    WayListener& from(wl_listener* listener)
+    auto from(wl_listener* listener) -> WayListener&
     {
         WayListener* WayListener = wl_container_of(listener, WayListener, listener);
         return *WayListener;
@@ -276,7 +276,7 @@ struct WayListener
 };
 
 template<typename T>
-T* way_get_userdata(wl_listener* listener)
+auto way_get_userdata(wl_listener* listener) -> T*
 {
     return WayListener::from(listener).get<T>();
 }
@@ -323,10 +323,10 @@ struct WayBindGlobalData
 
 // -----------------------------------------------------------------------------
 
-wl_resource* way_resource_create(wl_client*, const wl_interface*, int version, int id, const void* impl, WayObject*, bool refcount);
+auto way_resource_create(wl_client*, const wl_interface*, int version, int id, const void* impl, WayObject*, bool refcount) -> wl_resource*;
 
 inline
-wl_resource* way_resource_create(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, WayObject* object, bool refcount)
+auto way_resource_create(wl_client* client, const wl_interface* interface, wl_resource* parent, int id, const void* impl, WayObject* object, bool refcount) -> wl_resource*
 {
     return way_resource_create(client, interface, wl_resource_get_version(parent), id, impl, object, refcount);
 }

@@ -5,7 +5,7 @@
 #include "way/way.hpp"
 #include "way/surface/surface.hpp"
 
-int main()
+auto main() -> int
 {
     Roc roc = {};
 

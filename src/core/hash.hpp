@@ -3,7 +3,7 @@
 #include "types.hpp"
 
 inline
-u64 hash_mix(u64 x)
+auto hash_mix(u64 x) -> u64
 {
     // From boost
     // https://github.com/boostorg/container_hash/blob/060d4aea6b5b59d2c9146b7d8e994735b2c0a582/include/boost/container_hash/detail/hash_mix.hpp#L67-L81
@@ -20,7 +20,7 @@ u64 hash_mix(u64 x)
 }
 
 template<typename T>
-usz hash_single(const T& v)
+auto hash_single(const T& v) -> usz
 {
     return std::hash<T>{}(v);
 }
@@ -43,7 +43,7 @@ void hash_range(usz& seed, auto start, auto end)
 }
 
 inline
-usz hash_range(auto start, auto end)
+auto hash_range(auto start, auto end) -> usz
 {
     usz seed = 0;
     hash_range(seed, start, end);
@@ -51,7 +51,7 @@ usz hash_range(auto start, auto end)
 }
 
 inline
-usz hash_range(auto&& range)
+auto hash_range(auto&& range) -> usz
 {
     usz seed = 0;
     hash_range(seed, std::begin(range), std::end(range));
@@ -60,11 +60,11 @@ usz hash_range(auto&& range)
 
 #define MAKE_RANGE_HASHABLE(Type) \
     template<> struct std::hash<Type> { \
-        usz operator()(const Type& v) { return hash_range(v.begin(), v.end()); } \
+        auto operator()(const Type& v) -> usz { return hash_range(v.begin(), v.end()); } \
     };
 
 inline
-usz hash_variadic(const auto& first, const auto&... rest)
+auto hash_variadic(const auto& first, const auto&... rest) -> usz
 {
     usz seed = hash_single(first);
     (hash_combine(seed, rest), ...);
@@ -73,5 +73,5 @@ usz hash_variadic(const auto& first, const auto&... rest)
 
 #define MAKE_STRUCT_HASHABLE(Type, ...) \
     template<> struct std::hash<Type> { \
-        usz operator()(const Type& v) { return hash_variadic(__VA_ARGS__); } \
+        auto operator()(const Type& v) -> usz { return hash_variadic(__VA_ARGS__); } \
     };

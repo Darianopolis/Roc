@@ -1,7 +1,7 @@
 #include "util.hpp"
 #include "debug.hpp"
 
-bool process_has_cap(cap_value_t cap)
+auto process_has_cap(cap_value_t cap) -> bool
 {
     cap_t caps = unix_check<cap_get_proc>().value;
     if (!caps) return false;
