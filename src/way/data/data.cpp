@@ -86,11 +86,11 @@ void start_drag(
     wl_resource* icon_surface,
     u32 serial)
 {
-    auto* client = way_get_userdata<WayClient>(data_device);
+    auto* client = way_get_userdata<WaySeatClient>(data_device);
     log_error("TODO - wl_data_device{{{}}}::start_drag", (void*)data_device);
     if (data_source) {
         log_error("     - cancelling drag for wl_data_source{{{}}}", (void*)data_source);
-        way_send(client->server, wl_data_source_send_cancelled, data_source);
+        way_send(client->seat->server, wl_data_source_send_cancelled, data_source);
     }
 }
 
