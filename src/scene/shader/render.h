@@ -12,6 +12,8 @@ struct SceneVertex
 
 GPU_CONST_PTR_DECLARE(SceneVertex);
 
+#define SCENE_DRAW_FLAG_PREMULTIPLIED (u32(1) << 0)
+
 struct SceneRenderInput
 {
     GPU_CONST_PTR(SceneVertex) vertices;
@@ -21,6 +23,7 @@ struct SceneRenderInput
     rect2f32 clip;
     vec4f32 radius;
     f32 opacity;
+    u32 flags;
 };
 
 #endif // SCENE_RENDER_H

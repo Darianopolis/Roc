@@ -196,17 +196,24 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         scissor.origin -= viewport.origin;
         pass.set_scissors({scissor});
 
+        pass.set_blend_state({GpuBlendMode::premultiplied});
+
         pass.bind_shaders({scene->render.vertex.get(), scene->render.fragment.get()});
         pass.bind_index_buffer(gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {
-            pass.set_blend_state({draw.blend});
 
             rect2f32 clip = draw.clip;
             clip.extent /= 2.f;
             clip.origin += clip.extent - viewport.origin;
 
             auto draw_scale = 2.f / viewport.extent;
+
+            u32 flags = 0;
+            if (draw.blend == GpuBlendMode::premultiplied) {
+                flags |= SCENE_DRAW_FLAG_PREMULTIPLIED;
+            }
+
             pass.push_constants(0, view_bytes(SceneRenderInput {
                 .vertices = gpu_vertices.device(),
                 .scale = draw_scale,
@@ -214,6 +221,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
                 .texture = {draw.image, render.sampler.get()},
                 .clip = clip,
                 .opacity = draw.opacity,
+                .flags = flags,
             }));
 
             pass.draw_indexed({

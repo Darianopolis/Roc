@@ -21,10 +21,12 @@ f32 sdf_rounded_box(vec2f32 p, vec2f32 b, vec4f32 r)
 void main()
 {
     f32 s = sdf_rounded_box(gl_FragCoord.xy - si.clip.origin, si.clip.extent, si.radius);
-    f32 m = clamp(0.5 - s, 0, 1);
-    if (m == 0) discard;
+    f32 coverage = clamp(0.5 - s, 0, 1) * si.opacity;
+    if (coverage == 0) discard;
 
-    vec4f32 color = image_sample(si.texture, in_uv) * in_color * m;
-    color.a *= si.opacity;
-    out_color = color;
+    vec4f32 color = image_sample(si.texture, in_uv) * in_color;
+    if ((si.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) == 0) {
+        color.rgb *= color.a;
+    }
+    out_color = color * coverage;
 }
