@@ -14,7 +14,7 @@ struct Scene
         Ref<GpuShader> vertex;
         Ref<GpuShader> fragment;
         Ref<GpuImage> white;
-        Ref<GpuSampler> sampler;
+        Ref<GpuSampler> nearest;
     } render;
 
     Ref<SceneTree> root;

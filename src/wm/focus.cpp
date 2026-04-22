@@ -121,7 +121,7 @@ auto filter_event(WindowManager* wm, SeatEvent* event) -> SeatEventFilterResult
 
 void wm_init_focus_cycle(WindowManager* wm)
 {
-    wm->focus.filter = seat_add_input_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
+    wm->focus.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
         return filter_event(wm, event);
     });
 }
@@ -140,13 +140,13 @@ void wm_arrange_windows(WindowManager* wm)
 
         bool faded = wm->mode == WmInteractionMode::focus_cycle && window != wm->focus.cycled.get();
         f32 opacity = faded ? 0.1f : 1.f;
-        scene_tree_set_opacity(window->tree.get(), opacity);
+        scene_tree_set_opacity(window->root_tree.get(), opacity);
 
-        order.emplace_back(window->tree.get());
+        order.emplace_back(window->root_tree.get());
     }
     if (wm->mode == WmInteractionMode::focus_cycle && wm->focus.cycled) {
-        scene_tree_set_opacity(wm->focus.cycled->tree.get(), 1.f);
-        order.emplace_back(wm->focus.cycled->tree.get());
+        scene_tree_set_opacity(wm->focus.cycled->root_tree.get(), 1.f);
+        order.emplace_back(wm->focus.cycled->root_tree.get());
     }
     scene_tree_replace(wm_get_layer(wm, WmLayer::window), order);
 }

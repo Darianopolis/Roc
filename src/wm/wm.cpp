@@ -29,6 +29,8 @@ auto wm_create(const WindowManagerCreateInfo& info) -> Ref<WindowManager>
     wm_init_zone(wm.get());
     wm_init_focus_cycle(wm.get());
 
+    wm_decoration_init(wm.get());
+
     return wm;
 }
 

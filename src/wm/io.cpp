@@ -42,6 +42,9 @@ void reflow_outputs(WindowManager* wm, bool any_changed = false)
         wm_post_output_event(wm, ptr_to(WmOutputEvent {
             .type = WmEventType::output_layout,
         }));
+        for (auto* output : wm->io.outputs) {
+            output->io->request_frame();
+        }
     }
 }
 

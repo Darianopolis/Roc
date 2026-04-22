@@ -157,7 +157,7 @@ auto roc_init_launcher(Roc* roc) -> Ref<void>
         frame(launcher);
     });
 
-    launcher->event_filter = seat_add_input_event_filter(wm_get_seat(roc->wm), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
+    launcher->event_filter = seat_add_event_filter(wm_get_seat(roc->wm), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
         if (event->type != SeatEventType::keyboard_key) return {};
 
         auto key = event->keyboard.key;

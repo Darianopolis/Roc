@@ -226,4 +226,4 @@ enum class SeatEventFilterResult
 
 struct SeatEventFilter;
 
-auto seat_add_input_event_filter(Seat*, std::move_only_function<SeatEventFilterResult(SeatEvent*)>) -> Ref<SeatEventFilter>;
+auto seat_add_event_filter(Seat*, std::move_only_function<SeatEventFilterResult(SeatEvent*)>) -> Ref<SeatEventFilter>;

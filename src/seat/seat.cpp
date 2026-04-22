@@ -40,25 +40,36 @@ auto seat_get_pointer(Seat* seat) -> SeatPointer*
 
 // -----------------------------------------------------------------------------
 
-auto seat_add_input_event_filter(Seat* seat, std::move_only_function<SeatEventFilterResult(SeatEvent*)> fn) -> Ref<SeatEventFilter>
+auto seat_add_event_filter(Seat* seat, std::move_only_function<SeatEventFilterResult(SeatEvent*)> fn) -> Ref<SeatEventFilter>
 {
     auto filter = ref_create<SeatEventFilter>();
     filter->seat = seat;
     filter->filter = std::move(fn);
-    seat->input_event_filters.emplace_back(filter.get());
+    seat->event_filters.emplace_back(filter.get());
     return filter;
 }
 
 SeatEventFilter::~SeatEventFilter()
 {
     if (seat) {
-        std::erase(seat->input_event_filters, this);
+        std::erase(seat->event_filters, this);
     }
+}
+
+void seat_post_event(Seat* seat, SeatClient* client, SeatEvent* event)
+{
+    for (auto* filter : seat->event_filters) {
+        if (filter->filter(event) == SeatEventFilterResult::capture) {
+            return;
+        }
+    }
+
+    client->event_handler(event);
 }
 
 auto seat_post_input_event(Weak<SeatInputDevice> device, SeatEvent* event) -> bool
 {
-    for (auto* filter : device->seat->input_event_filters) {
+    for (auto* filter : device->seat->event_filters) {
         if (filter->filter(event) == SeatEventFilterResult::capture) {
             return false;
         }
@@ -66,7 +77,7 @@ auto seat_post_input_event(Weak<SeatInputDevice> device, SeatEvent* event) -> bo
 
     if (!device) return false;
     if (device->focus) {
-        seat_client_post_event(device->focus->client, event);
+        device->focus->client->event_handler(event);
         return true;
     }
 

@@ -28,7 +28,7 @@ void seat_pointer_focus(SeatPointer* pointer, SeatInputRegion* new_focus)
     pointer->focus = new_focus;
 
     if (old_client && old_client != new_client) {
-        seat_client_post_event(old_client, ptr_to(SeatEvent {
+        seat_post_event(pointer->seat, old_client, ptr_to(SeatEvent {
             .pointer = {
                 .type = SeatEventType::pointer_leave,
                 .pointer = pointer,
@@ -37,7 +37,7 @@ void seat_pointer_focus(SeatPointer* pointer, SeatInputRegion* new_focus)
     }
 
     if (new_client) {
-        seat_client_post_event(new_client, ptr_to(SeatEvent {
+        seat_post_event(pointer->seat, new_client, ptr_to(SeatEvent {
             .pointer = {
                 .type = SeatEventType::pointer_enter,
                 .pointer = pointer,

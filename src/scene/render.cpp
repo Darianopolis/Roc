@@ -26,9 +26,9 @@ void scene_render_init(Scene* scene)
 
     gpu_copy_memory_to_image(scene->render.white.get(), as_bytes(ptr_to(vec4u8{255, 255, 255, 255}), 4), {{{1, 1}}});
 
-    scene->render.sampler = gpu_sampler_create(scene->gpu, {
+    scene->render.nearest = gpu_sampler_create(scene->gpu, {
         .mag = VK_FILTER_NEAREST,
-        .min = VK_FILTER_LINEAR,
+        .min = VK_FILTER_NEAREST,
     });
 }
 
@@ -104,7 +104,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
                     minmax
                 }),
                 .image = segment.image.get() ?: render.white.get(),
-                .sampler = segment.sampler.get() ?: render.sampler.get(),
+                .sampler = segment.sampler.get() ?: render.nearest.get(),
                 .blend = segment.blend,
                 .position = pos + mesh->offset,
                 .opacity = get_opacity(mesh),
@@ -126,7 +126,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 
         auto* draw = get_draw(default_clip,
             texture->image.get()   ?: render.white.get(),
-            texture->sampler.get() ?: render.sampler.get(),
+            texture->sampler.get() ?: render.nearest.get(),
             texture->blend,
             {},
             get_opacity(texture));
@@ -218,7 +218,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
                 .vertices = gpu_vertices.device(),
                 .scale = draw_scale,
                 .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
-                .texture = {draw.image, render.sampler.get()},
+                .texture = {draw.image, draw.sampler},
                 .clip = clip,
                 .opacity = draw.opacity,
                 .flags = flags,

@@ -20,7 +20,7 @@ struct Seat
 
     Ref<SeatDataSource> selection;
 
-    std::vector<SeatEventFilter*> input_event_filters;
+    std::vector<SeatEventFilter*> event_filters;
 
     ~Seat();
 };
@@ -38,7 +38,7 @@ struct SeatClient
     ~SeatClient();
 };
 
-void seat_client_post_event(SeatClient*, SeatEvent*);
+void seat_post_event(Seat*, SeatClient*, SeatEvent*);
 
 // -----------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ struct SeatDataSource
     ~SeatDataSource();
 };
 
-void seat_offer_selection(SeatClient*, SeatDataSource*);
+void seat_offer_selection(Seat*, SeatClient*, SeatDataSource*);
 
 // -----------------------------------------------------------------------------
 

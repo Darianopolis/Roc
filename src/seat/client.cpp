@@ -17,8 +17,3 @@ void seat_client_set_event_handler(SeatClient* client, std::move_only_function<S
 {
     client->event_handler = std::move(event_handler);
 }
-
-void seat_client_post_event(SeatClient* client, SeatEvent* event)
-{
-    client->event_handler(event);
-}

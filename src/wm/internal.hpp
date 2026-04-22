@@ -60,6 +60,10 @@ struct WindowManager
     } hotkeys;
 
     struct {
+        RefVector<SeatEventFilter> filter;
+    } decoration;
+
+    struct {
         Ref<SeatEventFilter> filter;
         SeatPointer* pointer;
 
@@ -97,6 +101,10 @@ void wm_init_focus_cycle(WindowManager*);
 
 // -----------------------------------------------------------------------------
 
+void wm_decoration_init(WindowManager*);
+
+// -----------------------------------------------------------------------------
+
 void wm_arrange_windows(WindowManager*);
 
 // -----------------------------------------------------------------------------
@@ -110,7 +118,10 @@ struct WmWindow
 
     std::string title;
 
-    Ref<SceneTree> tree;
+    Ref<SceneTree> root_tree;
+    Ref<SceneTree> client_tree;
+
+    Ref<SceneTexture> borders;
 
     WmWindowListener listener;
 

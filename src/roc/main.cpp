@@ -160,6 +160,7 @@ auto main() -> int
                             .usage = GpuImageUsage::render
                         });
                         scene_render(scene, texture.get(), viewport);
+                        gpu_wait(gpu_flush(gpu.get()));
                     }
                     gpu->renderdoc->EndFrameCapture(nullptr, nullptr);
                 }

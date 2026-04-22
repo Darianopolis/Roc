@@ -17,7 +17,7 @@ static
 void offer_selection_to_focus(Seat* seat, SeatDataSource* source)
 {
     if (auto* focus = seat_keyboard_get_focus(seat->keyboard.get())) {
-        seat_offer_selection(focus->client, source);
+        seat_offer_selection(seat, focus->client, source);
     }
 }
 
@@ -39,9 +39,9 @@ SeatDataSource::~SeatDataSource()
 {
 }
 
-void seat_offer_selection(SeatClient* client, SeatDataSource* source)
+void seat_offer_selection(Seat* seat, SeatClient* client, SeatDataSource* source)
 {
-    seat_client_post_event(client, ptr_to(SeatEvent {
+    seat_post_event(seat, client, ptr_to(SeatEvent {
         .data {
             .type = SeatEventType::selection,
             .source = source,

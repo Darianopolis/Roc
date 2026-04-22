@@ -128,7 +128,7 @@ auto filter_event(WindowManager* wm, SeatEvent* event) -> SeatEventFilterResult
 
 void wm_init_movesize(WindowManager* wm)
 {
-    wm->movesize.filter = seat_add_input_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
+    wm->movesize.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
         return filter_event(wm, event);
     });
 }

@@ -211,7 +211,7 @@ auto filter_event(WindowManager* wm, SeatEvent* event) -> SeatEventFilterResult
 void wm_init_zone(WindowManager* wm)
 {
     wm->zone.texture = scene_texture_create();
-    wm->zone.filter = seat_add_input_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
+    wm->zone.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
         return filter_event(wm, event);
     });
 }
