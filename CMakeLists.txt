@@ -153,8 +153,7 @@ target_sources(core PRIVATE
     src/core/process.cpp
     src/core/debug.cpp
     src/core/id.cpp
-
-    src/exec/exec.cpp
+    src/core/exec.cpp
     )
 target_include_directories(core PUBLIC src)
 target_link_libraries(core PUBLIC

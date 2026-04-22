@@ -19,15 +19,16 @@ An experiment in writing a simple opinionated independent Wayland compositor, wi
 
 # Architecture
 
-Roc is organized roughly into three primary strata:
+Roc is organized roughly into three layers:
 
- - A collection of reusable components providing critical functionality. (`core`, `exec`, `gpu`, `io`, `scene`, `seat`)
- - A protocol independent window manager interface `wm`, and a simple internal UI framework `ui`.
- - A Wayland server implemented as a series of internal clients `way`, along with configuration and high-level shell components `roc`.
+ - A set of generic utilities `core`, and a GPU management layer `gpu`
+ - Components for managing I/O `io`, spatial layout and rendering `scene`, and input routing `seat`
+ - A protocol independent window manager interface `wm`, a simple internal UI framework `ui`, a Wayland server implemented as a series of internal clients `way`, and configuration and high-level shell components `roc`.
 
 ```
-core ─ exec ─ gpu ┬ scene ── seat ┬ wm ─ ui ─ way ─ roc
-                  └────── io ─────┘
+     ┌─────── seat ─┐      ┌ ui ─┐
+core ┴ gpu ┬─ scene ┼─ wm ─┤     ├─ roc
+           └─ io ───┘      └ way ┘
 ```
 
 ### `core` ─ Common Utilities
@@ -40,15 +41,7 @@ A collection of reusable components and helpers used throughout the project.
 - Object registry (intrusive allocation reference counting)
 - Structured logging (semantic + timestamp + stacktrace)
 - Linear algebra (vectors, aabbs, rects)
-
-### `exec` ─ Execution Contexts
-
-A lightweight execution framework that manages messaging, event dispatch, and file descriptor listening.
-
-- Separate execution context "threads"
-- File descriptor listeners
-- Event dispatch
-- Timed dispatch
+- Threaded "execution contexts" with task enqueue and file listening
 
 ### `gpu` ─ GPU
 
@@ -81,7 +74,6 @@ A spatial hierarchy providing hit-testing, damage tracking, and rendering logic.
 ### `seat` ─ Seat
 
 - Focus based input routing
-- Cursor theme management
 - Data management
    - Selection buffers
    - Drag and drop
@@ -164,4 +156,4 @@ Roc can take advantage of higher queue scheduling priority when given the NICE s
 - `-U` : Check and update dependencies (updates `build.json`)
 - `--asan` : Enable address sanitizer
 
-Build artifacts are placed into `.build/[debug|release](-asan)` depending on build parameters.
+Build artifacts are placed into `.build/[build-type]-[compiler]-[linker](-asan)`.

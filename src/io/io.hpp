@@ -2,7 +2,7 @@
 
 #include <core/object.hpp>
 
-#include <exec/exec.hpp>
+#include <core/exec.hpp>
 
 #include <gpu/gpu.hpp>
 
