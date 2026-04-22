@@ -2,22 +2,22 @@
     "dependencies": {
         "concurrent-queue": {
             "branch": "master",
-            "commit": "593df78ec309be7a7b456b3334025ccade1d2d66",
+            "commit": "9afb99746f0f5fc94ac8aef737053ae0481ba8d1",
             "repo": "https://github.com/cameron314/concurrentqueue.git"
         },
         "glm": {
             "branch": "master",
-            "commit": "e7970a8b26732f1b0df9690f7180546f8c30e48e",
+            "commit": "6f14f4792a0cde5d0cf2c910506724d61cb95834",
             "repo": "https://github.com/g-truc/glm.git"
         },
         "imgui": {
             "branch": "docking",
-            "commit": "148bd34a7e8106cd6e8dae8411a506a8e3e84f40",
+            "commit": "6b61e60e221817a5084c4576cc5bc42919142c5e",
             "repo": "https://github.com/ocornut/imgui.git"
         },
         "kde-protocols": {
             "branch": "master",
-            "commit": "7a2283e8184c25c9efe43dddacc90c565619824d",
+            "commit": "5dc6f353965edab79037b9ffaae53a2de2e2a494",
             "repo": "https://github.com/KDE/plasma-wayland-protocols.git"
         },
         "magic-enum": {
@@ -27,12 +27,12 @@
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "18e6d687721f1537e2dedc41ff4d508245e27e03",
+            "commit": "0384c64d81414d4422c7977a53f61d2f45cb2cc4",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
             "branch": "master",
-            "commit": "28d546d5eb77d4585506a20480f4de2e706dff4c",
+            "commit": "31c1ad37456438565541f4919958214b6e762fb4",
             "repo": "https://github.com/nothings/stb.git"
         },
         "unordered-dense": {
@@ -42,7 +42,7 @@
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "f07ffc2cf2cd356927dee964fc0a35b5cfaeb789",
+            "commit": "f6a6f7ab165cedbfa2a7d0c93fe27a2d01ce09c8",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         },
         "vulkan-memory-allocator": {
@@ -52,7 +52,7 @@
         },
         "vulkan-utility-libraries": {
             "branch": "main",
-            "commit": "5cbca997c1f916026670ffc8d6890ef9f1cd788d",
+            "commit": "e2f236b273bfcd9c665306fdd53451b923d659ab",
             "repo": "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
         }
     }
