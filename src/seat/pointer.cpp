@@ -85,7 +85,7 @@ void seat_pointer_button(SeatPointer* pointer, SeatInputCode code, bool pressed,
                     seat_get_keyboard(pointer->seat),
                     seat_pointer_get_focus(pointer));
             }
-        } else if (pressed) {
+        } else if (!pointer->focus && pressed) {
             seat_keyboard_focus(seat_get_keyboard(pointer->seat), nullptr);
         }
         if (!pressed) {
