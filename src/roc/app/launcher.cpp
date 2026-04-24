@@ -185,7 +185,11 @@ void launch(RocLauncher* launcher, WmLauncherApp& app)
     defer { g_object_unref(ctx); };
 
     g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", launcher->roc->way->socket_name.c_str());
-    g_app_launch_context_unsetenv(ctx, "DISPLAY");
+    if (!launcher->roc->xwayland_socket.empty()) {
+        g_app_launch_context_setenv(ctx, "DISPLAY", launcher->roc->xwayland_socket.c_str());
+    } else {
+        g_app_launch_context_unsetenv(ctx, "DISPLAY");
+    }
 
     GError* err = nullptr;
     if (!g_app_info_launch(app.app_info, nullptr, ctx, &err)) {

@@ -17,8 +17,11 @@ struct Roc
 
     std::filesystem::path app_share;
     std::filesystem::path wallpaper;
+
+    std::string xwayland_socket;
 };
 
+void roc_init_xwayland(          Roc*, int argc, char* argv[]);
 auto roc_init_launcher(          Roc*) -> Ref<void>;
 auto roc_init_log_viewer(        Roc*) -> Ref<void>;
 auto roc_init_simple_test_client(Roc*) -> Ref<void>;

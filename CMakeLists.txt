@@ -51,7 +51,7 @@ function(init_target target_name)
     endif()
     if(USE_ASAN)
         target_compile_options(${target_name} PUBLIC -fsanitize=address)
-        target_link_libraries( ${target_name} PUBLIC asan)
+        target_link_options(   ${target_name} PUBLIC -fsanitize=address)
     endif()
 endfunction()
 
@@ -328,6 +328,7 @@ target_link_libraries(way PUBLIC wm)
 init_executable(roc)
 target_sources(roc PRIVATE
     src/roc/main.cpp
+    src/roc/xwayland.cpp
     src/roc/app/log-viewer.cpp
     src/roc/app/launcher.cpp
     src/roc/app/background.cpp

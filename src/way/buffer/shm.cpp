@@ -128,7 +128,7 @@ WayShmPool::~WayShmPool()
 
 // -----------------------------------------------------------------------------
 
-#define NOISY_SHM_BUFFER_IMAGES 1
+#define NOISY_SHM_BUFFER_IMAGES 0
 
 static
 auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*

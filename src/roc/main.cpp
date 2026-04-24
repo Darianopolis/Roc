@@ -5,7 +5,7 @@
 #include "way/way.hpp"
 #include "way/surface/surface.hpp"
 
-auto main() -> int
+auto main(int argc, char* argv[]) -> int
 {
     log_set_file(PROGRAM_NAME ".log");
 
@@ -14,8 +14,14 @@ auto main() -> int
     // Config
 
     roc.app_share = std::filesystem::path(getenv("HOME")) / ".local/share" / PROGRAM_NAME;
-    roc.main_mod = SeatModifier::alt;
     roc.wallpaper = getenv("WALLPAPER");
+    if (getenv("WAYLAND_DISPLAY")) {
+        log_debug("Running nested!");
+        roc.main_mod = SeatModifier::alt;
+    } else {
+        log_debug("Running in direct session");
+        roc.main_mod = SeatModifier::super;
+    }
 
     // Systems
 
@@ -42,6 +48,8 @@ auto main() -> int
     auto _ = roc_init_background(&roc);
     auto _ = roc_init_launcher(&roc);
     auto _ = roc_init_log_viewer(&roc);
+
+    roc_init_xwayland(&roc, argc, argv);
 
     // Test client
 
