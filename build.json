@@ -12,7 +12,7 @@
         },
         "imgui": {
             "branch": "docking",
-            "commit": "6b61e60e221817a5084c4576cc5bc42919142c5e",
+            "commit": "417f5ed66ddabbec338d8ab0c7ea239ce894f334",
             "repo": "https://github.com/ocornut/imgui.git"
         },
         "kde-protocols": {
@@ -27,7 +27,7 @@
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "0384c64d81414d4422c7977a53f61d2f45cb2cc4",
+            "commit": "2287790c41b507cd6eda43cc78ed64162fdff3fa",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
@@ -52,7 +52,7 @@
         },
         "vulkan-utility-libraries": {
             "branch": "main",
-            "commit": "e2f236b273bfcd9c665306fdd53451b923d659ab",
+            "commit": "2c909c1ab6f9c6caba39a84a4887186b3fafdead",
             "repo": "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
         }
     }

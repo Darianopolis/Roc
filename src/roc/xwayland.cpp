@@ -7,7 +7,7 @@ void roc_init_xwayland(Roc* roc, int argc, char* argv[])
     std::vector<std::string> args;
     args.append_range(std::span(argv, argc));
 
-    if (auto iter = std::ranges::find(args, "--xwayland"); iter != args.end()) {
+    if (auto iter = std::ranges::find(args, std::string("--xwayland")); iter != args.end()) {
         auto socket = ++iter;
         if (socket == args.end()) {
             log_error("Expected XWayland socket name");

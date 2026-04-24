@@ -79,7 +79,7 @@ pkg_check_modules(libseat  REQUIRED IMPORTED_TARGET libseat)
 #       Git Dependencies
 # ------------------------------------------------------------------------------
 
-add_subdirectory(${VENDOR_DIR}/wayland EXCLUDE_FROM_ALL)
+add_subdirectory(.build/wayland EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
 

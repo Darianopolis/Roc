@@ -21,7 +21,7 @@ parser.add_argument("-R", "--release", action="store_true", help="Release")
 parser.add_argument("-I", "--install", action="store_true", help="Install")
 parser.add_argument("--asan", action="store_true", help="Enable Address Sanitizer")
 parser.add_argument("--system-linker", action="store_true", help="Use system linker (even if mold is available)")
-parser.add_argument("--use-gcc", action="store_true", help="Use GCC instead of Clang")
+parser.add_argument("--use-clang", action="store_true", help="Use GCC instead of Clang")
 args = parser.parse_args()
 
 # -----------------------------------------------------------------------------
@@ -41,7 +41,7 @@ dep_dirs = deps.fetch_deps(vendor_dir, cwd / "build.json", args.update)
 
 import scripts.wayland as wayland
 wayland.generate_wayland_protocols(
-    wayland_dir=vendor_dir / "wayland",
+    wayland_dir=build_dir / "wayland",
     deps=dep_dirs)
 
 # -----------------------------------------------------------------------------
@@ -105,7 +105,7 @@ def build(build_type, compiler, linker_type, install = None):
 
 use_mold = not args.system_linker and shutil.which("mold")
 
-build(build_type  = "Release" if args.release else "Debug",
-      compiler    = "gcc"     if args.use_gcc else "clang",
-      linker_type = "MOLD"    if use_mold     else "SYSTEM",
-      install     = "roc"     if args.install else None)
+build(build_type  = "Release" if args.release   else "Debug",
+      compiler    = "clang"   if args.use_clang else "gcc",
+      linker_type = "MOLD"    if use_mold       else "SYSTEM",
+      install     = "roc"     if args.install   else None)
