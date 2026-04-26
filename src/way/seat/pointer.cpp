@@ -52,6 +52,14 @@ auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
 }
 
 static
+void pointer_frame(WayServer* server, wl_resource* resource)
+{
+    if (wl_resource_get_version(resource) >= WL_POINTER_FRAME_SINCE_VERSION) {
+        way_send(wl_pointer, frame, resource);
+    }
+}
+
+static
 void pointer_leave_surface(WaySeatClient* seat_client, WaySurface* surface, WaySerial serial)
 {
     if (!surface->resource) return;
@@ -66,6 +74,9 @@ void way_seat_on_pointer_leave(WaySeatClient* seat_client, SeatEvent* event)
 
     if (auto* surface = seat->focus.pointer.get()) {
         pointer_leave_surface(seat_client, surface, way_next_serial(seat->server));
+        for (auto* resource : seat_client->pointers) {
+            pointer_frame(seat_client->seat->server, resource);
+        }
     }
 
     seat->focus.pointer = nullptr;
@@ -94,18 +105,11 @@ void way_seat_on_pointer_enter(WaySeatClient* seat_client, SeatEvent* event)
     auto pos = to_fixed(to_surface_pos(new_surface, seat_pointer_get_position(seat->pointer.scene)));
     for (auto* resource : seat_client->pointers) {
         way_send(wl_pointer, enter, resource, serial.value, new_surface->resource, pos.x, pos.y);
+        pointer_frame(server, resource);
     }
 }
 
 // -----------------------------------------------------------------------------
-
-static
-void pointer_frame(WayServer* server, wl_resource* resource)
-{
-    if (wl_resource_get_version(resource) >= WL_POINTER_FRAME_SINCE_VERSION) {
-        way_send(wl_pointer, frame, resource);
-    }
-}
 
 void way_seat_on_motion(WaySeatClient* seat_client, SeatEvent* event)
 {
