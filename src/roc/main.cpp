@@ -9,18 +9,18 @@ auto main(int argc, char* argv[]) -> int
 {
     log_set_file(PROGRAM_NAME ".log");
 
-    Roc roc = {};
+    Shell shell = {};
 
     // Config
 
-    roc.app_share = std::filesystem::path(getenv("HOME")) / ".local/share" / PROGRAM_NAME;
-    roc.wallpaper = getenv("WALLPAPER");
+    shell.app_share = std::filesystem::path(getenv("HOME")) / ".local/share" / PROGRAM_NAME;
+    shell.wallpaper = getenv("WALLPAPER");
     if (getenv("WAYLAND_DISPLAY")) {
         log_debug("Running nested!");
-        roc.main_mod = SeatModifier::alt;
+        shell.main_mod = SeatModifier::alt;
     } else {
         log_debug("Running in direct session");
-        roc.main_mod = SeatModifier::super;
+        shell.main_mod = SeatModifier::super;
     }
 
     // Systems
@@ -32,24 +32,24 @@ auto main(int argc, char* argv[]) -> int
         .exec = exec.get(),
         .gpu = gpu.get(),
         .io = io.get(),
-        .main_mod = roc.main_mod,
+        .main_mod = shell.main_mod,
     });
     auto scene = wm_get_scene(wm.get());
     auto way = way_create(exec.get(), gpu.get(), wm.get());
 
-    roc.exec = exec.get();
-    roc.gpu = gpu.get();
-    roc.way = way.get();
-    roc.io = io.get();
-    roc.wm = wm.get();
+    shell.exec = exec.get();
+    shell.gpu = gpu.get();
+    shell.way = way.get();
+    shell.io = io.get();
+    shell.wm = wm.get();
 
     // Applets
 
-    auto _ = roc_init_background(&roc);
-    auto _ = roc_init_launcher(&roc);
-    auto _ = roc_init_log_viewer(&roc);
+    auto _ = shell_init_background(&shell);
+    auto _ = shell_init_launcher(&shell);
+    auto _ = shell_init_log_viewer(&shell);
 
-    roc_init_xwayland(&roc, argc, argv);
+    shell_init_xwayland(&shell, argc, argv);
 
     // Test client
 
@@ -132,12 +132,12 @@ auto main(int argc, char* argv[]) -> int
     // ImGui
 
     std::string ui_text_edit = "Hello, world!";
-    auto ui = ui_create(gpu.get(), wm.get(), roc.app_share / "ui");
+    auto ui = ui_create(gpu.get(), wm.get(), shell.app_share / "ui");
     ui_set_frame_handler(ui.get(), [&] {
         ImGui::ShowDemoWindow();
 
         defer { ImGui::End(); };
-        if (ImGui::Begin("Roc")) {
+        if (ImGui::Begin("Shell")) {
 
             if (ImGui::Button("Shutdown")) {
                 io_stop(io.get());
@@ -159,7 +159,7 @@ auto main(int argc, char* argv[]) -> int
                 if (ImGui::Button("Capture")) {
                     static u32 capture = 0;
                     gpu->renderdoc->StartFrameCapture(nullptr, nullptr);
-                    gpu->renderdoc->SetCaptureTitle(std::format("Roc capture {}", ++capture).c_str());
+                    gpu->renderdoc->SetCaptureTitle(std::format("Shell capture {}", ++capture).c_str());
                     for (auto* output : wm_list_outputs(wm.get())) {
                         auto viewport = wm_output_get_viewport(output);
                         auto texture = gpu_image_create(gpu.get(), {

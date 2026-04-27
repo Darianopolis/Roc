@@ -1,6 +1,6 @@
 #include "roc.hpp"
 
-void roc_init_xwayland(Roc* roc, int argc, char* argv[])
+void shell_init_xwayland(Shell* shell, int argc, char* argv[])
 {
     std::vector<std::string> args;
     args.append_range(std::span(argv, argc));
@@ -14,10 +14,10 @@ void roc_init_xwayland(Roc* roc, int argc, char* argv[])
         log_debug("Launching xwayland-satellite instance, DISPLAY={}", *socket);
 
         if (fork() == 0) {
-            setenv("WAYLAND_DISPLAY", way_server_get_socket(roc->way), true);
+            setenv("WAYLAND_DISPLAY", way_server_get_socket(shell->way), true);
             execlp("xwayland-satellite", "xwayland-satellite", socket->c_str(), nullptr);
             std::terminate();
         }
-        roc->xwayland_socket = *socket;
+        shell->xwayland_socket = *socket;
     }
 }

@@ -16,7 +16,7 @@ enum class WmInteractionMode
     focus_cycle,
 };
 
-struct RocLauncher;
+struct ShellLauncher;
 
 struct WmOutput {
     IoOutput* io;
@@ -37,7 +37,7 @@ struct WmServer
 
     WmInteractionMode mode;
 
-    Ref<RocLauncher> launcher;
+    Ref<ShellLauncher> launcher;
 
     Uid                    window_system_id;
     std::vector<WmWindow*> windows;

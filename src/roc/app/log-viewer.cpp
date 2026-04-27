@@ -4,36 +4,36 @@
 #include <core/color.hpp>
 #include <core/stacktrace.hpp>
 
-struct RocLogViewer
+struct ShellLogViewer
 {
     Ref<Ui> ui;
-    Roc* roc;
+    Shell* shell;
     bool requested;
     bool show_details;
     i64 selected = -1;
 };
 
 static
-void frame(RocLogViewer*);
+void frame(ShellLogViewer*);
 
-auto roc_init_log_viewer(Roc* roc) -> Ref<void>
+auto shell_init_log_viewer(Shell* shell) -> Ref<void>
 {
-    auto viewer = ref_create<RocLogViewer>();
-    viewer->roc = roc;
+    auto viewer = ref_create<ShellLogViewer>();
+    viewer->shell = shell;
 
     log_history_enable(true);
 
     log_history_add_listener([viewer = Weak(viewer.get())](LogEntry*) {
         if (!viewer) return;
         if (std::exchange(viewer->requested, true)) return;
-        exec_enqueue(viewer->roc->exec, [viewer] {
+        exec_enqueue(viewer->shell->exec, [viewer] {
             if (viewer) {
                 ui_request_frame(viewer->ui.get());
             }
         });
     });
 
-    viewer->ui = ui_create(roc->gpu, roc->wm, roc->app_share / "log-viewer");
+    viewer->ui = ui_create(shell->gpu, shell->wm, shell->app_share / "log-viewer");
     ui_set_frame_handler(viewer->ui.get(), [viewer = viewer.get()] {
         frame(viewer);
     });
@@ -42,7 +42,7 @@ auto roc_init_log_viewer(Roc* roc) -> Ref<void>
 }
 
 static
-void frame(RocLogViewer* viewer)
+void frame(ShellLogViewer* viewer)
 {
     viewer->requested = false;
 

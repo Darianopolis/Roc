@@ -2,9 +2,9 @@
 
 #include <core/math.hpp>
 
-struct RocBackground
+struct ShellBackground
 {
-    Roc* roc;
+    Shell* shell;
 
     Ref<WmClient> client;
 
@@ -14,15 +14,15 @@ struct RocBackground
     RefVector<SceneTexture> textures;
 };
 static
-void update_backgrounds(RocBackground* bg)
+void update_backgrounds(ShellBackground* bg)
 {
-    auto* roc = bg->roc;
+    auto* shell = bg->shell;
 
-    auto layer = wm_get_layer(roc->wm, WmLayer::background);
+    auto layer = wm_get_layer(shell->wm, WmLayer::background);
 
     bg->textures.clear();
 
-    for (auto* output : wm_list_outputs(roc->wm)) {
+    for (auto* output : wm_list_outputs(shell->wm)) {
         vec2f32 image_size = bg->image->extent();
         auto viewport = wm_output_get_viewport(output);
 
@@ -37,12 +37,12 @@ void update_backgrounds(RocBackground* bg)
     }
 }
 
-auto roc_init_background(Roc* roc) -> Ref<void>
+auto shell_init_background(Shell* shell) -> Ref<void>
 {
-    auto bg = ref_create<RocBackground>();
-    bg->roc = roc;
+    auto bg = ref_create<ShellBackground>();
+    bg->shell = shell;
 
-    bg->sampler = gpu_sampler_create(roc->gpu, {
+    bg->sampler = gpu_sampler_create(shell->gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
@@ -50,12 +50,12 @@ auto roc_init_background(Roc* roc) -> Ref<void>
     bg->image = [&] {
         int w, h;
         int num_channels;
-        stbi_uc* data = stbi_load(roc->wallpaper.c_str(), &w, &h, &num_channels, STBI_rgb_alpha);
+        stbi_uc* data = stbi_load(shell->wallpaper.c_str(), &w, &h, &num_channels, STBI_rgb_alpha);
         defer { stbi_image_free(data); };
-        log_info("Loaded background ({}, width = {}, height = {})", roc->wallpaper.c_str(), w, h);
+        log_info("Loaded background ({}, width = {}, height = {})", shell->wallpaper.c_str(), w, h);
 
         // Create background texture node
-        auto image = gpu_image_create(roc->gpu, {
+        auto image = gpu_image_create(shell->gpu, {
             .extent = {w, h},
             .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
             .usage = GpuImageUsage::texture | GpuImageUsage::transfer
@@ -64,7 +64,7 @@ auto roc_init_background(Roc* roc) -> Ref<void>
         return image;
     }();
 
-    bg->client = wm_connect(roc->wm);
+    bg->client = wm_connect(shell->wm);
     wm_listen(bg->client.get(), [bg = bg.get()](WmClient*, WmEvent* event) {
         switch (event->type) {
             break;case WmEventType::output_layout:

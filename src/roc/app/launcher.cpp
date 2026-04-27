@@ -1,8 +1,8 @@
 #include "../roc.hpp"
 
-struct RocLauncher
+struct ShellLauncher
 {
-    Roc* roc;
+    Shell* shell;
 
     Ref<Ui> ui;
 
@@ -15,7 +15,7 @@ struct RocLauncher
     bool show = false;
     bool grab_focus = false;
 
-    ~RocLauncher();
+    ~ShellLauncher();
 };
 
 struct WmLauncherApp
@@ -28,13 +28,13 @@ struct WmLauncherApp
 };
 
 static
-void clear_apps(RocLauncher* launcher)
+void clear_apps(ShellLauncher* launcher)
 {
     for (auto& entry : launcher->apps) g_object_unref(entry.app_info);
     launcher->apps.clear();
 }
 
-RocLauncher::~RocLauncher()
+ShellLauncher::~ShellLauncher()
 {
     clear_apps(this);
 }
@@ -52,7 +52,7 @@ auto match_string(std::string haystack, std::string needle) -> bool
 }
 
 static
-void filter(RocLauncher* launcher, bool up, bool down)
+void filter(ShellLauncher* launcher, bool up, bool down)
 {
     const WmLauncherApp* first_matched = nullptr;
     const WmLauncherApp* last_matched = nullptr;
@@ -81,7 +81,7 @@ void filter(RocLauncher* launcher, bool up, bool down)
 }
 
 static
-void scan_apps(RocLauncher* launcher)
+void scan_apps(ShellLauncher* launcher)
 {
     clear_apps(launcher);
 
@@ -132,7 +132,7 @@ void scan_apps(RocLauncher* launcher)
 }
 
 static
-void show(RocLauncher* launcher)
+void show(ShellLauncher* launcher)
 {
     launcher->show = true;
     launcher->grab_focus = true;
@@ -143,26 +143,26 @@ void show(RocLauncher* launcher)
 }
 
 static
-void frame(RocLauncher* launcher);
+void frame(ShellLauncher* launcher);
 
-auto roc_init_launcher(Roc* roc) -> Ref<void>
+auto shell_init_launcher(Shell* shell) -> Ref<void>
 {
-    auto launcher = ref_create<RocLauncher>();
-    launcher->roc = roc;
+    auto launcher = ref_create<ShellLauncher>();
+    launcher->shell = shell;
 
-    launcher->ui = ui_create(roc->gpu, roc->wm, roc->app_share / "launcher");
+    launcher->ui = ui_create(shell->gpu, shell->wm, shell->app_share / "launcher");
     ui_set_frame_handler(launcher->ui.get(), [launcher = launcher.get()] {
         frame(launcher);
     });
 
-    launcher->event_filter = seat_add_event_filter(wm_get_seat(roc->wm), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
+    launcher->event_filter = seat_add_event_filter(wm_get_seat(shell->wm), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
         if (event->type != SeatEventType::keyboard_key) return {};
 
         auto key = event->keyboard.key;
         if (!key.pressed || key.code != KEY_D) return {};
 
         auto mods = seat_keyboard_get_modifiers(event->keyboard.keyboard);
-        if (!mods.contains(launcher->roc->main_mod)) return {};
+        if (!mods.contains(launcher->shell->main_mod)) return {};
 
         show(launcher);
         return SeatEventFilterResult::capture;
@@ -172,19 +172,19 @@ auto roc_init_launcher(Roc* roc) -> Ref<void>
 }
 
 static
-void launch(RocLauncher* launcher, WmLauncherApp& app)
+void launch(ShellLauncher* launcher, WmLauncherApp& app)
 {
     auto* name = g_app_info_get_display_name(app.app_info) ?: g_app_info_get_name(app.app_info);
     log_info("Running: {}", name);
     log_info("  command line: {}", g_app_info_get_commandline(app.app_info) ?: "");
-    log_info("  WAYLAND_DISPLAY = {}", way_server_get_socket(launcher->roc->way));
+    log_info("  WAYLAND_DISPLAY = {}", way_server_get_socket(launcher->shell->way));
 
     auto* ctx = g_app_launch_context_new();
     defer { g_object_unref(ctx); };
 
-    g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", way_server_get_socket(launcher->roc->way));
-    if (!launcher->roc->xwayland_socket.empty()) {
-        g_app_launch_context_setenv(ctx, "DISPLAY", launcher->roc->xwayland_socket.c_str());
+    g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", way_server_get_socket(launcher->shell->way));
+    if (!launcher->shell->xwayland_socket.empty()) {
+        g_app_launch_context_setenv(ctx, "DISPLAY", launcher->shell->xwayland_socket.c_str());
     } else {
         g_app_launch_context_unsetenv(ctx, "DISPLAY");
     }
@@ -198,13 +198,13 @@ void launch(RocLauncher* launcher, WmLauncherApp& app)
 }
 
 static
-void frame(RocLauncher* launcher)
+void frame(ShellLauncher* launcher)
 {
     if (!launcher->show) return;
 
     // Window
 
-    auto outputs = wm_list_outputs(launcher->roc->wm);
+    auto outputs = wm_list_outputs(launcher->shell->wm);
     if (outputs.empty()) return;
 
     auto workarea = wm_output_get_viewport(outputs.front());

@@ -5,7 +5,7 @@
 #include "way/way.hpp"
 #include <io/io.hpp>
 
-struct Roc
+struct Shell
 {
     ExecContext* exec;
     Gpu*         gpu;
@@ -21,9 +21,9 @@ struct Roc
     std::string xwayland_socket;
 };
 
-void roc_init_xwayland(          Roc*, int argc, char* argv[]);
-auto roc_init_launcher(          Roc*) -> Ref<void>;
-auto roc_init_log_viewer(        Roc*) -> Ref<void>;
-auto roc_init_simple_test_client(Roc*) -> Ref<void>;
-auto roc_init_ui_demo_window(    Roc*) -> Ref<void>;
-auto roc_init_background(        Roc*) -> Ref<void>;
+void shell_init_xwayland(          Shell*, int argc, char* argv[]);
+auto shell_init_launcher(          Shell*) -> Ref<void>;
+auto shell_init_log_viewer(        Shell*) -> Ref<void>;
+auto shell_init_simple_test_client(Shell*) -> Ref<void>;
+auto shell_init_ui_demo_window(    Shell*) -> Ref<void>;
+auto shell_init_background(        Shell*) -> Ref<void>;
