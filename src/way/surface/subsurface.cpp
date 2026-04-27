@@ -1,5 +1,7 @@
 #include "surface.hpp"
 
+#include "../shell/shell.hpp"
+
 static
 void ensure_tree(WaySurface* surface)
 {
@@ -7,6 +9,12 @@ void ensure_tree(WaySurface* surface)
 
     surface->tree = ref_create<WaySurfaceTree>();
     way_surface_addon_register(surface, surface->tree.get());
+}
+
+static
+auto get_root(WaySurface* surface) -> WaySurface*
+{
+    return surface->parent ? get_root(surface->parent.get()) : surface;
 }
 
 static
@@ -23,6 +31,8 @@ void get_subsurface(wl_client* client, wl_resource* resource, u32 id, wl_resourc
 
     auto* parent = way_get_userdata<WaySurface>(wl_parent);
     surface->parent = parent;
+
+    seat_focus_set_parent(surface->scene.focus.get(), parent->scene.focus.get());
 
     // Subsurfaces start synchronized
     surface->subsurface->synchronized = true;

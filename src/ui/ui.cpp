@@ -109,7 +109,8 @@ void Platform_CreateWindow(ImGuiViewport* vp)
     data->window = wm_window_create(ui->client.get());
 
     data->input_region = scene_input_region_create();
-    data->focus = wm_window_add_input_region(data->window.get(), data->input_region.get());
+    data->focus = seat_focus_create(wm_get_seat_client(ui->client.get()), data->input_region.get());
+    wm_window_set_focus(data->window.get(), data->focus.get());
     scene_tree_place_above(wm_window_get_tree(data->window.get()), nullptr, data->input_region.get());
 
     vp->PlatformUserData = data;

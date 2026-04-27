@@ -136,13 +136,7 @@ struct WmWindow
 
     Ref<SceneTexture> borders;
 
-    struct Focus
-    {
-        Weak<SeatFocus> focus;
-        Weak<SceneInputRegion> input_region;
-    };
-
-    std::vector<Focus> foci;
+    Weak<SeatFocus> focus;
 
     ~WmWindow();
 };

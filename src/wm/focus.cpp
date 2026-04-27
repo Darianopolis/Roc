@@ -63,12 +63,8 @@ void focus_cycle_end(WmServer* wm)
 {
     wm->mode = WmInteractionMode::none;
 
-    if (wm->focus.cycled && !wm->focus.cycled->foci.empty()) {
-        auto* keyboard = seat_get_keyboard(wm_get_seat(wm));
-        if (keyboard) {
-            seat_keyboard_focus(keyboard, wm->focus.cycled->foci.front().focus.get());
-        }
-        wm_window_raise(wm->focus.cycled.get());
+    if (wm->focus.cycled) {
+        wm_window_focus(wm->focus.cycled.get());
     }
 
     wm->focus.cycled = nullptr;

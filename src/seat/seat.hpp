@@ -138,10 +138,16 @@ struct SeatFocus
 
     Ref<SceneInputRegion> input_region;
 
+    SeatFocus* parent;
+    std::vector<SeatFocus*> children;
+
     ~SeatFocus();
 };
 
 auto seat_focus_create(SeatClient*, SceneInputRegion*) -> Ref<SeatFocus>;
+
+void seat_focus_set_parent(SeatFocus*, SeatFocus* parent);
+auto seat_focus_contains(SeatFocus*, SeatFocus* target) -> bool;
 
 auto seat_find_focus_for_input_region(SeatManager*, SceneInputRegion*) -> SeatFocus*;
 

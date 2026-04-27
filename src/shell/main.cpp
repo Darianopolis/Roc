@@ -68,7 +68,8 @@ auto main(int argc, char* argv[]) -> int
 
     auto input = scene_input_region_create();
     scene_input_region_set_region(input.get(), {{{}, initial_size, xywh}});
-    auto focus = wm_window_add_input_region(window.get(), input.get());
+    auto focus = seat_focus_create(wm_get_seat_client(client.get()), input.get());
+    wm_window_set_focus(window.get(), focus.get());
     scene_tree_place_above(wm_window_get_tree(window.get()), nullptr, input.get());
 
     auto inner = scene_tree_create();

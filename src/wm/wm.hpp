@@ -97,7 +97,7 @@ auto wm_get_seat_client(WmClient*) -> SeatClient*;
 
 auto wm_window_create(WmClient*) -> Ref<WmWindow>;
 
-auto wm_window_add_input_region(WmWindow*, SceneInputRegion*) -> Ref<SeatFocus>;
+void wm_window_set_focus(WmWindow*, SeatFocus*);
 
 void wm_window_set_title(WmWindow*, std::string_view title);
 
@@ -112,6 +112,10 @@ void wm_window_request_close(     WmWindow*);
 
 void wm_window_set_frame(WmWindow*, rect2f32 frame);
 auto wm_window_get_frame(WmWindow*) -> rect2f32;
+
+auto wm_window_is_focused(WmWindow*) -> bool;
+void wm_window_focus(     WmWindow*);
+auto wm_find_window_for(WmServer*, SeatFocus*) -> WmWindow*;
 
 auto wm_find_window_at(WmServer*, vec2f32 point) -> WmWindow*;
 
