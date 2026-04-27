@@ -19,15 +19,16 @@ An experiment in writing a simple opinionated independent Wayland compositor, wi
 
 # Architecture
 
-Roc is organized roughly into three layers:
+Roc is organized roughly into layers:
 
- - A set of generic utilities `core`, and a GPU management layer `gpu`
- - Components for managing I/O `io`, spatial layout and rendering `scene`, and input routing `seat`
- - A protocol independent window manager interface `wm`, a simple internal UI framework `ui`, a Wayland server implemented as a series of internal clients `way`, and configuration and high-level shell components `roc`.
+ - Core application support ─ `core`, `gpu`
+ - Visual and input state ─ `scene`, `io`, `seat`
+ - Window Manager ─ `wm`
+ - Clients ─ `ui`, `way`, `shell`
 
 ```
      ┌─────── seat ─┐      ┌ ui ─┐
-core ┴ gpu ┬─ scene ┼─ wm ─┤     ├─ roc
+core ┴ gpu ┬─ scene ┼─ wm ─┤     ├─ shell
            └─ io ───┘      └ way ┘
 ```
 
@@ -73,14 +74,16 @@ A spatial hierarchy providing hit-testing, damage tracking, and rendering logic.
 
 ### `seat` ─ Seat
 
+Input and data routing logic.
+
 - Focus based input routing
 - Data management
    - Selection buffers
    - Drag and drop
 
-### `wm` ─ Window Manager Interface
+### `wm` ─ Window Manager
 
-Builds on `scene` and `seat` to tie together a higher level window management API, configured at runtime.
+Internal client/server protocol for window management.
 
 - Output layout
 - Mouse
@@ -94,7 +97,7 @@ Builds on `scene` and `seat` to tie together a higher level window management AP
    - Drag grid window placement
    - Focus cycling
 
-### `ui` ─ UI Framework
+### `ui` ─ UI
 
 An internal layer for writing in-process GUI clients.
 
@@ -105,13 +108,13 @@ An internal layer for writing in-process GUI clients.
 
 ### `way` ─ Wayland Server
 
-A thin layer adapting relevant Wayland protocols to `scene`'s internal API.
+A thin layer adapting relevant Wayland protocols to `wm`'s internal API.
 
 - Isolates compositor and window management logic from Wayland "protocol plumbing"
 
-### `roc` ─ Roc
+### `shell` ─ Shell
 
-High level entry point for the compositor.
+Shell components and compositor entry point
 
 - Ties together and provides configuration for all previous layers
 - Native shell components (launcher, system tray, notifications, etc..)

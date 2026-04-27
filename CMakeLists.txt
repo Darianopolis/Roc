@@ -331,10 +331,10 @@ target_link_libraries(way PUBLIC wm)
 
 init_executable(roc)
 target_sources(roc PRIVATE
-    src/roc/main.cpp
-    src/roc/xwayland.cpp
-    src/roc/app/log-viewer.cpp
-    src/roc/app/launcher.cpp
-    src/roc/app/background.cpp
+    src/shell/main.cpp
+    src/shell/xwayland.cpp
+    src/shell/app/log-viewer.cpp
+    src/shell/app/launcher.cpp
+    src/shell/app/background.cpp
     )
 target_link_libraries(roc PUBLIC wm ui way)
