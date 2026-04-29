@@ -222,6 +222,9 @@ void send_premap_configure(WayToplevel* toplevel)
     if (wl_resource_get_version(toplevel->resource) >= XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION) {
         way_send(xdg_toplevel, wm_capabilities, toplevel->resource, ptr_to(way_from_span<const xdg_toplevel_wm_capabilities>({
             XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN,
+            XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE,
+            XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE,
+            XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU,
         })));
     }
 
@@ -274,6 +277,34 @@ void WayToplevel::apply(WayCommitId id)
 
 // -----------------------------------------------------------------------------
 
+static
+void set_maximized(wl_client* client, wl_resource* resource)
+{
+    log_warn("TODO: xdg_toplevel.set_maximized");
+    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
+}
+
+static
+void unset_maximized(wl_client* client, wl_resource* resource)
+{
+    log_warn("TODO: xdg_toplevel.unset_maximized");
+    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
+}
+
+static
+void set_fullscreen(wl_client* client, wl_resource* resource, wl_resource* output)
+{
+    log_warn("TODO: xdg_toplevel.set_fullscreen");
+    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
+}
+
+static
+void unset_fullscreen(wl_client* client, wl_resource* resource)
+{
+    log_warn("TODO: xdg_toplevel.unset_fullscreen");
+    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
+}
+
 WAY_INTERFACE(xdg_toplevel) = {
     .destroy = way_simple_destroy,
     WAY_STUB(set_parent),
@@ -298,10 +329,10 @@ WAY_INTERFACE(xdg_toplevel) = {
         pending->min_size = vec2i32(w, h);
         pending->set |= WayToplevelStateComponent ::min_size;
     },
-    WAY_STUB(set_maximized),
-    WAY_STUB(unset_maximized),
-    WAY_STUB(set_fullscreen),
-    WAY_STUB(unset_fullscreen),
+    .set_maximized = set_maximized,
+    .unset_maximized = unset_maximized,
+    .set_fullscreen = set_fullscreen,
+    .unset_fullscreen = unset_fullscreen,
     WAY_STUB(set_minimized),
 };
 
