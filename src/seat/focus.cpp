@@ -40,9 +40,14 @@ auto seat_focus_create(SeatClient* client, SceneInputRegion* input_region) -> Re
 
 void seat_focus_set_parent(SeatFocus* child, SeatFocus* parent)
 {
-    debug_assert(!child->parent, "focus already has parent");
+    if (child->parent == parent) return;
+    if (child->parent) {
+        std::erase(child->parent->children, child);
+    }
     child->parent = parent;
-    parent->children.emplace_back(child);
+    if (parent) {
+        parent->children.emplace_back(child);
+    }
 }
 
 auto seat_focus_contains(SeatFocus* focus, SeatFocus* target) -> bool
