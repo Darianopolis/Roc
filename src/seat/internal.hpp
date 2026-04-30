@@ -89,17 +89,6 @@ auto seat_get_focus_client(SeatFocus* focus)
 
 // -----------------------------------------------------------------------------
 
-struct SeatDataSource
-{
-    SeatClient* client;
-
-    std::flat_set<std::string> offered;
-
-    SeatDataSourceOps ops;
-
-    ~SeatDataSource();
-};
-
 void seat_offer_selection(Seat*, SeatClient*, SeatDataSource*);
 
 // -----------------------------------------------------------------------------

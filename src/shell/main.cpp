@@ -214,12 +214,18 @@ auto main(int argc, char* argv[]) -> int
     // Selection
 
     auto data_client = wm_connect(wm.get());
-    auto data_source = seat_data_source_create(wm_get_seat_client(data_client.get()), {
-        .send = [&](const char* mime, fd_t fd) {
+
+    struct TestDataSource : SeatDataSource
+    {
+        virtual void on_cancel() final override {}
+        virtual void on_send(const char* mime, fd_t fd) final override
+        {
             std::string message = "This is a test clipboard message.";
             write(fd, message.data(), message.size());
         }
-    });
+    };
+
+    auto data_source = ref_create<TestDataSource>();
     seat_data_source_offer(data_source.get(), "text/plain;charset=utf-8");
     seat_data_source_offer(data_source.get(), "text/plain");
     seat_data_source_offer(data_source.get(), "text/html");

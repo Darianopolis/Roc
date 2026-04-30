@@ -174,16 +174,25 @@ const char* text_mime_types[] = {
     "text/html",
 };
 
+struct UiDataSource : SeatDataSource
+{
+    std::string message;
+
+    virtual void on_cancel() final override {}
+    virtual void on_send(const char* mime, fd_t fd) final override
+    {
+        unix_check<write>(fd, message.data(), message.size());
+    }
+};
+
 static
 void Platform_SetClipboardTextFn(ImGuiContext* imgui, const char* text)
 {
     auto* ui = get_context(imgui);
 
-    auto data_source = seat_data_source_create(wm_get_seat_client(ui->client.get()), {
-        .send = [message = std::string(text)](const char* mime, fd_t fd) {
-            unix_check<write>(fd, message.data(), message.size());
-        }
-    });
+    auto data_source = ref_create<UiDataSource>();
+    data_source->message = text;
+
     for (auto* mime : text_mime_types) {
         seat_data_source_offer(data_source.get(), mime);
     }

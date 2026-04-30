@@ -112,15 +112,13 @@ auto seat_keyboard_key(SeatKeyboard*, SeatInputCode, bool pressd, bool quiet) ->
 
 // -----------------------------------------------------------------------------
 
-struct SeatDataSource;
-
-struct SeatDataSourceOps
+struct SeatDataSource
 {
-    std::move_only_function<void()>                  cancel = [] {};
-    std::move_only_function<void(const char*, fd_t)> send;
-};
+    std::flat_set<std::string> offered;
 
-auto seat_data_source_create(SeatClient*, SeatDataSourceOps&&) -> Ref<SeatDataSource>;
+    virtual void on_cancel() = 0;
+    virtual void on_send(const char* mime_type, fd_t target) = 0;
+};
 
 void seat_data_source_offer(      SeatDataSource*, const char* mime_type);
 auto seat_data_source_get_offered(SeatDataSource*) -> std::span<const std::string>;

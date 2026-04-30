@@ -11,15 +11,27 @@ void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 
     auto source = ref_create<WayDataSource>();
     source->client = client;
-    source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, source.get());
-    source->source = seat_data_source_create(wm_get_seat_client(client->wm.get()), {
-        .cancel = [source = source.get()] {
-            way_send(wl_data_source, cancelled, source->resource);
-        },
-        .send = [source = source.get()](const char* mime, fd_t fd) {
-            way_send(wl_data_source, send, source->resource, mime, fd);
-        }
-    });
+    auto holder = ref_create<WayDataSourceHolder>();
+
+    holder->source = source;
+    source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, holder.get());
+
+    log_error("WayDataSource created {}", (void*)source.get());
+}
+
+void WayDataSource::on_cancel()
+{
+    way_send(wl_data_source, cancelled, resource);
+}
+
+void WayDataSource::on_send(const char* mime, fd_t fd)
+{
+    way_send(wl_data_source, send, resource, mime, fd);
+}
+
+WayDataSource::~WayDataSource()
+{
+    log_error("WayDataSource destroyed {}", (void*)this);
 }
 
 static
@@ -64,8 +76,8 @@ WAY_INTERFACE(wl_data_offer) = {
 static
 void offer(wl_client* client, wl_resource* resource, const char* mime_type)
 {
-    auto* source = way_get_userdata<WayDataSource>(resource);
-    seat_data_source_offer(source->source.get(), mime_type);
+    auto* source = way_get_userdata<WayDataSourceHolder>(resource)->source.get();
+    seat_data_source_offer(source, mime_type);
 }
 
 WAY_INTERFACE(wl_data_source) = {
@@ -96,8 +108,8 @@ static
 void set_selection(wl_client* wl_client, wl_resource* wl_data_device, wl_resource* wl_data_source, u32 serial)
 {
     auto* seat_client = way_get_userdata<WaySeatClient>(wl_data_device);
-    auto* source = way_get_userdata<WayDataSource>(wl_data_source);
-    seat_set_selection(seat_client->seat->scene, source->source.get());
+    auto* source = way_get_userdata<WayDataSourceHolder>(wl_data_source)->source.get();
+    seat_set_selection(seat_client->seat->scene, source);
 }
 
 WAY_INTERFACE(wl_data_device) = {

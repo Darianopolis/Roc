@@ -7,13 +7,21 @@
 struct WayClient;
 struct WaySeatClient;
 
-struct WayDataSource : WayObject
+struct WayDataSource : SeatDataSource
 {
     WayClient* client;
 
     WayResource resource;
 
-    Ref<SeatDataSource> source;
+    virtual void on_cancel() final override;
+    virtual void on_send(const char* mime_type, fd_t target) final override;
+
+    ~WayDataSource();
+};
+
+struct WayDataSourceHolder : WayObject
+{
+    Ref<WayDataSource> source;
 };
 
 struct WayDataOffer : WayObject
