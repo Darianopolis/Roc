@@ -78,13 +78,11 @@ struct WayShmBuffer : WayBuffer
 {
     Ref<WayShmPool> pool;
 
-    WayResource resource;
-
     i32 offset;
     i32 stride;
     GpuFormat format;
 
-    virtual auto acquire(WaySurface*, WayDamageRegion) -> Ref<GpuImage> final override;
+    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
 };
 
 static
@@ -93,7 +91,7 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     auto* pool = way_get_userdata<WayShmPool>(resource);
 
     auto buffer = ref_create<WayShmBuffer>();
-    buffer->resource = way_resource_create_refcounted(wl_buffer, client, resource, id, buffer.get());
+    buffer->_resource = way_resource_create_refcounted(wl_buffer, client, resource, id, buffer.get());
 
     buffer->format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
     buffer->extent = {width, height};
@@ -151,7 +149,7 @@ auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*
     return candidate;
 }
 
-auto WayShmBuffer::acquire(WaySurface* surface, WayDamageRegion damage) -> Ref<GpuImage>
+auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage>
 {
     Ref image = try_steal(this, surface);
 
@@ -199,7 +197,7 @@ auto WayShmBuffer::acquire(WaySurface* surface, WayDamageRegion damage) -> Ref<G
     }
 #endif
 
-    way_send(wl_buffer, release, resource);
+    release();
 
     return image;
 }

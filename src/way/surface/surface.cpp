@@ -269,29 +269,9 @@ void flush(WaySurface* surface)
             break;
         }
 
-        // Convert surface damage to buffer damage
-
-        if (packet.surface.damage) {
-            auto bounds = packet.surface.damage.bounds();
-
-            // Apply buffer transform
-            auto transform = packet.set.contains(WaySurfaceStateComponent::buffer_transform)
-                ? packet.buffer_transform
-                : surface->current.buffer_transform;
-            debug_assert(transform == WL_OUTPUT_TRANSFORM_NORMAL, "TODO: Support buffer transforms");
-
-            // Apply buffer scale
-            bounds.min *= packet.buffer_scale;
-            bounds.max *= packet.buffer_scale;
-
-            packet.buffer_damage.damage(bounds);
-            packet.surface.damage.clear();
-        }
-
         // Check for buffer ready
 
-        debug_assert(!packet.image);
-        if (packet.buffer && !(packet.image = packet.buffer->acquire(surface, packet.buffer_damage))) {
+        if (packet.buffer && !(packet.image = packet.buffer->acquire(surface, &packet))) {
             debug_kill();
         }
 

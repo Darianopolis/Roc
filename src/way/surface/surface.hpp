@@ -9,6 +9,7 @@
 
 #include <wayland/server/viewporter.h>
 #include <wayland/server/xdg-decoration-unstable-v1.h>
+#include <wayland/server/linux-drm-syncobj-v1.h>
 #include <wayland/server/server-decoration.h>
 
 struct WaySurface;
@@ -22,6 +23,20 @@ struct WayCursorSurface;
 struct WayXdgSurface;
 struct WayToplevel;
 struct WayPopup;
+
+// -----------------------------------------------------------------------------
+
+struct WayTimeline : WayObject
+{
+    WayResource     resource;
+    Ref<GpuSyncobj> syncobj;
+};
+
+struct WayTimelinePoint
+{
+    Ref<GpuSyncobj> syncobj;
+    u64             value;
+};
 
 // -----------------------------------------------------------------------------
 
@@ -64,6 +79,9 @@ struct WaySurfaceState
     rect2f32            buffer_source;
     vec2i32             buffer_destination;
     WayDamageRegion     buffer_damage;
+
+    WayTimelinePoint acquire_point;
+    WayTimelinePoint release_point;
 
     ~WaySurfaceState();
 };
@@ -184,3 +202,7 @@ WAY_INTERFACE_DECLARE(zxdg_toplevel_decoration_v1);
 
 WAY_INTERFACE_DECLARE(org_kde_kwin_server_decoration_manager, 1);
 WAY_INTERFACE_DECLARE(org_kde_kwin_server_decoration);
+
+WAY_INTERFACE_DECLARE(wp_linux_drm_syncobj_manager_v1, 1);
+WAY_INTERFACE_DECLARE(wp_linux_drm_syncobj_timeline_v1);
+WAY_INTERFACE_DECLARE(wp_linux_drm_syncobj_surface_v1);

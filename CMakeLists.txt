@@ -301,6 +301,7 @@ target_sources(way PRIVATE
     src/way/server.cpp
     src/way/util.cpp
 
+    src/way/buffer/syncobj.cpp
     src/way/buffer/buffer.cpp
     src/way/buffer/dmabuf.cpp
     src/way/buffer/shm.cpp

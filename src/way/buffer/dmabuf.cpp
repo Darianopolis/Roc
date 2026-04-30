@@ -2,6 +2,7 @@
 
 #include "../server.hpp"
 
+#include "../surface/surface.hpp"
 #include "../surface/region.hpp"
 
 static
@@ -24,6 +25,7 @@ auto get_formats(WayServer* server)
 void way_dmabuf_init(WayServer* server)
 {
     way_global(server, zwp_linux_dmabuf_v1);
+    way_global(server, wp_linux_drm_syncobj_manager_v1);
 
     struct tranche_entry
     {
@@ -218,13 +220,12 @@ void params_add(wl_client* client, wl_resource* resource, fd_t _fd, u32 plane_id
 struct WayDmaBuffer : WayBuffer
 {
     WayServer* server;
-    WayResource resource;
 
     Ref<GpuImage> image;
 
     std::optional<GpuDmaParams> params;
 
-    virtual auto acquire(WaySurface*, WayDamageRegion) -> Ref<GpuImage> final override;
+    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
 };
 
 static
@@ -253,7 +254,7 @@ auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuF
 
     auto buffer = ref_create<WayDmaBuffer>();
     buffer->server = server;
-    buffer->resource = way_resource_create_refcounted(wl_buffer,
+    buffer->_resource = way_resource_create_refcounted(wl_buffer,
         wl_resource_get_client(dma_params->resource), dma_params->resource, buffer_id, buffer.get());
     buffer->extent = extent;
 
@@ -279,7 +280,7 @@ void create_buffer(wl_client* client, wl_resource* _params, i32 width, i32 heigh
 
     auto buffer = create_buffer(params, 0, {width, height}, gpu_format_from_drm(format), zwp_linux_buffer_params_v1_flags(flags));
     if (buffer) {
-        way_send(zwp_linux_buffer_params_v1, created, _params, buffer->resource);
+        way_send(zwp_linux_buffer_params_v1, created, _params, buffer->_resource);
     } else {
         way_send(zwp_linux_buffer_params_v1, failed, _params);
     }
@@ -301,19 +302,21 @@ WAY_INTERFACE(zwp_linux_buffer_params_v1) = {
 
 // -----------------------------------------------------------------------------
 
-auto WayDmaBuffer::acquire(WaySurface* surface, WayDamageRegion) -> Ref<GpuImage>
+auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBufferAcquireFlags> flags) -> Ref<GpuImage>
 {
-    if (!params) {
-        params = gpu_image_export(image.get());
-    }
+    if (!flags.contains(WayBufferAcquireFlags::wait_handled)) {
+        if (!params) {
+            params = gpu_image_export(image.get());
+        }
 
-    for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-        unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
+        for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
+            unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
+        }
     }
 
     return gpu_lease_image(image.get(), [buffer = Weak(this)](Ref<GpuImage>) {
         if (buffer) {
-            way_send(wl_buffer, release, buffer->resource);
+            buffer->release();
         }
     });
 }
