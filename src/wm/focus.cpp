@@ -49,12 +49,16 @@ void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
 static
 void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 {
+    bool new_cycle = wm->mode != WmInteractionMode::focus_cycle;
     wm->mode = WmInteractionMode::focus_cycle;
     wm->focus.seat = seat;
 
     log_warn("Focus cycle ({}) {}", pointer ? "pointer" : "keyboard", forward ? "forward" : "backward");
 
     cycle_next_window(wm, pointer, forward);
+    if (new_cycle) {
+        cycle_next_window(wm, pointer, forward);
+    }
     wm_arrange_windows(wm);
 }
 
