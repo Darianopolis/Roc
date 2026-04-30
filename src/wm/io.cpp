@@ -117,8 +117,13 @@ void update_leds(WmServer* wm, SeatKeyboard* keyboard)
 }
 
 static
-void handle_key(WmServer* wm, Seat* seat, const IoInputEvent& event, const IoInputChannel& channel)
+void handle_key(WmServer* wm, Seat* seat, const IoInputEvent& event, IoInputChannel channel)
 {
+    // TODO: Hacky fix to remap mouse side button to super key
+    if (channel.code == BTN_SIDE) {
+        channel.code = KEY_LEFTMETA;
+    }
+
     switch (channel.code) {
         break;case BTN_MOUSE ... BTN_TASK:
             seat_pointer_button(seat_get_pointer(seat), channel.code, channel.value, event.quiet);
