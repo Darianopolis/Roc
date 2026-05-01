@@ -69,6 +69,9 @@ void keyboard_leave(WaySeatClient* seat_client)
     if (surface->resource) {
         for (auto* resource : seat_client->keyboards) {
             way_send(wl_keyboard, leave, resource, serial.value, surface->resource);
+
+            // Modifiers are tracked independently of keyboard enter/leave events
+            way_send(wl_keyboard, modifiers, resource, serial.value, 0, 0, 0, 0);
         }
     }
 
@@ -87,6 +90,24 @@ auto find_root_toplevel(WaySurface* surface) -> WaySurface*
     if (surface->role == WaySurfaceRole::xdg_toplevel) return surface;
     debug_assert(surface->parent);
     return find_root_toplevel(surface->parent.get());
+}
+
+static
+void send_modifiers(WaySeatClient* seat_client)
+{
+    auto* seat = seat_client->seat;
+    auto* server = seat->server;
+
+    auto serial = way_next_serial(server);
+    auto kb = seat_keyboard_get_info(seat->keyboard.scene);
+
+    for (auto* resource : seat_client->keyboards) {
+        way_send(wl_keyboard, modifiers, resource, serial.value,
+            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_DEPRESSED),
+            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LATCHED),
+            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LOCKED),
+            xkb_state_serialize_layout(kb.state, XKB_STATE_LAYOUT_EFFECTIVE));
+    }
 }
 
 void way_seat_on_keyboard_enter(WaySeatClient* seat_client, SeatEvent* event)
@@ -122,6 +143,8 @@ void way_seat_on_keyboard_enter(WaySeatClient* seat_client, SeatEvent* event)
 
     seat->focus.keyboard = surface;
 
+    send_modifiers(seat_client);
+
     way_data_offer_selection(seat_client);
 }
 
@@ -145,17 +168,5 @@ void way_seat_on_key(WaySeatClient* seat_client, SeatEvent* event)
 
 void way_seat_on_modifier(WaySeatClient* seat_client, SeatEvent* event)
 {
-    auto* seat = seat_client->seat;
-    auto* server = seat->server;
-
-    auto serial = way_next_serial(server);
-    auto kb = seat_keyboard_get_info(seat->keyboard.scene);
-
-    for (auto* resource : seat_client->keyboards) {
-        way_send(wl_keyboard, modifiers, resource, serial.value,
-            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_DEPRESSED),
-            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LATCHED),
-            xkb_state_serialize_mods(  kb.state, XKB_STATE_MODS_LOCKED),
-            xkb_state_serialize_layout(kb.state, XKB_STATE_LAYOUT_EFFECTIVE));
-    }
+    send_modifiers(seat_client);
 }
