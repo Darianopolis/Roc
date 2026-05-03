@@ -35,9 +35,9 @@ WayDataSource::~WayDataSource()
 static
 void get_data_device(wl_client* wl_client, wl_resource* resource, u32 id, wl_resource* wl_seat)
 {
-    auto* seat_client = way_get_userdata<WaySeatClient>(wl_seat);
+    auto* client_seat = way_get_userdata<WayClientSeat>(wl_seat);
 
-    seat_client->data_devices.emplace_back(way_resource_create_refcounted(wl_data_device, wl_client, resource, id, seat_client));
+    client_seat->data_devices.emplace_back(way_resource_create_refcounted(wl_data_device, wl_client, resource, id, client_seat));
 }
 
 WAY_INTERFACE(wl_data_device_manager) = {
@@ -105,9 +105,9 @@ void start_drag(
 static
 void set_selection(wl_client* wl_client, wl_resource* wl_data_device, wl_resource* wl_data_source, u32 serial)
 {
-    auto* seat_client = way_get_userdata<WaySeatClient>(wl_data_device);
+    auto* client_seat = way_get_userdata<WayClientSeat>(wl_data_device);
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
-    seat_set_selection(seat_client->seat->scene, source);
+    seat_set_selection(client_seat->seat->seat, source);
 }
 
 WAY_INTERFACE(wl_data_device) = {
@@ -119,13 +119,13 @@ WAY_INTERFACE(wl_data_device) = {
 // -----------------------------------------------------------------------------
 
 static
-auto make_offer(WaySeatClient* seat_client, wl_resource* wl_data_device, SeatDataSource* source) -> Ref<WayDataOffer>
+auto make_offer(WayClientSeat* client_seat, wl_resource* wl_data_device, SeatDataSource* source) -> Ref<WayDataOffer>
 {
     auto offer = ref_create<WayDataOffer>();
-    offer->seat_client = seat_client;
+    offer->client_seat = client_seat;
     offer->source = source;
 
-    offer->resource = way_resource_create_refcounted(wl_data_offer, seat_client->client->wl_client, wl_data_device, 0, offer.get());
+    offer->resource = way_resource_create_refcounted(wl_data_offer, client_seat->client->wl_client, wl_data_device, 0, offer.get());
 
     way_send(wl_data_device, data_offer, wl_data_device, offer->resource);
     for (auto& mime : seat_data_source_get_offered(offer->source.get())) {
@@ -139,16 +139,16 @@ auto make_offer(WaySeatClient* seat_client, wl_resource* wl_data_device, SeatDat
     return offer;
 }
 
-void way_data_offer_selection(WaySeatClient* seat_client)
+void way_data_offer_selection(WayClientSeat* client_seat)
 {
-    auto* seat = seat_client->seat;
-    auto* source = seat_get_selection(seat->scene);
+    auto* seat = client_seat->seat;
+    auto* source = seat_get_selection(seat->seat);
 
     if (!source) return;
     if (!seat->focus.keyboard || !seat->focus.keyboard->client) return;
 
-    for (auto* wl_data_device : seat_client->data_devices) {
-        auto offer = make_offer(seat_client, wl_data_device, source);
+    for (auto* wl_data_device : client_seat->data_devices) {
+        auto offer = make_offer(client_seat, wl_data_device, source);
         way_send(wl_data_device, selection, wl_data_device, offer->resource);
     }
 }

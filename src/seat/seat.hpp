@@ -49,7 +49,9 @@ struct Seat;
 
 // -----------------------------------------------------------------------------
 
-auto seat_create(SeatManager*, SeatKeyboard*, SeatPointer*) -> Ref<Seat>;
+auto seat_create(SeatManager*, std::string_view name, SeatKeyboard*, SeatPointer*) -> Ref<Seat>;
+
+auto seat_get_name(Seat*) -> const char*;
 
 auto seat_get_pointer( Seat*) -> SeatPointer*;
 auto seat_get_keyboard(Seat*) -> SeatKeyboard*;

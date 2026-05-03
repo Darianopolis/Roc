@@ -5,7 +5,7 @@
 #include <seat/seat.hpp>
 
 struct WayClient;
-struct WaySeatClient;
+struct WayClientSeat;
 
 struct WayDataSource : SeatDataSource
 {
@@ -21,14 +21,14 @@ struct WayDataSource : SeatDataSource
 
 struct WayDataOffer
 {
-    WaySeatClient* seat_client;
+    WayClientSeat* client_seat;
 
     WayResource resource;
 
     Ref<SeatDataSource> source;
 };
 
-void way_data_offer_selection(WaySeatClient*);
+void way_data_offer_selection(WayClientSeat*);
 
 // -----------------------------------------------------------------------------
 

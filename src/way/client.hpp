@@ -8,7 +8,7 @@
 
 struct WayServer;
 struct WaySurface;
-struct WaySeatClient;
+struct WayClientSeat;
 
 struct WayClient
 {
@@ -18,7 +18,7 @@ struct WayClient
     wl_client* wl_client;
 
     std::vector<WaySurface*> surfaces;
-    std::vector<WaySeatClient*> seat_clients;
+    std::vector<WayClientSeat*> seats;
 };
 
 void way_on_client_create(wl_listener*, void* data);

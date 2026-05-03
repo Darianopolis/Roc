@@ -11,7 +11,7 @@ void init_seat(WayServer* server, Seat* scene_seat)
 {
     auto seat = ref_create<WaySeat>();
     seat->server = server;
-    seat->scene = scene_seat;
+    seat->seat = scene_seat;
 
     server->seats.emplace_back(seat.get());
 
@@ -42,61 +42,61 @@ WAY_INTERFACE(wl_seat) = {
     .release = way_simple_destroy,
 };
 
-WAY_BIND_GLOBAL(wl_seat, bind)
-{
-    auto* seat = way_get_userdata<WaySeat>(bind.server, bind.data);
-    auto* client = way_client_from(bind.client);
-
-    auto seat_client = ref_create<WaySeatClient>();
-    seat_client->seat = seat;
-    seat_client->client = client;
-
-    client->seat_clients.emplace_back(seat_client.get());
-
-    auto* resource = way_resource_create_refcounted(wl_seat, bind.client, bind.version, bind.id, seat_client.get());
-
-    way_send(wl_seat, capabilities, resource, WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_POINTER);
-
-    if (bind.version >= WL_SEAT_NAME_SINCE_VERSION) {
-        way_send(wl_seat, name, resource, "seat0");
-    }
-
-    // TODO: Synchronize with current seat keyboard/pointer/data state
-
-    way_data_offer_selection(seat_client.get());
-}
-
-WaySeatClient::~WaySeatClient()
-{
-    std::erase(client->seat_clients, this);
-}
-
-// ---------------------------------------------------------------------------------------
-
 static
-auto get_seat_client(WayClient* client, Seat* seat) -> WaySeatClient*
+auto find_client_seat(WayClient* client, Seat* seat) -> WayClientSeat*
 {
-    for (auto* seat_client : client->seat_clients) {
-        if (seat_client->seat->scene == seat) {
-            return seat_client;
+    for (auto* cs : client->seats) {
+        if (cs->seat->seat == seat) {
+            return cs;
         }
     }
     return nullptr;
 }
 
+WAY_BIND_GLOBAL(wl_seat, bind)
+{
+    auto* seat = way_get_userdata<WaySeat>(bind.server, bind.data);
+    auto* client = way_client_from(bind.client);
+
+    Ref client_seat = find_client_seat(client, seat->seat);
+    if (!client_seat) {
+        client_seat = ref_create<WayClientSeat>();
+        client_seat->client = client;
+        client_seat->seat = seat;
+        client->seats.emplace_back(client_seat.get());
+    }
+
+    auto* resource = way_resource_create_refcounted(wl_seat, bind.client, bind.version, bind.id, client_seat.get());
+
+    way_send(wl_seat, capabilities, resource, WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_POINTER);
+
+    if (bind.version >= WL_SEAT_NAME_SINCE_VERSION) {
+        way_send(wl_seat, name, resource, seat_get_name(seat->seat));
+    }
+
+    // TODO: Synchronize with current seat keyboard/pointer/data state
+}
+
+WayClientSeat::~WayClientSeat()
+{
+    std::erase(client->seats, this);
+}
+
+// ---------------------------------------------------------------------------------------
+
 static
 void handle_keyboard_event(WayClient* client, SeatEvent* event, auto&& fn)
 {
-    if (auto* seat_client = get_seat_client(client, seat_keyboard_get_seat(event->keyboard.keyboard))) {
-        fn(seat_client, event);
+    if (auto* client_seat = find_client_seat(client, seat_keyboard_get_seat(event->keyboard.keyboard))) {
+        fn(client_seat, event);
     }
 }
 
 static
 void handle_pointer_event(WayClient* client, SeatEvent* event, auto&& fn)
 {
-    if (auto* seat_client = get_seat_client(client, seat_pointer_get_seat(event->pointer.pointer))) {
-        fn(seat_client, event);
+    if (auto* client_seat = find_client_seat(client, seat_pointer_get_seat(event->pointer.pointer))) {
+        fn(client_seat, event);
     }
 }
 
@@ -116,8 +116,8 @@ void way_seat_handle_event(WayClient* client, SeatEvent* event)
         break;case SeatEventType::pointer_scroll: handle_pointer_event(client, event, way_seat_on_scroll);
 
         break;case SeatEventType::selection:
-            if (auto* seat_client = get_seat_client(client, event->data.seat)) {
-                way_data_offer_selection(seat_client);
+            if (auto* client_seat = find_client_seat(client, event->data.seat)) {
+                way_data_offer_selection(client_seat);
             }
     }
 }

@@ -7,9 +7,11 @@ auto seat_manager_create() -> Ref<SeatManager>
 
 // -----------------------------------------------------------------------------
 
-auto seat_create(SeatManager* manager, SeatKeyboard* keyboard, SeatPointer* pointer) -> Ref<Seat>
+auto seat_create(SeatManager* manager, std::string_view name, SeatKeyboard* keyboard, SeatPointer* pointer) -> Ref<Seat>
 {
     auto seat = ref_create<Seat>();
+
+    seat->name = name;
 
     seat->manager = manager;
     manager->seats.emplace_back(seat.get());
@@ -26,6 +28,11 @@ auto seat_create(SeatManager* manager, SeatKeyboard* keyboard, SeatPointer* poin
 Seat::~Seat()
 {
     std::erase(manager->seats, this);
+}
+
+auto seat_get_name(Seat* seat) -> const char*
+{
+    return seat->name.c_str();
 }
 
 auto seat_get_keyboard(Seat* seat) -> SeatKeyboard*

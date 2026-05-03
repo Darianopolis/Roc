@@ -27,18 +27,14 @@ struct WayKeymap
 struct WaySeat
 {
     WayServer* server;
-    Seat* scene;
+    Seat* seat;
 
     wl_global* global;
 
-    struct {
-        SeatKeyboard* scene;
-        WayKeymap keymap;
-    } keyboard;
+    WayKeymap     keymap;
+    SeatKeyboard* keyboard;
 
-    struct {
-        SeatPointer* scene;
-    } pointer;
+    SeatPointer* pointer;
 
     struct {
         Weak<WaySurface> pointer;
@@ -48,22 +44,21 @@ struct WaySeat
     ~WaySeat();
 };
 
-struct WaySeatClient
+struct WayClientSeat
 {
-    WaySeat* seat;
     WayClient* client;
+    WaySeat*   seat;
 
     WayResourceList keyboards;
     WayResourceList pointers;
-    WayResourceList data_devices;
-
     WayResourceList relative_pointers;
+    WayResourceList data_devices;
 
     struct {
         Ref<WayDataOffer> offer;
     } drag;
 
-    ~WaySeatClient();
+    ~WayClientSeat();
 };
 
 // -----------------------------------------------------------------------------
@@ -83,16 +78,16 @@ void way_seat_keyboard_init(WaySeat*);
 void way_seat_get_keyboard(wl_client*, wl_resource*, u32 id);
 void way_seat_get_pointer( wl_client*, wl_resource*, u32 id);
 
-void way_seat_on_keyboard_enter(WaySeatClient*, SeatEvent*);
-void way_seat_on_keyboard_leave(WaySeatClient*, SeatEvent*);
-void way_seat_on_key(           WaySeatClient*, SeatEvent*);
-void way_seat_on_modifier(      WaySeatClient*, SeatEvent*);
+void way_seat_on_keyboard_enter(WayClientSeat*, SeatEvent*);
+void way_seat_on_keyboard_leave(WayClientSeat*, SeatEvent*);
+void way_seat_on_key(           WayClientSeat*, SeatEvent*);
+void way_seat_on_modifier(      WayClientSeat*, SeatEvent*);
 
-void way_seat_on_pointer_enter(WaySeatClient*, SeatEvent*);
-void way_seat_on_pointer_leave(WaySeatClient*, SeatEvent*);
-void way_seat_on_motion(       WaySeatClient*, SeatEvent*);
-void way_seat_on_button(       WaySeatClient*, SeatEvent*);
-void way_seat_on_scroll(       WaySeatClient*, SeatEvent*);
+void way_seat_on_pointer_enter(WayClientSeat*, SeatEvent*);
+void way_seat_on_pointer_leave(WayClientSeat*, SeatEvent*);
+void way_seat_on_motion(       WayClientSeat*, SeatEvent*);
+void way_seat_on_button(       WayClientSeat*, SeatEvent*);
+void way_seat_on_scroll(       WayClientSeat*, SeatEvent*);
 
 // -----------------------------------------------------------------------------
 

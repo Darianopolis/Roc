@@ -16,6 +16,8 @@ struct Seat
 {
     SeatManager* manager;
 
+    std::string name;
+
     Ref<SeatKeyboard> keyboard;
     Ref<SeatPointer> pointer;
 

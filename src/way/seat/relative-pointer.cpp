@@ -4,7 +4,7 @@
 static
 void get_relative_pointer(wl_client* wl_client, wl_resource* resource, u32 id, wl_resource* pointer)
 {
-    auto* client = way_get_userdata<WaySeatClient>(pointer);
+    auto* client = way_get_userdata<WayClientSeat>(pointer);
 
     client->relative_pointers.emplace_back(way_resource_create_unsafe(zwp_relative_pointer_v1, wl_client, resource, id, client));
 }

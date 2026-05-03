@@ -5,8 +5,8 @@
 static
 void get_pointer(wl_client* client, wl_resource* cursor_shape_manager, u32 id, wl_resource* wl_pointer)
 {
-    auto* seat_client = way_get_userdata<WaySeatClient>(wl_pointer);
-    way_resource_create_refcounted(wp_cursor_shape_device_v1, client, cursor_shape_manager, id, seat_client);
+    auto* client_seat = way_get_userdata<WayClientSeat>(wl_pointer);
+    way_resource_create_refcounted(wp_cursor_shape_device_v1, client, cursor_shape_manager, id, client_seat);
 }
 
 WAY_INTERFACE(wp_cursor_shape_manager_v1) = {
@@ -70,10 +70,10 @@ auto cursor_shape_to_xcursor(wp_cursor_shape_device_v1_shape shape) -> const cha
 static
 void set_shape(wl_client* client, wl_resource* resource, u32 serial, u32 shape)
 {
-    auto* seat_client = way_get_userdata<WaySeatClient>(resource);
-    auto* seat = seat_client->seat;
-    if (seat->pointer.scene) {
-        seat_pointer_set_xcursor(seat->pointer.scene, cursor_shape_to_xcursor(wp_cursor_shape_device_v1_shape(shape)));
+    auto* client_seat = way_get_userdata<WayClientSeat>(resource);
+    auto* seat = client_seat->seat;
+    if (seat->pointer) {
+        seat_pointer_set_xcursor(seat->pointer, cursor_shape_to_xcursor(wp_cursor_shape_device_v1_shape(shape)));
     }
 }
 
