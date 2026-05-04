@@ -294,7 +294,7 @@ auto test_timeline_syncobj_export(Gpu* gpu) -> bool
     defer { gpu->vk.DestroySemaphore(gpu->device, semaphore, nullptr); };
     gpu_check(gpu->vk.CreateSemaphore(gpu->device, ptr_to(VkSemaphoreCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-        .pNext = gpu_vulkan_make_chain({
+        .pNext = gpu_vulkan_make_chain({{
             ptr_to(VkSemaphoreTypeCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
@@ -303,7 +303,7 @@ auto test_timeline_syncobj_export(Gpu* gpu) -> bool
                 .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO,
                 .handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT,
             }),
-        })
+        }})
     }), nullptr, &semaphore));
 
     // Export as OPAQUE_FD
@@ -447,7 +447,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
     auto create_device = [&](bool global_priority) {
         return gpu_check(gpu->vk.CreateDevice(gpu->physical_device, ptr_to(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = gpu_vulkan_make_chain({
+            .pNext = gpu_vulkan_make_chain({{
                 ptr_to(VkPhysicalDeviceFeatures2 {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
                     .features = {
@@ -497,7 +497,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_8_FEATURES_KHR,
                     .maintenance8 = true,
                 }),
-            }),
+            }}),
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {

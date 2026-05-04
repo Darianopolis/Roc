@@ -71,14 +71,14 @@ void io_input_device_key_enter(IoInputDeviceBase* device, std::span<const u32> k
 void io_input_device_key_press(IoInputDeviceBase* device, u32 key)
 {
     if (device->pressed.insert(key).second) {
-        post_input(device, false, {{EV_KEY, key, 1}});
+        post_input(device, false, {{{EV_KEY, key, 1}}});
     }
 }
 
 void io_input_device_key_release(IoInputDeviceBase* device, u32 key)
 {
     if (device->pressed.erase(key)) {
-        post_input(device, false, {{EV_KEY, key, 0}});
+        post_input(device, false, {{{EV_KEY, key, 0}}});
     }
 }
 

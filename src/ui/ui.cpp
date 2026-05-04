@@ -309,7 +309,7 @@ void init(Ui* ui, const std::filesystem::path& path)
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
             .usage = GpuImageUsage::texture | GpuImageUsage::transfer
         });
-        gpu_copy_memory_to_image(ui->font_image.get(), as_bytes(pixels, width * height * 4), {{{width, height}}});
+        gpu_copy_memory_to_image(ui->font_image.get(), as_bytes(pixels, width * height * 4), {{{{width, height}}}});
     }
 
     auto& platform_io = ImGui::GetPlatformIO();

@@ -29,6 +29,7 @@ function(init_target target_name)
         -Wno-missing-field-initializers
         -Wno-unknown-pragmas
         -Wno-unused-parameter
+        -Wno-invalid-offsetof
         )
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         target_compile_options(${target_name} PRIVATE

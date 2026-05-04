@@ -85,7 +85,7 @@ auto get_xcursor(SeatCursorManager* manager, const char* semantic) -> SceneNode*
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer
     });
-    gpu_copy_memory_to_image(image.get(), as_bytes(cursor->pixels, cursor->width * cursor->height * 4), {{image->extent()}});
+    gpu_copy_memory_to_image(image.get(), as_bytes(cursor->pixels, cursor->width * cursor->height * 4), {{{image->extent()}}});
 
     auto visual = scene_texture_create();
     scene_texture_set_image(visual.get(), image.get(), manager->sampler.get(), GpuBlendMode::premultiplied);

@@ -289,10 +289,10 @@ void handle_io_event(WmServer* wm, IoEvent* event)
                 .extent = output->io->info().size,
                 .format = format,
                 .usage = usage,
-                .modifiers = ptr_to(gpu_intersect_format_modifiers({
+                .modifiers = ptr_to(gpu_intersect_format_modifiers({{
                     &gpu_get_format_properties(wm->gpu, format, usage)->mods,
                     &output->io->info().formats->get(format),
-                }))
+                }}))
             });
 
             scene_render(wm->scene.get(), target.get(), output->viewport);

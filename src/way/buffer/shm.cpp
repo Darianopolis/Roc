@@ -184,11 +184,11 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
         debug_assert((offset + read_end) <= pool->size, "accessed {} > available {}", offset + read_end, pool->size);
         gpu_copy_memory_to_image(image.get(),
             as_bytes(byte_offset_pointer<void>(pool->data, offset + read_start), read_end - read_start),
-            {{
+            {{{
                 .image_extent = rect.extent,
                 .image_offset = rect.origin,
                 .buffer_row_length = u32(stride) / info.texel_block_size,
-            }});
+            }}});
     }
 #if NOISY_SHM_BUFFER_IMAGES
     else {

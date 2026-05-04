@@ -25,7 +25,7 @@ void scene_render_init(Scene* scene)
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer_dst
     });
 
-    gpu_copy_memory_to_image(scene->render.white.get(), as_bytes(ptr_to(color_from_hex("#FFFFFF")), 4), {{{1, 1}}});
+    gpu_copy_memory_to_image(scene->render.white.get(), as_bytes(ptr_to(color_from_hex("#FFFFFF")), 4), {{{{1, 1}}}});
 
     scene->render.nearest = gpu_sampler_create(scene->gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -191,15 +191,15 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         .target = target,
         .clear_color = {0,0,0,1},
     }, [&](GpuRenderpass& pass) {
-        pass.set_viewports({{{}, target->extent(), xywh}});
+        pass.set_viewports({{{{}, target->extent(), xywh}}});
 
         rect2f32 scissor = default_clip;
         scissor.origin -= viewport.origin;
-        pass.set_scissors({scissor});
+        pass.set_scissors({{scissor}});
 
-        pass.set_blend_state({GpuBlendMode::premultiplied});
+        pass.set_blend_state({{GpuBlendMode::premultiplied}});
 
-        pass.bind_shaders({scene->render.vertex.get(), scene->render.fragment.get()});
+        pass.bind_shaders({{scene->render.vertex.get(), scene->render.fragment.get()}});
         pass.bind_index_buffer(gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {

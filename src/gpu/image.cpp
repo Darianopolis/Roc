@@ -330,7 +330,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
 
     gpu_check(gpu->vk.CreateImage(gpu->device, ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext = gpu_vulkan_make_chain({
+        .pNext = gpu_vulkan_make_chain({{
             ptr_to(VkExternalMemoryImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
@@ -340,7 +340,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
                 .drmFormatModifierCount = u32(info.modifiers->size()),
                 .pDrmFormatModifiers = std::span(*info.modifiers).data(),
             }),
-        }),
+        }}),
         .imageType = VK_IMAGE_TYPE_2D,
         .format = info.format->vk,
         .extent = {info.extent.x, info.extent.y, 1},
@@ -362,7 +362,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
     auto index = gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = gpu_vulkan_make_chain({
+        .pNext = gpu_vulkan_make_chain({{
             ptr_to(VkExportMemoryAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
@@ -371,7 +371,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
                 .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
                 .image = image->handle(),
             })
-        }),
+        }}),
         .allocationSize = mem_reqs.size,
         .memoryTypeIndex = index,
     }), nullptr, &image->memory[0]));
@@ -493,7 +493,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
     if (params.disjoint) img_create_flags |= VK_IMAGE_CREATE_DISJOINT_BIT;
     gpu_check(gpu->vk.CreateImage(gpu->device, ptr_to(VkImageCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext = gpu_vulkan_make_chain({
+        .pNext = gpu_vulkan_make_chain({{
             ptr_to(VkExternalMemoryImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
                 .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
@@ -504,7 +504,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
                 .drmFormatModifierPlaneCount = u32(params.planes.count),
                 .pPlaneLayouts = plane_layouts,
             }),
-        }),
+        }}),
         .flags = img_create_flags,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = params.format->vk,
@@ -555,7 +555,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
 
         if (gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .pNext = gpu_vulkan_make_chain({
+            .pNext = gpu_vulkan_make_chain({{
                 ptr_to(VkImportMemoryFdInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
                     .handleType = handle_type,
@@ -569,7 +569,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
                     .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
                     .image = image->handle(),
                 }),
-            }),
+            }}),
             .allocationSize = mem_reqs.memoryRequirements.size,
             .memoryTypeIndex = mem,
         }), nullptr, &image->memory[i])) != VK_SUCCESS) {

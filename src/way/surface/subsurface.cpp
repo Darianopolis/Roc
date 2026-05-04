@@ -12,12 +12,6 @@ void ensure_tree(WaySurface* surface)
 }
 
 static
-auto get_root(WaySurface* surface) -> WaySurface*
-{
-    return surface->parent ? get_root(surface->parent.get()) : surface;
-}
-
-static
 void get_subsurface(wl_client* client, wl_resource* resource, u32 id, wl_resource* wl_surface, wl_resource* wl_parent)
 {
     auto* surface = way_get_userdata<WaySurface>(wl_surface);

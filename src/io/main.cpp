@@ -12,10 +12,10 @@ void render(Gpu* gpu, IoOutput* output, GpuImagePool* pool)
         .extent = output->info().size,
         .format = format,
         .usage = usage,
-        .modifiers = ptr_to(gpu_intersect_format_modifiers({
+        .modifiers = ptr_to(gpu_intersect_format_modifiers({{
             &gpu_get_format_properties(gpu, format, usage)->mods,
             &output->info().formats->get(format),
-        })),
+        }})),
     });
 
     auto* cmd = gpu_get_commands(gpu);

@@ -298,7 +298,6 @@ private:
 #endif
 
 public:
-
     WayListener() = default;
 
     DELETE_COPY_MOVE(WayListener);
