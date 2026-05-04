@@ -147,7 +147,7 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
 
     gpu->drm.fd = -1;
 
-    if (check_extension(VK_EXT_PHYSICAL_DEVICE_DRM_EXTENSION_NAME) && false) {
+    if (check_extension(VK_EXT_PHYSICAL_DEVICE_DRM_EXTENSION_NAME)) {
         VkPhysicalDeviceDrmPropertiesEXT drm_props {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT,
         };
