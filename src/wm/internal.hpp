@@ -5,7 +5,6 @@
 #include <core/types.hpp>
 #include <scene/scene.hpp>
 #include <way/way.hpp>
-#include <io/io.hpp>
 
 enum class WmInteractionMode
 {
@@ -18,9 +17,27 @@ enum class WmInteractionMode
 
 struct ShellLauncher;
 
-struct WmOutput {
-    IoOutput* io;
+struct WmOutput
+{
+    WmServer* server;
+
+    vec2i32 pixel_size;
     rect2f32 viewport;
+
+    void* userdata;
+    WmOutputInterface interface;
+
+    ~WmOutput();
+};
+
+struct WmInputDevice
+{
+    WmServer* server;
+
+    void* userdata;
+    WmInputDeviceInterface interface;
+
+    ~WmInputDevice();
 };
 
 struct WmServer
@@ -49,11 +66,8 @@ struct WmServer
     Ref<SeatEventFilter> pointer_constraints_filter;
 
     struct {
-        IoContext*          context;
-        Ref<GpuImagePool>   pool;
-        RefVector<WmOutput> outputs;
-
-        std::vector<IoInputDevice*> led_devices;
+        std::vector<WmOutput*> outputs;
+        std::vector<WmInputDevice*> input_devices;
     } io;
 
     Ref<SeatCursorManager> cursor_manager;

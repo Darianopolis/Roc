@@ -10,14 +10,12 @@ struct IoContext;
 
 struct WmServer;
 struct WmWindow;
-struct WmOutput;
 struct WmPointerConstraint;
 
 struct WmServerCreateInfo
 {
     ExecContext* exec;
     Gpu*         gpu;
-    IoContext*   io;
 
     SeatModifier main_mod;
 };
@@ -33,6 +31,36 @@ enum class WmLayer
 
 auto wm_get_scene(WmServer*) -> Scene*;
 auto wm_get_layer(WmServer*, WmLayer) -> SceneTree*;
+
+// -----------------------------------------------------------------------------
+
+struct WmOutput;
+struct WmOutputInterface
+{
+    void(*request_frame)(void*);
+};
+
+auto wm_output_create(WmServer*, void*, WmOutputInterface) -> Ref<WmOutput>;
+void wm_output_set_pixel_size(WmOutput*, vec2i32);
+void wm_output_frame(WmOutput*);
+
+// -----------------------------------------------------------------------------
+
+struct WmInputDevice;
+struct WmInputDeviceInterface
+{
+    void(*update_leds)(void*, Flags<libinput_led>);
+};
+
+struct WmInputDeviceChannel
+{
+    u32 type;   // evdev type
+    u32 code;   // evdev code
+    f32 value;  // normalized channel value
+};
+
+auto wm_input_device_create(WmServer*, void*, WmInputDeviceInterface) -> Ref<WmInputDevice>;
+void wm_input_device_push_events(WmInputDevice*, bool quiet, std::span<WmInputDeviceChannel const>);
 
 // -----------------------------------------------------------------------------
 

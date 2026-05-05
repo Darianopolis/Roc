@@ -6,7 +6,6 @@ auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
 
     wm->exec = info.exec;
     wm->gpu = info.gpu;
-    wm->io.context = info.io;
 
     wm->seat_manager = seat_manager_create();
 

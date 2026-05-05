@@ -40,7 +40,6 @@ auto main(int argc, char* argv[]) -> int
     auto wm = wm_create({
         .exec = exec.get(),
         .gpu = gpu.get(),
-        .io = io.get(),
         .main_mod = shell.main_mod,
     });
     auto way = way_create(exec.get(), gpu.get(), wm.get());
@@ -59,6 +58,93 @@ auto main(int argc, char* argv[]) -> int
     auto _ = shell_init_menu(&shell);
 
     shell_init_xwayland(&shell, argc, argv);
+
+    // IO
+
+    struct InputDevice
+    {
+        IoInputDevice* io;
+        Ref<WmInputDevice> wm;
+    };
+    struct Output
+    {
+        IoOutput* io;
+        Ref<WmOutput> wm;
+    };
+    std::vector<InputDevice> input_devices;
+    auto pool = gpu_image_pool_create(gpu.get());
+    std::vector<Output> outputs;
+    auto find_output = [&](IoOutput* output) -> WmOutput* {
+        for (auto& o : outputs) {
+            if (o.io == output) return o.wm.get();
+        }
+        return nullptr;
+    };
+    io_set_event_handler(io.get(), [&](IoEvent* event) {
+        switch (event->type) {
+            // shutdown
+            break;case IoEventType::shutdown_requested:
+                io_stop(io.get());
+
+            // input
+            break;case IoEventType::input_added:
+                input_devices.emplace_back(event->input.device, wm_input_device_create(wm.get(), event->input.device, WmInputDeviceInterface {
+                    .update_leds = [](void* data, Flags<libinput_led> leds) {
+                        static_cast<IoInputDevice*>(data)->update_leds(leds);
+                    },
+                }));
+            break;case IoEventType::input_removed:
+                std::erase_if(input_devices, [&](const auto& i) { return i.io == event->input.device; });
+            break;case IoEventType::input_event: {
+                std::vector<WmInputDeviceChannel> events;
+                for (auto& c : event->input.channels) {
+                    events.emplace_back(WmInputDeviceChannel{.type=c.type, .code=c.code, .value=c.value});
+                }
+                for (auto& i : input_devices) {
+                    if (i.io != event->input.device) continue;
+                    wm_input_device_push_events(i.wm.get(), event->input.quiet, events);
+                    break;
+                }
+            }
+
+            // output
+            break;case IoEventType::output_added:
+                outputs.emplace_back(event->output.output, wm_output_create(wm.get(), event->output.output, WmOutputInterface {
+                    .request_frame = [](void* data) {
+                        static_cast<IoOutput*>(data)->request_frame();
+                    },
+                }));
+            break;case IoEventType::output_configure:
+                wm_output_set_pixel_size(find_output(event->output.output), event->output.output->info().size);
+            break;case IoEventType::output_removed:
+                std::erase_if(outputs, [&](const auto& o) { return o.io == event->output.output; });
+            break;case IoEventType::output_frame: {
+                auto io_output = event->output.output;
+                auto output = find_output(io_output);
+
+                wm_output_frame(output);
+
+                // TODO: Only redraw with damage
+
+                auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
+                auto usage = GpuImageUsage::render;
+
+                auto target = pool->acquire({
+                    .extent = io_output->info().size,
+                    .format = format,
+                    .usage = usage,
+                    .modifiers = ptr_to(gpu_intersect_format_modifiers({{
+                        &gpu_get_format_properties(gpu.get(), format, usage)->mods,
+                        &io_output->info().formats->get(format),
+                    }}))
+                });
+
+                scene_render(wm_get_scene(wm.get()), target.get(), wm_output_get_viewport(output));
+
+                io_output->commit(target.get(), gpu_flush(gpu.get()), IoOutputCommitFlag::vsync);
+            }
+        }
+    });
 
     // Run
 

@@ -248,7 +248,7 @@ target_sources(scene PRIVATE
     src/scene/node/input-region.cpp
     src/scene/damage.cpp
     )
-target_link_libraries(scene PUBLIC io)
+target_link_libraries(scene PUBLIC core gpu)
 
 # ------------------------------------------------------------------------------
 #       Seat
@@ -264,7 +264,7 @@ target_sources(seat PRIVATE
     src/seat/data.cpp
     src/seat/focus.cpp
     )
-target_link_libraries(seat PUBLIC core)
+target_link_libraries(seat PUBLIC core scene)
 
 # ------------------------------------------------------------------------------
 #       Window Manager
@@ -283,7 +283,7 @@ target_sources(wm PRIVATE
     src/wm/focus.cpp
     src/wm/pointer-constraints.cpp
     )
-target_link_libraries(wm PUBLIC scene seat)
+target_link_libraries(wm PUBLIC core scene seat)
 
 # ------------------------------------------------------------------------------
 #       UI
@@ -345,4 +345,4 @@ target_sources(${PROGRAM_NAME} PRIVATE
     src/shell/app/launcher.cpp
     src/shell/app/background.cpp
     )
-target_link_libraries(${PROGRAM_NAME} PUBLIC wm ui way)
+target_link_libraries(${PROGRAM_NAME} PUBLIC wm io ui way)
