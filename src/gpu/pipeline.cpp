@@ -53,14 +53,24 @@ auto gpu_shader_create(Gpu* gpu, const GpuShaderCreateInfo& info) -> Ref<GpuShad
 
 // -----------------------------------------------------------------------------
 
-void GpuRenderpass::push_constants(u32 offset, std::span<const byte> data)
+struct GpuRenderPass
 {
+    Gpu* gpu;
+    VkCommandBuffer cmd;
+};
+
+void gpu_push_constants(GpuRenderPass* pass, u32 offset, std::span<const byte> data)
+{
+    auto[gpu, cmd] = *pass;
+
     debug_assert(offset + data.size() <= gpu_push_constant_size, "{} > {}", offset + data.size(), gpu_push_constant_size);
     gpu->vk.CmdPushConstants(cmd, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size(), data.data());
 }
 
-void GpuRenderpass::set_scissors(std::span<const rect2i32> scissors)
+void gpu_set_scissors(GpuRenderPass* pass, std::span<const rect2i32> scissors)
 {
+    auto[gpu, cmd] = *pass;
+
     ThreadStack stack;
 
     auto* vk_scissors = stack.allocate<VkRect2D>(scissors.size());
@@ -76,8 +86,9 @@ void GpuRenderpass::set_scissors(std::span<const rect2i32> scissors)
     gpu->vk.CmdSetScissorWithCount(cmd, u32(scissors.size()), vk_scissors);
 }
 
-void GpuRenderpass::set_viewports(std::span<const rect2f32> viewports)
+void gpu_set_viewports(GpuRenderPass* pass, std::span<const rect2f32> viewports)
 {
+    auto[gpu, cmd] = *pass;
     ThreadStack stack;
 
     auto* vk_viewports = stack.allocate<VkViewport>(viewports.size());
@@ -94,28 +105,36 @@ void GpuRenderpass::set_viewports(std::span<const rect2f32> viewports)
     gpu->vk.CmdSetViewportWithCount(cmd, u32(viewports.size()), vk_viewports);
 }
 
-void GpuRenderpass::set_polygon_state(VkPrimitiveTopology topology, VkPolygonMode polygon_mode, f32 line_width)
+void gpu_set_polygon_state(GpuRenderPass* pass, VkPrimitiveTopology topology, VkPolygonMode polygon_mode, f32 line_width)
 {
+    auto[gpu, cmd] = *pass;
+
     gpu->vk.CmdSetPrimitiveTopology(cmd, topology);
     gpu->vk.CmdSetPolygonModeEXT(   cmd, polygon_mode);
     gpu->vk.CmdSetLineWidth(        cmd, line_width);
 }
 
-void GpuRenderpass::set_cull_state(VkCullModeFlagBits cull_mode, VkFrontFace front_face)
+void gpu_set_cull_state(GpuRenderPass* pass, VkCullModeFlagBits cull_mode, VkFrontFace front_face)
 {
+    auto[gpu, cmd] = *pass;
+
     gpu->vk.CmdSetCullMode( cmd, cull_mode);
     gpu->vk.CmdSetFrontFace(cmd, front_face);
 }
 
-void GpuRenderpass::set_depth_state(Flags<GpuDepthEnable> enabled, VkCompareOp compare_op)
+void gpu_set_depth_state(GpuRenderPass* pass, Flags<GpuDepthEnable> enabled, VkCompareOp compare_op)
 {
+    auto[gpu, cmd] = *pass;
+
     gpu->vk.CmdSetDepthTestEnable( cmd, enabled.contains(GpuDepthEnable::test));
     gpu->vk.CmdSetDepthWriteEnable(cmd, enabled.contains(GpuDepthEnable::write));
     gpu->vk.CmdSetDepthCompareOp(  cmd, compare_op);
 }
 
-void GpuRenderpass::set_blend_state(std::span<const GpuBlendMode> blends)
+void gpu_set_blend_state(GpuRenderPass* pass, std::span<const GpuBlendMode> blends)
 {
+    auto[gpu, cmd] = *pass;
+
     auto count = u32(blends.size());
 
     ThreadStack stack;
@@ -165,8 +184,10 @@ void GpuRenderpass::set_blend_state(std::span<const GpuBlendMode> blends)
     gpu->vk.CmdSetColorBlendEquationEXT(cmd, 0, count, blend_equations);
 }
 
-void GpuRenderpass::bind_shaders(std::span<GpuShader* const> shaders)
+void gpu_bind_shaders(GpuRenderPass* pass, std::span<GpuShader* const> shaders)
 {
+    auto[gpu, cmd] = *pass;
+
     u32 count = u32(shaders.size());
 
     ThreadStack stack;
@@ -182,20 +203,24 @@ void GpuRenderpass::bind_shaders(std::span<GpuShader* const> shaders)
     gpu->vk.CmdBindShadersEXT(cmd, count, stage_flags, shader_objects);
 }
 
-void GpuRenderpass::bind_index_buffer(GpuBuffer* buffer, u32 offset, VkIndexType type)
+void gpu_bind_index_buffer(GpuRenderPass* pass, GpuBuffer* buffer, u32 offset, VkIndexType type)
 {
+    auto[gpu, cmd] = *pass;
+
     gpu->vk.CmdBindIndexBuffer(cmd, buffer->buffer, offset, type);
 }
 
-void GpuRenderpass::draw_indexed(const GpuDrawInfo& info)
+void gpu_draw_indexed(GpuRenderPass* pass, const GpuDrawInfo& info)
 {
+    auto[gpu, cmd] = *pass;
+
     gpu->vk.CmdDrawIndexed(cmd, info.index_count, info.instance_count, info.first_index, info.vertex_offset, info.first_instance);
 }
 
 static
-void reset_graphics_state(GpuRenderpass& pass)
+void reset_graphics_state(GpuRenderPass* pass)
 {
-    auto[gpu, cmd] = pass;
+    auto[gpu, cmd] = *pass;
 
     gpu->vk.CmdSetAlphaToCoverageEnableEXT(cmd, false);
     gpu->vk.CmdSetSampleMaskEXT(           cmd, VK_SAMPLE_COUNT_1_BIT, ptr_to<VkSampleMask>(0xFFFF'FFFF));
@@ -217,20 +242,20 @@ void reset_graphics_state(GpuRenderpass& pass)
     gpu->vk.CmdSetDepthBoundsTestEnable(cmd, false);
     gpu->vk.CmdSetDepthBounds(          cmd, 0.f, 1.f);
 
-    pass.set_polygon_state(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, 1.f);
-    pass.set_cull_state(   VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    pass.set_depth_state(  {}, VK_COMPARE_OP_ALWAYS);
+    gpu_set_polygon_state(pass, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, 1.f);
+    gpu_set_cull_state(pass,   VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    gpu_set_depth_state(pass,  {}, VK_COMPARE_OP_ALWAYS);
 }
 
-auto gpu_renderpass_begin(Gpu* gpu, const GpuRenderpassInfo& info) -> GpuRenderpass
+void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(GpuRenderPass*)> fn)
 {
     auto cmd = gpu_get_commands(gpu)->buffer;
 
     gpu_protect(gpu, info.target);
 
-    GpuRenderpass pass{gpu, cmd};
+    GpuRenderPass pass{gpu, cmd};
 
-    reset_graphics_state(pass);
+    reset_graphics_state(&pass);
 
     auto extent = info.target->extent();
 
@@ -243,29 +268,28 @@ auto gpu_renderpass_begin(Gpu* gpu, const GpuRenderpassInfo& info) -> GpuRenderp
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .imageView = info.target->view(),
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .loadOp = info.clear_color
+                ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                : VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = {
-                .color = {
-                    .float32 = {
-                        info.clear_color.r,
-                        info.clear_color.g,
-                        info.clear_color.b,
-                        info.clear_color.a
+            .clearValue = info.clear_color
+                ? VkClearValue {
+                    .color = {
+                        .float32 = {
+                            info.clear_color->r,
+                            info.clear_color->g,
+                            info.clear_color->b,
+                            info.clear_color->a
+                        }
                     }
                 }
-            },
+                : VkClearValue {},
         }),
     }));
 
     gpu->vk.CmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
 
-    return pass;
-}
-
-void gpu_renderpass_end(GpuRenderpass& pass)
-{
-    auto[gpu, cmd] = pass;
+    fn(&pass);
 
     gpu->vk.CmdEndRendering(cmd);
 }

@@ -189,18 +189,18 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 
     gpu_render(gpu, {
         .target = target,
-        .clear_color = {0,0,0,1},
-    }, [&](GpuRenderpass& pass) {
-        pass.set_viewports({{{{}, target->extent(), xywh}}});
+        .clear_color = {{0,0,0,1}},
+    }, [&](GpuRenderPass* pass) {
+        gpu_set_viewports(pass, {{{{}, target->extent(), xywh}}});
 
         rect2f32 scissor = default_clip;
         scissor.origin -= viewport.origin;
-        pass.set_scissors({{scissor}});
+        gpu_set_scissors(pass, {{scissor}});
 
-        pass.set_blend_state({{GpuBlendMode::premultiplied}});
+        gpu_set_blend_state(pass, {{GpuBlendMode::premultiplied}});
 
-        pass.bind_shaders({{scene->render.vertex.get(), scene->render.fragment.get()}});
-        pass.bind_index_buffer(gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
+        gpu_bind_shaders(pass, {{scene->render.vertex.get(), scene->render.fragment.get()}});
+        gpu_bind_index_buffer(pass, gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {
 
@@ -215,7 +215,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
                 flags |= SCENE_DRAW_FLAG_PREMULTIPLIED;
             }
 
-            pass.push_constants(0, view_bytes(SceneRenderInput {
+            gpu_push_constants(pass, 0, view_bytes(SceneRenderInput {
                 .vertices = gpu_vertices.device(),
                 .scale = draw_scale,
                 .offset = (draw.position - viewport.origin) * draw_scale - 1.f,
@@ -225,7 +225,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
                 .flags = flags,
             }));
 
-            pass.draw_indexed({
+            gpu_draw_indexed(pass, {
                 .index_count = draw.index_count,
                 .instance_count = 1,
                 .first_index = draw.first_index,

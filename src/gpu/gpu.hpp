@@ -497,39 +497,26 @@ struct GpuDrawInfo {
     u32 first_instance;
 };
 
-struct GpuRenderpass
-{
-    Gpu* gpu;
-    VkCommandBuffer cmd;
+struct GpuRenderPass;
 
-    void push_constants(   u32 offset, std::span<const byte> data);
-    void set_scissors(     std::span<const rect2i32> scissors);
-    void set_viewports(    std::span<const rect2f32> viewports);
-    void set_polygon_state(VkPrimitiveTopology, VkPolygonMode, f32 line_width);
-    void set_cull_state(   VkCullModeFlagBits, VkFrontFace);
-    void set_depth_state(  Flags<GpuDepthEnable> enabled, VkCompareOp);
-    void set_blend_state(  std::span<const GpuBlendMode>);
-    void bind_index_buffer(GpuBuffer*, u32 offset, VkIndexType);
-    void bind_shaders(     std::span<GpuShader* const>);
-    void draw_indexed(     const GpuDrawInfo&);
-};
+void gpu_push_constants(   GpuRenderPass*, u32 offset, std::span<const byte> data);
+void gpu_set_scissors(     GpuRenderPass*, std::span<const rect2i32> scissors);
+void gpu_set_viewports(    GpuRenderPass*, std::span<const rect2f32> viewports);
+void gpu_set_polygon_state(GpuRenderPass*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
+void gpu_set_cull_state(   GpuRenderPass*, VkCullModeFlagBits, VkFrontFace);
+void gpu_set_depth_state(  GpuRenderPass*, Flags<GpuDepthEnable> enabled, VkCompareOp);
+void gpu_set_blend_state(  GpuRenderPass*, std::span<const GpuBlendMode>);
+void gpu_bind_index_buffer(GpuRenderPass*, GpuBuffer*, u32 offset, VkIndexType);
+void gpu_bind_shaders(     GpuRenderPass*, std::span<GpuShader* const>);
+void gpu_draw_indexed(     GpuRenderPass*, const GpuDrawInfo&);
 
-struct GpuRenderpassInfo
+struct GpuRenderPassInfo
 {
     GpuImage* target;
-    vec4f32   clear_color;
+    std::optional<vec4f32> clear_color;
 };
 
-auto gpu_renderpass_begin(Gpu*, const GpuRenderpassInfo&) -> GpuRenderpass;
-void gpu_renderpass_end(GpuRenderpass&);
-
-template<typename Fn>
-void gpu_render(Gpu* gpu, const GpuRenderpassInfo& info, Fn&& fn)
-{
-    auto pass = gpu_renderpass_begin(gpu, info);
-    fn(pass);
-    gpu_renderpass_end(pass);
-}
+void gpu_render(Gpu*, const GpuRenderPassInfo&, std::function_ref<void(GpuRenderPass*)>);
 
 // -----------------------------------------------------------------------------
 
