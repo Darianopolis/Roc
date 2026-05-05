@@ -2,7 +2,7 @@
     "dependencies": {
         "concurrent-queue": {
             "branch": "master",
-            "commit": "9afb99746f0f5fc94ac8aef737053ae0481ba8d1",
+            "commit": "d655418bb644b7f85159d94c591d7d983949fb81",
             "repo": "https://github.com/cameron314/concurrentqueue.git"
         },
         "glm": {
@@ -12,22 +12,22 @@
         },
         "imgui": {
             "branch": "docking",
-            "commit": "417f5ed66ddabbec338d8ab0c7ea239ce894f334",
+            "commit": "dc5c6b3688d27dac69ae9e72f33c8f8fdb6cac69",
             "repo": "https://github.com/ocornut/imgui.git"
         },
         "kde-protocols": {
             "branch": "master",
-            "commit": "5dc6f353965edab79037b9ffaae53a2de2e2a494",
+            "commit": "18afc45c092857e998c890afce1e7e71f808d819",
             "repo": "https://github.com/KDE/plasma-wayland-protocols.git"
         },
         "magic-enum": {
             "branch": "master",
-            "commit": "7d87efb4a3dddbbe8caa9ca14eff05ede1102ab8",
+            "commit": "1384769c66bd16ec9bb1353f45fe8ec8ccc12dbd",
             "repo": "https://github.com/Neargye/magic_enum.git"
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "2287790c41b507cd6eda43cc78ed64162fdff3fa",
+            "commit": "c79d939445993666d2355079f5a38fe4c00e7ab0",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
@@ -42,7 +42,7 @@
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "f6a6f7ab165cedbfa2a7d0c93fe27a2d01ce09c8",
+            "commit": "8864cdc896bbc2a9b6eb36b3218fc9ef57908d77",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         },
         "vulkan-memory-allocator": {
@@ -52,7 +52,7 @@
         },
         "vulkan-utility-libraries": {
             "branch": "main",
-            "commit": "2c909c1ab6f9c6caba39a84a4887186b3fafdead",
+            "commit": "a96bd4933c6adfc21329d15e9999791a0153bbf3",
             "repo": "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
         }
     }

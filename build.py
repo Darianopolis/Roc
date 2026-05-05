@@ -14,14 +14,14 @@ from scripts.utils import *
 # -----------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-U", "--update", action="store_true", help="Update")
+parser.add_argument("-U", "--update",    action="store_true", help="Update")
 parser.add_argument("-C", "--configure", action="store_true", help="Force configure")
-parser.add_argument("-B", "--build", action="store_true", help="Build")
-parser.add_argument("-R", "--release", action="store_true", help="Release")
-parser.add_argument("-I", "--install", action="store_true", help="Install")
-parser.add_argument("--asan", action="store_true", help="Enable Address Sanitizer")
-parser.add_argument("--system-linker", action="store_true", help="Use system linker (even if mold is available)")
-parser.add_argument("--use-clang", action="store_true", help="Use GCC instead of Clang")
+parser.add_argument("-B", "--build",     action="store_true", help="Build")
+parser.add_argument("-R", "--release",   action="store_true", help="Release")
+parser.add_argument("-I", "--install",   action="store_true", help="Install")
+parser.add_argument("--asan",            action="store_true", help="Enable Address Sanitizer")
+parser.add_argument("--system-linker",   action="store_true", help="Use system linker")
+parser.add_argument("--use-clang",       action="store_true", help="Use Clang")
 args = parser.parse_args()
 
 # -----------------------------------------------------------------------------
