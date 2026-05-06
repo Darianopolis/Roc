@@ -86,7 +86,10 @@ static
 void handle_reposition(Ui* ui, WmWindow* window, rect2f32 frame)
 {
     if (auto* vp = find_viewport_for_window(window)) {
-        get_data(vp)->reposition = frame;
+        auto* data = get_data(vp);
+        if (data->frame.origin != frame.origin) vp->PlatformRequestMove   = true;
+        if (data->frame.extent != frame.extent) vp->PlatformRequestResize = true;
+        data->frame = frame;
         ui_request_frame(ui);
     }
 }
@@ -138,25 +141,25 @@ void Platform_ShowWindow(ImGuiViewport* vp)
 static
 auto Platform_GetWindowPos(ImGuiViewport* vp) -> ImVec2
 {
-    return vp->Pos;
+    return to_imvec(get_data(vp)->frame.origin);
 }
 
 static
 void Platform_SetWindowPos(ImGuiViewport* vp, ImVec2 pos)
 {
-    vp->Pos = pos;
+    get_data(vp)->frame.origin = from_imvec(pos);
 }
 
 static
 auto Platform_GetWindowSize(ImGuiViewport* vp) -> ImVec2
 {
-    return vp->Size;
+    return to_imvec(get_data(vp)->frame.extent);
 }
 
 static
 void Platform_SetWindowSize(ImGuiViewport* vp, ImVec2 size)
 {
-    vp->Size = size;
+    get_data(vp)->frame.extent = from_imvec(size);
 }
 
 static
@@ -405,16 +408,6 @@ void render_viewport(Ui* ui, ImGuiViewport* vp)
             scene_input_region_set_clip(data->input_region.get(), {{}, rect.extent, xywh});
             wm_window_set_frame(data->window.get(), rect);
         }
-    }
-
-    // Apply any pending resizes for next frame
-
-    if (auto frame = std::exchange(data->reposition, std::nullopt)) {
-        vp->WorkPos  = vp->Pos  = to_imvec(frame->origin);
-        vp->WorkSize = vp->Size = to_imvec(frame->extent);
-        vp->PlatformRequestMove = true;
-        vp->PlatformRequestResize = true;
-        ui_request_frame(ui);
     }
 }
 

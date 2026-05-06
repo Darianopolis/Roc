@@ -8,9 +8,7 @@ struct UiViewportData {
     Ref<SceneInputRegion> input_region;
     Ref<SeatFocus> focus;
 
-    // Pending reposition request. Requests are double-buffered so that
-    // resizes requested during ImGui frames are handled correctly.
-    std::optional<rect2f32> reposition;
+    rect2f32 frame;
 };
 
 struct Ui
