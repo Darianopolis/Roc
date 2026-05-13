@@ -32,6 +32,8 @@ void shutdown(IoContext* io)
 
 IoContext::~IoContext()
 {
+    fd_unlisten(exec, signal_fd.get());
+
     debug_assert(!wayland);
     debug_assert(!drm);
     debug_assert(!evdev);
@@ -39,38 +41,40 @@ IoContext::~IoContext()
     debug_assert(!session);
 }
 
-void io_set_event_handler(IoContext* io, std::move_only_function<IoEventHandler>&& handler)
+auto io_get_signals(IoContext* io) -> IoSignals&
 {
-    io->event_handler = std::move(handler);
+    return io->signals;
 }
 
 static
-Weak<IoContext> signal_context;
-
-static
-void signal_handler(int sig)
+void post_shutdown(IoContext* io, IoShutdownReason reason)
 {
-    if (sig == SIGINT) {
-        // Immediately unregister SIGINT in case application is unresponsive
-        std::signal(sig, SIG_DFL);
-    }
-
-    if (!signal_context) return;
-
-    switch (sig) {
-        break;case SIGTERM: io_request_shutdown(signal_context.get(), IoShutdownReason::terminate_received);
-        break;case SIGINT:  io_request_shutdown(signal_context.get(), IoShutdownReason::interrupt_received);
-    }
+    io_post_event(io, ptr_to(IoEvent {
+        .shutdown {
+            .type = IoEventType::shutdown_requested,
+            .reason = reason,
+        }
+    }));
 }
 
-void io_run(IoContext* io)
+static
+void handle_signal(IoContext* io)
 {
-    debug_assert(io->event_handler);
+    signalfd_siginfo info = {};
+    unix_check<read>(io->signal_fd.get(), &info, sizeof(info));
 
-    signal_context = io;
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    IoShutdownReason reason;
+    switch (info.ssi_signo) {
+        break;case SIGINT:  reason = IoShutdownReason::interrupt_received;
+        break;case SIGTERM: reason = IoShutdownReason::terminate_received;
+        break;default:      debug_unreachable();
+    }
 
+    post_shutdown(io, reason);
+}
+
+void io_start(IoContext* io)
+{
     if (io->wayland) {
         io_wayland_start(io);
     }
@@ -79,22 +83,21 @@ void io_run(IoContext* io)
         io_drm_start(io);
     }
 
-    exec_run(io->exec);
-
-    signal_context = nullptr;
-    signal(SIGINT, SIG_DFL);
-    signal(SIGTERM, SIG_IGN);
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+    sigprocmask(SIG_BLOCK, &mask, nullptr);
+    io->signal_fd = Fd(unix_check<signalfd>(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
+    fd_listen(io->exec, io->signal_fd.get(), FdEventBit::readable, [io](fd_t, Flags<FdEventBit>){
+        handle_signal(io);
+    });
 }
 
 void io_request_shutdown(IoContext* io, IoShutdownReason reason)
 {
     exec_enqueue(io->exec, [io, reason] {
-        io_post_event(io, ptr_to(IoEvent {
-            .shutdown {
-                .type = IoEventType::shutdown_requested,
-                .reason = reason,
-            }
-        }));
+        post_shutdown(io, reason);
     });
 }
 
@@ -110,5 +113,5 @@ void io_stop(IoContext* io)
 
 void io_post_event(IoContext* io, IoEvent* event)
 {
-    io->event_handler(event);
+    io->signals.event(event);
 }

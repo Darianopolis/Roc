@@ -1,8 +1,8 @@
 #pragma once
 
 #include <core/object.hpp>
-
 #include <core/exec.hpp>
+#include <core/signal.hpp>
 
 #include <gpu/gpu.hpp>
 
@@ -147,9 +147,15 @@ using IoEventHandler = void(IoEvent*);
 // -----------------------------------------------------------------------------
 
 auto io_create(ExecContext*, Gpu*) -> Ref<IoContext>;
-void io_set_event_handler(IoContext*, std::move_only_function<IoEventHandler>&&);
-void io_run( IoContext*);
+
+struct IoSignals
+{
+    Signal<void(IoEvent*)> event;
+};
+
+auto io_get_signals(IoContext*) -> IoSignals&;
+void io_start(IoContext*);
 void io_stop(IoContext*);
 
-void io_output_create( IoContext*);
+void io_output_create(IoContext*);
 void io_output_destroy(IoOutput*);

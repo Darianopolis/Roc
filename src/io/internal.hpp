@@ -32,7 +32,9 @@ struct IoOutputBase;
 
 struct IoContext
 {
-    std::move_only_function<IoEventHandler> event_handler;
+    IoSignals signals;
+
+    Fd signal_fd;
 
     bool stop_requested = false;
 

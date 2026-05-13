@@ -58,12 +58,22 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
 
 auto main() -> int
 {
+    log_init("io-test.log");
+    fd_registry_init();
+    registry_init();
+    defer {
+        registry_deinit();
+        fd_registry_deinit();
+        log_deinit();
+    };
+
     auto exec = exec_create();
     auto gpu  = gpu_create( exec.get(), {});
     auto io   = io_create(  exec.get(), gpu.get());
     auto pool = gpu_image_pool_create(gpu.get());
-    io_set_event_handler(io.get(), [&](IoEvent* event) {
+    auto listener = io_get_signals(io.get()).event.listen([&](IoEvent* event) {
         handle_event(io.get(), gpu.get(), pool.get(), event);
     });
-    io_run(io.get());
+    io_start(io.get());
+    exec_run(exec.get());
 }

@@ -1,6 +1,7 @@
 #include "shell.hpp"
 
 #include <core/math.hpp>
+#include <core/signal.hpp>
 
 #include <wm/wm.hpp>
 #include <ui/ui.hpp>
@@ -80,7 +81,7 @@ auto main(int argc, char* argv[]) -> int
         }
         return nullptr;
     };
-    io_set_event_handler(io.get(), [&](IoEvent* event) {
+    auto io_listener = io_get_signals(io.get()).event.listen([&](IoEvent* event) {
         switch (event->type) {
             // shutdown
             break;case IoEventType::shutdown_requested:
@@ -148,5 +149,6 @@ auto main(int argc, char* argv[]) -> int
 
     // Run
 
-    io_run(io.get());
+    io_start(io.get());
+    exec_run(exec.get());
 }

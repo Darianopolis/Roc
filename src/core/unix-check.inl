@@ -35,6 +35,7 @@ UNIX_ERROR_BEHAVIOUR(poll,            negative_one)
 UNIX_ERROR_BEHAVIOUR(eventfd,         negative_one)
 UNIX_ERROR_BEHAVIOUR(eventfd_write,   negative_one)
 UNIX_ERROR_BEHAVIOUR(eventfd_read,    negative_one)
+UNIX_ERROR_BEHAVIOUR(signalfd,        negative_one)
 
 // Capabilities
 
