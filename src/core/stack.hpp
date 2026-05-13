@@ -18,11 +18,7 @@ struct ThreadStackStorage
         : head(static_cast<byte*>(unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
         , start(head)
         , end(head + size)
-    {
-        log_warn("head: {}", (void*)head);
-        log_warn("start: {}", (void*)start);
-        log_warn("end: {}", (void*)end);
-    }
+    {}
 
     ~ThreadStackStorage()
     {
@@ -60,9 +56,12 @@ public:
 
     DELETE_COPY_MOVE(ThreadStack);
 
-    auto get_head() noexcept -> void*
+    template<typename T>
+        requires (std::alignment_of_v<T> <= 16)
+              && std::is_trivially_default_constructible_v<T>
+    auto get_head() noexcept -> T*
     {
-        return stack.head;
+        return reinterpret_cast<T*>(stack.head);
     }
 
     void set_head(void* address) noexcept
@@ -70,7 +69,6 @@ public:
         stack.head = align_up_power2(static_cast<byte*>(address), 16);
     }
 
-    constexpr
     auto allocate(usz byte_size) noexcept -> void*
     {
         void* ptr = stack.head;
@@ -79,11 +77,9 @@ public:
     }
 
     template<typename T>
-        requires std::is_trivially_default_constructible_v<T>
-    constexpr
     auto allocate(usz count) noexcept -> T*
     {
-        T* ptr = reinterpret_cast<T*>(stack.head);
+        T* ptr = get_head<T>();
         set_head(stack.head + sizeof(T) * count);
         return ptr;
     }

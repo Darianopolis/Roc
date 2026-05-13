@@ -32,6 +32,11 @@ constexpr auto ptr_to(auto&& value) { return &value; }
 
 // -----------------------------------------------------------------------------
 
+#define CONTAINER_OF(Type, Member, Ptr) \
+    (Type*)(uintptr_t(Ptr) - offsetof(Type, Member))
+
+// -----------------------------------------------------------------------------
+
 #define DELETE_COPY(Type) \
                Type(const Type& ) = delete; \
     auto& operator=(const Type& ) = delete; \

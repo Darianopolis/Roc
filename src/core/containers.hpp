@@ -129,6 +129,64 @@ struct IntrusiveList
 // -----------------------------------------------------------------------------
 
 template<typename T>
+struct Link
+{
+    Link* prev = this;
+    Link* next = this;
+
+    Link() = default;
+
+    void unlink()
+    {
+        prev->next = next;
+        next->prev = prev;
+        prev = this;
+        next = this;
+    }
+
+    ~Link()
+    {
+        unlink();
+    }
+
+    DELETE_COPY(Link)
+
+    Link(Link&& other)
+        : prev(std::exchange(other.prev, &other))
+        , next(std::exchange(other.next, &other))
+    {
+        prev->next = this;
+        next->prev = this;
+    }
+
+    auto operator=(Link&& other) -> Link&
+    {
+        if (this != &other) {
+            unlink();
+            prev = std::exchange(other.prev, &other);
+            next = std::exchange(other.next, &other);
+            prev->next = this;
+            next->prev = this;
+        }
+        return *this;
+    }
+
+    void remove()
+    {
+        unlink();
+    }
+
+    void insert_after(Link<T>* other)
+    {
+        next->prev = other;
+        other->next = next;
+        next = other;
+    }
+};
+
+// -----------------------------------------------------------------------------
+
+template<typename T>
 class RefVector
 {
     std::vector<T*> values;
