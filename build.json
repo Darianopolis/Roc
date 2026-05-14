@@ -1,10 +1,5 @@
 {
     "dependencies": {
-        "concurrent-queue": {
-            "branch": "master",
-            "commit": "d655418bb644b7f85159d94c591d7d983949fb81",
-            "repo": "https://github.com/cameron314/concurrentqueue.git"
-        },
         "imgui": {
             "branch": "docking",
             "commit": "dc5c6b3688d27dac69ae9e72f33c8f8fdb6cac69",

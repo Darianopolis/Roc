@@ -23,7 +23,8 @@ struct ExecContext
 
     std::thread::id os_thread;
 
-    moodycamel::ConcurrentQueue<ExecTask> queue;
+    std::mutex queue_mutex;
+    std::deque<ExecTask> queue;
 
     u64 tasks_available;
     Fd task_fd;
@@ -70,7 +71,8 @@ void exec_enqueue_timed(ExecContext* exec, std::chrono::steady_clock::time_point
 template<typename Lambda>
 void exec_enqueue(ExecContext* exec, Lambda&& task)
 {
-    exec->queue.enqueue({ .callback = std::move(task) });
+    std::scoped_lock _{exec->queue_mutex};
+    exec->queue.emplace_back(std::move(task));
     if (std::this_thread::get_id() == exec->os_thread) {
         exec->tasks_available++;
     } else {
@@ -84,9 +86,12 @@ void exec_enqueue_and_wait(ExecContext* exec, Lambda&& task)
     debug_assert(std::this_thread::get_id() != exec->os_thread);
 
     std::atomic_flag done = false;
-    // We can avoid moving `task` entirely since its lifetime is guaranteed
-    exec->queue.enqueue({ .callback = [&task] { task(); }, .sync = &done });
-    unix_check<eventfd_write>(exec->task_fd.get(), 1);
+    {
+        std::scoped_lock _{exec->queue_mutex};
+        // We can avoid moving `task` entirely since its lifetime is guaranteed
+        exec->queue.emplace_back([&task] { task(); }, &done);
+        unix_check<eventfd_write>(exec->task_fd.get(), 1);
+    }
     done.wait(false);
 }
 

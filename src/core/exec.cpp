@@ -209,7 +209,11 @@ void exec_run(ExecContext* exec)
             exec->stats.events_handled += available;
             for (u64 i = 0; i < available; ++i) {
                 ExecTask task;
-                while (!exec->queue.try_dequeue(task));
+                {
+                    std::scoped_lock _{exec->queue_mutex};
+                    task = std::move(exec->queue.front());
+                    exec->queue.pop_front();
+                }
 
                 task.callback();
 

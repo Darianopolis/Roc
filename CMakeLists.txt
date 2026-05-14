@@ -114,10 +114,6 @@ add_subdirectory(${VENDOR_DIR}/unordered-dense EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
 
-add_subdirectory(${VENDOR_DIR}/concurrent-queue EXCLUDE_FROM_ALL)
-
-# ------------------------------------------------------------------------------
-
 add_subdirectory(${VENDOR_DIR}/vulkan-headers EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
@@ -164,7 +160,6 @@ target_link_libraries(core PUBLIC
     vma-object
     stb-image
     unordered_dense::unordered_dense
-    concurrentqueue
     Xcursor
     PkgConfig::libdrm
     udev
