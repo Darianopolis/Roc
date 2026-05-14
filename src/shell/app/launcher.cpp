@@ -175,6 +175,15 @@ auto shell_init_launcher(Shell* shell) -> Ref<void>
 }
 
 static
+void setup_launch(void*)
+{
+    // Unblock any signals currently blocked for signalfd handling purposes
+    sigset_t mask;
+    sigfillset(&mask);
+    sigprocmask(SIG_UNBLOCK, &mask, nullptr);
+}
+
+static
 void launch(ShellLauncher* launcher, WmLauncherApp& app)
 {
     auto* name = g_app_info_get_display_name(app.app_info) ?: g_app_info_get_name(app.app_info);
@@ -193,7 +202,17 @@ void launch(ShellLauncher* launcher, WmLauncherApp& app)
     }
 
     GError* err = nullptr;
-    if (!g_app_info_launch(app.app_info, nullptr, ctx, &err)) {
+    auto* desktop_app = G_DESKTOP_APP_INFO(app.app_info);
+    if (!g_desktop_app_info_launch_uris_as_manager(
+            /*           appinfo = */ desktop_app,
+            /*              uris = */ nullptr,
+            /*    launch_context = */ ctx,
+            /*       spawn_flags = */ GSpawnFlags{},
+            /*        user_setup = */ setup_launch,
+            /*   user_setup_data = */ nullptr,
+            /*      pid_callback = */ nullptr,
+            /* pid_callback_data = */ nullptr,
+            /*             error = */ &err)) {
         log_error("Error launching {}: {}", name, err->message);
     }
 
