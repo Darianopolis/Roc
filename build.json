@@ -2,17 +2,17 @@
     "dependencies": {
         "imgui": {
             "branch": "docking",
-            "commit": "dc5c6b3688d27dac69ae9e72f33c8f8fdb6cac69",
+            "commit": "b61e56346a92cfcaf1f43a545ca37b0b32239654",
             "repo": "https://github.com/ocornut/imgui.git"
         },
         "kde-protocols": {
             "branch": "master",
-            "commit": "18afc45c092857e998c890afce1e7e71f808d819",
+            "commit": "13b3c2f1a0d9aee395598d773a639e9bca35f526",
             "repo": "https://github.com/KDE/plasma-wayland-protocols.git"
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "c79d939445993666d2355079f5a38fe4c00e7ab0",
+            "commit": "f2cb40edc010f13b8235fac9189be2efdd7a1eeb",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
@@ -27,7 +27,7 @@
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "8864cdc896bbc2a9b6eb36b3218fc9ef57908d77",
+            "commit": "8cfaaa1d4deedc865e52a42e654c5ec0d7d75eb0",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         },
         "vulkan-memory-allocator": {
