@@ -157,6 +157,11 @@ struct WmWindow
 
     Weak<SeatFocus> focus;
 
+    struct {
+        WmOutput* output;
+        rect2f32 restore;
+    } fullscreen;
+
     ~WmWindow();
 };
 

@@ -36,6 +36,11 @@ void reflow_outputs(WmServer* wm, bool any_changed = false)
                     .output = output,
                 }
             }));
+            for (auto* window : wm->windows) {
+                if (wm_window_get_fullscreen(window) == output) {
+                    wm_window_request_reposition(window, wm_output_get_viewport(output), vec2f32{1, 1});
+                }
+            }
         }
     }
 
@@ -72,6 +77,12 @@ auto wm_output_create(WmServer* wm, void* userdata, WmOutputInterface interface)
 
 WmOutput::~WmOutput()
 {
+    for (auto* window : server->windows) {
+        if (wm_window_get_fullscreen(window) == this) {
+            wm_window_set_fullscreen(window, nullptr);
+        }
+    }
+
     std::erase(server->io.outputs, this);
     wm_broadcast_event(server, ptr_to(WmEvent {
         .output = {
@@ -135,6 +146,12 @@ auto wm_find_output_at(WmServer* wm, vec2f32 point) -> WmFindOutputResult
         }
     }
     return { best_output, best_position };
+}
+
+auto wm_find_output_for(WmServer* wm, WmWindow* window) -> WmOutput*
+{
+    auto point = scene_tree_get_position(window->root_tree.get()) + window->extent / 2.f;
+    return wm_find_output_at(wm, point).output;
 }
 
 // -----------------------------------------------------------------------------

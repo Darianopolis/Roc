@@ -164,12 +164,14 @@ void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
 static
 void configure_toplevel(WayToplevel* toplevel, vec2u32 extent)
 {
+    std::vector<xdg_toplevel_state> states{XDG_TOPLEVEL_STATE_ACTIVATED};
+    if (wm_window_get_fullscreen(toplevel->window.get())) {
+        states.emplace_back(XDG_TOPLEVEL_STATE_FULLSCREEN);
+    }
+
     way_send<xdg_toplevel_send_configure>(toplevel->resource,
         extent.x, extent.y,
-        ptr_to(way_from_span<const xdg_toplevel_state>({{
-            XDG_TOPLEVEL_STATE_ACTIVATED,
-        }}))
-    );
+        ptr_to(way_from_span<const xdg_toplevel_state>(states)));
 }
 
 static
@@ -277,32 +279,23 @@ void WayToplevel::apply(WayCommitId id)
 
 // -----------------------------------------------------------------------------
 
-static
+template<bool Enabled>
 void set_maximized(wl_client* client, wl_resource* resource)
 {
-    log_warn("TODO: xdg_toplevel.set_maximized");
+    log_warn("TODO: xdg_toplevel.{}set_maximized", Enabled ? "" : "un");
+
     way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
 }
 
-static
-void unset_maximized(wl_client* client, wl_resource* resource)
-{
-    log_warn("TODO: xdg_toplevel.unset_maximized");
-    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
-}
-
-static
+template<bool Enabled>
 void set_fullscreen(wl_client* client, wl_resource* resource, wl_resource* output)
 {
-    log_warn("TODO: xdg_toplevel.set_fullscreen");
-    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
-}
+    auto toplevel = way_get_userdata<WayToplevel>(resource);
+    auto wm = toplevel->surface->client->server->wm;
 
-static
-void unset_fullscreen(wl_client* client, wl_resource* resource)
-{
-    log_warn("TODO: xdg_toplevel.unset_fullscreen");
-    way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
+    wm_window_set_fullscreen(toplevel->window.get(), Enabled
+        ? wm_find_output_for(wm, toplevel->window.get())
+        : nullptr);
 }
 
 WAY_INTERFACE(xdg_toplevel) = {
@@ -329,10 +322,12 @@ WAY_INTERFACE(xdg_toplevel) = {
         pending->min_size = vec2i32(w, h);
         pending->set |= WayToplevelStateComponent ::min_size;
     },
-    .set_maximized = set_maximized,
-    .unset_maximized = unset_maximized,
-    .set_fullscreen = set_fullscreen,
-    .unset_fullscreen = unset_fullscreen,
+    .set_maximized = set_maximized<true>,
+    .unset_maximized = set_maximized<false>,
+    .set_fullscreen = set_fullscreen<true>,
+    .unset_fullscreen = [](wl_client* client, wl_resource* resource) {
+        set_fullscreen<false>(client, resource, nullptr);
+    },
     WAY_STUB(set_minimized),
 };
 

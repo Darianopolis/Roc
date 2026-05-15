@@ -1,6 +1,13 @@
 #include "internal.hpp"
 
 static
+void end_interaction(WmServer* wm)
+{
+    wm->movesize.pointer = nullptr;
+    wm->mode = WmInteractionMode::none;
+}
+
+static
 void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode initial_mode)
 {
     wm->movesize.pointer = pointer;
@@ -9,6 +16,10 @@ void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode ini
     auto* window = wm_find_window_at(wm, pos);
     if (!window) return;
     auto frame = wm_window_get_frame(window);
+
+    if (initial_mode == WmInteractionMode::size && !wm_window_is_resizable(window)) {
+        initial_mode = WmInteractionMode::move;
+    }
 
     wm->mode = initial_mode;
     wm->movesize.window = window;
@@ -31,13 +42,10 @@ void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode ini
             wm->movesize.relative = vec_cast<f32>(dirs);
         }
     }
-}
 
-static
-void end_interaction(WmServer* wm)
-{
-    wm->movesize.pointer = nullptr;
-    wm->mode = WmInteractionMode::none;
+    if (wm->mode == WmInteractionMode::move && !wm_window_is_movable(window)) {
+        end_interaction(wm);
+    }
 }
 
 // -----------------------------------------------------------------------------

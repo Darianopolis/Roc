@@ -162,6 +162,12 @@ auto wm_find_window_for(WmServer*, SeatFocus*) -> WmWindow*;
 
 auto wm_find_window_at(WmServer*, vec2f32 point) -> WmWindow*;
 
+void wm_window_set_fullscreen(WmWindow*, WmOutput*);
+auto wm_window_get_fullscreen(WmWindow*) -> WmOutput*;
+
+auto wm_window_is_movable(WmWindow*) -> bool;
+auto wm_window_is_resizable(WmWindow*) -> bool;
+
 // -----------------------------------------------------------------------------
 
 enum class WmPointerConstraintType
@@ -193,3 +199,4 @@ struct WmFindOutputResult
 };
 
 auto wm_find_output_at(WmServer*, vec2f32 point) -> WmFindOutputResult;
+auto wm_find_output_for(WmServer*, WmWindow*) -> WmOutput*;

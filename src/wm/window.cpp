@@ -235,3 +235,37 @@ auto wm_find_window_for(WmServer* wm, SeatFocus* focus) -> WmWindow*
     }
     return nullptr;
 }
+
+// -----------------------------------------------------------------------------
+
+void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
+{
+    if (output == window->fullscreen.output) return;
+
+    if (!window->fullscreen.output) {
+        window->fullscreen.restore = {scene_tree_get_position(window->root_tree.get()), window->extent, xywh};
+    }
+
+    bool last_output = std::exchange(window->fullscreen.output, output);
+
+    if (output) {
+        wm_window_request_reposition(window, wm_output_get_viewport(output), vec2f32{1, 1});
+    } else if (last_output) {
+        wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
+    }
+}
+
+auto wm_window_get_fullscreen(WmWindow* window) -> WmOutput*
+{
+    return window->fullscreen.output;
+}
+
+auto wm_window_is_movable(WmWindow* window) -> bool
+{
+    return !window->fullscreen.output;
+}
+
+auto wm_window_is_resizable(WmWindow* window) -> bool
+{
+    return !window->fullscreen.output;
+}
