@@ -1,6 +1,7 @@
 #include "../shell.hpp"
 
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 #include <ui/ui.hpp>
 
@@ -141,7 +142,7 @@ void show(ShellLauncher* launcher)
     launcher->show = true;
     launcher->grab_focus = true;
     launcher->filter = {};
-    ui_request_frame(launcher->shell->ui);
+    ui_request_frame(launcher->shell->ui.get());
 
     scan_apps(launcher);
 }
@@ -149,16 +150,16 @@ void show(ShellLauncher* launcher)
 static
 void frame(ShellLauncher* launcher);
 
-auto shell_init_launcher(Shell* shell) -> Ref<void>
+void shell_init_launcher(Shell* shell)
 {
     auto launcher = ref_create<ShellLauncher>();
     launcher->shell = shell;
 
-    launcher->frame = ui_get_signals(shell->ui).frame.listen([launcher = launcher.get()] {
+    launcher->frame = ui_get_signals(shell->ui.get()).frame.listen([launcher = launcher.get()] {
         frame(launcher);
     });
 
-    launcher->event_filter = seat_add_event_filter(wm_get_seat(shell->wm), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
+    launcher->event_filter = seat_add_event_filter(wm_get_seat(shell->wm.get()), [launcher = launcher.get()](SeatEvent* event) -> SeatEventFilterResult {
         if (event->type != SeatEventType::keyboard_key) return {};
 
         auto key = event->keyboard.key;
@@ -171,7 +172,7 @@ auto shell_init_launcher(Shell* shell) -> Ref<void>
         return SeatEventFilterResult::capture;
     });
 
-    return launcher;
+    shell->apps.emplace_back(launcher);
 }
 
 static
@@ -189,12 +190,12 @@ void launch(ShellLauncher* launcher, WmLauncherApp& app)
     auto* name = g_app_info_get_display_name(app.app_info) ?: g_app_info_get_name(app.app_info);
     log_info("Running: {}", name);
     log_info("  command line: {}", g_app_info_get_commandline(app.app_info) ?: "");
-    log_info("  WAYLAND_DISPLAY = {}", way_server_get_socket(launcher->shell->way));
+    log_info("  WAYLAND_DISPLAY = {}", way_server_get_socket(launcher->shell->way.get()));
 
     auto* ctx = g_app_launch_context_new();
     defer { g_object_unref(ctx); };
 
-    g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", way_server_get_socket(launcher->shell->way));
+    g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", way_server_get_socket(launcher->shell->way.get()));
     if (!launcher->shell->xwayland_socket.empty()) {
         g_app_launch_context_setenv(ctx, "DISPLAY", launcher->shell->xwayland_socket.c_str());
     } else {
@@ -226,7 +227,7 @@ void frame(ShellLauncher* launcher)
 
     // Window
 
-    auto outputs = wm_list_outputs(launcher->shell->wm);
+    auto outputs = wm_list_outputs(launcher->shell->wm.get());
     if (outputs.empty()) return;
 
     auto workarea = wm_output_get_viewport(outputs.front());

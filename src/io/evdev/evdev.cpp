@@ -1,5 +1,7 @@
 #include "../internal.hpp"
 
+#include <core/log.hpp>
+
 struct IoEvdevDevice
 {
     fd_t fd = -1;

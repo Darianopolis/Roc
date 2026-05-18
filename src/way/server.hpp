@@ -3,6 +3,8 @@
 #include "way.hpp"
 #include "util.hpp"
 
+#include <core/log.hpp>
+
 #include <wayland-server-core.h>
 
 UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pch.hpp"
-#include "log.hpp"
 #include "types.hpp"
 
 // -----------------------------------------------------------------------------
@@ -33,7 +32,7 @@ constexpr auto ptr_to(auto&& value) { return &value; }
 // -----------------------------------------------------------------------------
 
 #define CONTAINER_OF(Type, Member, Ptr) \
-    (Type*)(uintptr_t(Ptr) - offsetof(Type, Member))
+    ((Type*)(uintptr_t(Ptr) - offsetof(Type, Member)))
 
 // -----------------------------------------------------------------------------
 

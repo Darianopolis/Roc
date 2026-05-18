@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 struct SeatCursorManager
 {

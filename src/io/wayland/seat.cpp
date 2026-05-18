@@ -1,5 +1,7 @@
 #include "wayland.hpp"
 
+#include <core/log.hpp>
+
 IoWaylandKeyboard::~IoWaylandKeyboard()
 {
     wl_keyboard_destroy(wl_keyboard);

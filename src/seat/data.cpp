@@ -1,5 +1,7 @@
 #include "internal.hpp"
 
+#include <core/log.hpp>
+
 void seat_data_source_offer(SeatDataSource* source, const char* mime_type)
 {
     source->offered.insert(mime_type);

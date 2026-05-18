@@ -2,6 +2,7 @@
 
 #include <core/stack.hpp>
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 thread_local ImGuiContext* ui_imgui_ctx;
 

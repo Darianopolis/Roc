@@ -1,5 +1,7 @@
 #include "wayland.hpp"
 
+#include <core/log.hpp>
+
 static
 void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_feedback_v1, fd_t fd, u32 size)
 {
@@ -192,8 +194,9 @@ void io_output_create(IoContext* io)
 {
     if (!io->wayland) return;
 
-    exec_enqueue(io->exec, [io] {
-        create_output(io);
+    exec_enqueue(io->exec, [io = Weak(io)] {
+        if (!io) return;
+        create_output(io.get());
     });
 }
 

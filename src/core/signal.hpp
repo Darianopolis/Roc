@@ -14,13 +14,50 @@ struct ListenerState<R(Args...)>
 };
 
 template<typename Signature>
-struct Listener
-{
-    Ref<ListenerState<Signature>> state;
-};
+struct Signal;
 
 template<typename Signature>
-struct Signal;
+class Listener
+{
+    friend Signal<Signature>;
+
+    Ref<ListenerState<Signature>> state = {};
+
+    Listener(Ref<ListenerState<Signature>> state)
+        : state(std::move(state))
+    {}
+
+public:
+    Listener() = default;
+
+    DELETE_COPY(Listener)
+
+    Listener(Listener&& other)
+        : state(std::move(other.state))
+    {}
+
+    void unlink()
+    {
+        if (state) {
+            state->link.unlink();
+            state.reset();
+        }
+    }
+
+    auto operator=(Listener&& other) -> Listener&
+    {
+        if (this != &other) {
+            unlink();
+            state = std::move(other.state);
+        }
+        return *this;
+    }
+
+    ~Listener()
+    {
+        unlink();
+    }
+};
 
 template<typename R, typename ...Args>
 struct Signal<R(Args...)>
@@ -50,7 +87,7 @@ struct Signal<R(Args...)>
 
     void insert(ListenerState<R(Args...)>* listener)
     {
-        listeners.insert_after(&listener->link);
+        listeners.prev->link_next(&listener->link);
     }
 
     template<typename Fn>

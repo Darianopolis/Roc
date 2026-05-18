@@ -71,9 +71,17 @@ auto main() -> int
     auto gpu  = gpu_create( exec.get(), {});
     auto io   = io_create(  exec.get(), gpu.get());
     auto pool = gpu_image_pool_create(gpu.get());
-    auto listener = io_get_signals(io.get()).event.listen([&](IoEvent* event) {
+
+    auto _ = io_get_signals(io.get()).event.listen([&](IoEvent* event) {
         handle_event(io.get(), gpu.get(), pool.get(), event);
     });
+    auto _ = io_get_signals(io.get()).shutdown.listen([&] {
+        pool.destroy();
+        io.destroy();
+        gpu.destroy();
+        exec_stop(exec.get());
+    });
+
     io_start(io.get());
     exec_run(exec.get());
 }

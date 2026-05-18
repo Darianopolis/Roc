@@ -1,5 +1,7 @@
 #include "internal.hpp"
 
+#include <core/log.hpp>
+
 auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 {
     auto io = ref_create<IoContext>();
@@ -18,6 +20,17 @@ auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 }
 
 static
+void post_shutdown_request(IoContext* io, IoShutdownReason reason)
+{
+    io_post_event(io, ptr_to(IoEvent {
+        .shutdown {
+            .type = IoEventType::shutdown_requested,
+            .reason = reason,
+        }
+    }));
+}
+
+static
 void shutdown(IoContext* io)
 {
     io_wayland_deinit(io);
@@ -27,7 +40,7 @@ void shutdown(IoContext* io)
     io_session_deinit(io);
     io_udev_deinit(io);
 
-    exec_stop(io->exec);
+    io->signals.shutdown();
 }
 
 IoContext::~IoContext()
@@ -47,17 +60,6 @@ auto io_get_signals(IoContext* io) -> IoSignals&
 }
 
 static
-void post_shutdown(IoContext* io, IoShutdownReason reason)
-{
-    io_post_event(io, ptr_to(IoEvent {
-        .shutdown {
-            .type = IoEventType::shutdown_requested,
-            .reason = reason,
-        }
-    }));
-}
-
-static
 void handle_signal(IoContext* io)
 {
     signalfd_siginfo info = {};
@@ -70,7 +72,7 @@ void handle_signal(IoContext* io)
         break;default:      debug_unreachable();
     }
 
-    post_shutdown(io, reason);
+    post_shutdown_request(io, reason);
 }
 
 void io_start(IoContext* io)
@@ -96,8 +98,9 @@ void io_start(IoContext* io)
 
 void io_request_shutdown(IoContext* io, IoShutdownReason reason)
 {
-    exec_enqueue(io->exec, [io, reason] {
-        post_shutdown(io, reason);
+    exec_enqueue(io->exec, [io = Weak(io), reason] {
+        if (!io) return;
+        post_shutdown_request(io.get(), reason);
     });
 }
 
@@ -106,8 +109,9 @@ void io_stop(IoContext* io)
     if (io->stop_requested) return;
     io->stop_requested = true;
 
-    exec_enqueue(io->exec, [io] {
-        shutdown(io);
+    exec_enqueue(io->exec, [io = Weak(io)] {
+        if (!io) return;
+        shutdown(io.get());
     });
 }
 

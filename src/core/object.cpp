@@ -2,6 +2,7 @@
 #include "math.hpp"
 #include "memory.hpp"
 #include "debug.hpp"
+#include "log.hpp"
 
 #define REGISTRY_PROTECT_FREE 1
 #define REGISTRY_DONT_FREE    0

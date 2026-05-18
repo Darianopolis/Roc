@@ -6,10 +6,13 @@
 #include <core/color.hpp>
 #include <core/stacktrace.hpp>
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 struct ShellLogViewer
 {
+    Listener<void(LogEntry*)> log_entry;
     Listener<void()> frame;
+
     Shell* shell;
     bool requested;
     bool show_details;
@@ -19,28 +22,27 @@ struct ShellLogViewer
 static
 void frame(ShellLogViewer*);
 
-auto shell_init_log_viewer(Shell* shell) -> Ref<void>
+void shell_init_log_viewer(Shell* shell)
 {
     auto viewer = ref_create<ShellLogViewer>();
     viewer->shell = shell;
 
     log_history_enable(true);
 
-    log_history_add_listener([viewer = Weak(viewer.get())](LogEntry*) {
-        if (!viewer) return;
+    viewer->log_entry = log_history_get_signals().log_entry.listen([viewer = viewer.get()](LogEntry*) {
         if (std::exchange(viewer->requested, true)) return;
-        exec_enqueue(viewer->shell->exec, [viewer] {
-            if (viewer) {
-                ui_request_frame(viewer->shell->ui);
-            }
+
+        exec_enqueue(viewer->shell->exec, [viewer = Weak(viewer)] {
+            if (!viewer) return;
+            ui_request_frame(viewer->shell->ui.get());
         });
     });
 
-    viewer->frame = ui_get_signals(shell->ui).frame.listen([viewer = viewer.get()] {
+    viewer->frame = ui_get_signals(shell->ui.get()).frame.listen([viewer = viewer.get()] {
         frame(viewer);
     });
 
-    return viewer;
+    shell->apps.emplace_back(viewer);
 }
 
 static

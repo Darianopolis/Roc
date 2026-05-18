@@ -214,6 +214,8 @@ struct Gpu
         usz active_buffer_memory;
 
         u32 active_samplers;
+
+        u32 active_syncobjs;
     } stats;
 
     std::vector<VkSemaphore> free_binary_semaphores;
@@ -244,8 +246,10 @@ auto gpu_create(ExecContext*, Flags<GpuFeature>) -> Ref<Gpu>;
 
 // -----------------------------------------------------------------------------
 
-struct GpuWaitFn : IntrusiveListBase<GpuWaitFn>
+struct GpuWaitFn
 {
+    Link<GpuWaitFn> link;
+
     u64 point;
 
     virtual void handle(u64 point) = 0;
@@ -262,7 +266,7 @@ struct GpuSyncobj
     struct {
         Fd  fd;
         u64 skips = 0;
-        IntrusiveList<GpuWaitFn> list;
+        Link<GpuWaitFn> list;
     } wait;
 
     ~GpuSyncobj();

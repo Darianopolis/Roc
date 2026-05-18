@@ -11,12 +11,13 @@
 struct LogState {
     std::ofstream log_file;
 
+    LogSignals signals;
+
     struct {
         std::string buffer;
         std::vector<LogEntry> entries;
         u32 lines;
         bool enabled;
-        std::vector<std::move_only_function<void(LogEntry*)>> listeners;
     } history;
 
     StacktraceCache stacktraces;
@@ -53,9 +54,9 @@ void log_history_enable(bool enabled)
     log_state->history.enabled = enabled;
 }
 
-void log_history_add_listener(std::move_only_function<void(LogEntry*)> listener)
+auto log_history_get_signals() -> LogSignals&
 {
-    log_state->history.listeners.emplace_back(std::move(listener));
+    return log_state->signals;
 }
 
 void log_history_clear()
@@ -151,9 +152,7 @@ void log(LogSemantic semantic, std::string_view message)
         });
         state.history.lines += lines;
 
-        for (auto& listener : state.history.listeners) {
-            listener(&entry);
-        }
+        state.signals.log_entry(&entry);
     }
 
     const char* format;

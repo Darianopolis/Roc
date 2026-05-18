@@ -2,6 +2,7 @@
 
 #include "pch.hpp"
 #include "types.hpp"
+#include "signal.hpp"
 
 enum class LogSemantic : u32
 {
@@ -42,9 +43,14 @@ struct LogHistory
     auto find(u32 line) const noexcept -> const LogEntry*;
 };
 
+struct LogSignals
+{
+    Signal<void(LogEntry*)> log_entry;
+};
+
 auto log_history_get() -> LogHistory;
 void log_history_enable(bool enabled);
-void log_history_add_listener(std::move_only_function<void(LogEntry*)>);
+auto log_history_get_signals() -> LogSignals&;
 auto log_history_is_enabled() -> bool;
 void log_history_clear();
 

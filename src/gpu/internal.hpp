@@ -2,6 +2,8 @@
 
 #include "gpu.hpp"
 
+#include <core/log.hpp>
+
 // -----------------------------------------------------------------------------
 
 auto gpu_check(VkResult res, auto... allowed) -> VkResult

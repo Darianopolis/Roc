@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
-#include "core/math.hpp"
+#include <core/math.hpp>
+#include <core/log.hpp>
 
 static
 void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)

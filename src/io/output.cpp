@@ -50,9 +50,8 @@ void io_output_try_redraw(IoOutputBase* output)
 void io_output_try_redraw_later(IoOutputBase* output)
 {
     exec_enqueue(output->io->exec, [output = Weak(output)] {
-        if (output) {
-            io_output_try_redraw(output.get());
-        }
+        if (!output) return;
+        io_output_try_redraw(output.get());
     });
 }
 

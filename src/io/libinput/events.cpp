@@ -1,6 +1,7 @@
 #include "libinput.hpp"
 
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 // -----------------------------------------------------------------------------
 

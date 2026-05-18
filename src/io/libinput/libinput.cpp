@@ -2,6 +2,8 @@
 
 #include "../session/session.hpp"
 
+#include <core/log.hpp>
+
 static constexpr libinput_interface io_libinput_interface {
 
     .open_restricted = [](const char* path, int flags, void* data) {
@@ -49,12 +51,12 @@ void io_libinput_init(IoContext* io)
 
 void io_libinput_deinit(IoContext* io)
 {
-    if (io->libinput) {
-        io->libinput->input_devices.clear();
+    if (!io->libinput) return;
 
-        fd_unlisten(io->exec, libinput_get_fd(io->libinput->libinput));
-        libinput_unref(io->libinput->libinput);
-    }
+    io->libinput->input_devices.destroy_all();
+
+    fd_unlisten(io->exec, libinput_get_fd(io->libinput->libinput));
+    libinput_unref(io->libinput->libinput);
 
     io->libinput.destroy();
 }

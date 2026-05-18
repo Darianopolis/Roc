@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include "log.hpp"
 #include "util.hpp"
 #include "debug.hpp"
 
@@ -54,16 +53,21 @@ auto registry_get_bin_index(usz size) -> u8
 // -----------------------------------------------------------------------------
 
 template<typename T>
+void object_free(Allocation* header)
+{
+    static constexpr auto bin = registry_get_bin_index(sizeof(T));
+    if constexpr (!std::is_trivially_destructible_v<T>) {
+        static_cast<T*>(allocation_get_data(header))->~T();
+    }
+    registry_free(header, bin);
+}
+
+template<typename T>
 auto object_create_uninitialized() -> T*
 {
     static constexpr auto bin = registry_get_bin_index(sizeof(T));
     auto header = registry_allocate(bin);
-    header->free = [](Allocation* header) {
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            static_cast<T*>(allocation_get_data(header))->~T();
-        }
-        registry_free(header, bin);
-    };
+    header->free = object_free<T>;
     return static_cast<T*>(allocation_get_data(header));
 }
 
@@ -77,6 +81,7 @@ inline
 void object_destroy(void* v)
 {
     auto header = allocation_from(v);
+    debug_assert(header->ref_count == 1);
     header->free(header);
 }
 

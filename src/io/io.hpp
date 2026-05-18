@@ -72,19 +72,19 @@ enum class IoEventType
     input_removed,
     input_event,
 
-    output_added,        // Sent when an output is first detected
-    output_removed,      // Sent before a output is removed from the output list
-    output_configure,    // Sent when an output's configuration changes
-    output_frame,        // Sent when an output can accept a new frame of content
+    output_added,       // Sent when an output is first detected
+    output_removed,     // Sent before a output is removed from the output list
+    output_configure,   // Sent when an output's configuration changes
+    output_frame,       // Sent when an output can accept a new frame of content
 };
 
 // -----------------------------------------------------------------------------
 
 enum class IoShutdownReason
 {
-    no_more_outputs,     // Sent when no more outputs will be opened by the backend
-    terminate_received,  // Sent when SIGTERM is received
-    interrupt_received,  // Sent when SIGINT  is received
+    no_more_outputs,    // Sent when no more outputs will be opened by the backend
+    terminate_received, // Sent when SIGTERM is received
+    interrupt_received, // Sent when SIGINT  is received
 };
 
 struct IoShutdownEvent
@@ -151,6 +151,7 @@ auto io_create(ExecContext*, Gpu*) -> Ref<IoContext>;
 struct IoSignals
 {
     Signal<void(IoEvent*)> event;
+    Signal<void()> shutdown;
 };
 
 auto io_get_signals(IoContext*) -> IoSignals&;

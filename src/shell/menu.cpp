@@ -16,10 +16,10 @@ static
 void frame(ShellMenu* menu)
 {
     auto* shell = menu->shell;
-    auto* io = shell->io;
-    auto* gpu = shell->gpu;
-    auto* wm = shell->wm;
-    auto* way = shell->way;
+    auto* io = shell->io.get();
+    auto* gpu = shell->gpu.get();
+    auto* wm = shell->wm.get();
+    auto* way = shell->way.get();
     auto* scene = wm_get_scene(wm);
 
     if (menu->show_demo_window) {
@@ -92,15 +92,15 @@ void frame(ShellMenu* menu)
     }
 }
 
-auto shell_init_menu(Shell* shell) -> Ref<void>
+void shell_init_menu(Shell* shell)
 {
     auto menu = ref_create<ShellMenu>();
     menu->shell = shell;
 
-    menu->frame = ui_get_signals(shell->ui).frame.listen([menu = menu.get()] {
+    menu->frame = ui_get_signals(shell->ui.get()).frame.listen([menu = menu.get()] {
         frame(menu);
     });
-    ui_request_frame(shell->ui);
+    ui_request_frame(shell->ui.get());
 
-    return menu;
+    shell->apps.emplace_back(menu);
 }

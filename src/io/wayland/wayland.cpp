@@ -1,5 +1,7 @@
 #include "wayland.hpp"
 
+#include <core/log.hpp>
+
 // -----------------------------------------------------------------------------
 
 static
@@ -125,10 +127,9 @@ void io_wayland_deinit(IoContext* io)
 
 IoWayland::~IoWayland()
 {
-    if (keyboard) keyboard = nullptr;
-    if (pointer)  pointer = nullptr;
-
-    outputs.clear();
+    keyboard.destroy();
+    pointer.destroy();
+    outputs.destroy_all();
 
     IO_WL_DESTROY(zwp_linux_dmabuf_v1);
     syncobj_cache.entries.clear();

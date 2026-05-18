@@ -103,17 +103,17 @@ void handle_event(ShellIo* shell_io, IoEvent* event)
     }
 }
 
-auto shell_init_io_bridge(Shell* shell) -> Ref<void>
+void shell_init_io_bridge(Shell* shell)
 {
     auto shell_io = ref_create<ShellIo>();
-    shell_io->wm = shell->wm;
-    shell_io->gpu = shell->gpu;
-    shell_io->io = shell->io;
+    shell_io->wm = shell->wm.get();
+    shell_io->gpu = shell->gpu.get();
+    shell_io->io = shell->io.get();
     shell_io->pool = gpu_image_pool_create(shell_io->gpu);
-    shell_io->listener = io_get_signals(shell->io).event
+    shell_io->listener = io_get_signals(shell->io.get()).event
         .listen([shell_io = shell_io.get()](IoEvent* event) {
             handle_event(shell_io, event);
         });
 
-    return shell_io;
+    shell->apps.emplace_back(shell_io);
 }

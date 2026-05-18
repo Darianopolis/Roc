@@ -1,5 +1,7 @@
 #include "drm.hpp"
 
+#include <core/log.hpp>
+
 IoDrmResources::IoDrmResources(fd_t drm_fd)
 {
     auto mode_res = unix_check<drmModeGetResources>(drm_fd).value;

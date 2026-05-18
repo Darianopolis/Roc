@@ -1,5 +1,7 @@
 #include "session.hpp"
 
+#include <core/log.hpp>
+
 static constexpr libseat_seat_listener io_seat_listener
 {
     .enable_seat = [](libseat*, void*) {
@@ -30,10 +32,10 @@ void io_session_init(IoContext* io)
 
 void io_session_deinit(IoContext* io)
 {
-    if (io->session) {
-        fd_unlisten(io->exec, libseat_get_fd(io->session->seat));
-        libseat_close_seat(io->session->seat);
-    }
+    if (!io->session) return;
+
+    fd_unlisten(io->exec, libseat_get_fd(io->session->seat));
+    libseat_close_seat(io->session->seat);
 
     io->session.destroy();
 }
@@ -59,6 +61,7 @@ void io_session_close_device(IoSession* session, fd_t fd)
     std::erase_if(session->devices, [&](auto& device) {
         if (device.fd == fd) {
             libseat_close_device(session->seat, device.id);
+            close(fd);
             return true;
         }
         return false;

@@ -2,6 +2,7 @@
 #include "internal.hpp"
 
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 // -----------------------------------------------------------------------------
 //      Outputs
@@ -284,17 +285,24 @@ void handle_input_region_damage(WmServer* wm)
 //      Initialization
 // -----------------------------------------------------------------------------
 
+static
+void handle_damage(WmServer* wm, SceneNode* node)
+{
+    for (auto* output : wm->io.outputs) {
+        output->interface.request_frame(output->userdata);
+    }
+
+    if (dynamic_cast<SceneInputRegion*>(node)) {
+        exec_enqueue(wm->exec, [wm = Weak(wm)] {
+            if (!wm) return;
+            handle_input_region_damage(wm.get());
+        });
+    }
+}
+
 void wm_init_io(WmServer* wm)
 {
     scene_add_damage_listener(wm->scene.get(), [wm](SceneNode* node) {
-        for (auto* output : wm->io.outputs) {
-            output->interface.request_frame(output->userdata);
-        }
-
-        if (dynamic_cast<SceneInputRegion*>(node)) {
-            exec_enqueue(wm->exec, [wm = Weak(wm)] {
-                if (wm) handle_input_region_damage(wm.get());
-            });
-        }
+        handle_damage(wm, node);
     });
 }

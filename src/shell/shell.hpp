@@ -8,11 +8,11 @@
 struct Shell
 {
     ExecContext* exec;
-    Gpu* gpu;
-    WmServer* wm;
-    WayServer* way;
-    IoContext* io;
-    UiClient* ui;
+    Ref<Gpu> gpu;
+    Ref<IoContext> io;
+    Ref<WmServer> wm;
+    Ref<WayServer> way;
+    Ref<UiClient> ui;
 
     SeatModifier main_mod;
 
@@ -20,11 +20,23 @@ struct Shell
     std::filesystem::path wallpaper;
 
     std::string xwayland_socket;
+
+    RefVector<void> apps;
+
+    ~Shell()
+    {
+        apps.destroy_all();
+        ui.destroy();
+        way.destroy();
+        wm.destroy();
+        io.destroy();
+        gpu.destroy();
+    }
 };
 
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
-auto shell_init_menu(Shell*) -> Ref<void>;
-auto shell_init_launcher(Shell*) -> Ref<void>;
-auto shell_init_log_viewer(Shell*) -> Ref<void>;
-auto shell_init_background(Shell*) -> Ref<void>;
-auto shell_init_io_bridge(Shell*) -> Ref<void>;
+void shell_init_menu(Shell*);
+void shell_init_launcher(Shell*);
+void shell_init_log_viewer(Shell*);
+void shell_init_background(Shell*);
+void shell_init_io_bridge(Shell*);

@@ -11,13 +11,15 @@ Gpu::~Gpu()
 {
     log_info("GPU context destroyed");
 
-    debug_assert(stats.active_images == 0);
-    debug_assert(stats.active_buffers == 0);
-    debug_assert(stats.active_samplers == 0);
+    queue.syncobj.destroy();
+    debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
 
     debug_assert(!queue.commands, "Unflushed commands");
     vk.DestroyCommandPool(device, queue.pool, nullptr);
-    queue.syncobj = nullptr;
+
+    debug_assert(stats.active_images == 0, "{} unexpected images", stats.active_images);
+    debug_assert(stats.active_buffers == 0, "{} unexpected buffers", stats.active_buffers);
+    debug_assert(stats.active_samplers == 0, "{} unexpected samplers", stats.active_samplers);
 
     vmaDestroyAllocator(vma);
 

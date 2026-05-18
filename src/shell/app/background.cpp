@@ -1,6 +1,7 @@
 #include "../shell.hpp"
 
 #include <core/math.hpp>
+#include <core/log.hpp>
 
 struct ShellBackground
 {
@@ -13,16 +14,17 @@ struct ShellBackground
 
     RefVector<SceneTexture> textures;
 };
+
 static
 void update_backgrounds(ShellBackground* bg)
 {
     auto* shell = bg->shell;
 
-    auto layer = wm_get_layer(shell->wm, WmLayer::background);
+    auto layer = wm_get_layer(shell->wm.get(), WmLayer::background);
 
     bg->textures.clear();
 
-    for (auto* output : wm_list_outputs(shell->wm)) {
+    for (auto* output : wm_list_outputs(shell->wm.get())) {
         auto image_size = vec_cast<f32>(bg->image->extent());
         auto viewport = wm_output_get_viewport(output);
 
@@ -37,11 +39,11 @@ void update_backgrounds(ShellBackground* bg)
     }
 }
 
-auto shell_init_background(Shell* shell) -> Ref<void>
+void shell_init_background(Shell* shell)
 {
     if (shell->wallpaper.empty()) {
         log_warn("WALLPAPER not set, no background will be loaded");
-        return {};
+        return;
     }
 
     int w = {}, h = {};
@@ -49,7 +51,7 @@ auto shell_init_background(Shell* shell) -> Ref<void>
     stbi_uc* data = stbi_load(shell->wallpaper.c_str(), &w, &h, &num_channels, STBI_rgb_alpha);
     if (!data || !w || !h) {
         log_error("WALLPAPER [{}] could not be loaded", shell->wallpaper);
-        return {};
+        return;
     }
     defer { stbi_image_free(data); };
     log_info("Loaded background ({}, {}x{})", shell->wallpaper, w, h);
@@ -57,13 +59,13 @@ auto shell_init_background(Shell* shell) -> Ref<void>
     auto bg = ref_create<ShellBackground>();
     bg->shell = shell;
 
-    bg->sampler = gpu_sampler_create(shell->gpu, {
+    bg->sampler = gpu_sampler_create(shell->gpu.get(), {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_LINEAR,
     });
 
     // Create background texture node
-    bg->image = gpu_image_create(shell->gpu, {
+    bg->image = gpu_image_create(shell->gpu.get(), {
         .extent = {u32(w), u32(h)},
         .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer
@@ -71,7 +73,7 @@ auto shell_init_background(Shell* shell) -> Ref<void>
     gpu_copy_memory_to_image(bg->image.get(), as_bytes(data, w * h * 4), {{{bg->image->extent()}}});
 
     // Listen for outputs to assign backgrounds to
-    bg->client = wm_connect(shell->wm);
+    bg->client = wm_connect(shell->wm.get());
     wm_listen(bg->client.get(), [bg = bg.get()](WmClient*, WmEvent* event) {
         switch (event->type) {
             break;case WmEventType::output_layout:
@@ -81,5 +83,5 @@ auto shell_init_background(Shell* shell) -> Ref<void>
         }
     });
 
-    return bg;
+    shell->apps.emplace_back(bg);
 }

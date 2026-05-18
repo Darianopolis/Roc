@@ -3,6 +3,7 @@
 #include "../session/session.hpp"
 
 #include <core/chrono.hpp>
+#include <core/log.hpp>
 
 // -----------------------------------------------------------------------------
 
@@ -108,7 +109,7 @@ void io_drm_init(IoContext* io)
     }
     auto drm = io->drm->fd;
 
-    fd_listen(io->exec, io ->drm->fd, FdEventBit::readable, [](fd_t fd, Flags<FdEventBit>) {
+    fd_listen(io->exec, io->drm->fd, FdEventBit::readable, [](fd_t fd, Flags<FdEventBit>) {
         drmHandleEvent(fd, ptr_to(drmEventContext {
             .version = 3,
             .page_flip_handler2 = on_page_flip,
@@ -139,6 +140,12 @@ void io_drm_init(IoContext* io)
 
 void io_drm_deinit(IoContext* io)
 {
+    if (!io->drm) return;
+
+    fd_unlisten(io->exec, io->drm->fd);
+    io_session_close_device(io->session.get(), io->drm->fd);
+
+    io->drm->outputs.destroy_all();
     io->drm.destroy();
 }
 

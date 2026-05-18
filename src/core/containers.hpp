@@ -68,65 +68,6 @@ struct FixedArray {
 };
 
 // -----------------------------------------------------------------------------
-//      Intrusive Linked List
-// -----------------------------------------------------------------------------
-
-template<typename Base>
-struct IntrusiveListBase
-{
-    IntrusiveListBase* next = this;
-    IntrusiveListBase* prev = this;
-};
-
-template<typename Base>
-struct IntrusiveListIterator
-{
-    IntrusiveListBase<Base>* cur;
-
-    void insert_after(IntrusiveListBase<Base>* base)
-    {
-        base->prev = cur;
-        base->next = cur->next;
-
-        cur->next->prev = base;
-        cur->next = base;
-    }
-
-    auto remove() -> IntrusiveListIterator
-    {
-        cur->next->prev = cur->prev;
-        cur->prev->next = cur->next;
-
-        cur->next = cur;
-        cur->prev = cur;
-
-        return *this;
-    }
-
-    auto operator->() -> Base* { return get(); }
-    auto get() -> Base* { return static_cast<Base*>(cur); }
-
-    auto operator==(const IntrusiveListIterator&) const noexcept -> bool = default;
-
-    auto next() -> IntrusiveListIterator { return {cur->next}; }
-    auto prev() -> IntrusiveListIterator { return {cur->prev}; }
-};
-
-template<typename Base>
-struct IntrusiveList
-{
-    using Iterator = IntrusiveListIterator<Base>;
-
-    IntrusiveListBase<Base> root;
-
-    auto first() -> Iterator { return {root.next}; }
-    auto last()  -> Iterator { return {root.prev}; }
-    auto end()   -> Iterator { return {&root};     }
-
-    auto empty() const -> bool { return root.next == &root; }
-};
-
-// -----------------------------------------------------------------------------
 
 template<typename T>
 struct Link
@@ -171,16 +112,25 @@ struct Link
         return *this;
     }
 
-    void remove()
+    void link_prev(Link<T>* other)
     {
-        unlink();
+        prev->next = other;
+        other->prev = prev;
+        other->next = this;
+        prev = other;
     }
 
-    void insert_after(Link<T>* other)
+    void link_next(Link<T>* other)
     {
         next->prev = other;
         other->next = next;
+        other->prev = this;
         next = other;
+    }
+
+    auto is_linked() -> bool
+    {
+        return next != this;
     }
 };
 
@@ -270,6 +220,12 @@ public:
     T* operator[](usz index) const
     {
         return values[index];
+    }
+
+    void destroy_all()
+    {
+        for (auto* v : values) object_destroy(v);
+        values.clear();
     }
 
     void clear()
