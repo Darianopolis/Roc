@@ -23,6 +23,13 @@ auto fd_dup_unsafe(fd_t fd) -> fd_t
 
 // -----------------------------------------------------------------------------
 
+[[maybe_unused]] static
+auto fd_exists(fd_t fd) -> bool
+{
+    auto path = std::format("/proc/self/fd/{}", fd);
+    return access(path.c_str(), F_OK) == 0;
+}
+
 #define FD_LEAK_CHECK 1
 
 struct FdRegistry
@@ -36,7 +43,7 @@ struct FdRegistry
     FdRegistry()
     {
         for (fd_t fd = 0; fd < fd_limit; ++fd) {
-            if (fcntl(fd, F_GETFD) == 0) {
+            if (fd_exists(fd)) {
                 inherited[fd] = true;
             }
         }
@@ -44,11 +51,12 @@ struct FdRegistry
 
     ~FdRegistry()
     {
-        for (fd_t fd = 0; fd < fd_limit; ++fd) {
-            if (inherited[fd]) continue;
-            if (fcntl(fd, F_GETFD) == -1) continue;
+        auto leaked = std::views::iota(fd_t(0))
+            | std::views::take(fd_limit)
+            | std::views::filter([&](fd_t fd) { return !inherited[fd] && fd_exists(fd); });
 
-            log_error("fd[{}] leaked (refs: {})", fd, ref_counts[fd]);
+        if (!leaked.empty()) {
+            log_error("File Descriptors leaked: {}", leaked);
         }
     }
 #endif
@@ -74,19 +82,10 @@ auto fd_get_ref_count(fd_t fd) -> u32
     return fds->ref_counts[fd];
 }
 
-#define NOISY_FDS 0
-
-#if NOISY_FDS
-#define FD_LOG(...) log_debug(__VA_ARGS__)
-#else
-#define FD_LOG(...)
-#endif
-
-auto fd_add_ref(fd_t fd) -> fd_t
+auto fd_ref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    FD_LOG("fd_add_ref({}) {} -> {}", fd, fds->ref_counts[fd], fds->ref_counts[fd] + 1);
     fds->ref_counts[fd]++;
     return fd;
 }
@@ -94,16 +93,13 @@ auto fd_add_ref(fd_t fd) -> fd_t
 static
 void destroy_fd(fd_t fd)
 {
-    FD_LOG("  close({})", fd);
-    // std::cout << std::stacktrace::current();
     unix_check<close>(fd);
 }
 
-auto fd_remove_ref(fd_t fd) -> fd_t
+auto fd_unref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    FD_LOG("fd_remove_ref({}) {} -> {}", fd, fds->ref_counts[fd], fds->ref_counts[fd] - 1);
     if (!--fds->ref_counts[fd]) {
         destroy_fd(fd);
         return -1;

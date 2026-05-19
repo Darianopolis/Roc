@@ -28,8 +28,8 @@ auto fd_is_valid(fd_t fd) -> bool
 
 auto fd_get_ref_count(fd_t fd) -> u32;
 
-auto fd_add_ref(   fd_t fd) -> fd_t;
-auto fd_remove_ref(fd_t fd) -> fd_t;
+auto fd_ref(fd_t fd) -> fd_t;
+auto fd_unref(fd_t fd) -> fd_t;
 
 auto fd_extract(fd_t fd) -> fd_t;
 
@@ -44,13 +44,13 @@ struct Fd
     explicit Fd(fd_t fd)
         : fd(fd)
     {
-        fd_add_ref(fd);
+        fd_ref(fd);
     }
 
     Fd(const Fd& other)
         : fd(other.fd)
     {
-        fd_add_ref(fd);
+        fd_ref(fd);
     }
 
     auto& operator=(const Fd& other)
@@ -68,7 +68,7 @@ struct Fd
     auto& operator=(Fd&& other)
     {
         if (this != &other) {
-            fd_remove_ref(fd);
+            fd_unref(fd);
             fd = std::exchange(other.fd, -1);
         }
         return *this;
@@ -76,13 +76,13 @@ struct Fd
 
     ~Fd()
     {
-        fd_remove_ref(fd);
+        fd_unref(fd);
     }
 
     void reset(fd_t new_fd = -1)
     {
-        fd_remove_ref(fd);
-        fd = fd_add_ref(new_fd);
+        fd_unref(fd);
+        fd = fd_ref(new_fd);
     }
 
     auto& operator=(std::nullptr_t)

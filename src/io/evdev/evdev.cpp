@@ -1,23 +1,24 @@
 #include "../internal.hpp"
 
 #include <core/log.hpp>
+#include <core/fd.hpp>
 
 struct IoEvdevDevice
 {
-    fd_t fd = -1;
+    Fd fd = {};
     struct libevdev* evdev = nullptr;
     bool needs_sync;
 
     ~IoEvdevDevice()
     {
-        debug_assert(!fd_is_valid(fd) && !evdev);
+        debug_assert(!fd && !evdev);
     }
 
     void destroy(IoContext* io)
     {
         libevdev_free(std::exchange(evdev, nullptr));
-        fd_unlisten(io->exec, fd);
-        close(std::exchange(fd, -1));
+        fd_unlisten(io->exec, fd.get());
+        fd.reset();
     }
 };
 
@@ -74,12 +75,11 @@ void handle_device(IoContext* io, udev_device* dev)
     auto devnode = udev_device_get_devnode(dev);
     if (!devnode) return;
 
-    auto fd = open(devnode, O_RDONLY | O_NONBLOCK);
-    if (fd < 0) return;
-    defer { close(fd); };
+    auto fd = Fd(unix_check<open, EACCES>(devnode, O_RDONLY | O_NONBLOCK).value);
+    if (!fd) return;
 
     libevdev* evdev = nullptr;
-    if (unix_check<libevdev_new_from_fd, ENOTTY, EINVAL>(fd, &evdev).err()) return;
+    if (unix_check<libevdev_new_from_fd, ENOTTY, EINVAL>(fd.get(), &evdev).err()) return;
     defer { libevdev_free(evdev); };
 
     log_debug("evdev = {}", libevdev_get_name(evdev));
@@ -87,11 +87,11 @@ void handle_device(IoContext* io, udev_device* dev)
     log_debug("  pid = {:#06x}", libevdev_get_id_product(evdev));
 
     auto device = ref_create<IoEvdevDevice>();
-    device->fd    = std::exchange(fd,    -1);
+    device->fd    = std::move(fd);
     device->evdev = std::exchange(evdev, nullptr);
     io->evdev->devices.emplace_back(device.get());
 
-    fd_listen(io->exec, device->fd, FdEventBit::readable, [io, device = device.get()](fd_t, Flags<FdEventBit>) {
+    fd_listen(io->exec, device->fd.get(), FdEventBit::readable, [io, device = device.get()](fd_t, Flags<FdEventBit>) {
         handle_evdev_event(io, device);
     });
 }

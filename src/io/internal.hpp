@@ -24,7 +24,7 @@ void io_drm_start( IoContext*);
 
 struct IoWayland;
 void io_wayland_init(  IoContext*);
-void io_wayland_deinit(IoContext *);
+void io_wayland_deinit(IoContext*);
 void io_wayland_start( IoContext*);
 
 struct IoInputDeviceBase;

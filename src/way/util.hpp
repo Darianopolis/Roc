@@ -298,13 +298,25 @@ private:
 #endif
 
 public:
-    WayListener() = default;
+    WayListener()
+        : data(nullptr)
+        , server(nullptr)
+    {
+        listener.notify = nullptr;
+        wl_list_init(&listener.link);
+    }
 
     DELETE_COPY_MOVE(WayListener);
 
-    ~WayListener()
+    void unlink()
     {
         wl_list_remove(&listener.link);
+        wl_list_init(&listener.link);
+    }
+
+    ~WayListener()
+    {
+        unlink();
     }
 
     template<typename T>

@@ -198,5 +198,5 @@ void seat_capabilities(void* udata, wl_seat*, u32 capabilities)
 
 IO_WL_LISTENER(wl_seat) = {
     .capabilities = seat_capabilities,
-    IO_WL_STUB(wl_seat, name),
+    IO_WL_STUB_QUIET(name),
 };
