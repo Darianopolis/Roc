@@ -15,8 +15,8 @@ void way_on_client_create(wl_listener* listener, void* data)
     client->server = server;
     client->wl_client = wl_client;
 
-    wl_client_set_user_data(wl_client, object_add_ref(client.get()), [](void* data) {
-        object_remove_ref(static_cast<WayClient*>(data));
+    wl_client_set_user_data(wl_client, object_ref(client.get()), [](void* data) {
+        object_unref(static_cast<WayClient*>(data));
     });
 
     client->wm = wm_connect(server->wm);

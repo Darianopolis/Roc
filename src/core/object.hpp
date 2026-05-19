@@ -6,69 +6,51 @@
 
 // -----------------------------------------------------------------------------
 
+static constexpr u32 allocation_max_count = 65'536;
+
 using AllocationVersion = u32;
 
-struct alignas(16) Allocation
+struct Allocation
 {
-    void(*free)(Allocation*);
-    AllocationVersion version;
-    u32 ref_count;
+    u32 index;
+
+    [[nodiscard]] explicit constexpr operator bool() const noexcept
+    {
+        return index;
+    }
 };
 
-inline
-auto allocation_from(const void* v) -> Allocation*
-{
-    // `const_cast` is safe as the `Allocation` is always mutable
-    return static_cast<Allocation*>(const_cast<void*>(v)) - 1;
-}
+using AllocationFree = void(*)(Allocation);
 
-inline
-void* allocation_get_data(Allocation* header)
-{
-    return header + 1;
-}
+auto allocation_get_version(Allocation) -> AllocationVersion;
+
+auto allocation_ref(Allocation) -> u32;
+auto allocation_unref(Allocation) -> u32;
+
+auto allocation_get_data(Allocation) -> void*;
+auto allocation_from(void*) -> Allocation;
 
 // -----------------------------------------------------------------------------
-
-struct RegistryStats
-{
-    u32 active_allocations;
-    u32 inactive_allocations;
-};
 
 void registry_init();
 void registry_deinit();
 
-auto registry_get_stats() -> RegistryStats;
-
-auto registry_allocate(u8 bin) -> Allocation*;
-void registry_free(Allocation*, u8 bin);
-
-constexpr
-auto registry_get_bin_index(usz size) -> u8
-{
-    return std::countr_zero(round_up_power2(size + sizeof(Allocation)));
-}
+auto registry_allocate(usz size, AllocationFree free) -> Allocation;
 
 // -----------------------------------------------------------------------------
 
 template<typename T>
-void object_free(Allocation* header)
+void object_free(Allocation alloc)
 {
-    static constexpr auto bin = registry_get_bin_index(sizeof(T));
     if constexpr (!std::is_trivially_destructible_v<T>) {
-        static_cast<T*>(allocation_get_data(header))->~T();
+        static_cast<T*>(allocation_get_data(alloc))->~T();
     }
-    registry_free(header, bin);
 }
 
 template<typename T>
 auto object_create_uninitialized() -> T*
 {
-    static constexpr auto bin = registry_get_bin_index(sizeof(T));
-    auto header = registry_allocate(bin);
-    header->free = object_free<T>;
-    return static_cast<T*>(allocation_get_data(header));
+    return static_cast<T*>(allocation_get_data(registry_allocate(sizeof(T), object_free<T>)));
 }
 
 template<typename T>
@@ -80,31 +62,30 @@ auto object_create_unsafe(auto&&... args) -> T*
 inline
 void object_destroy(void* v)
 {
-    auto header = allocation_from(v);
-    debug_assert(header->ref_count == 1);
-    header->free(header);
+    debug_assert(!allocation_unref(allocation_from(v)));
 }
 
 // -----------------------------------------------------------------------------
 
 template<typename T>
-auto object_add_ref(T* t) -> T*
+auto object_ref(T* t) -> T*
 {
-    if (t) allocation_from(t)->ref_count++;
-    return t;
+    return allocation_ref(allocation_from(t)) ? t : nullptr;
 }
 
 template<typename T>
-auto object_remove_ref(T* t) -> T*
+auto object_unref(T* t) -> T*
 {
-    if (!t) return nullptr;
-    auto header = allocation_from(t);
-    if (!--header->ref_count) {
-        header->free(header);
-        return nullptr;
-    }
-    return t;
+    return allocation_unref(allocation_from(t)) ? t : nullptr;
 }
+
+// -----------------------------------------------------------------------------
+
+template<typename T>
+struct Ref;
+
+template<typename T>
+struct Weak;
 
 // -----------------------------------------------------------------------------
 
@@ -115,58 +96,51 @@ struct Ref
 {
     T* value;
 
+    void reset(T* t = nullptr)
+    {
+        if (t == value) return;
+        object_unref(value);
+        value = object_ref(t);
+    }
+
     // Destruction
 
     ~Ref()
     {
-        object_remove_ref(value);
+        object_unref(value);
     }
 
     void destroy()
     {
         if (value) {
-            debug_assert(allocation_from(value)->ref_count == 1);
-            reset();
+            object_destroy(value);
+            value = nullptr;
         }
     }
 
-    // Construction + Assignment
+    // Construction
 
     Ref() = default;
 
     Ref(T* t)
         : value(t)
     {
-        object_add_ref(value);
+        object_ref(value);
     }
 
     Ref(T* t, RefAdoptTag)
         : value(t)
     {}
 
-    void reset(T* t = nullptr)
-    {
-        if (t == value) return;
-        object_remove_ref(value);
-        value = object_add_ref(t);
-    }
-
-    auto& operator=(T* t)
-    {
-        reset(t);
-        return *this;
-    }
+    // Assignment
 
     Ref(const Ref& other)
-        : value(object_add_ref(other.value))
+        : value(object_ref(other.value))
     {}
 
     auto& operator=(const Ref& other)
     {
-        if (value != other.value) {
-            object_remove_ref(value);
-            value = object_add_ref(other.value);
-        }
+        reset(other.value);
         return *this;
     }
 
@@ -177,7 +151,7 @@ struct Ref
     auto& operator=(Ref&& other)
     {
         if (value != other.value) {
-            object_remove_ref(value);
+            object_unref(value);
             value = std::exchange(other.value, nullptr);
         }
         return *this;
@@ -195,7 +169,11 @@ struct Ref
     // Conversions
 
     template<typename T2>
-    operator Ref<T2>() { return Ref<T2>(value); }
+    explicit Ref(Weak<T2> other): Ref(other.get()) {}
+    explicit Ref(Weak<T>  other): Ref(other.get()) {}
+
+    template<typename T2>
+    Ref(Ref<T2> other): Ref(other.value) {}
 };
 
 template<typename T>
@@ -218,26 +196,14 @@ struct Weak
     T* value;
     AllocationVersion version;
 
-    // Construction + Assignment
+    // Construction
 
     Weak() = default;
 
     Weak(T* t)
-    {
-        reset(t);
-    }
-
-    void reset(T* t = nullptr)
-    {
-        value = t;
-        version = value ? allocation_from(value)->version : 0;
-    }
-
-    auto& operator=(T* t)
-    {
-        reset(t);
-        return *this;
-    }
+        : value(t)
+        , version(allocation_get_version(allocation_from(value)))
+    {}
 
     // Queries
 
@@ -246,12 +212,19 @@ struct Weak
     template<typename T2>
     auto operator==(const Weak<T2>& other) const -> bool { return value == other.value && version == other.version; };
 
-    explicit operator bool() const       { return value && allocation_from(value)->version == version; }
+    explicit operator bool() const       { return value && allocation_get_version(allocation_from(value)) == version; }
     auto               get() const -> T* { return *this ? value : nullptr; }
     auto        operator->() const -> T* { return value; }
 
     // Conversions
 
     template<typename T2>
-    operator Weak<T2>() { return Weak<T2>{get()}; }
+    Weak(Ref<T2> other): Weak(other.get()) {}
+    Weak(Ref<T>  other): Weak(other.get()) {}
+
+    template<typename T2>
+    Weak(Weak<T2> other)
+        : value(other.value)
+        , version(other.version)
+    {}
 };

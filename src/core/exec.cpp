@@ -120,16 +120,15 @@ void exec_run(ExecContext* exec)
         if (count > 0) {
             for (i32 i = 0; i < count; ++i) {
                 auto fd = events[i].data.fd;
-                auto l = exec->listeners[fd];
-                if (!l) continue;
+                Ref listener = exec->listeners[fd];
+                if (!listener) continue;
 
                 auto event_bits = from_epoll_events(events[i].events);
-                if (l->flags.contains(FdListenFlag::oneshot)) {
-                    Ref listener = l;
+                if (listener->flags.contains(FdListenFlag::oneshot)) {
                     fd_unlisten(exec, fd);
                     listener->handle(fd, event_bits);
                 } else {
-                    l->handle(fd, event_bits);
+                    listener->handle(fd, event_bits);
                 }
             }
         }

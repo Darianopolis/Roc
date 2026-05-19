@@ -152,7 +152,7 @@ public:
         : values(other.values)
     {
         for (auto* value : values) {
-            object_add_ref(value);
+            object_ref(value);
         }
     }
 
@@ -162,7 +162,7 @@ public:
             clear();
             values = other.values;
             for (auto* value : values) {
-                object_add_ref(value);
+                object_ref(value);
             }
         }
         return *this;
@@ -187,7 +187,7 @@ public:
 public:
     auto emplace_back(T* value) -> T*
     {
-        return values.emplace_back(object_add_ref(value));
+        return values.emplace_back(object_ref(value));
     }
 
     auto emplace_back(Ref<T>&& value) -> T*
@@ -200,7 +200,7 @@ public:
     {
         return std::erase_if(values, [&](auto* c) {
             if (fn(c)) {
-                object_remove_ref(c);
+                object_unref(c);
                 return true;
             }
             return false;
@@ -230,7 +230,7 @@ public:
 
     void clear()
     {
-        for (auto* v : values) object_remove_ref(v);
+        for (auto* v : values) object_unref(v);
         values.clear();
     }
 
@@ -250,7 +250,7 @@ public:
 
     auto insert(const_iterator i, T* v)
     {
-        object_add_ref(v);
+        object_ref(v);
         return values.insert(i, v);
     }
 
@@ -259,6 +259,6 @@ public:
 
     ~RefVector()
     {
-        for (auto* v : values) object_remove_ref(v);
+        for (auto* v : values) object_unref(v);
     }
 };

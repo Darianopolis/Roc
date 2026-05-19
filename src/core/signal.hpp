@@ -79,7 +79,7 @@ struct Signal<R(Args...)>
         stack.set_head(stored + count);
 
         for (usz i = 0; i < count; ++i) {
-            if (Ref listener = stored[i].get()) {
+            if (auto listener = Ref(stored[i])) {
                 listener->notify(listener.get(), std::forward<Args2>(args)...);
             }
         }
