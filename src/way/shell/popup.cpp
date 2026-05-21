@@ -252,7 +252,9 @@ void position(WaySurface* surface, const WayPositionerRules& rules, std::optiona
 
     {
         auto anchor = rules.anchor_rect;
-        auto point = vec_cast<f32>(anchor.origin + anchor.extent) * 0.5f;
+        auto point = (vec_cast<f32>(anchor.origin + anchor.extent) * 0.5f)
+            + scene_tree_get_position(surface->parent->scene.tree.get())
+            -  vec_cast<f32>(surface->parent->xdg->current.geometry.origin);
         if (auto* output = wm_find_output_at(server->wm, point).output) {
             aabb2f32 vp = wm_output_get_viewport(output);
             auto translation = scene_tree_get_position(surface->parent->scene.tree.get());
