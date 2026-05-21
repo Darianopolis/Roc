@@ -48,10 +48,10 @@ struct Vec<2, T>
     constexpr auto operator[](usz i) const -> T  { return i == 1 ? y : x; }
     constexpr auto operator[](usz i)       -> T& { return i == 1 ? y : x; }
 
-    constexpr decltype(auto) operator+=(T s) { x += s;   y += s;   return *this; }
-    constexpr decltype(auto) operator-=(T s) { x -= s;   y -= s;   return *this; }
-    constexpr decltype(auto) operator*=(T s) { x *= s;   y *= y;   return *this; }
-    constexpr decltype(auto) operator/=(T s) { x /= s;   y /= s;   return *this; }
+    constexpr decltype(auto) operator+=(T s) { x += s; y += s; return *this; }
+    constexpr decltype(auto) operator-=(T s) { x -= s; y -= s; return *this; }
+    constexpr decltype(auto) operator*=(T s) { x *= s; y *= s; return *this; }
+    constexpr decltype(auto) operator/=(T s) { x /= s; y /= s; return *this; }
 
     constexpr decltype(auto) operator+=(Vec b) { x += b.x; y += b.y; return *this; }
     constexpr decltype(auto) operator-=(Vec b) { x -= b.x; y -= b.y; return *this; }
