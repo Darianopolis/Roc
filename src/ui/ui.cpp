@@ -173,18 +173,20 @@ void Platform_SetWindowTitle(ImGuiViewport* vp, const char* title)
 // -----------------------------------------------------------------------------
 
 static
-const char* text_mime_types[] = {
+std::string_view text_mime_types[] = {
     "text/plain;charset=utf-8",
     "text/plain",
     "text/html",
 };
 
-struct UiDataSource : SeatDataSource
+struct UiDataSource : SeatDataSourceInterface
 {
     std::string message;
 
-    virtual void on_cancel() final override {}
-    virtual void on_send(const char* mime, fd_t fd) final override
+    RefVector<SeatDataSource> sources;
+
+    virtual void cancel() final override {}
+    virtual void send(std::string_view mime, fd_t fd) final override
     {
         unix_check<write>(fd, message.data(), message.size());
     }
@@ -195,15 +197,14 @@ void Platform_SetClipboardTextFn(ImGuiContext* imgui, const char* text)
 {
     auto* ui = get_context(imgui);
 
-    auto data_source = ref_create<UiDataSource>();
-    data_source->message = text;
-
-    for (auto* mime : text_mime_types) {
-        seat_data_source_offer(data_source.get(), mime);
-    }
+    ui->data_source = ref_create<UiDataSource>();
+    ui->data_source->message = text;
 
     for (auto* seat : ui->seats) {
-        seat_set_selection(seat, data_source.get());
+        ui->data_source->sources.emplace_back(seat_set_selection(seat, {
+            .interface = ui->data_source.get(),
+            .mime_types = text_mime_types,
+        }));
     }
 }
 
@@ -226,16 +227,16 @@ auto Platform_GetClipboardTextFn(ImGuiContext* imgui) -> const char*
     auto* ui = get_context(imgui);
 
     for (auto* seat : ui->seats) {
-        if (auto* source = seat_get_selection(seat)) {
-            auto available = seat_data_source_get_offered(source);
+        if (auto offer = seat_get_selection(seat)) {
+            auto available = seat_data_offer_get_mime_types(offer.get());
             for (auto mime : text_mime_types) {
-                if (std::ranges::contains(available, std::string_view(mime))) {
+                if (std::ranges::contains(available, mime)) {
                     auto[read, write] = [] {
                         fd_t fd[2] = {-1, -1};
                         unix_check<pipe>(fd);
                         return std::make_pair(Fd(fd[0]), Fd(fd[1]));
                     }();
-                    seat_data_source_receive(source, mime, write.get());
+                    seat_data_offer_receive(offer.get(), mime, write.get());
                     write.reset();
 
                     ui->clipboard.text = read_to_string(read.get());
@@ -666,6 +667,13 @@ void handle_seat_event(UiClient* ui, SeatEvent* event)
 
         // selection
         break;case SeatEventType::selection:
+            ;
+
+        // dnd
+        break;case SeatEventType::drag_enter:
+              case SeatEventType::drag_leave:
+              case SeatEventType::drag_motion:
+              case SeatEventType::drag_drop:
             ;
     }
 }

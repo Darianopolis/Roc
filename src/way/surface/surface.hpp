@@ -20,6 +20,7 @@ struct WayClient;
 struct WaySubsurface;
 struct WaySurfaceTree;
 struct WayCursorSurface;
+struct WayDragIcon;
 struct WayXdgSurface;
 struct WayToplevel;
 struct WayPopup;
@@ -119,6 +120,7 @@ struct WaySurface
 
     Ref<WaySurfaceTree>   tree;
     Ref<WayCursorSurface> cursor_role;
+    Ref<WayDragIcon>      drag_role;
 
     std::vector<WaySurfaceAddon*> addons;
 

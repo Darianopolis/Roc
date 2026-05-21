@@ -41,7 +41,7 @@ void seat_pointer_focus(SeatPointer* pointer, SeatFocus* new_focus)
             .pointer = {
                 .type = SeatEventType::pointer_enter,
                 .pointer = pointer,
-                .focus= new_focus,
+                .focus = new_focus,
             }
         }));
     }
@@ -88,8 +88,12 @@ void seat_pointer_button(SeatPointer* pointer, SeatInputCode code, bool pressed,
         } else if (!pointer->focus && pressed) {
             seat_keyboard_focus(seat_get_keyboard(pointer->seat), nullptr);
         }
+
         if (!pressed) {
             update_pointer_focus(pointer);
+            if (pointer->drag && seat_pointer_get_pressed(pointer).empty()) {
+                seat_pointer_end_drag(pointer);
+            }
         }
     }
 }
@@ -103,6 +107,8 @@ void seat_pointer_move(SeatPointer* pointer, vec2f32 position, vec2f32 rel_accel
     scene_tree_set_translation(pointer->tree.get(), position);
 
     update_pointer_focus(pointer);
+
+    seat_pointer_update_drag(pointer);
 
     if (!send_event) return;
 

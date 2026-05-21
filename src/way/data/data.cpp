@@ -5,6 +5,28 @@
 #include "../client.hpp"
 
 static
+auto to_wayland_dnd_action(Flags<SeatDndAction> action) -> wl_data_device_manager_dnd_action
+{
+    uint32_t wl = {};
+    if (action.contains(SeatDndAction::copy)) wl |= WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY;
+    if (action.contains(SeatDndAction::move)) wl |= WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE;
+    if (action.contains(SeatDndAction::ask))  wl |= WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK;
+    return wl_data_device_manager_dnd_action(wl);
+}
+
+static
+auto from_wayland_dnd_action(wl_data_device_manager_dnd_action wl) -> Flags<SeatDndAction>
+{
+    Flags<SeatDndAction> action = {};
+    if (wl & WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY) action |= SeatDndAction::copy;
+    if (wl & WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE) action |= SeatDndAction::move;
+    if (wl & WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK)  action |= SeatDndAction::ask;
+    return action;
+}
+
+// -----------------------------------------------------------------------------
+
+static
 void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 {
     auto* client = way_client_from(wl_client);
@@ -17,14 +39,33 @@ void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
     log_error("WayDataSource created {}", (void*)source.get());
 }
 
-void WayDataSource::on_cancel()
+void WayDataSource::cancel()
 {
     way_send<wl_data_source_send_cancelled>(resource);
 }
 
-void WayDataSource::on_send(const char* mime, fd_t fd)
+void WayDataSource::send(std::string_view mime, fd_t fd)
 {
-    way_send<wl_data_source_send_send>(resource, mime, fd);
+    log_error("WayDataSource::send({}, {})", mime, fd);
+    way_send<wl_data_source_send_send>(resource, std::string(mime).c_str(), fd);
+}
+
+void WayDataSource::action_update(SeatDndAction action)
+{
+    if (last_action && *last_action == action) return;
+    last_action = action;
+    log_error("WayDataSource::action({})", action);
+    way_send<wl_data_source_send_action>(resource, to_wayland_dnd_action(action));
+}
+
+void WayDataSource::dnd_drop_performed()
+{
+    way_send<wl_data_source_send_dnd_drop_performed>(resource);
+}
+
+void WayDataSource::dnd_finished()
+{
+    way_send<wl_data_source_send_dnd_finished>(resource);
 }
 
 WayDataSource::~WayDataSource()
@@ -53,20 +94,59 @@ WAY_BIND_GLOBAL(wl_data_device_manager, bind)
 // -----------------------------------------------------------------------------
 
 static
+void accept(wl_client* client, wl_resource* resource, u32 serial, const char* mime_type)
+{
+    // log_trace("wl_data_offer.accept({})", mime_type ?: "NONE");
+
+    auto* offer = way_get_userdata<WayDataOffer>(resource);
+
+    seat_data_offer_accept(offer->offer.get(), mime_type);
+}
+
+static
 void receive(wl_client* client, wl_resource* resource, const char* mime_type, fd_t fd)
 {
+    log_trace("wl_data_offer.receive({})", mime_type ?: "NONE");
+
     auto write = Fd(fd);
 
     auto* offer = way_get_userdata<WayDataOffer>(resource);
-    seat_data_source_receive(offer->source.get(), mime_type, write.get());
+    seat_data_offer_receive(offer->offer.get(), mime_type, write.get());
+}
+
+static
+void finish(wl_client* client, wl_resource* wl_data_offer)
+{
+    log_trace("wl_data_offer.finish()");
+
+    auto* offer = way_get_userdata<WayDataOffer>(wl_data_offer);
+    seat_data_offer_finish(offer->offer.get());
+}
+
+static
+void offer_set_actions(wl_client* client, wl_resource* wl_data_offer, u32 actions, u32 preferred_action)
+{
+    // log_trace("wl_data_offer.set_actions({}, {})",
+    //     Flags(wl_data_device_manager_dnd_action(actions)),
+    //     wl_data_device_manager_dnd_action(preferred_action));
+
+    auto* offer = way_get_userdata<WayDataOffer>(wl_data_offer);
+    auto action = seat_data_offer_set_actions(offer->offer.get(),
+        from_wayland_dnd_action(wl_data_device_manager_dnd_action(actions)),
+        from_wayland_dnd_action(wl_data_device_manager_dnd_action(preferred_action)).get());
+
+    if (offer->last_action && action == *offer->last_action) return;
+    offer->last_action = action;
+
+    way_send<wl_data_offer_send_action>(offer->resource, to_wayland_dnd_action(action));
 }
 
 WAY_INTERFACE(wl_data_offer) = {
-    WAY_STUB(accept),
+    .accept = accept,
     .receive = receive,
     .destroy = way_simple_destroy,
-    WAY_STUB(finish),
-    WAY_STUB(set_actions),
+    .finish = finish,
+    .set_actions = offer_set_actions,
 };
 
 // -----------------------------------------------------------------------------
@@ -74,31 +154,82 @@ WAY_INTERFACE(wl_data_offer) = {
 static
 void offer(wl_client* client, wl_resource* resource, const char* mime_type)
 {
+    log_trace("wl_data_source.offer({})", mime_type ?: "NONE");
+
     auto* source = way_get_userdata<WayDataSource>(resource);
-    seat_data_source_offer(source, mime_type);
+    source->offered.emplace(mime_type);
+}
+
+static
+void source_set_actions(wl_client* client, wl_resource* wl_data_source, u32 actions)
+{
+    log_trace("wl_data_source.set_actions({})", Flags(from_wayland_dnd_action(wl_data_device_manager_dnd_action(actions))));
+
+    auto* source = way_get_userdata<WayDataSource>(wl_data_source);
+    source->supported_actions = from_wayland_dnd_action(wl_data_device_manager_dnd_action(actions));
 }
 
 WAY_INTERFACE(wl_data_source) = {
     .offer = offer,
     .destroy = way_simple_destroy,
-    WAY_STUB(set_actions),
+    .set_actions = source_set_actions,
 };
 
 // -----------------------------------------------------------------------------
 
 static
+auto get_mime_types(WayDataSource* source)
+{
+    std::vector<std::string_view> mime_types;
+    mime_types.insert_range(mime_types.begin(), source->offered);
+    return mime_types;
+}
+
+static
 void start_drag(
     wl_client*   wl_client,
-    wl_resource* data_device,
-    wl_resource* data_source,
+    wl_resource* wl_data_device,
+    wl_resource* wl_data_source,
     wl_resource* origin_surface,
     wl_resource* icon_surface,
     u32 serial)
 {
-    log_error("TODO - wl_data_device{{{}}}::start_drag", (void*)data_device);
-    if (data_source) {
-        log_error("     - cancelling drag for wl_data_source{{{}}}", (void*)data_source);
-        way_send<wl_data_source_send_cancelled>(data_source);
+    log_trace("wl_data_device.start_drag()");
+
+    auto* client_seat = way_get_userdata<WayClientSeat>(wl_data_device);
+    auto* source = way_get_userdata<WayDataSource>(wl_data_source);
+    auto* drag_surface = way_get_userdata<WaySurface>(icon_surface);
+
+    if (drag_surface) {
+        scene_tree_set_translation(drag_surface->scene.tree.get(), {0, 0});
+
+        if (drag_surface->role != WaySurfaceRole::drag_icon) {
+            drag_surface->role = WaySurfaceRole::drag_icon;
+            drag_surface->drag_role = ref_create<WayDragIcon>();
+            way_surface_addon_register(drag_surface, drag_surface->drag_role.get());
+            scene_node_unparent(drag_surface->scene.input_region.get());
+        }
+    }
+
+    source->source = seat_start_drag(client_seat->seat->seat, {
+        .interface = source,
+        .mime_types = get_mime_types(source),
+        .drag_actions = source->supported_actions,
+        .drag_visual = drag_surface->scene.tree.get(),
+    });
+
+    if (!source->source) {
+        way_send<wl_data_source_send_cancelled>(source->resource);
+    }
+}
+
+void WayDragIcon::apply(WayCommitId)
+{
+    if (surface->current.surface.offset != vec2i32{}) {
+        scene_tree_set_translation(surface->scene.tree.get(),
+            surface->scene.tree->translation + vec_cast<f32>(surface->current.surface.offset));
+
+        surface->current.surface.offset = {};
     }
 }
 
@@ -107,7 +238,14 @@ void set_selection(wl_client* wl_client, wl_resource* wl_data_device, wl_resourc
 {
     auto* client_seat = way_get_userdata<WayClientSeat>(wl_data_device);
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
-    seat_set_selection(client_seat->seat->seat, source);
+
+    std::vector<std::string_view> mime_types;
+    mime_types.insert_range(mime_types.begin(), source->offered);
+
+    source->source = seat_set_selection(client_seat->seat->seat, {
+        .interface = source,
+        .mime_types = get_mime_types(source),
+    });
 }
 
 WAY_INTERFACE(wl_data_device) = {
@@ -119,21 +257,22 @@ WAY_INTERFACE(wl_data_device) = {
 // -----------------------------------------------------------------------------
 
 static
-auto make_offer(WayClientSeat* client_seat, wl_resource* wl_data_device, SeatDataSource* source) -> Ref<WayDataOffer>
+auto make_offer(WayClientSeat* client_seat, wl_resource* wl_data_device, SeatDataOffer* seat_offer) -> Ref<WayDataOffer>
 {
     auto offer = ref_create<WayDataOffer>();
     offer->client_seat = client_seat;
-    offer->source = source;
+    offer->offer = seat_offer;
 
     offer->resource = way_resource_create_refcounted(wl_data_offer, client_seat->client->wl_client, wl_data_device, 0, offer.get());
 
     way_send<wl_data_device_send_data_offer>(wl_data_device, offer->resource);
-    for (auto& mime : seat_data_source_get_offered(offer->source.get())) {
+    for (auto& mime : seat_data_offer_get_mime_types(seat_offer)) {
         way_send<wl_data_offer_send_offer>(offer->resource, mime.c_str());
     }
 
     if (wl_resource_get_version(offer->resource) >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION) {
-        way_send<wl_data_offer_send_source_actions>(offer->resource, 0);
+        way_send<wl_data_offer_send_source_actions>(offer->resource,
+            to_wayland_dnd_action(seat_data_offer_get_actions(seat_offer)));
     }
 
     return offer;
@@ -142,13 +281,136 @@ auto make_offer(WayClientSeat* client_seat, wl_resource* wl_data_device, SeatDat
 void way_data_offer_selection(WayClientSeat* client_seat)
 {
     auto* seat = client_seat->seat;
-    auto* source = seat_get_selection(seat->seat);
 
-    if (!source) return;
+    auto seat_offer = seat_get_selection(seat->seat);
+    if (!seat_offer) return;
+
     if (!seat->focus.keyboard || !seat->focus.keyboard->client) return;
 
     for (auto* wl_data_device : client_seat->data_devices) {
-        auto offer = make_offer(client_seat, wl_data_device, source);
+        auto offer = make_offer(client_seat, wl_data_device, seat_offer.get());
         way_send<wl_data_device_send_selection>(wl_data_device, offer->resource);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+static
+auto get_client_seat(WayClient* client, Seat* seat) -> WayClientSeat*
+{
+    // TODO: Deduplicate this
+    for (auto* client_seat : client->seats) {
+        if (client_seat->seat->seat == seat) {
+            return client_seat;
+        }
+    }
+    return nullptr;
+}
+
+static
+auto to_fixed(vec2f32 v) -> Vec<2, wl_fixed_t>
+{
+    return {wl_fixed_from_double(v.x), wl_fixed_from_double(v.y)};
+}
+
+static
+auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
+{
+    return global_pos - scene_tree_get_position(surface->scene.tree.get());
+}
+
+static
+void drag_leave(WayClientSeat* client_seat)
+{
+    if (!client_seat->drag_entered) return;
+
+    for (auto* wl_data_device : client_seat->data_devices) {
+        way_send<wl_data_device_send_leave>(wl_data_device);
+    }
+
+    client_seat->drag_entered = false;
+}
+
+static
+void drag_leave(WayClient* client, SeatDataEvent* event)
+{
+    log_trace("drag_leave");
+
+    drag_leave(get_client_seat(client, event->seat));
+}
+
+static
+void drag_enter(WayClient* client, SeatDataEvent* event)
+{
+    log_trace("drag_enter");
+
+    auto* pointer = seat_get_pointer(event->seat);
+
+    auto* client_seat = get_client_seat(client, event->seat);
+
+    if (client_seat->drag_entered) {
+        log_trace("drag_leave (implicit)");
+        drag_leave(client_seat);
+    }
+
+    client_seat->drag_entered = true;
+
+    auto serial = way_next_serial(client->server);
+    auto* surface = way_find_surface_for_focus(client, event->drag.focus);
+    auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
+
+    for (auto* wl_data_device : client_seat->data_devices) {
+        auto offer = make_offer(client_seat, wl_data_device, event->drag.offer);
+        way_send<wl_data_device_send_enter>(wl_data_device, serial.value, surface->resource, pos.x, pos.y, offer->resource);
+    }
+}
+
+static
+void drag_motion(WayClient* client, SeatDataEvent* event)
+{
+    // log_trace("drag_motion");
+
+    auto* pointer = seat_get_pointer(event->seat);
+
+    auto* client_seat = get_client_seat(client, event->seat);
+    auto elapsed = way_get_elapsed(client->server);
+    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto* surface = way_find_surface_for_focus(client, event->drag.focus);
+    auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
+
+    for (auto* wl_data_device : client_seat->data_devices) {
+        way_send<wl_data_device_send_motion>(wl_data_device, time_ms, pos.x, pos.y);
+    }
+}
+
+static
+void drag_drop(WayClient* client, SeatDataEvent* event)
+{
+    log_trace("drag_drop");
+
+    auto* client_seat = get_client_seat(client, event->seat);
+
+    for (auto* wl_data_device : client_seat->data_devices) {
+        wl_data_device_send_drop(wl_data_device);
+    }
+}
+
+void way_handle_data_event(WayClient* client, SeatDataEvent* event)
+{
+    switch (event->type) {
+        break;case SeatEventType::selection:
+            way_data_offer_selection(get_client_seat(client, event->seat));
+
+        break;case SeatEventType::drag_enter:
+            drag_enter(client, event);
+        break;case SeatEventType::drag_leave:
+            drag_leave(client, event);
+        break;case SeatEventType::drag_motion:
+            drag_motion(client, event);
+        break;case SeatEventType::drag_drop:
+            drag_drop(client, event);
+
+        break;default:
+            debug_unreachable();
     }
 }

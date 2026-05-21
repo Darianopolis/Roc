@@ -54,9 +54,7 @@ struct WayClientSeat
     WayResourceList relative_pointers;
     WayResourceList data_devices;
 
-    struct {
-        Ref<WayDataOffer> offer;
-    } drag;
+    bool drag_entered;
 
     ~WayClientSeat();
 };
@@ -64,6 +62,12 @@ struct WayClientSeat
 // -----------------------------------------------------------------------------
 
 struct WayCursorSurface : WaySurfaceAddon
+{
+    virtual void commit(WayCommitId) final override {};
+    virtual void apply( WayCommitId) final override;
+};
+
+struct WayDragIcon : WaySurfaceAddon
 {
     virtual void commit(WayCommitId) final override {};
     virtual void apply( WayCommitId) final override;
@@ -88,6 +92,10 @@ void way_seat_on_pointer_leave(WayClientSeat*, SeatEvent*);
 void way_seat_on_motion(       WayClientSeat*, SeatEvent*);
 void way_seat_on_button(       WayClientSeat*, SeatEvent*);
 void way_seat_on_scroll(       WayClientSeat*, SeatEvent*);
+
+// -----------------------------------------------------------------------------
+
+auto way_find_surface_for_focus(WayClient*, SeatFocus*) -> WaySurface*;
 
 // -----------------------------------------------------------------------------
 

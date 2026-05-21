@@ -31,35 +31,23 @@ auto seat_cursor_manager_create(Gpu* gpu, const char* theme, i32 size) -> Ref<Se
 }
 
 static
-auto get_visual(SeatPointer* pointer) -> SceneNode*
-{
-    debug_assert(pointer->tree->children.size() <= 1);
-
-    return pointer->tree->children.empty()
-        ? nullptr
-        : pointer->tree->children.front();
-}
-
-static
 void set_visual(SeatPointer* pointer, SceneNode* visual)
 {
-    debug_assert(get_visual(pointer) != visual);
+    if (pointer->cursor_visual.get() == visual) return;
 
-    while (!pointer->tree->children.empty()) {
-        scene_node_unparent(*pointer->tree->children.begin());
+    if (pointer->cursor_visual) {
+        scene_node_unparent(pointer->cursor_visual.get());
     }
 
     if (visual) {
         scene_tree_place_above(pointer->tree.get(), nullptr, visual);
     }
+    pointer->cursor_visual = visual;
 }
 
 void seat_pointer_set_cursor(SeatPointer* pointer, SceneNode* visual)
 {
-    if (visual != get_visual(pointer)) {
-        log_trace("scene.pointer.set_cursor({})", visual ? std::format("{}", (void*)visual) : "nullptr");
-        set_visual(pointer, visual);
-    }
+    set_visual(pointer, visual);
 }
 
 static
@@ -103,8 +91,5 @@ void seat_pointer_set_xcursor(SeatPointer* pointer, const char* semantic)
 {
     auto visual = semantic ? get_xcursor(pointer->cursor_manager, semantic) : nullptr;
 
-    if (visual != get_visual(pointer)) {
-        log_trace("scene.pointer.set_xcursor({})", semantic ?: "nullptr");
-        set_visual(pointer, visual);
-    }
+    set_visual(pointer, visual);
 }

@@ -11,6 +11,8 @@ struct UiViewportData {
     rect2f32 frame;
 };
 
+struct UiDataSource;
+
 struct UiClient
 {
     Gpu* gpu;
@@ -37,6 +39,8 @@ struct UiClient
     UiSignals signals;
 
     std::flat_set<Seat*> seats;
+
+    Ref<UiDataSource> data_source;
 
     SeatKeyboard* keyboard;
     SeatPointer*  pointer;

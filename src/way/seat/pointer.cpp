@@ -93,7 +93,7 @@ void way_seat_on_pointer_enter(WayClientSeat* client_seat, SeatEvent* event)
     auto serial = way_next_serial(server);
 
     auto* old_surface = seat->focus.pointer.get();
-    auto* new_surface = find_surface(client_seat->client, event->pointer.focus);
+    auto* new_surface = way_find_surface_for_focus(client_seat->client, event->pointer.focus);
 
     if (old_surface && new_surface && old_surface != new_surface) {
         pointer_leave_surface(client_seat, old_surface, serial);
@@ -103,6 +103,7 @@ void way_seat_on_pointer_enter(WayClientSeat* client_seat, SeatEvent* event)
 
     if (!new_surface->resource) return;
     auto pos = to_fixed(to_surface_pos(new_surface, seat_pointer_get_position(seat->pointer)));
+
     for (auto* resource : client_seat->pointers) {
         way_send<wl_pointer_send_enter>(resource, serial.value, new_surface->resource, pos.x, pos.y);
         pointer_frame(server, resource);

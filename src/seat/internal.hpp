@@ -21,7 +21,7 @@ struct Seat
     Ref<SeatKeyboard> keyboard;
     Ref<SeatPointer> pointer;
 
-    Ref<SeatDataSource> selection;
+    SeatDataSource* selection;
 
     std::vector<SeatEventFilter*> event_filters;
 
@@ -79,7 +79,16 @@ struct SeatPointer : SeatInputDevice
     SceneTree* root;
 
     Ref<SceneTree> tree;
+
+    Weak<SceneNode> cursor_visual;
+
+    SeatDataSource* drag;
+    Weak<SceneNode> drag_visual;
+    Weak<SeatFocus> drag_focus;
 };
+
+void seat_pointer_update_drag(SeatPointer*);
+void seat_pointer_end_drag(SeatPointer*);
 
 // -----------------------------------------------------------------------------
 
@@ -90,6 +99,30 @@ auto seat_get_focus_client(SeatFocus* focus)
 }
 
 // -----------------------------------------------------------------------------
+
+struct SeatDataSource
+{
+    Seat* seat;
+
+    Weak<SceneNode> drag_visual;
+
+    SeatDataSourceInterface* impl;
+
+    Flags<SeatDndAction> supported_actions;
+    std::flat_set<std::string> offered;
+    SeatDndAction current_action;
+
+    std::flat_set<SeatDataOffer*> offers;
+
+    ~SeatDataSource();
+};
+
+struct SeatDataOffer
+{
+    SeatDataSource* source;
+
+    ~SeatDataOffer();
+};
 
 void seat_offer_selection(Seat*, SeatClient*, SeatDataSource*);
 

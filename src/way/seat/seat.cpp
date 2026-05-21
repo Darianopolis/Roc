@@ -100,7 +100,6 @@ void handle_pointer_event(WayClient* client, SeatEvent* event, auto&& fn)
     }
 }
 
-
 void way_seat_handle_event(WayClient* client, SeatEvent* event)
 {
     switch (event->type) {
@@ -116,8 +115,10 @@ void way_seat_handle_event(WayClient* client, SeatEvent* event)
         break;case SeatEventType::pointer_scroll: handle_pointer_event(client, event, way_seat_on_scroll);
 
         break;case SeatEventType::selection:
-            if (auto* client_seat = find_client_seat(client, event->data.seat)) {
-                way_data_offer_selection(client_seat);
-            }
+              case SeatEventType::drag_enter:
+              case SeatEventType::drag_leave:
+              case SeatEventType::drag_motion:
+              case SeatEventType::drag_drop:
+            way_handle_data_event(client, &event->data);
     }
 }

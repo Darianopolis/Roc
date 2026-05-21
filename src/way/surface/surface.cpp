@@ -362,3 +362,15 @@ void way_surface_addon_register(WaySurface* surface, WaySurfaceAddon* addon)
     addon->surface = surface;
     surface->addons.emplace_back(addon);
 }
+
+// -----------------------------------------------------------------------------
+
+auto way_find_surface_for_focus(WayClient* client, SeatFocus* focus) -> WaySurface*
+{
+    for (auto* surface : client->surfaces) {
+        if (surface->scene.focus.get() == focus) {
+            return surface;
+        }
+    }
+    return nullptr;
+}

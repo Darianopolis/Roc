@@ -114,21 +114,48 @@ auto seat_keyboard_key(SeatKeyboard*, SeatInputCode, bool pressd, bool quiet) ->
 
 // -----------------------------------------------------------------------------
 
-struct SeatDataSource
+enum class SeatDndAction
 {
-    std::flat_set<std::string> offered;
-
-    virtual void on_cancel() = 0;
-    virtual void on_send(const char* mime_type, fd_t target) = 0;
+    copy = 1 << 0,
+    move = 1 << 1,
+    ask  = 1 << 2,
 };
 
-void seat_data_source_offer(      SeatDataSource*, const char* mime_type);
-auto seat_data_source_get_offered(SeatDataSource*) -> std::span<const std::string>;
+struct SeatDataSourceInterface
+{
+    virtual void cancel() {}
+    virtual void send(std::string_view mime_type, fd_t target) = 0;
 
-void seat_data_source_receive(SeatDataSource*, const char* mime_type, fd_t fd);
+    virtual void action_update(SeatDndAction) {}
+    virtual void dnd_drop_performed() {}
+    virtual void dnd_finished() {}
+};
 
-void seat_set_selection(Seat*, SeatDataSource*);
-auto seat_get_selection(Seat*) -> SeatDataSource*;
+struct SeatDataSource;
+struct SeatDataOffer;
+
+struct SeatDataSourceCreateInfo
+{
+    SeatDataSourceInterface* interface;
+
+    std::span<const std::string_view> mime_types;
+
+    Flags<SeatDndAction> drag_actions;
+    SceneNode*           drag_visual;
+};
+
+auto seat_set_selection(Seat*, const SeatDataSourceCreateInfo&) -> Ref<SeatDataSource>;
+auto seat_get_selection(Seat*) -> Ref<SeatDataOffer>;
+
+auto seat_start_drag(Seat*, const SeatDataSourceCreateInfo&) -> Ref<SeatDataSource>;
+
+auto seat_data_offer_get_mime_types(SeatDataOffer*) -> std::span<const std::string>;
+auto seat_data_offer_get_actions(   SeatDataOffer*) -> Flags<SeatDndAction>;
+
+void seat_data_offer_accept(     SeatDataOffer*, const char* mime_type);
+auto seat_data_offer_set_actions(SeatDataOffer*, Flags<SeatDndAction> actions, SeatDndAction preferred) -> SeatDndAction;
+void seat_data_offer_receive(    SeatDataOffer*, std::string_view mime_type, fd_t);
+void seat_data_offer_finish(     SeatDataOffer*);
 
 // -----------------------------------------------------------------------------
 
@@ -167,6 +194,11 @@ enum class SeatEventType
     pointer_scroll,
 
     selection,
+
+    drag_enter,
+    drag_leave,
+    drag_motion,
+    drag_drop,
 };
 
 struct SeatKeyboardEvent
@@ -206,9 +238,12 @@ struct SeatPointerEvent
 
 struct SeatDataEvent
 {
-    SeatEventType   type;
-    SeatDataSource* source;
-    Seat*           seat;
+    SeatEventType type;
+    Seat* seat;
+    struct {
+        SeatDataOffer* offer;
+        SeatFocus* focus;
+    } drag;
 };
 
 union SeatEvent

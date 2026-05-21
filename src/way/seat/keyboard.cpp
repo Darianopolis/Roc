@@ -115,7 +115,7 @@ void way_seat_on_keyboard_enter(WayClientSeat* client_seat, SeatEvent* event)
     auto* seat = client_seat->seat;
     auto* server = seat->server;
 
-    auto* surface = find_surface(client_seat->client, event->keyboard.focus);
+    auto* surface = way_find_surface_for_focus(client_seat->client, event->keyboard.focus);
 
     // xdg_popup and wl_subsurface cannot have keyboard focus
     surface = find_root_toplevel(surface);
