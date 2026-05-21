@@ -28,6 +28,7 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                 auto mods = seat_keyboard_get_modifiers(event->keyboard.keyboard);
                 if (mods.contains(wm->main_mod)) {
                     seat_keyboard_focus(event->keyboard.keyboard, nullptr);
+                    return SeatEventFilterResult::capture;
                 }
             }
             if (event->keyboard.key.code == KEY_F) {
@@ -44,6 +45,7 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                             wm_window_set_fullscreen(window, output);
                         }
                     }
+                    return SeatEventFilterResult::capture;
                 }
             }
         break;case SeatEventType::pointer_button:
