@@ -2,6 +2,8 @@
 
 #include <core/log.hpp>
 
+#define IO_EVDEV_ENABLED 0
+
 auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 {
     auto io = ref_create<IoContext>();
@@ -12,7 +14,9 @@ auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     io_udev_init(    io.get());
     io_session_init( io.get());
     io_libinput_init(io.get());
+#if IO_EVDEV_ENABLED
     io_evdev_init(   io.get());
+#endif
     io_drm_init(     io.get());
     io_wayland_init( io.get());
 
@@ -35,7 +39,9 @@ void shutdown(IoContext* io)
 {
     io_wayland_deinit(io);
     io_drm_deinit(io);
+#if IO_EVDEV_ENABLED
     io_evdev_deinit(io);
+#endif
     io_libinput_deinit(io);
     io_session_deinit(io);
     io_udev_deinit(io);
