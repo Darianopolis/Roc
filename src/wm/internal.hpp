@@ -26,6 +26,8 @@ struct WmOutput
 
     // TODO: Partial redraws
     bool needs_redraw = false;
+    u64 frame_id = 0;
+    bool bump_frame_id = true;
 
     void* userdata;
     WmOutputInterface interface;
@@ -71,6 +73,7 @@ struct WmServer
     struct {
         std::vector<WmOutput*> outputs;
         std::vector<WmInputDevice*> input_devices;
+        u64 prev_frame_id = 0;
     } io;
 
     Ref<SeatCursorManager> cursor_manager;

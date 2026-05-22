@@ -340,12 +340,25 @@ void init(UiClient* ui, const std::filesystem::path& path)
 
 // -----------------------------------------------------------------------------
 
+static
+void frame(UiClient*);
+
+static
+void enqueue_frame(UiClient* ui)
+{
+    exec_enqueue(wm_get_exec(ui->wm), [ui = Weak(ui)] {
+        if (!ui) return;
+        UiContextGuard _{ui->context};
+        frame(ui.get());
+    });
+}
+
 void ui_request_frame(UiClient* ui)
 {
     // Double-pump frames: ImGui always works based on last frame state,
     // so input needs a second frame to react against the updated state.
     ui->frames_requested = 2;
-    wm_request_frame(ui->wm);
+    enqueue_frame(ui);
 }
 
 static
@@ -420,7 +433,9 @@ void frame(UiClient* ui)
     if (!ui->frames_requested) return;
     ui->frames_requested--;
 
-    if (ui->frames_requested) wm_request_frame(ui->wm);
+    if (ui->frames_requested) enqueue_frame(ui);
+
+    if (ImGui::GetPlatformIO().Monitors.empty()) return;
 
     auto& io = ImGui::GetIO();
     io.DisplaySize = {};
@@ -684,7 +699,7 @@ void handle_event(UiClient* ui, WmEvent* event)
     switch (event->type) {
         // output
         break;case WmEventType::output_frame:
-            frame(ui);
+            ;
         break;case WmEventType::output_layout:
             handle_output_layout(ui);
 

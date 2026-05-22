@@ -146,6 +146,7 @@ target_sources(core PRIVATE
     src/core/debug.cpp
     src/core/id.cpp
     src/core/exec.cpp
+    src/core/timer.cpp
     )
 target_include_directories(core PUBLIC src)
 target_link_libraries(core PUBLIC

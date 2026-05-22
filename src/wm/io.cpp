@@ -104,14 +104,26 @@ auto wm_output_frame(WmOutput* output) -> bool
 {
     auto* wm = output->server;
 
+    if (output->bump_frame_id) {
+        output->frame_id = ++wm->io.prev_frame_id;
+        output->bump_frame_id = false;
+    }
+
     wm_broadcast_event(wm, ptr_to(WmEvent {
         .output = {
             .type = WmEventType::output_frame,
             .output = output,
+            .frame_id = output->frame_id,
         }
     }));
 
-    return std::exchange(output->needs_redraw, false);
+    if (output->needs_redraw) {
+        output->needs_redraw = false;
+        output->bump_frame_id = true;
+        return true;
+    }
+
+    return false;
 }
 
 auto wm_output_get_viewport(WmOutput* output) -> rect2f32

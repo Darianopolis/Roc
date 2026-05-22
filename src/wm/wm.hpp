@@ -106,6 +106,7 @@ struct WmOutputEvent
 {
     WmEventType type;
     WmOutput* output;
+    u64 frame_id;
 };
 
 struct WmSeatEvent

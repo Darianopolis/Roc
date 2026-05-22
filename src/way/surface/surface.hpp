@@ -103,6 +103,12 @@ struct WaySurface
     std::deque<Ref<WaySurfaceState>> cached;
     WaySurfaceState current;
 
+    struct {
+        u64 last_seen_frame_id = 0;
+        std::chrono::steady_clock::time_point last_sent_time;
+        bool waiting_for_timer = false;
+    } frame;
+
     // scene
     struct {
         Ref<SceneTree>        tree;
@@ -129,7 +135,7 @@ struct WaySurface
 
 void way_surface_addon_register(WaySurface*, WaySurfaceAddon*);
 
-void way_surface_on_frame(WaySurface*, WmOutput*);
+void way_surface_on_frame(WaySurface*, WmOutput*, u64 frame_id);
 
 void way_viewport_apply(WaySurface*, WaySurfaceState& from);
 

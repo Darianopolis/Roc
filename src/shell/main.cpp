@@ -3,6 +3,7 @@
 #include <core/math.hpp>
 #include <core/signal.hpp>
 #include <core/log.hpp>
+#include <core/env.hpp>
 
 #include <wm/wm.hpp>
 #include <ui/ui.hpp>
@@ -27,9 +28,9 @@ auto main(int argc, char* argv[]) -> int
 
     // Config
 
-    shell->app_share = std::filesystem::path(getenv("HOME")) / ".local/share" / PROGRAM_NAME;
-    shell->wallpaper = getenv("WALLPAPER") ?: "";
-    if (getenv("WAYLAND_DISPLAY")) {
+    shell->app_share = std::filesystem::path(env_get("HOME").value_or("")) / ".local/share" / PROGRAM_NAME;
+    shell->wallpaper = env_get("WALLPAPER").value_or("");
+    if (env_get("WAYLAND_DISPLAY")) {
         log_debug("Running nested!");
         shell->main_mod = SeatModifier::alt;
     } else {

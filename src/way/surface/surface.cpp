@@ -112,9 +112,20 @@ void frame(wl_client* client, wl_resource* resource, u32 id)
     surface->pending->surface.frame_callbacks.emplace_back(callback);
 }
 
-void way_surface_on_frame(WaySurface* surface, WmOutput* output)
+void way_surface_on_frame(WaySurface* surface, WmOutput* output, u64 frame_id)
 {
     auto* server = surface->client->server;
+
+    // Check if there are any outstanding frame callbacks
+
+    if (!surface->current.surface.frame_callbacks.front()
+        &&  !std::ranges::any_of(surface->cached, [&](auto& pending) {
+                return pending->surface.frame_callbacks.front();
+            })) {
+        return;
+    }
+
+    // Check that this surface intersects with the given output
 
     {
         auto dst = surface->scene.texture->dst;
@@ -124,6 +135,43 @@ void way_surface_on_frame(WaySurface* surface, WmOutput* output)
             return;
         }
     }
+
+    // Require that we either
+    //   a) haven't seen this frame request before OR
+    //   b) a specified interval has elapsed and we can re-submit the frame callback
+    //
+    // HACK: Certain applications continuously send frame callbacks even when they have no new content to commit
+    //       To avoid a feedback loop forcing CPU usage to 100% we need to either:
+    //         a) Throttle repeated surface frame callbacks to a given interval independently from output frame requests
+    //         b) Always perform an output commit after a surface frame request even if there is no scene damage
+    //             - This would force VRR monitors to their maximum refresh rate when such an application is unoccluded
+    //       We are going with option (a) currently as it is the least disruptive option for our output implementations
+    //
+    // TODO: It may be preferable to tune the throttle interval automatically based on relevant output refresh rates
+    //        - E.g. selecting the min refresh interval of all outputs that the surface is currently unoccluded on
+
+    auto now = std::chrono::steady_clock::now();
+    static constexpr auto throttle_interval = std::chrono::steady_clock::duration(1000ms) / 60;
+
+    if (frame_id <= surface->frame.last_seen_frame_id) {
+        if (now - surface->frame.last_sent_time < throttle_interval) {
+            if (!surface->frame.waiting_for_timer) {
+                surface->frame.waiting_for_timer = true;
+                timer_enqueue(server->timer.get(),
+                    surface->frame.last_sent_time + throttle_interval,
+                    [surface = Weak(surface), output = Weak(output)] {
+                        if (!surface) return;
+                        surface->frame.waiting_for_timer = false;
+                        if (!output) return;
+                        way_surface_on_frame(surface.get(), output.get(), surface->frame.last_seen_frame_id);
+                    });
+            }
+            return;
+        }
+    }
+
+    surface->frame.last_seen_frame_id = std::max(surface->frame.last_seen_frame_id, frame_id);
+    surface->frame.last_sent_time = now;
 
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(way_get_elapsed(server)).count();
 

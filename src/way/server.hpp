@@ -4,6 +4,7 @@
 #include "util.hpp"
 
 #include <core/log.hpp>
+#include <core/timer.hpp>
 
 #include <wayland-server-core.h>
 
@@ -21,6 +22,8 @@ struct WayClient;
 struct WayServer
 {
     ExecContext* exec;
+
+    Ref<Timer> timer;
 
     std::chrono::steady_clock::time_point epoch;
 
