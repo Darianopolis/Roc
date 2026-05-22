@@ -66,30 +66,25 @@ void tree_place(SceneTree* tree, SceneNode* sibling, SceneNode* node, bool above
 placed:
     NODE_LOG("scene.tree{{{}}}.place_{}({}, {})", (void*)tree, above ? "above" : "below", (void*)sibling, (void*)node);
 
+    if (node->parent != tree) {
+        if (node->parent) {
+            scene_node_unparent(node);
+        }
+        node->parent = tree;
+    }
+
     // TODO: We only need to damage regions that were visually affected by the rotate
     scene_node_damage(tree);
-}
-
-static
-void reparent_unsafe(SceneNode* node, SceneTree* tree)
-{
-    if (node->parent == tree) return;
-    if (node->parent) {
-        scene_node_unparent(node);
-    }
-    node->parent = tree;
 }
 
 void scene_tree_place_below(SceneTree* tree, SceneNode* reference, SceneNode* to_place)
 {
     tree_place(tree, reference, to_place, false);
-    reparent_unsafe(to_place, tree);
 }
 
 void scene_tree_place_above(SceneTree* tree, SceneNode* reference, SceneNode* to_place)
 {
     tree_place(tree, reference, to_place, true);
-    reparent_unsafe(to_place, tree);
 }
 
 void scene_tree_replace(SceneTree* tree, std::span<SceneNode* const> new_children)

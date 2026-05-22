@@ -24,6 +24,9 @@ struct WmOutput
     vec2u32 pixel_size;
     rect2f32 viewport;
 
+    // TODO: Partial redraws
+    bool needs_redraw = false;
+
     void* userdata;
     WmOutputInterface interface;
 

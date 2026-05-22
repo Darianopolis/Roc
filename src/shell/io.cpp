@@ -79,26 +79,26 @@ void handle_event(ShellIo* shell_io, IoEvent* event)
             auto io_output = event->output.output;
             auto output = find_output(shell_io, io_output);
 
-            wm_output_frame(output);
+            auto needs_redraw = wm_output_frame(output);
 
-            // TODO: Only redraw with damage
+            if (needs_redraw) {
+                auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
+                auto usage = GpuImageUsage::render;
 
-            auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-            auto usage = GpuImageUsage::render;
+                auto target = shell_io->pool->acquire({
+                    .extent = io_output->info().size,
+                    .format = format,
+                    .usage = usage,
+                    .modifiers = ptr_to(gpu_intersect_format_modifiers({{
+                        &gpu_get_format_properties(shell_io->gpu, format, usage)->mods,
+                        &io_output->info().formats->get(format),
+                    }}))
+                });
 
-            auto target = shell_io->pool->acquire({
-                .extent = io_output->info().size,
-                .format = format,
-                .usage = usage,
-                .modifiers = ptr_to(gpu_intersect_format_modifiers({{
-                    &gpu_get_format_properties(shell_io->gpu, format, usage)->mods,
-                    &io_output->info().formats->get(format),
-                }}))
-            });
+                scene_render(wm_get_scene(shell_io->wm), target.get(), wm_output_get_viewport(output));
 
-            scene_render(wm_get_scene(shell_io->wm), target.get(), wm_output_get_viewport(output));
-
-            io_output->commit(target.get(), gpu_flush(shell_io->gpu), IoOutputCommitFlag::vsync);
+                io_output->commit(target.get(), gpu_flush(shell_io->gpu), IoOutputCommitFlag::vsync);
+            }
         }
     }
 }

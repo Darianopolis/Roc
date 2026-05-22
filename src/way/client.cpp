@@ -34,7 +34,7 @@ void way_on_client_create(wl_listener* listener, void* data)
 
             break;case WmEventType::output_frame:
                 for (auto* surface : client->surfaces) {
-                    way_surface_on_redraw(surface);
+                    way_surface_on_frame(surface, event->output.output);
                 }
 
             break;case WmEventType::seat_event:

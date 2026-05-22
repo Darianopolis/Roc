@@ -129,7 +129,7 @@ struct WaySurface
 
 void way_surface_addon_register(WaySurface*, WaySurfaceAddon*);
 
-void way_surface_on_redraw(WaySurface*);
+void way_surface_on_frame(WaySurface*, WmOutput*);
 
 void way_viewport_apply(WaySurface*, WaySurfaceState& from);
 

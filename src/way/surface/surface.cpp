@@ -112,9 +112,19 @@ void frame(wl_client* client, wl_resource* resource, u32 id)
     surface->pending->surface.frame_callbacks.emplace_back(callback);
 }
 
-void way_surface_on_redraw(WaySurface* surface)
+void way_surface_on_frame(WaySurface* surface, WmOutput* output)
 {
     auto* server = surface->client->server;
+
+    {
+        auto dst = surface->scene.texture->dst;
+        dst.origin += scene_tree_get_position(surface->scene.tree.get());
+
+        if (!rect_intersects(wm_output_get_viewport(output), dst)) {
+            return;
+        }
+    }
+
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(way_get_elapsed(server)).count();
 
     auto send_frame_callbacks = [&](WayResourceList& list) {

@@ -100,7 +100,7 @@ void wm_output_set_pixel_size(WmOutput* output, vec2u32 pixel_size)
     reflow_outputs(output->server);
 }
 
-void wm_output_frame(WmOutput* output)
+auto wm_output_frame(WmOutput* output) -> bool
 {
     auto* wm = output->server;
 
@@ -110,6 +110,8 @@ void wm_output_frame(WmOutput* output)
             .output = output,
         }
     }));
+
+    return std::exchange(output->needs_redraw, false);
 }
 
 auto wm_output_get_viewport(WmOutput* output) -> rect2f32
@@ -288,16 +290,32 @@ void handle_input_region_damage(WmServer* wm)
 static
 void handle_damage(WmServer* wm, SceneNode* node)
 {
-    for (auto* output : wm->io.outputs) {
-        output->interface.request_frame(output->userdata);
-    }
+    rect2f32 damaged_region = {};
 
-    if (dynamic_cast<SceneInputRegion*>(node)) {
+    if (auto* texture = dynamic_cast<SceneTexture*>(node)) {
+        damaged_region = texture->dst;
+        damaged_region.origin += scene_tree_get_position(node->parent);
+    }
+    else if (auto* mesh = dynamic_cast<SceneMesh*>(node)) {
+        for (auto& segment : mesh->segments) {
+            damaged_region = aabb_outer<f32>(segment.clip, damaged_region);
+        }
+        damaged_region.origin += scene_tree_get_position(node->parent);
+    }
+    else if (dynamic_cast<SceneInputRegion*>(node)) {
         exec_enqueue(wm->exec, [wm = Weak(wm)] {
             if (!wm) return;
             handle_input_region_damage(wm.get());
         });
     }
+
+    for (auto* output : wm->io.outputs) {
+        if (rect_intersects(damaged_region, output->viewport)) {
+            output->needs_redraw = true;
+            output->interface.request_frame(output->userdata);
+        }
+    }
+
 }
 
 void wm_init_io(WmServer* wm)
