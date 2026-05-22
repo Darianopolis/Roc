@@ -122,7 +122,10 @@ auto make_source(Seat* seat, SeatDataSourceInterface* interface, std::span<const
 auto seat_set_selection(Seat* seat, const SeatDataSourceCreateInfo& info) -> Ref<SeatDataSource>
 {
     auto source = make_source(seat, info.interface, info.mime_types);
-    if (seat->selection) {
+    // WORKAROUND: We check for impl equality to avoid cancelling data sources on double submission.
+    //             The spec disallows re-use, but certain application still do it so we have to handle it.
+    //             Consider filing an issue with the relevant applications.
+    if (seat->selection && seat->selection->impl != info.interface) {
         seat->selection->impl->cancel();
     }
     seat->selection = source.get();
