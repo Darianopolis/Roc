@@ -133,12 +133,41 @@ void wm_window_raise(WmWindow* window)
     wm_arrange_windows(wm);
 }
 
+static
+void try_revert_focus(WmServer* wm, WmWindow* window)
+{
+    for (auto* seat : wm_get_seats(wm)) {
+        auto* keyboard = seat_get_keyboard(seat);
+        if (seat_focus_contains(window->focus.get(), seat_keyboard_get_focus(keyboard))) {
+            // TODO: Refactor to share this logic with `focus.cpp`
+            bool found_new_focus = false;
+            for (auto* new_window : wm->windows | std::views::reverse) {
+                if (new_window == window) continue;
+                if (!new_window->mapped) continue;
+                seat_keyboard_focus(keyboard, new_window->focus.get());
+                found_new_focus = true;
+                break;
+            }
+            if (!found_new_focus) {
+                seat_keyboard_focus(keyboard, nullptr);
+            }
+        }
+
+        auto* pointer = seat_get_pointer(seat);
+        seat_pointer_move(pointer, seat_pointer_get_position(pointer), {}, {});
+    }
+}
+
 void wm_window_unmap(WmWindow* window)
 {
     if (!window->mapped) return;
 
+    auto* wm = window->client->wm;
+
     window->mapped = false;
-    wm_arrange_windows(window->client->wm);
+    wm_arrange_windows(wm);
+
+    try_revert_focus(wm, window);
 
     wm_window_post_event(ptr_to(WmWindowEvent {
         .type = WmEventType::window_unmapped,

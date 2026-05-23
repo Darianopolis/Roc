@@ -7,6 +7,7 @@ static
 void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
 {
     auto in_cycle = [&](WmWindow* window) {
+        if (!window->mapped) return false;
         if (pointer && !rect_contains(wm_window_get_frame(window), seat_pointer_get_position(pointer))) {
             return false;
         }
