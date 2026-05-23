@@ -3,7 +3,7 @@
 #include <core/math.hpp>
 #include <core/signal.hpp>
 #include <core/log.hpp>
-#include <core/env.hpp>
+#include <core/process.hpp>
 
 #include <wm/wm.hpp>
 #include <ui/ui.hpp>
@@ -33,6 +33,7 @@ auto main(int argc, char* argv[]) -> int
     shell->wallpaper = env_get("WALLPAPER").value_or("");
 
     bool export_environment = false;
+    bool in_direct_session = false;
 
     if (env_get("WAYLAND_DISPLAY")) {
         log_debug("Running nested!");
@@ -41,6 +42,7 @@ auto main(int argc, char* argv[]) -> int
         log_debug("Running in direct session");
         shell->main_mod = SeatModifier::super;
         export_environment = true;
+        in_direct_session = true;
     }
 
     // Systems
@@ -72,6 +74,12 @@ auto main(int argc, char* argv[]) -> int
         exec_stop(exec.get());
     });
 
+    // Helpers
+
+    if (in_direct_session) {
+        spawn_path("playerctld", {{"playerctld"}});
+    }
+
     // Environment
 
     env_set("XDG_CURRENT_DESKTOP", PROGRAM_NAME);
@@ -79,10 +87,7 @@ auto main(int argc, char* argv[]) -> int
     env_set("DISPLAY", shell->xwayland_socket);
     if (export_environment) {
         log_info("Exporting environment to system...");
-        if (fork() == 0) {
-            execlp("systemctl", "systemctl", "--user", "import-environment", nullptr);
-            std::terminate();
-        }
+        spawn_path("systemctl", {{"systemctl", "--user", "import-environment"}});
     }
 
     // Run

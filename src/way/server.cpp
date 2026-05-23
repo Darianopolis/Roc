@@ -8,7 +8,7 @@
 #include "surface/surface.hpp"
 #include "client.hpp"
 
-#include <core/env.hpp>
+#include <core/process.hpp>
 
 static
 auto get_loop_fd(wl_display* display) -> int
