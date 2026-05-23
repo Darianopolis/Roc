@@ -11,6 +11,7 @@
 auto main(int argc, char* argv[]) -> int
 {
     log_init(PROGRAM_NAME ".log");
+    log_history_enable(true);
     fd_registry_init();
     registry_init();
     defer {
@@ -30,12 +31,16 @@ auto main(int argc, char* argv[]) -> int
 
     shell->app_share = std::filesystem::path(env_get("HOME").value_or("")) / ".local/share" / PROGRAM_NAME;
     shell->wallpaper = env_get("WALLPAPER").value_or("");
+
+    bool export_environment = false;
+
     if (env_get("WAYLAND_DISPLAY")) {
         log_debug("Running nested!");
         shell->main_mod = SeatModifier::alt;
     } else {
         log_debug("Running in direct session");
         shell->main_mod = SeatModifier::super;
+        export_environment = true;
     }
 
     // Systems
@@ -66,6 +71,19 @@ auto main(int argc, char* argv[]) -> int
         shell.destroy();
         exec_stop(exec.get());
     });
+
+    // Environment
+
+    env_set("XDG_CURRENT_DESKTOP", PROGRAM_NAME);
+    env_set("WAYLAND_DISPLAY", way_server_get_socket(shell->way.get()));
+    env_set("DISPLAY", shell->xwayland_socket);
+    if (export_environment) {
+        log_info("Exporting environment to system...");
+        if (fork() == 0) {
+            execlp("systemctl", "systemctl", "--user", "import-environment", nullptr);
+            std::terminate();
+        }
+    }
 
     // Run
 

@@ -196,8 +196,8 @@ void launch(ShellLauncher* launcher, WmLauncherApp& app)
     defer { g_object_unref(ctx); };
 
     g_app_launch_context_setenv(ctx, "WAYLAND_DISPLAY", way_server_get_socket(launcher->shell->way.get()));
-    if (!launcher->shell->xwayland_socket.empty()) {
-        g_app_launch_context_setenv(ctx, "DISPLAY", launcher->shell->xwayland_socket.c_str());
+    if (launcher->shell->xwayland_socket) {
+        g_app_launch_context_setenv(ctx, "DISPLAY", launcher->shell->xwayland_socket->c_str());
     } else {
         g_app_launch_context_unsetenv(ctx, "DISPLAY");
     }

@@ -3,7 +3,8 @@
 #include <scene/scene.hpp>
 #include <way/way.hpp>
 #include <io/io.hpp>
-#include <ui/ui.hpp>
+
+struct UiClient;
 
 struct Shell
 {
@@ -19,7 +20,7 @@ struct Shell
     std::filesystem::path app_share;
     std::filesystem::path wallpaper;
 
-    std::string xwayland_socket;
+    std::optional<std::string> xwayland_socket;
 
     RefVector<void> apps;
 
