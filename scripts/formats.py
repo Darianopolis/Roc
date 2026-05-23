@@ -1,11 +1,11 @@
 from xml.etree import ElementTree
 from enum import Flag, auto
-from .utils import *
+from .utils import write_file_lazy, ensure_dir
 
 class VkFlags(Flag):
     ignore_alpha = auto()
 
-def format(drm: str, vk: str, flags: VkFlags = 0):
+def format(drm: str, vk: str, flags: VkFlags = VkFlags(0)):
     return (drm, vk, flags)
 
 formats = [
@@ -86,9 +86,10 @@ def enumerate_vk_formats(path: str):
     tree = ElementTree.parse(path)
     root = tree.getroot()
     formats = root.find("formats")
-    for format in formats.findall("format"):
-        name = format.get("name", "")
-        entries[name] = format
+    if formats:
+        for format in formats.findall("format"):
+            name = format.get("name", "")
+            entries[name] = format
 
     return entries
 
@@ -174,7 +175,7 @@ def generate_formats(build_dir):
     out += "    switch (vk_format) {\n"
     from_vulkan = {}
     for i, (drm, vk, flags) in enumerate(formats):
-        if not vk in from_vulkan:
+        if vk not in from_vulkan:
             from_vulkan[vk] = []
         from_vulkan[vk].append((i, flags))
     for vk, variants in from_vulkan.items():

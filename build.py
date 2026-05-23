@@ -7,7 +7,11 @@ import subprocess
 import argparse
 import filecmp
 
-from scripts.utils import *
+from scripts.utils import ensure_dir
+import scripts.deps as deps
+import scripts.wayland as wayland
+import scripts.shaders as shaders
+import scripts.formats as formats
 
 # -----------------------------------------------------------------------------
 #       Build Flags
@@ -34,24 +38,20 @@ vendor_dir = ensure_dir(build_dir / "vendor")
 
 # -----------------------------------------------------------------------------
 
-import scripts.deps as deps
 dep_dirs = deps.fetch_deps(vendor_dir, cwd / "build.json", args.update)
 
 # -----------------------------------------------------------------------------
 
-import scripts.wayland as wayland
 wayland.generate_wayland_protocols(
     wayland_dir=build_dir / "wayland",
     deps=dep_dirs)
 
 # -----------------------------------------------------------------------------
 
-import scripts.shaders as shaders
 shaders.build_shaders(cwd=cwd, build_dir=build_dir)
 
 # -----------------------------------------------------------------------------
 
-import scripts.formats as formats
 formats.generate_formats(build_dir=build_dir)
 
 # -----------------------------------------------------------------------------
@@ -110,7 +110,7 @@ def build(build_type, compiler, linker_type, install = None):
 
 use_mold = not args.system_linker and shutil.which("mold")
 
-build(build_type  = "Release" if args.release   else "Debug",
-      compiler    = "clang"   if args.use_clang else "gcc",
-      linker_type = "MOLD"    if use_mold       else "SYSTEM",
-      install     = "roc"     if args.install   else None)
+build(build_type  = "RelWithDebInfo" if args.release   else "Debug",
+      compiler    = "clang"          if args.use_clang else "gcc",
+      linker_type = "MOLD"           if use_mold       else "SYSTEM",
+      install     = "roc"            if args.install   else None)

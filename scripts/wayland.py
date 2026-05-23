@@ -1,4 +1,7 @@
-from .utils import *
+import subprocess
+from pathlib import Path
+
+from .utils import write_file_lazy, ensure_dir
 
 def list_wayland_protocols(deps):
     wayland_protocols = []

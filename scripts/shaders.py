@@ -1,4 +1,7 @@
-from .utils import *
+import subprocess
+import os
+
+from .utils import write_file_lazy, ensure_dir
 
 def build_shaders(cwd, build_dir):
     shaders = [

@@ -1,5 +1,4 @@
 import os
-import subprocess
 from pathlib import Path
 
 def ensure_dir(path: Path | str) -> Path:
@@ -7,8 +6,9 @@ def ensure_dir(path: Path | str) -> Path:
     return Path(path)
 
 def ensure_parent(path: Path | str) -> Path:
+    path = Path(path)
     os.makedirs(path.parent, exist_ok=True)
-    return Path(path)
+    return path
 
 def write_file_lazy(path: Path, data: str | bytes):
     match data:

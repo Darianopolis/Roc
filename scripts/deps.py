@@ -1,7 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
-from .utils import *
+from .utils import write_file_lazy, ensure_parent
 
 def stamp_path(vendor_dir: Path, name: str) -> Path:
     return vendor_dir / f"{name}.stamp"
@@ -17,7 +17,7 @@ def git(cmds, cwd=None):
     print(f"git: {cmds}")
     return subprocess.run(["git"] + cmds, cwd=cwd)
 
-def fetch_dep(dir: Path, repo: str, branch: str, commit: str) -> str:
+def fetch_dep(dir: Path, repo: str, branch: str, commit: str|None) -> str:
 
     # Grab dependency if not exists
     if not dir.exists():
