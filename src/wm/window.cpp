@@ -249,8 +249,10 @@ void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
     bool last_output = std::exchange(window->fullscreen.output, output);
 
     if (output) {
+        scene_node_unparent(window->borders.get());
         wm_window_request_reposition(window, wm_output_get_viewport(output), vec2f32{1, 1});
     } else if (last_output) {
+        scene_tree_place_below(window->root_tree.get(), nullptr, window->borders.get());
         wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
     }
 }
