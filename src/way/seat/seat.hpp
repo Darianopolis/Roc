@@ -67,6 +67,8 @@ struct WayCursorSurface : WaySurfaceAddon
     virtual void apply( WayCommitId) final override;
 };
 
+void way_set_cursor(WayClientSeat*, WaySurface*, vec2f32);
+
 struct WayDragIcon : WaySurfaceAddon
 {
     virtual void commit(WayCommitId) final override {};

@@ -23,6 +23,8 @@ auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
     wm_init_io(wm.get());
     wm_init_seat(wm.get());
 
+    wm_cursor_init(wm.get());
+
     wm_pointer_constraints_init(wm.get());
 
     wm_init_hotkeys(wm.get());

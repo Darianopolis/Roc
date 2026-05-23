@@ -261,6 +261,7 @@ target_sources(wm PRIVATE
     src/wm/client.cpp
     src/wm/io.cpp
     src/wm/seat.cpp
+    src/wm/cursor.cpp
     src/wm/window.cpp
     src/wm/movesize.cpp
     src/wm/hotkeys.cpp

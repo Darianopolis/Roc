@@ -78,6 +78,7 @@ struct WmServer
 
     Ref<SeatCursorManager> cursor_manager;
     RefVector<Seat> seats;
+    RefVector<SeatEventFilter> cursor_event_filter;
 
     struct {
         Ref<SeatEventFilter> filter;
@@ -125,6 +126,10 @@ void wm_init_focus_cycle(WmServer*);
 
 // -----------------------------------------------------------------------------
 
+void wm_cursor_init(WmServer*);
+
+// -----------------------------------------------------------------------------
+
 void wm_decoration_init(WmServer*);
 
 // -----------------------------------------------------------------------------
@@ -133,6 +138,10 @@ void wm_arrange_windows(WmServer*);
 
 // -----------------------------------------------------------------------------
 
+struct WmCursorUnset  { constexpr auto operator==(const WmCursorUnset& ) const -> bool { return true; } };
+struct WmCursorHidden { constexpr auto operator==(const WmCursorHidden&) const -> bool { return true; } };
+using WmCursorVisual = std::variant<WmCursorUnset, WmCursorHidden, Weak<SceneNode>, std::string>;
+
 struct WmClient
 {
     WmServer* wm;
@@ -140,6 +149,8 @@ struct WmClient
     std::move_only_function<void(WmClient*, WmEvent*)> listener;
 
     Ref<SeatClient> seat_client;
+
+    WmCursorVisual cursor = WmCursorUnset {};
 
     ~WmClient();
 };
@@ -171,7 +182,7 @@ struct WmWindow
     ~WmWindow();
 };
 
-void wm_window_post_event(WmWindowEvent* event);
+void wm_window_post_event(WmWindowEvent*);
 
 // -----------------------------------------------------------------------------
 

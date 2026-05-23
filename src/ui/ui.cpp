@@ -455,7 +455,7 @@ void frame(UiClient* ui)
     ImGui::Render();
 
     if (ui->pointer) {
-        seat_pointer_set_xcursor(ui->pointer, imgui_cursor_to_xcursor(ImGui::GetMouseCursor()));
+        wm_set_xcursor(ui->client.get(), imgui_cursor_to_xcursor(ImGui::GetMouseCursor()));
     }
 
     // Zero-sized main viewport should never contain draw data

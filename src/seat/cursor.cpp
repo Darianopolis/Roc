@@ -11,7 +11,7 @@ struct SeatCursorManager
     std::string theme;
     i32         size;
 
-    ankerl::unordered_dense::map<std::string_view, Ref<SceneNode>> cache;
+    ankerl::unordered_dense::map<std::string, Ref<SceneNode>> cache;
 };
 
 auto seat_cursor_manager_create(Gpu* gpu, const char* theme, i32 size) -> Ref<SeatCursorManager>

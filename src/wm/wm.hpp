@@ -136,6 +136,9 @@ void wm_listen(WmClient*, std::move_only_function<void(WmClient*, WmEvent*)>);
 
 auto wm_get_seat_client(WmClient*) -> SeatClient*;
 
+void wm_set_cursor(WmClient*, SceneNode* visual);
+void wm_set_xcursor(WmClient*, const char* semantic);
+
 // -----------------------------------------------------------------------------
 
 auto wm_window_create(WmClient*) -> Ref<WmWindow>;

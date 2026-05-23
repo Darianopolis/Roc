@@ -1,6 +1,9 @@
 #include "seat.hpp"
 
 #include "../server.hpp"
+#include "../surface/surface.hpp"
+#include "../shell/shell.hpp"
+#include "../client.hpp"
 
 static
 void get_pointer(wl_client* client, wl_resource* cursor_shape_manager, u32 id, wl_resource* wl_pointer)
@@ -71,13 +74,26 @@ static
 void set_shape(wl_client* client, wl_resource* resource, u32 serial, u32 shape)
 {
     auto* client_seat = way_get_userdata<WayClientSeat>(resource);
-    auto* seat = client_seat->seat;
-    if (seat->pointer) {
-        seat_pointer_set_xcursor(seat->pointer, cursor_shape_to_xcursor(wp_cursor_shape_device_v1_shape(shape)));
-    }
+    wm_set_xcursor(client_seat->client->wm.get(), cursor_shape_to_xcursor(wp_cursor_shape_device_v1_shape(shape)));
 }
 
 WAY_INTERFACE(wp_cursor_shape_device_v1) = {
     .destroy = way_simple_destroy,
     .set_shape = set_shape,
 };
+
+void way_set_cursor(WayClientSeat* client_seat, WaySurface* cursor_surface, vec2f32 hotspot)
+{
+    if (cursor_surface) {
+        scene_tree_set_translation(cursor_surface->scene.tree.get(), hotspot);
+
+        if (cursor_surface->role != WaySurfaceRole::cursor) {
+            cursor_surface->role = WaySurfaceRole::cursor;
+            cursor_surface->cursor_role = ref_create<WayCursorSurface>();
+            way_surface_addon_register(cursor_surface, cursor_surface->cursor_role.get());
+            scene_node_unparent(cursor_surface->scene.input_region.get());
+        }
+    }
+
+    wm_set_cursor(client_seat->client->wm.get(), cursor_surface ? cursor_surface->scene.tree.get() : nullptr);
+}

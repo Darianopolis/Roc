@@ -13,23 +13,9 @@ static
 void set_cursor(wl_client* wl_client, wl_resource* resource, u32 serial, wl_resource* wl_surface, i32 hot_x, i32 hot_y)
 {
     auto* client_seat = way_get_userdata<WayClientSeat>(resource);
-    auto* seat = client_seat->seat;
-    auto* surface = wl_surface ? way_get_userdata<WaySurface>(wl_surface) : nullptr;
+    auto* cursor_surface = wl_surface ? way_get_userdata<WaySurface>(wl_surface) : nullptr;
 
-    if (surface) {
-        scene_tree_set_translation(surface->scene.tree.get(), {f32(-hot_x), f32(-hot_y)});
-
-        if (surface->role != WaySurfaceRole::cursor) {
-            surface->role = WaySurfaceRole::cursor;
-            surface->cursor_role = ref_create<WayCursorSurface>();
-            way_surface_addon_register(surface, surface->cursor_role.get());
-            scene_node_unparent(surface->scene.input_region.get());
-        }
-    }
-
-    if (seat->pointer) {
-        seat_pointer_set_cursor(seat->pointer, surface ? surface->scene.tree.get() : nullptr);
-    }
+    way_set_cursor(client_seat, cursor_surface, {f32(-hot_x), f32(-hot_y)});
 }
 
 WAY_INTERFACE(wl_pointer) = {
