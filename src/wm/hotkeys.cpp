@@ -74,10 +74,16 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
             }
         break;case SeatEventType::pointer_button:
             if (!event->pointer.button.pressed) return {};
-            if (event->pointer.button.code == BTN_MIDDLE) {
-                return close_focused(wm,
-                    seat_pointer_get_seat(event->pointer.pointer),
-                    seat_pointer_get_focus(event->pointer.pointer));
+            switch (event->pointer.button.code) {
+                break;case BTN_MIDDLE:
+                    return close_focused(wm,
+                        seat_pointer_get_seat(event->pointer.pointer),
+                        seat_pointer_get_focus(event->pointer.pointer));
+                break;case BTN_EXTRA: {
+                    auto* seat = seat_pointer_get_seat(event->pointer.pointer);
+                    seat_keyboard_focus(seat_get_keyboard(seat), nullptr);
+                    return SeatEventFilterResult::capture;
+                }
             }
         break;default:
             ;
