@@ -1,5 +1,7 @@
 #include "internal.hpp"
 
+#include <core/process.hpp>
+
 auto wm_get_seat(WmServer* wm) -> Seat*
 {
     debug_assert(wm->seats.size() == 1, "TODO: Support multiple seats");
@@ -13,7 +15,9 @@ auto wm_get_seats(WmServer* wm) -> std::span<Seat* const>
 
 void wm_init_seat(WmServer* wm)
 {
-    wm->cursor_manager = seat_cursor_manager_create(wm->gpu, "breeze_cursors", 24);
+    wm->cursor_manager = seat_cursor_manager_create(wm->gpu,
+        env_get("XCURSOR_THEME").transform(&std::string::c_str).value_or(nullptr),
+        env_get<int>("XCURSOR_SIZE").value_or(24));
 
     auto keyboard = seat_keyboard_create({
         .layout = "gb",

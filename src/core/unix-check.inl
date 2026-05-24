@@ -9,6 +9,8 @@ UNIX_ERROR_BEHAVIOUR(read,  negative_one)
 UNIX_ERROR_BEHAVIOUR(write, negative_one)
 UNIX_ERROR_BEHAVIOUR(pipe,  negative_one)
 
+UNIX_ERROR_BEHAVIOUR(freopen, null)
+
 // Memory
 
 UNIX_ERROR_BEHAVIOUR(memfd_create, negative_one)

@@ -58,7 +58,7 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
 
 auto main() -> int
 {
-    log_init("io-test.log");
+    log_init({});
     fd_registry_init();
     registry_init();
     defer {

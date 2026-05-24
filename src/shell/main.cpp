@@ -10,7 +10,22 @@
 
 auto main(int argc, char* argv[]) -> int
 {
-    log_init(PROGRAM_NAME ".log");
+    bool in_direct_session = env_get("WAYLAND_DISPLAY")->empty();
+    auto home_dir = std::filesystem::path(env_get("HOME").value_or(""));
+    auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
+
+    if (in_direct_session) {
+        log_init({
+            .log_path = app_share / PROGRAM_NAME ".log",
+            .stdout_redirect = app_share / "stdout.log",
+            .stderr_redirect = app_share / "stderr.log",
+        });
+        chdir(home_dir.c_str());
+    } else {
+        log_init({
+            .log_path = PROGRAM_NAME ".log",
+        });
+    }
     log_history_enable(true);
     fd_registry_init();
     registry_init();
@@ -29,20 +44,15 @@ auto main(int argc, char* argv[]) -> int
 
     // Config
 
-    shell->app_share = std::filesystem::path(env_get("HOME").value_or("")) / ".local/share" / PROGRAM_NAME;
+    shell->app_share = app_share;
     shell->wallpaper = env_get("WALLPAPER").value_or("");
 
-    bool export_environment = false;
-    bool in_direct_session = false;
-
-    if (env_get("WAYLAND_DISPLAY")) {
-        log_debug("Running nested!");
-        shell->main_mod = SeatModifier::alt;
-    } else {
+    if (in_direct_session) {
         log_debug("Running in direct session");
         shell->main_mod = SeatModifier::super;
-        export_environment = true;
-        in_direct_session = true;
+    }  else {
+        log_debug("Running nested!");
+        shell->main_mod = SeatModifier::alt;
     }
 
     // Systems
@@ -78,16 +88,22 @@ auto main(int argc, char* argv[]) -> int
 
     if (in_direct_session) {
         spawn_path("playerctld", {{"playerctld"}});
+        spawn_path("dunst", {{"dunst"}});
     }
 
     // Environment
 
+    // TODO: Avoid setting these globally
     env_set("XDG_CURRENT_DESKTOP", PROGRAM_NAME);
     env_set("WAYLAND_DISPLAY", way_server_get_socket(shell->way.get()));
     env_set("DISPLAY", shell->xwayland_socket);
-    if (export_environment) {
+    if (in_direct_session) {
         log_info("Exporting environment to system...");
-        spawn_path("systemctl", {{"systemctl", "--user", "import-environment"}});
+        spawn_path("systemctl", {{
+            "systemctl",
+            "--user", "import-environment",
+            "XDG_CURRENT_DESKTOP", "WAYLAND_DISPLAY", "DISPLAY"
+        }});
     }
 
     // Run
