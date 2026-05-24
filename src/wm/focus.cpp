@@ -53,7 +53,7 @@ void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 {
     bool new_cycle = wm->mode != WmInteractionMode::focus_cycle
         && (pointer || seat_keyboard_get_focus(seat_get_keyboard(seat)));
-    wm->mode = WmInteractionMode::focus_cycle;
+    wm_interaction_set_mode(wm, WmInteractionMode::focus_cycle);
     wm->focus.seat = seat;
 
     log_warn("Focus cycle ({}) {}", pointer ? "pointer" : "keyboard", forward ? "forward" : "backward");
@@ -68,7 +68,7 @@ void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 static
 void focus_cycle_end(WmServer* wm)
 {
-    wm->mode = WmInteractionMode::none;
+    wm_interaction_set_mode(wm, WmInteractionMode::none);
 
     if (wm->focus.cycled) {
         wm_window_focus(wm->focus.cycled.get());

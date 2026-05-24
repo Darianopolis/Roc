@@ -18,7 +18,42 @@ static
 void update_seat_cursor_visual(WmServer* wm, Seat* seat)
 {
     auto* pointer = seat_get_pointer(seat);
-    auto* client =  find_client(wm, seat_pointer_get_focus(pointer));
+
+    switch (wm->mode) {
+        break;case WmInteractionMode::none:
+            ;
+        break;case WmInteractionMode::move:
+            seat_pointer_set_xcursor(pointer, "move");
+            return;
+        break;case WmInteractionMode::size: {
+            if (wm->movesize.relative.x == 0) {
+                seat_pointer_set_xcursor(pointer, "ns-resize");
+            } else if (wm->movesize.relative.y == 0) {
+                seat_pointer_set_xcursor(pointer, "ew-resize");
+            } else if (wm->movesize.relative.x == wm->movesize.relative.y) {
+                seat_pointer_set_xcursor(pointer, "nwse-resize");
+            } else {
+                seat_pointer_set_xcursor(pointer, "nesw-resize");
+            }
+            return;
+        }
+        break;case WmInteractionMode::zone:
+            if (wm->zone.selecting) {
+                seat_pointer_set_xcursor(pointer, "grabbing");
+            } else {
+                seat_pointer_set_xcursor(pointer, "grab");
+            }
+            return;
+        break;case WmInteractionMode::focus_cycle:
+            seat_pointer_set_xcursor(pointer, "default");
+            return;
+    }
+    if (wm->mode != WmInteractionMode::none) {
+        seat_pointer_set_xcursor(pointer, "default");
+        return;
+    }
+
+    auto* client = find_client(wm, seat_pointer_get_focus(pointer));
     if (!client) {
         seat_pointer_set_xcursor(pointer, "default");
         return;
@@ -50,8 +85,7 @@ void update_seat_cursor_visual(WmServer* wm, Seat* seat)
     }, client->cursor);
 }
 
-static
-void update_cursor_visual(WmServer* wm)
+void wm_cursor_visual_update(WmServer* wm)
 {
     for (auto* seat : wm_get_seats(wm)) {
         update_seat_cursor_visual(wm, seat);
@@ -64,16 +98,16 @@ void wm_cursor_init(WmServer* wm)
         wm->cursor_event_filter.emplace_back(seat_add_event_filter(seat, [wm](SeatEvent* event) -> SeatEventFilterResult {
             if (       event->type == SeatEventType::keyboard_enter || event->type == SeatEventType::keyboard_leave
                     || event->type == SeatEventType::pointer_enter  || event->type == SeatEventType::pointer_leave) {
-                update_cursor_visual(wm);
+                wm_cursor_visual_update(wm);
                 exec_enqueue(wm->exec, [wm = Weak(wm)] {
                     if (!wm) return;
-                    update_cursor_visual(wm.get());
+                    wm_cursor_visual_update(wm.get());
                 });
             }
             return SeatEventFilterResult::passthrough;
         }));
     }
-    update_cursor_visual(wm);
+    wm_cursor_visual_update(wm);
 }
 
 void wm_set_cursor(WmClient* client, SceneNode* visual)
@@ -85,7 +119,7 @@ void wm_set_cursor(WmClient* client, SceneNode* visual)
         client->cursor = WmCursorHidden {};
     }
     if (client->cursor != old) {
-        update_cursor_visual(client->wm);
+        wm_cursor_visual_update(client->wm);
     }
 }
 
@@ -98,6 +132,6 @@ void wm_set_xcursor(WmClient* client, const char* semantic)
         client->cursor = WmCursorHidden {};
     }
     if (client->cursor != old) {
-        update_cursor_visual(client->wm);
+        wm_cursor_visual_update(client->wm);
     }
 }

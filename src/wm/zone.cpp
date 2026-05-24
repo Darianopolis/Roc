@@ -51,7 +51,7 @@ void update_rectangle(WmServer* wm)
 
     auto color = selecting ? c.color_selected : c.color_initial;
 
-    scene_tree_place_above(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
+    scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
     scene_texture_set_dst(wm->zone.texture.get(), rect_cast<f32>(rect));
     scene_texture_set_tint(wm->zone.texture.get(), color);
 }
@@ -113,23 +113,21 @@ void toggle_selecting(WmServer* wm)
 {
     wm->zone.selecting = !wm->zone.selecting;
     zone_update_regions(wm);
+    wm_cursor_visual_update(wm);
 }
 
 static
 void begin_zone(WmServer* wm, SeatPointer* pointer)
 {
-    wm->mode = WmInteractionMode::zone;
+    auto window = wm_find_window_at(wm, seat_pointer_get_position(pointer));
+    if (!window || !is_interactable(window)) return;
 
     wm->zone.pointer = pointer;
+    wm->zone.window = window;
+    wm->zone.selecting = false;
 
-    auto window = wm_find_window_at(wm, seat_pointer_get_position(pointer));
-    if (window) {
-        wm->zone.window = window;
-        if (is_interactable(window)) {
-            wm->zone.selecting = false;
-            zone_update_regions(wm);
-        }
-    }
+    zone_update_regions(wm);
+    wm_interaction_set_mode(wm, WmInteractionMode::zone);
 }
 
 static
@@ -138,7 +136,7 @@ void end_zone(WmServer* wm)
     wm->zone.pointer = nullptr;
     update_rectangle(wm);
 
-    wm->mode = WmInteractionMode::none;
+    wm_interaction_set_mode(wm, WmInteractionMode::none);
 
     if (!wm->zone.selecting) return;
 

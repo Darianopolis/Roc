@@ -124,8 +124,11 @@ void wm_init_movesize(   WmServer*);
 void wm_init_zone(       WmServer*);
 void wm_init_focus_cycle(WmServer*);
 
+void wm_interaction_set_mode(WmServer*, WmInteractionMode);
+
 // -----------------------------------------------------------------------------
 
+void wm_cursor_visual_update(WmServer*);
 void wm_cursor_init(WmServer*);
 
 // -----------------------------------------------------------------------------

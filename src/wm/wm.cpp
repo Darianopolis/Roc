@@ -61,3 +61,9 @@ auto wm_get_layer(WmServer* wm, WmLayer layer) -> SceneTree*
 {
     return wm->layers[layer].get();
 }
+
+void wm_interaction_set_mode(WmServer* wm, WmInteractionMode mode)
+{
+    wm->mode = mode;
+    wm_cursor_visual_update(wm);
+}

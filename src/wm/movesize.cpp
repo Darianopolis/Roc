@@ -4,11 +4,11 @@ static
 void end_interaction(WmServer* wm)
 {
     wm->movesize.pointer = nullptr;
-    wm->mode = WmInteractionMode::none;
+    wm_interaction_set_mode(wm, WmInteractionMode::none);
 }
 
 static
-void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode initial_mode)
+void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode mode)
 {
     wm->movesize.pointer = pointer;
 
@@ -17,11 +17,10 @@ void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode ini
     if (!window) return;
     auto frame = wm_window_get_frame(window);
 
-    if (initial_mode == WmInteractionMode::size && !wm_window_is_resizable(window)) {
-        initial_mode = WmInteractionMode::move;
+    if (mode == WmInteractionMode::size && !wm_window_is_resizable(window)) {
+        mode = WmInteractionMode::move;
     }
 
-    wm->mode = initial_mode;
     wm->movesize.window = window;
     wm->movesize.frame = frame;
     wm->movesize.grab = pos;
@@ -33,15 +32,17 @@ void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode ini
         f32(dirs.y || !dirs.x),
     };
 
-    if (initial_mode == WmInteractionMode::move && dirs.y < 0) {
+    if (mode == WmInteractionMode::move && dirs.y < 0) {
         wm->movesize.relative.x = 1;
-    } else if (initial_mode == WmInteractionMode::size) {
+    } else if (mode == WmInteractionMode::size) {
         if (!dirs.x && !dirs.y) {
-            wm->mode = WmInteractionMode::move;
+            mode = WmInteractionMode::move;
         } else {
             wm->movesize.relative = vec_cast<f32>(dirs);
         }
     }
+
+    wm_interaction_set_mode(wm, mode);
 
     if (wm->mode == WmInteractionMode::move && !wm_window_is_movable(window)) {
         end_interaction(wm);
