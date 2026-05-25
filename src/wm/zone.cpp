@@ -4,32 +4,18 @@
 #include <core/color.hpp>
 
 static
-struct {
-    vec2u32 zones = {6, 2};
-    vec2f32 selection_leeway = {0.3f, 0.3f};
-    i32 padding_inner = 8;
-    struct {
-        i32 left   = 9;
-        i32 top    = 9;
-        i32 right  = 9;
-        i32 bottom = 9;
-    } external_padding;
-
-    vec4u8 color_initial  = color_from_hex("#99999999");
-    vec4u8 color_selected = color_from_hex("#6666FF99");
-} c;
-
-static
 auto get_zone_rect(rect2i32 workarea, vec2u32 zone) -> rect2i32
 {
+    auto& c = wm_config;
+
     rect2i32 out;
 
     auto get_axis = [&](usz axis) {
-        i32 usable_length = workarea.extent[axis] - (c.padding_inner * (c.zones[axis] - 1));
-        f64 ideal_zone_size = f64(usable_length) / c.zones[axis];
-        out.origin[axis] = std::round(ideal_zone_size *  zone[axis]     );
+        i32 usable_length = workarea.extent[axis] - (c.zone.spacing * (c.zone.count[axis] - 1));
+        f64 ideal_zone_size = f64(usable_length) / c.zone.count[axis];
+        out.origin[axis] = std::round(ideal_zone_size *  zone[axis]);
         out.extent[axis] = std::round(ideal_zone_size * (zone[axis] + 1)) - out.origin[axis];
-        out.origin[axis] += workarea.origin[axis] + c.padding_inner * zone[axis];
+        out.origin[axis] += workarea.origin[axis] + c.zone.spacing * zone[axis];
     };
     get_axis(0);
     get_axis(1);
@@ -49,7 +35,7 @@ void update_rectangle(WmServer* wm)
         return;
     }
 
-    auto color = selecting ? c.color_selected : c.color_initial;
+    auto color = selecting ? wm_config.zone.color_selected : wm_config.zone.color_initial;
 
     scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
     scene_texture_set_dst(wm->zone.texture.get(), rect_cast<f32>(rect));
@@ -59,23 +45,22 @@ void update_rectangle(WmServer* wm)
 static
 void zone_update_regions(WmServer* wm)
 {
+    auto& c = wm_config;
+
     auto pointer = wm->zone.pointer;
     vec2f32 point = seat_pointer_get_position(pointer);
 
     auto[output, position] = wm_find_output_at(wm, point);
 
-    // TODO: Separate "workarea" concept per output
-    aabb2i32 workarea = aabb_cast<i32>(output->viewport);
-    workarea.min += vec2i32{c.external_padding.left,  c.external_padding.top};
-    workarea.max -= vec2i32{c.external_padding.right, c.external_padding.bottom};
+    auto workarea = rect_cast<i32>(wm_output_get_workarea(output));
 
     aabb2f64 pointer_zone = {};
     bool any_zones = false;
 
-    for (u32 zone_x = 0; zone_x < c.zones.x; ++zone_x) {
-        for (u32 zone_y = 0; zone_y < c.zones.y; ++zone_y) {
+    for (u32 zone_x = 0; zone_x < c.zone.count.x; ++zone_x) {
+        for (u32 zone_y = 0; zone_y < c.zone.count.y; ++zone_y) {
             rect2i32 rect = get_zone_rect(workarea, {zone_x, zone_y});
-            vec2f64 leeway = vec_cast<f64>(c.selection_leeway * f32(std::min(rect.extent.x, rect.extent.y)));
+            vec2f64 leeway = vec_cast<f64>(c.zone.selection_leeway * f32(std::min(rect.extent.x, rect.extent.y)));
             aabb2f64 aabb = aabb_cast<f64>(rect);
             aabb2f64 check_aabb = {
                 aabb.min - leeway,

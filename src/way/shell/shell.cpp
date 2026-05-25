@@ -138,11 +138,13 @@ void WayXdgSurface::apply(WayCommitId id)
     }
 }
 
-void way_xdg_surface_configure(WaySurface* surface)
+auto way_xdg_surface_configure(WaySurface* surface) -> WaySerial
 {
     auto* server = surface->client->server;
-    surface->xdg->sent_serial = way_next_serial(server);
-    way_send<xdg_surface_send_configure>(surface->xdg->resource, surface->xdg->sent_serial.value);
+    auto serial = way_next_serial(server);
+    surface->xdg->sent_serial = serial;
+    way_send<xdg_surface_send_configure>(surface->xdg->resource, serial.value);
+    return serial;
 }
 
 // -----------------------------------------------------------------------------
@@ -151,13 +153,14 @@ void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
 {
     auto* toplevel = surface->toplevel;
 
+    auto* window = toplevel->window.get();
     if (mapped) {
-        wm_window_map(toplevel->window.get());
+        wm_window_map(window);
         for (auto* seat : wm_get_seats(surface->client->server->wm)) {
             seat_keyboard_focus(seat_get_keyboard(seat), surface->scene.focus.get());
         }
     } else {
-        wm_window_unmap(toplevel->window.get());
+        wm_window_unmap(window);
     }
 }
 
@@ -189,8 +192,14 @@ void reposition(WaySurface* surface)
     vec2f32 rel = 1.f - ((toplevel->gravity + 1.f) * .5f);
     frame.origin -= rel * (extent - anchor.extent);
 
-    wm_window_set_frame(toplevel->window.get(), frame);
-    scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(xdg->current.geometry.origin));
+    if (toplevel->constrain_to) {
+        auto constrained = rect_constrain(frame, *toplevel->constrain_to);
+        toplevel->constrain_to = std::nullopt;
+        wm_window_request_reposition(toplevel->window.get(), constrained, {1, 1});
+    } else {
+        wm_window_set_frame(toplevel->window.get(), frame);
+        scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(xdg->current.geometry.origin));
+    }
 }
 
 void way_toplevel_on_reposition(WaySurface* surface, rect2f32 frame, vec2f32 gravity)
@@ -230,8 +239,15 @@ void send_premap_configure(WayToplevel* toplevel)
         }})));
     }
 
+    auto hint = wm_window_get_initial_position_hint(toplevel->window.get());
+
+    toplevel->anchor = {hint.center_pos, {}, xywh};
+    toplevel->gravity = {0, 0};
+    toplevel->constrain_to = hint.bounds;
+
     configure_toplevel(toplevel, {0, 0});
-    way_xdg_surface_configure(toplevel->surface);
+
+    toplevel->pending = way_xdg_surface_configure(toplevel->surface);
 }
 
 void WayToplevel::commit(WayCommitId id)

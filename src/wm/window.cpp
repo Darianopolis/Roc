@@ -121,6 +121,11 @@ void wm_window_map(WmWindow* window)
     }));
 }
 
+auto wm_window_is_mapped(WmWindow* window) -> bool
+{
+    return window->mapped;
+}
+
 void wm_window_raise(WmWindow* window)
 {
     if (!window->mapped) return;
@@ -299,4 +304,29 @@ auto wm_window_is_movable(WmWindow* window) -> bool
 auto wm_window_is_resizable(WmWindow* window) -> bool
 {
     return !window->fullscreen.output;
+}
+
+// -----------------------------------------------------------------------------
+
+auto wm_window_get_initial_position_hint(WmWindow* window) -> WmPositionHint
+{
+    auto* wm = window->client->wm;
+
+    WmPositionHint hint = {};
+
+    if (window->parent) {
+        // Child, position at center of parent.
+        auto parent_bounds = wm_window_get_frame(window->parent);
+        hint.center_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
+    } else {
+        // Non-child, spawn under mouse
+        auto* seat = wm_get_seat(wm);
+        auto cursor_pos = seat_pointer_get_position(seat_get_pointer(seat));
+        hint.center_pos = cursor_pos;
+    }
+
+    auto output = wm_find_output_at(wm, hint.center_pos).output;
+    hint.bounds = wm_output_get_workarea(output);
+
+    return hint;
 }

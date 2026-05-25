@@ -47,6 +47,9 @@ auto wm_output_create(WmServer*, void*, WmOutputInterface) -> Ref<WmOutput>;
 void wm_output_set_pixel_size(WmOutput*, vec2u32);
 auto wm_output_frame(WmOutput*) -> bool;
 
+auto wm_output_get_viewport(WmOutput*) -> rect2f32;
+auto wm_output_get_workarea(WmOutput*) -> rect2f32;
+
 // -----------------------------------------------------------------------------
 
 struct WmInputDevice;
@@ -152,10 +155,19 @@ void wm_window_map(  WmWindow*);
 void wm_window_unmap(WmWindow*);
 void wm_window_raise(WmWindow*);
 
+auto wm_window_is_mapped(WmWindow*) -> bool;
+
 auto wm_window_get_tree(WmWindow*) -> SceneTree*;
 
 void wm_window_request_reposition(WmWindow*, rect2f32 frame, vec2f32 gravity);
-void wm_window_request_close(     WmWindow*);
+void wm_window_request_close(WmWindow*);
+
+struct WmPositionHint
+{
+    vec2f32 center_pos;
+    rect2f32 bounds;
+};
+auto wm_window_get_initial_position_hint(WmWindow*) -> WmPositionHint;
 
 void wm_window_set_frame(WmWindow*, rect2f32 frame);
 auto wm_window_get_frame(WmWindow*) -> rect2f32;
@@ -193,8 +205,6 @@ auto wm_get_seats(WmServer*) -> std::span<Seat* const>;
 void wm_request_frame(WmServer*);
 
 auto wm_list_outputs(WmServer*) -> std::span<WmOutput* const>;
-
-auto wm_output_get_viewport(WmOutput*) -> rect2f32;
 
 struct WmFindOutputResult
 {

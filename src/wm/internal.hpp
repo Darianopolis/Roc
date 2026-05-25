@@ -3,8 +3,30 @@
 #include "wm.hpp"
 
 #include <core/types.hpp>
+#include <core/color.hpp>
+
 #include <scene/scene.hpp>
 #include <way/way.hpp>
+
+static
+struct WmConfig
+{
+    struct {
+        vec2u32 count = {6, 2};
+        vec2f32 selection_leeway = {0.3f, 0.3f};
+        i32     spacing = 8;
+        vec4u8  color_initial  = color_from_hex("#99999999");
+        vec4u8  color_selected = color_from_hex("#6666FF99");
+    } zone;
+
+    struct {
+        struct {
+            vec2i32 tl = {9, 9};
+            vec2i32 br = {9, 9};
+        } padding;
+    } workarea;
+
+} wm_config;
 
 enum class WmInteractionMode
 {
@@ -163,6 +185,8 @@ struct WmClient
 struct WmWindow
 {
     WmClient* client;
+
+    WmWindow* parent; // TODO
 
     vec2f32 extent;
     bool mapped;

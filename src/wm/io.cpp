@@ -131,6 +131,14 @@ auto wm_output_get_viewport(WmOutput* output) -> rect2f32
     return output->viewport;
 }
 
+auto wm_output_get_workarea(WmOutput* output) -> rect2f32
+{
+    auto workarea = output->viewport;
+    workarea.origin += vec_cast<f32>(wm_config.workarea.padding.tl);
+    workarea.extent -= vec_cast<f32>(wm_config.workarea.padding.tl + wm_config.workarea.padding.br);
+    return workarea;
+}
+
 void wm_request_frame(WmServer* wm)
 {
     for (auto* output : wm->io.outputs) {

@@ -44,7 +44,7 @@ struct WayXdgSurface : WaySurfaceAddon
     ~WayXdgSurface();
 };
 
-void way_xdg_surface_configure(WaySurface*);
+auto way_xdg_surface_configure(WaySurface*) -> WaySerial;
 
 // -----------------------------------------------------------------------------
 
@@ -75,6 +75,8 @@ struct WayToplevel : WaySurfaceAddon
 
     WaySerial pending; // commit response to resize configure is pending
     bool queued;       // new reposition request received while pending
+
+    std::optional<rect2f32> constrain_to;
 
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;
