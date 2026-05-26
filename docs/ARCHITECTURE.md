@@ -1,0 +1,86 @@
+# Architecture
+
+Roc is organized roughly into several layers:
+
+ - Core Utilities and I/O ─ `core`, `gpu`, `io`
+ - Window Manager ─ `scene`, `seat`, `wm`
+ - Clients ─ `way`, `shell`
+
+### `core` ─ Common Utilities
+
+A collection of reusable components and helpers used throughout the project.
+
+- Common data structures, algorithms and helpers
+- Event loop (timed dispatch, file events)
+- File descriptor lifetime management
+- Object registry (intrusive allocation reference counting)
+- Structured logging (semantic + timestamp + stacktrace)
+- Linear algebra (vectors, aabbs, rects)
+- Threaded "execution contexts" with task enqueue and file listening
+
+### `gpu` ─ GPU
+
+Small layer wrapping GPU allocation, synchronization, and command execution.
+
+- Event based completion handlers
+- DMABUF / DRM syncobj interop
+- Buffered command submission
+
+### `io` ─ Session I/O
+
+Manages I/O, including input devices and display outputs; implemented as a set of subsystems:
+
+- `process`  (child process management)
+- `udev`     (device discovery, hotplug events)
+- `session`  (VT switching, restricted device access)
+- `libinput` (raw keyboard / mouse input)
+- `evdev`    (raw gamepad / joystick input)
+- `drm`      (atomic KMS display control)
+- `wayland`  (nested emulation of `libinput`, `drm`)
+
+### `scene` ─ Scene Graph
+
+A spatial hierarchy providing hit-testing, damage tracking, and rendering logic.
+
+- Scene graph
+- Damage listeners
+- Rendering
+
+### `seat` ─ Seat
+
+Input and data routing logic.
+
+- Focus based input routing
+- Data management
+   - Selection buffers
+   - Drag and drop
+
+### `wm` ─ Window Manager
+
+Internal client/server protocol for window management.
+
+- Output layout
+- Mouse
+   - Acceleration
+   - Constraints
+- Window decorations
+   - CSD clipping
+   - Focus borders
+- Interactions
+   - Drag move/size
+   - Drag grid window placement
+   - Focus cycling
+
+### `way` ─ Wayland Server
+
+A thin layer adapting relevant Wayland protocols to `wm`'s internal API.
+
+- Isolates compositor and window management logic from Wayland "protocol plumbing"
+
+### `shell` ─ Shell
+
+Shell components and compositor entry point
+
+- Ties together and provides configuration for all previous layers
+- Native shell components (launcher, system tray, notifications, etc..)
+- Common keybindings (media keys, application launch, etc..)
