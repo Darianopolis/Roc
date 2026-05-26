@@ -27,7 +27,7 @@ void way_dmabuf_init(WayServer* server)
     way_global(server, zwp_linux_dmabuf_v1);
     way_global(server, wp_linux_drm_syncobj_manager_v1);
 
-    struct tranche_entry
+    struct TrancheEntry
     {
         u32 format;
         u32 padding;
@@ -38,10 +38,10 @@ void way_dmabuf_init(WayServer* server)
 
     // Enumerate formats
 
-    std::vector<tranche_entry> entries;
+    std::vector<TrancheEntry> entries;
     for (auto[format, modifiers] : get_formats(server)) {
         for (auto modifier : modifiers) {
-            entries.emplace_back(tranche_entry {
+            entries.emplace_back(TrancheEntry {
                 .format = format->drm,
                 .modifier = modifier,
             });
@@ -50,7 +50,7 @@ void way_dmabuf_init(WayServer* server)
 
     // Copy to shared memory
 
-    usz size = entries.size() * sizeof(tranche_entry);
+    usz size = entries.size() * sizeof(TrancheEntry);
 
     auto fd = Fd(unix_check<memfd_create>(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
     unix_check<ftruncate>(fd.get(), size);

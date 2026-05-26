@@ -66,16 +66,16 @@ auto GpuImage::descriptor() -> GpuDescriptorId      { return get_base(this)->dat
 
 // -----------------------------------------------------------------------------
 
-struct gpu_image_vma : GpuImageBase
+struct GpuImageVma : GpuImageBase
 {
     struct {
         VmaAllocation allocation;
     } vma;
 
-    ~gpu_image_vma();
+    ~GpuImageVma();
 };
 
-gpu_image_vma::~gpu_image_vma()
+GpuImageVma::~GpuImageVma()
 {
     gpu->stats.active_images--;
 
@@ -93,7 +93,7 @@ auto gpu_image_create(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<GpuImage>
         return gpu_image_create_dmabuf(gpu, info);
     }
 
-    auto image = ref_create<gpu_image_vma>();
+    auto image = ref_create<GpuImageVma>();
     image->gpu = gpu;
 
     gpu->stats.active_images++;
@@ -291,7 +291,7 @@ auto gpu_find_memory_type_index(Gpu* gpu, u32 type_filter, VkMemoryPropertyFlags
 
 // -----------------------------------------------------------------------------
 
-struct gpu_image_dmabuf : GpuImageBase
+struct GpuImageDmabuf : GpuImageBase
 {
     FixedArray<VkDeviceMemory, gpu_dma_max_planes> memory;
 
@@ -299,10 +299,10 @@ struct gpu_image_dmabuf : GpuImageBase
         usz allocation_size;
     } stats;
 
-    ~gpu_image_dmabuf();
+    ~GpuImageDmabuf();
 };
 
-gpu_image_dmabuf::~gpu_image_dmabuf()
+GpuImageDmabuf::~GpuImageDmabuf()
 {
     gpu->stats.active_images--;
     gpu->stats.active_image_memory -= stats.allocation_size;
@@ -317,7 +317,7 @@ gpu_image_dmabuf::~gpu_image_dmabuf()
 
 auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<GpuImage>
 {
-    auto image = ref_create<gpu_image_dmabuf>();
+    auto image = ref_create<GpuImageDmabuf>();
     image->gpu = gpu;
 
     image->data.extent = info.extent;
@@ -402,7 +402,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
 
 auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
 {
-    auto* image = dynamic_cast<gpu_image_dmabuf*>(_image->base());
+    auto* image = dynamic_cast<GpuImageDmabuf*>(_image->base());
     debug_assert(image);
 
     auto* gpu = image->gpu;
@@ -469,7 +469,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
         return nullptr;
     }
 
-    auto image = ref_create<gpu_image_dmabuf>();
+    auto image = ref_create<GpuImageDmabuf>();
     image->gpu = gpu;
 
     gpu->stats.active_images++;

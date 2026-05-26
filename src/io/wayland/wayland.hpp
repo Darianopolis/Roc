@@ -27,10 +27,10 @@ template<typename K, typename V>
 struct IoWaylandProxyCache
 {
     using Vptr = std::unique_ptr<V, void(*)(V*)>;
-    struct entry { Weak<K> key; Vptr value; };
+    struct Entry { Weak<K> key; Vptr value; };
 
     void(*destroy)(V*);
-    std::vector<entry> entries;
+    std::vector<Entry> entries;
 
     auto find(K* needle) -> V*
     {
