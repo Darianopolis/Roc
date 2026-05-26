@@ -66,19 +66,36 @@ auto io_get_signals(IoContext* io) -> IoSignals&
 }
 
 static
+void reap_child_processes(IoContext* io)
+{
+    pid_t pid;
+    int status;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        if (WIFEXITED(status)) {
+            log_debug("Child {} exited with {}", pid, WEXITSTATUS(status));
+        } else if (WIFSIGNALED(status)) {
+            log_debug("Child {} killed by signal {}", pid, WTERMSIG(status));
+        }
+    }
+}
+
+static
 void handle_signal(IoContext* io)
 {
     signalfd_siginfo info = {};
     unix_check<read>(io->signal_fd.get(), &info, sizeof(info));
 
-    IoShutdownReason reason;
     switch (info.ssi_signo) {
-        break;case SIGINT:  reason = IoShutdownReason::interrupt_received;
-        break;case SIGTERM: reason = IoShutdownReason::terminate_received;
-        break;default:      debug_unreachable();
+        break;case SIGINT:
+            post_shutdown_request(io, IoShutdownReason::interrupt_received);
+        break;case SIGTERM:
+            post_shutdown_request(io, IoShutdownReason::terminate_received);
+        break;case SIGCHLD:
+            reap_child_processes(io);
+        break;default:
+            debug_unreachable();
     }
 
-    post_shutdown_request(io, reason);
 }
 
 void io_start(IoContext* io)
@@ -95,6 +112,7 @@ void io_start(IoContext* io)
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &mask, nullptr);
     io->signal_fd = Fd(unix_check<signalfd>(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
     fd_listen(io->exec, io->signal_fd.get(), FdEventBit::readable, [io](fd_t, Flags<FdEventBit>){
