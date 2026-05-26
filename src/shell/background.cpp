@@ -1,4 +1,4 @@
-#include "../shell.hpp"
+#include "shell.hpp"
 
 #include <core/math.hpp>
 #include <core/log.hpp>

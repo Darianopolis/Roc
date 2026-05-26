@@ -37,9 +37,11 @@
 #include <deque>
 #include <meta>
 #include <debugging>
+#include <limits>
 
 #include <cstring>
 #include <csignal>
+#include <climits>
 
 // -----------------------------------------------------------------------------
 
@@ -76,11 +78,6 @@
 extern "C" {
     #include <libseat.h>
 }
-
-// -----------------------------------------------------------------------------
-
-#include <gio/gio.h>
-#include <gio/gdesktopappinfo.h>
 
 // -----------------------------------------------------------------------------
 

@@ -18,8 +18,6 @@ auto close_focused(WmServer* wm, Seat* seat, SeatFocus* focus) -> SeatEventFilte
 static
 auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
 {
-    // TODO: These should be defined in [shell] using a generic hotkey system
-
     switch (event->type) {
         break;case SeatEventType::keyboard_key:
             if (!event->keyboard.key.pressed) return {};
@@ -49,28 +47,7 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                         }
                         return SeatEventFilterResult::capture;
                     }
-                    break;case KEY_N:
-                        spawn_path("systemctl", {{"systemctl", "suspend"}});
-                        return SeatEventFilterResult::capture;
                 }
-            }
-
-            switch (event->keyboard.key.code) {
-                break;case KEY_PREVIOUSSONG:
-                    spawn_path("playerctl", {{"playerctl", "previous"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_PLAYPAUSE:
-                    spawn_path("playerctl", {{"playerctl", "play-pause"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_NEXTSONG:
-                    spawn_path("playerctl", {{"playerctl", "next"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_VOLUMEDOWN:
-                    spawn_path("wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_VOLUMEUP:
-                    spawn_path("wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}});
-                    return SeatEventFilterResult::capture;
             }
         break;case SeatEventType::pointer_button:
             if (!event->pointer.button.pressed) return {};

@@ -91,31 +91,6 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         return draw;
     };
 
-    auto draw_mesh = [&](SceneMesh* mesh) {
-        auto pos = scene_tree_get_position(mesh->parent);
-
-        for (auto& segment : mesh->segments) {
-            draws.emplace_back(Draw {
-                .vertex_offset = u32(vertices.size()) + segment.vertex_offset,
-                .first_index = u32(indices.size()) + segment.first_index,
-                .index_count = u32(segment.index_count),
-                .clip = aabb_inner(default_clip, {
-                    pos + segment.clip.min,
-                    pos + segment.clip.max,
-                    minmax
-                }),
-                .image = segment.image.get() ?: render.white.get(),
-                .sampler = segment.sampler.get() ?: render.nearest.get(),
-                .blend = segment.blend,
-                .position = pos + mesh->offset,
-                .opacity = get_opacity(mesh),
-            });
-        }
-
-        vertices.insert_range(vertices.end(), mesh->vertices);
-        indices.insert_range(indices.end(), mesh->indices);
-    };
-
     auto draw_texture = [&](SceneTexture* texture) {
         aabb2f32 src = texture->src;
         aabb2f32 dst = texture->dst;
@@ -158,8 +133,6 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         [&](SceneNode* node) {
             if (auto* texture = dynamic_cast<SceneTexture*>(node)) {
                 draw_texture(texture);
-            } else if (auto* mesh = dynamic_cast<SceneMesh*>(node)) {
-                draw_mesh(mesh);
             }
         },
         scene_iterate_default);

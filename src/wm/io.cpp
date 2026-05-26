@@ -316,12 +316,6 @@ void handle_damage(WmServer* wm, SceneNode* node)
         damaged_region = texture->dst;
         damaged_region.origin += scene_tree_get_position(node->parent);
     }
-    else if (auto* mesh = dynamic_cast<SceneMesh*>(node)) {
-        for (auto& segment : mesh->segments) {
-            damaged_region = aabb_outer<f32>(segment.clip, damaged_region);
-        }
-        damaged_region.origin += scene_tree_get_position(node->parent);
-    }
     else if (dynamic_cast<SceneInputRegion*>(node)) {
         exec_enqueue(wm->exec, [wm = Weak(wm)] {
             if (!wm) return;

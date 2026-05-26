@@ -13,7 +13,6 @@ struct Shell
     Ref<IoContext> io;
     Ref<WmServer> wm;
     Ref<WayServer> way;
-    Ref<UiClient> ui;
 
     SeatModifier main_mod;
 
@@ -27,7 +26,6 @@ struct Shell
     ~Shell()
     {
         apps.destroy_all();
-        ui.destroy();
         way.destroy();
         wm.destroy();
         io.destroy();
@@ -36,8 +34,6 @@ struct Shell
 };
 
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
-void shell_init_menu(Shell*);
-void shell_init_launcher(Shell*);
-void shell_init_log_viewer(Shell*);
 void shell_init_background(Shell*);
 void shell_init_io_bridge(Shell*);
+void shell_init_hotkeys(Shell*);

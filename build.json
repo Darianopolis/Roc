@@ -1,10 +1,5 @@
 {
     "dependencies": {
-        "imgui": {
-            "branch": "docking",
-            "commit": "b61e56346a92cfcaf1f43a545ca37b0b32239654",
-            "repo": "https://github.com/ocornut/imgui.git"
-        },
         "kde-protocols": {
             "branch": "master",
             "commit": "13b3c2f1a0d9aee395598d773a639e9bca35f526",

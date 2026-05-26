@@ -76,7 +76,6 @@ endfunction()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(libevdev REQUIRED IMPORTED_TARGET libevdev)
-pkg_check_modules(libgio2  REQUIRED IMPORTED_TARGET gio-2.0 gio-unix-2.0 gobject-2.0 glib-2.0)
 pkg_check_modules(libdrm   REQUIRED IMPORTED_TARGET libdrm)
 pkg_check_modules(libseat  REQUIRED IMPORTED_TARGET libseat)
 
@@ -92,21 +91,6 @@ add_library(stb-image)
 target_include_directories(stb-image PUBLIC ${VENDOR_DIR}/stb)
 target_generated_source(stb-image PRIVATE stb_image.c       "#define STB_IMAGE_IMPLEMENTATION 1"       "#include <stb_image.h>")
 target_generated_source(stb-image PRIVATE stb_image_write.c "#define STB_IMAGE_WRITE_IMPLEMENTATION 1" "#include <stb_image_write.h>")
-
-# ------------------------------------------------------------------------------
-
-add_library(imgui)
-target_include_directories(imgui PUBLIC ${VENDOR_DIR}/imgui)
-target_include_directories(imgui PRIVATE src)
-target_compile_definitions(imgui PUBLIC IMGUI_USER_CONFIG="ui/imconfig.h")
-target_sources(imgui PRIVATE
-    ${VENDOR_DIR}/imgui/imgui.cpp
-    ${VENDOR_DIR}/imgui/imgui_demo.cpp
-    ${VENDOR_DIR}/imgui/imgui_draw.cpp
-    ${VENDOR_DIR}/imgui/imgui_tables.cpp
-    ${VENDOR_DIR}/imgui/imgui_widgets.cpp
-    ${VENDOR_DIR}/imgui/misc/cpp/imgui_stdlib.cpp
-    )
 
 # ------------------------------------------------------------------------------
 
@@ -166,7 +150,6 @@ target_link_libraries(core PUBLIC
     udev
     PkgConfig::libseat
     cap
-    PkgConfig::libgio2
     renderdoc-api
     )
 
@@ -226,7 +209,6 @@ init_library(scene)
 target_sources(scene PRIVATE
     src/scene/scene.cpp
     src/scene/render.cpp
-    src/scene/node/mesh.cpp
     src/scene/node/node.cpp
     src/scene/node/texture.cpp
     src/scene/node/tree.cpp
@@ -272,16 +254,6 @@ target_sources(wm PRIVATE
 target_link_libraries(wm PUBLIC core scene seat)
 
 # ------------------------------------------------------------------------------
-#       UI
-# ------------------------------------------------------------------------------
-
-init_library(ui)
-target_sources(ui PRIVATE
-    src/ui/ui.cpp
-    )
-target_link_libraries(ui PUBLIC wm imgui)
-
-# ------------------------------------------------------------------------------
 #       Wayland
 # ------------------------------------------------------------------------------
 
@@ -325,11 +297,9 @@ target_link_libraries(way PUBLIC wm)
 init_executable(${PROGRAM_NAME})
 target_sources(${PROGRAM_NAME} PRIVATE
     src/shell/main.cpp
-    src/shell/menu.cpp
     src/shell/io.cpp
     src/shell/xwayland.cpp
-    src/shell/app/log-viewer.cpp
-    src/shell/app/launcher.cpp
-    src/shell/app/background.cpp
+    src/shell/hotkeys.cpp
+    src/shell/background.cpp
     )
-target_link_libraries(${PROGRAM_NAME} PUBLIC wm io ui way)
+target_link_libraries(${PROGRAM_NAME} PUBLIC wm io way)

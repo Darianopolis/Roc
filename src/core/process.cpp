@@ -36,6 +36,11 @@ void spawn_path(std::string_view view_name, std::span<const std::string_view> vi
     args.emplace_back(nullptr);
 
     if (fork() == 0) {
+        // Unblock any signals currently blocked for signalfd handling purposes
+        sigset_t mask;
+        sigfillset(&mask);
+        sigprocmask(SIG_UNBLOCK, &mask, nullptr);
+
         execvp(name.c_str(), args.data());
         std::terminate();
     }

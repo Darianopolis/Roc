@@ -23,7 +23,7 @@ Roc is organized roughly into several layers:
 
  - Core Utilities and I/O ─ `core`, `gpu`, `io`
  - Window Manager ─ `scene`, `seat`, `wm`
- - Clients ─ `ui`, `way`, `shell`
+ - Clients ─ `way`, `shell`
 
 ### `core` ─ Common Utilities
 
@@ -90,15 +90,6 @@ Internal client/server protocol for window management.
    - Drag grid window placement
    - Focus cycling
 
-### `ui` ─ UI
-
-An internal layer for writing in-process GUI clients.
-
-- ImGui multi-viewport backend
-   - First-class window layout integration
-- Double-pumped event based frames
-- Lazy scene mesh damage on `ImDrawData` change
-
 ### `way` ─ Wayland Server
 
 A thin layer adapting relevant Wayland protocols to `wm`'s internal API.
@@ -122,7 +113,6 @@ Shell components and compositor entry point
 - ninja
 - wayland-protocols
 - xkbcommon
-- libgio2
 - mold (optional)
 - gcc/clang (C++26 reflection capable)
 - glslang

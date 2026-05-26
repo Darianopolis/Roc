@@ -123,40 +123,6 @@ void scene_texture_damage(   SceneTexture*, aabb2i32 damage);
 
 // -----------------------------------------------------------------------------
 
-struct SceneMeshSegment
-{
-    u32 vertex_offset;
-    u32 first_index;
-    u32 index_count;
-
-    GpuBlendMode    blend;
-    Ref<GpuImage>   image;
-    Ref<GpuSampler> sampler;
-
-    aabb2f32 clip;
-};
-
-struct SceneMesh : SceneNode
-{
-    vec2f32 offset;
-
-    std::vector<SceneVertex>      vertices;
-    std::vector<u16>              indices;
-    std::vector<SceneMeshSegment> segments;
-
-    virtual void damage(Scene*);
-
-    ~SceneMesh();
-};
-
-auto scene_mesh_create() -> Ref<SceneMesh>;
-void scene_mesh_update(SceneMesh*, std::span<const SceneVertex>      vertices,
-                                   std::span<const u16>              indices,
-                                   std::span<const SceneMeshSegment> segments,
-                                   vec2f32 offset);
-
-// -----------------------------------------------------------------------------
-
 enum class SceneIterateDirection
 {
     front_to_back,

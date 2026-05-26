@@ -6,7 +6,6 @@
 #include <core/process.hpp>
 
 #include <wm/wm.hpp>
-#include <ui/ui.hpp>
 
 auto main(int argc, char* argv[]) -> int
 {
@@ -26,7 +25,6 @@ auto main(int argc, char* argv[]) -> int
             .log_path = PROGRAM_NAME ".log",
         });
     }
-    log_history_enable(true);
     fd_registry_init();
     registry_init();
     defer {
@@ -65,15 +63,12 @@ auto main(int argc, char* argv[]) -> int
         .main_mod = shell->main_mod,
     });
     shell->way = way_create(shell->wm.get(), exec.get());
-    shell->ui = ui_create(shell->wm.get(), shell->app_share);
 
     // Applets
 
     shell_init_background(shell.get());
-    shell_init_launcher(shell.get());
-    shell_init_log_viewer(shell.get());
-    shell_init_menu(shell.get());
     shell_init_xwayland(shell.get(), argc, argv);
+    shell_init_hotkeys(shell.get());
 
     // IO
 
