@@ -161,6 +161,7 @@ void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
         }
     } else {
         wm_window_unmap(window);
+        toplevel->premap_configure_sent = false;
     }
 }
 
@@ -192,13 +193,11 @@ void reposition(WaySurface* surface)
     vec2f32 rel = 1.f - ((toplevel->gravity + 1.f) * .5f);
     frame.origin -= rel * (extent - anchor.extent);
 
-    if (toplevel->constrain_to) {
-        auto constrained = rect_constrain(frame, *toplevel->constrain_to);
-        toplevel->constrain_to = std::nullopt;
-        wm_window_request_reposition(toplevel->window.get(), constrained, {1, 1});
-    } else {
-        wm_window_set_frame(toplevel->window.get(), frame);
-        scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(xdg->current.geometry.origin));
+    wm_window_set_frame(toplevel->window.get(), frame);
+    scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(xdg->current.geometry.origin));
+
+    if (auto constraint = std::exchange(toplevel->constrain_to, std::nullopt)) {
+        wm_window_request_reposition(toplevel->window.get(), rect_constrain(frame, *constraint), {1, 1});
     }
 }
 
@@ -287,7 +286,8 @@ void WayToplevel::apply(WayCommitId id)
             pending = surface->xdg->sent_serial;
             queued = false;
         }
-    } else {
+    } else if (!surface->toplevel->premap_configure_sent) {
+        surface->toplevel->premap_configure_sent = true;
         log_info("toplevel surface committed but not mapped, sending configure");
         send_premap_configure(this);
     }
