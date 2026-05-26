@@ -10,8 +10,8 @@ static constexpr fd_t fd_limit = 1024;
 
 // -----------------------------------------------------------------------------
 
-void fd_registry_init();
-void fd_registry_deinit();
+void fd_leak_mark_inherited();
+void fd_leak_check();
 
 // -----------------------------------------------------------------------------
 

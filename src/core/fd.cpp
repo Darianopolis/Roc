@@ -30,63 +30,55 @@ auto fd_exists(fd_t fd) -> bool
     return access(path.c_str(), F_OK) == 0;
 }
 
-#define FD_LEAK_CHECK 1
-
 struct FdRegistry
 {
     std::array<u32,  fd_limit> ref_counts = {};
-#if FD_LEAK_CHECK
     std::array<bool, fd_limit> inherited  = {};
-#endif
-
-#if FD_LEAK_CHECK
-    FdRegistry()
-    {
-        for (fd_t fd = 0; fd < fd_limit; ++fd) {
-            if (fd_exists(fd)) {
-                inherited[fd] = true;
-            }
-        }
-    }
-
-    ~FdRegistry()
-    {
-        auto leaked = std::views::iota(fd_t(0))
-            | std::views::take(fd_limit)
-            | std::views::filter([&](fd_t fd) { return !inherited[fd] && fd_exists(fd); });
-
-        if (!leaked.empty()) {
-            log_error("File Descriptors leaked: {}", leaked);
-        }
-    }
-#endif
 };
 
 static
-FdRegistry* fds;
-
-void fd_registry_init()
+auto get_registry() -> FdRegistry&
 {
-    fds = new FdRegistry {};
+    static FdRegistry registry;
+    return registry;
 }
 
-void fd_registry_deinit()
+void fd_leak_mark_inherited()
 {
-    delete fds;
+    auto& fds = get_registry();
+    for (fd_t fd = 0; fd < fd_limit; ++fd) {
+        if (fd_exists(fd)) {
+            fds.inherited[fd] = true;
+        }
+    }
+}
+
+void fd_leak_check()
+{
+    auto& fds = get_registry();
+    auto leaked = std::views::iota(fd_t(0))
+        | std::views::take(fd_limit)
+        | std::views::filter([&](fd_t fd) { return !fds.inherited[fd] && fd_exists(fd); });
+
+    if (!leaked.empty()) {
+        log_error("File Descriptors leaked: {}", leaked);
+    }
 }
 
 auto fd_get_ref_count(fd_t fd) -> u32
 {
     if (!fd_is_valid(fd)) return 0;
 
-    return fds->ref_counts[fd];
+    auto& fds = get_registry();
+    return fds.ref_counts[fd];
 }
 
 auto fd_ref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    fds->ref_counts[fd]++;
+    auto& fds = get_registry();
+    fds.ref_counts[fd]++;
     return fd;
 }
 
@@ -100,7 +92,8 @@ auto fd_unref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    if (!--fds->ref_counts[fd]) {
+    auto& fds = get_registry();
+    if (!--fds.ref_counts[fd]) {
         destroy_fd(fd);
         return -1;
     }
@@ -112,7 +105,8 @@ auto fd_extract(fd_t fd) -> fd_t
 {
     debug_assert(fd_is_valid(fd));
     debug_assert(fd_get_ref_count(fd) == 1);
-    fds->ref_counts[fd] = 0;
+    auto& fds = get_registry();
+    fds.ref_counts[fd] = 0;
     return fd;
 }
 

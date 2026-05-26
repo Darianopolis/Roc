@@ -32,9 +32,6 @@ auto allocation_from(void*) -> Allocation;
 
 // -----------------------------------------------------------------------------
 
-void registry_init();
-void registry_deinit();
-
 auto registry_allocate(usz size, AllocationFree free) -> Allocation;
 
 // -----------------------------------------------------------------------------

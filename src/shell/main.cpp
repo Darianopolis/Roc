@@ -14,23 +14,17 @@ auto main(int argc, char* argv[]) -> int
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
 
     if (in_direct_session) {
-        log_init({
-            .log_path = app_share / PROGRAM_NAME ".log",
-            .stdout_redirect = app_share / "stdout.log",
-            .stderr_redirect = app_share / "stderr.log",
-        });
+        log_set_structured_log(app_share / PROGRAM_NAME ".log");
+        log_redirect_stdout(app_share / "stdout.log");
+        log_redirect_stderr(app_share / "stderr.log");
         chdir(home_dir.c_str());
     } else {
-        log_init({
-            .log_path = PROGRAM_NAME ".log",
-        });
+        log_set_structured_log(PROGRAM_NAME ".log");
     }
-    fd_registry_init();
-    registry_init();
+
+    fd_leak_mark_inherited();
     defer {
-        registry_deinit();
-        fd_registry_deinit();
-        log_deinit();
+        fd_leak_check();
     };
 
     log_info("{} ({:n:})", PROJECT_NAME, std::span<const char* const>(argv, argc));

@@ -58,13 +58,9 @@ void handle_event(IoContext* io, Gpu* gpu, GpuImagePool* pool, IoEvent* event)
 
 auto main() -> int
 {
-    log_init({});
-    fd_registry_init();
-    registry_init();
+    fd_leak_mark_inherited();
     defer {
-        registry_deinit();
-        fd_registry_deinit();
-        log_deinit();
+        fd_leak_check();
     };
 
     auto exec = exec_create();
