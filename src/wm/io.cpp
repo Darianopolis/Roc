@@ -312,16 +312,19 @@ void handle_damage(WmServer* wm, SceneNode* node)
 {
     rect2f32 damaged_region = {};
 
-    if (auto* texture = dynamic_cast<SceneTexture*>(node)) {
-        damaged_region = texture->dst;
-        damaged_region.origin += scene_tree_get_position(node->parent);
-    }
-    else if (dynamic_cast<SceneInputRegion*>(node)) {
-        exec_enqueue(wm->exec, [wm = Weak(wm)] {
-            if (!wm) return;
-            handle_input_region_damage(wm.get());
-        });
-    }
+    scene_visit(node, OverloadSet {
+        [&](SceneTexture* texture) {
+            damaged_region = texture->dst;
+            damaged_region.origin += scene_tree_get_position(node->parent);
+        },
+        [&](SceneInputRegion* input_region) {
+            exec_enqueue(wm->exec, [wm = Weak(wm)] {
+                if (!wm) return;
+                handle_input_region_damage(wm.get());
+            });
+        },
+        [&](SceneTree*) {},
+    });
 
     for (auto* output : wm->io.outputs) {
         if (rect_intersects(damaged_region, output->viewport)) {

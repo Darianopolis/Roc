@@ -25,3 +25,15 @@ struct Scene
 };
 
 void scene_render_init(Scene*);
+
+void scene_node_damage(SceneTexture*, Scene*);
+void scene_node_damage(SceneInputRegion*, Scene*);
+void scene_node_damage(SceneTree*, Scene*);
+
+inline
+void scene_node_damage(SceneNode* node, Scene* scene)
+{
+    scene_visit(node, [&](auto* node) {
+        scene_node_damage(node, scene);
+    });
+}

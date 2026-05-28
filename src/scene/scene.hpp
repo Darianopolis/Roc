@@ -30,13 +30,19 @@ void scene_add_damage_listener(Scene*, SceneDamageListener);
 
 // -----------------------------------------------------------------------------
 
+enum class SceneNodeType
+{
+    texture,
+    input_region,
+    tree,
+};
+
 struct SceneNode
 {
+    SceneNodeType type;
     SceneTree* parent;
 
-    virtual ~SceneNode();
-
-    virtual void damage(Scene*) = 0;
+    ~SceneNode();
 };
 
 void scene_node_unparent(SceneNode*);
@@ -62,8 +68,6 @@ struct SceneTree : SceneNode
 
     std::vector<SceneNode*> children;
 
-    virtual void damage(Scene*);
-
     ~SceneTree();
 };
 
@@ -87,8 +91,6 @@ struct SceneInputRegion : SceneNode
     region2f32 region = {{{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, minmax}};
     rect2f32   clip;
 
-    virtual void damage(Scene*);
-
     ~SceneInputRegion();
 };
 
@@ -108,8 +110,6 @@ struct SceneTexture : SceneNode
     vec4u8   tint;
     aabb2f32 src;
     rect2f32 dst;
-
-    virtual void damage(Scene*);
 
     ~SceneTexture();
 };
@@ -141,11 +141,13 @@ static constexpr auto scene_iterate_default = [](auto*) {};
 template<typename Visit>
 auto scene_visit(SceneNode* node, Visit&& visit)
 {
-    if (auto* tree = dynamic_cast<SceneTree*>(node)) {
-        return visit(tree);
-    } else {
-        return visit(node);
+    switch (node->type) {
+        break;case SceneNodeType::texture:      return visit(static_cast<SceneTexture*>(node));
+        break;case SceneNodeType::input_region: return visit(static_cast<SceneInputRegion*>(node));
+        break;case SceneNodeType::tree:         return visit(static_cast<SceneTree*>(node));
     }
+
+    debug_unreachable();
 }
 
 template<SceneIterateDirection Dir, typename Pre, typename Leaf, typename Post>

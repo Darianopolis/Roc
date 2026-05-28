@@ -5,6 +5,7 @@
 auto scene_texture_create() -> Ref<SceneTexture>
 {
     auto texture = ref_create<SceneTexture>();
+    texture->type = SceneNodeType::texture;
     texture->blend = GpuBlendMode::postmultiplied;
     texture->tint = {255, 255, 255, 255};
     texture->src = {{}, {1, 1}, minmax};
@@ -16,9 +17,9 @@ SceneTexture::~SceneTexture()
     scene_node_unparent(this);
 }
 
-void SceneTexture::damage(Scene* scene)
+void scene_node_damage(SceneTexture* texture, Scene* scene)
 {
-    scene_post_damage(scene, this);
+    scene_post_damage(scene, texture);
 }
 
 void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, GpuBlendMode blend)

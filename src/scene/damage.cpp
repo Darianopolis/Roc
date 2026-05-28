@@ -3,7 +3,7 @@
 static
 auto get_root(SceneNode* node) -> SceneTree*
 {
-    auto* root = dynamic_cast<SceneTree*>(node) ?: node->parent;
+    auto* root = node->type == SceneNodeType::tree ? static_cast<SceneTree*>(node) : node->parent;
     if (!root) return nullptr;
 
     while (root->parent) {
@@ -26,7 +26,7 @@ void scene_node_damage(SceneNode* node)
         return;
     }
 
-    node->damage(root->scene);
+    scene_node_damage(node, root->scene);
 }
 
 void scene_post_damage(Scene* scene, SceneNode* node)

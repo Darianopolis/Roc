@@ -11,16 +11,17 @@ SceneTree::~SceneTree()
     }
 }
 
-void SceneTree::damage(Scene* _scene)
+void scene_node_damage(SceneTree* tree, Scene* scene)
 {
-    for (auto* child : children) {
-        child->damage(_scene);
+    for (auto* child : tree->children) {
+        scene_node_damage(child, scene);
     }
 }
 
 auto scene_tree_create() -> Ref<SceneTree>
 {
     auto tree = ref_create<SceneTree>();
+    tree->type = SceneNodeType::tree;
     tree->enabled = true;
     return tree;
 }

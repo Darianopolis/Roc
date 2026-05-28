@@ -130,10 +130,9 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
     scene_iterate<SceneIterateDirection::back_to_front>(
         scene->root.get(),
         scene_iterate_default,
-        [&](SceneNode* node) {
-            if (auto* texture = dynamic_cast<SceneTexture*>(node)) {
-                draw_texture(texture);
-            }
+        OverloadSet {
+            draw_texture,
+            [](SceneInputRegion*) {},
         },
         scene_iterate_default);
 

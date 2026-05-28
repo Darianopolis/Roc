@@ -344,8 +344,8 @@ void flush(WaySurface* surface)
     auto* server = surface->client->server;
 
     for (auto* child : surface->scene.tree->children) {
-        auto* tree = dynamic_cast<SceneTree*>(child);
-        if (!tree) continue;
+        if (child->type != SceneNodeType::tree) continue;
+        auto* tree = static_cast<SceneTree*>(child);
         if (tree->userdata.id != server->userdata_id) continue;
         flush(way_get_userdata<WaySurface>(server, tree->userdata.data));
     }
