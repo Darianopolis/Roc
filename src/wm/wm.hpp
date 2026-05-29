@@ -77,10 +77,9 @@ enum class WmEventType
     window_destroyed,
     window_mapped,
     window_unmapped,
-    window_repositioned,
 
-    window_reposition_requested,
-    window_close_requested,
+    window_request_resize,
+    window_request_close,
 
     output_added,
     output_configured,
@@ -99,10 +98,7 @@ struct WmWindowEvent
     WmEventType type;
     WmWindow* window;
     union {
-        struct {
-            rect2f32 frame;
-            vec2f32  gravity;
-        } reposition;
+        vec2f32 size;
     };
 };
 
@@ -116,7 +112,7 @@ struct WmOutputEvent
 struct WmSeatEvent
 {
     WmEventType type;
-    SeatEvent*  event;
+    SeatEvent* event;
 };
 
 struct WmPointerConstraintEvent
@@ -140,7 +136,7 @@ void wm_listen(WmClient*, std::move_only_function<void(WmClient*, WmEvent*)>);
 
 auto wm_get_seat_client(WmClient*) -> SeatClient*;
 
-void wm_set_cursor(WmClient*, SceneNode* visual);
+void wm_set_cursor( WmClient*, SceneNode* visual);
 void wm_set_xcursor(WmClient*, const char* semantic);
 
 // -----------------------------------------------------------------------------
@@ -149,7 +145,7 @@ auto wm_window_create(WmClient*) -> Ref<WmWindow>;
 
 void wm_window_set_focus(WmWindow*, SeatFocus*);
 
-void wm_window_set_title(WmWindow*, std::string_view title);
+void wm_window_set_title( WmWindow*, std::string_view title);
 void wm_window_set_app_id(WmWindow*, std::string_view app_id);
 
 void wm_window_map(  WmWindow*);
@@ -160,30 +156,30 @@ auto wm_window_is_mapped(WmWindow*) -> bool;
 
 auto wm_window_get_tree(WmWindow*) -> SceneTree*;
 
-void wm_window_request_reposition(WmWindow*, rect2f32 frame, vec2f32 gravity);
 void wm_window_request_close(WmWindow*);
 
-struct WmPositionHint
-{
-    vec2f32 center_pos;
-    rect2f32 bounds;
-};
-auto wm_window_get_initial_position_hint(WmWindow*) -> WmPositionHint;
+auto wm_window_place_auto(WmWindow*) -> vec2f32;
 
-void wm_window_set_frame(WmWindow*, rect2f32 frame);
+/*
+ * Update the window frame size
+ *
+ * Calling this implicitly acknowledges the most recent `window.request_resize` event.
+ */
+void wm_window_set_size(WmWindow*, vec2f32 size);
+
 auto wm_window_get_frame(WmWindow*) -> rect2f32;
 
 auto wm_window_is_focused(WmWindow*) -> bool;
 void wm_window_focus(     WmWindow*);
-auto wm_find_window_for(WmServer*, SeatFocus*) -> WmWindow*;
-
-auto wm_find_window_at(WmServer*, vec2f32 point) -> WmWindow*;
 
 void wm_window_set_fullscreen(WmWindow*, WmOutput*);
 auto wm_window_get_fullscreen(WmWindow*) -> WmOutput*;
 
-auto wm_window_is_movable(WmWindow*) -> bool;
+auto wm_window_is_movable(  WmWindow*) -> bool;
 auto wm_window_is_resizable(WmWindow*) -> bool;
+
+auto wm_find_window_for(WmServer*, SeatFocus*)    -> WmWindow*;
+auto wm_find_window_at( WmServer*, vec2f32 point) -> WmWindow*;
 
 // -----------------------------------------------------------------------------
 

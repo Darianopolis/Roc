@@ -42,10 +42,10 @@ auto find_surface(WayClient* client, WmWindow* window) -> WaySurface*
 void way_handle_window_event(WayClient* client, WmWindowEvent* event)
 {
     switch (event->type) {
-        break;case WmEventType::window_reposition_requested:
-            way_toplevel_on_reposition(find_surface(client, event->window), event->reposition.frame, event->reposition.gravity);
-        break;case WmEventType::window_close_requested:
-            way_toplevel_on_close(find_surface(client, event->window));
+        break;case WmEventType::window_request_resize:
+            way_toplevel_on_request_resize(find_surface(client, event->window), event->size);
+        break;case WmEventType::window_request_close:
+            way_toplevel_on_request_close(find_surface(client, event->window));
 
         break;default:
             ;
@@ -178,50 +178,29 @@ void configure_toplevel(WayToplevel* toplevel, vec2u32 extent)
         ptr_to(way_from_span<const xdg_toplevel_state>(states)));
 }
 
-static
-void reposition(WaySurface* surface)
-{
-    auto* xdg = surface->xdg;
-    auto* toplevel = surface->toplevel;
-
-    vec2f32 extent = vec_cast<f32>(xdg->current.geometry.extent);
-    rect2f32 anchor = toplevel->anchor;
-
-    rect2f32 frame { anchor.origin, extent, xywh };
-
-    // Apply gravity
-    vec2f32 rel = 1.f - ((toplevel->gravity + 1.f) * .5f);
-    frame.origin -= rel * (extent - anchor.extent);
-
-    wm_window_set_frame(toplevel->window.get(), frame);
-    scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(xdg->current.geometry.origin));
-
-    if (auto constraint = std::exchange(toplevel->constrain_to, std::nullopt)) {
-        wm_window_request_reposition(toplevel->window.get(), rect_constrain(frame, *constraint), {1, 1});
-    }
-}
-
-void way_toplevel_on_reposition(WaySurface* surface, rect2f32 frame, vec2f32 gravity)
+void way_toplevel_on_request_resize(WaySurface* surface, vec2f32 size)
 {
     auto* toplevel = surface->toplevel;
 
-    bool resize = toplevel->anchor.extent != frame.extent;
-    toplevel->anchor = frame;
-    toplevel->gravity = gravity;
-    if (resize) {
-        if (toplevel->pending > surface->xdg->acked_serial) {
-            toplevel->queued = true;
-        } else {
-            configure_toplevel(toplevel, vec_cast<u32>(frame.extent));
-            way_xdg_surface_configure(surface);
-            toplevel->pending = surface->xdg->sent_serial;
+    if (toplevel->requested_size == size) {
+        if (!toplevel->pending || toplevel->pending >= surface->xdg->acked_serial) {
+            // Size matches and no pending resize configures in flight, acknowledge immediately
+            wm_window_set_size(toplevel->window.get(), size);
         }
+        return;
+    }
+    toplevel->requested_size = size;
+
+    if (toplevel->pending > surface->xdg->acked_serial) {
+        toplevel->queued = true;
     } else {
-        reposition(surface);
+        configure_toplevel(toplevel, vec_cast<u32>(size));
+        way_xdg_surface_configure(surface);
+        toplevel->pending = surface->xdg->sent_serial;
     }
 }
 
-void way_toplevel_on_close(WaySurface* surface)
+void way_toplevel_on_request_close(WaySurface* surface)
 {
     way_send<xdg_toplevel_send_close>(surface->toplevel->resource);
 }
@@ -238,11 +217,7 @@ void send_premap_configure(WayToplevel* toplevel)
         }})));
     }
 
-    auto hint = wm_window_get_initial_position_hint(toplevel->window.get());
-
-    toplevel->anchor = {hint.center_pos, {}, xywh};
-    toplevel->gravity = {0, 0};
-    toplevel->constrain_to = hint.bounds;
+    wm_window_place_auto(toplevel->window.get());
 
     configure_toplevel(toplevel, {0, 0});
 
@@ -278,16 +253,21 @@ void WayToplevel::apply(WayCommitId id)
     }
 
     if (surface->mapped) {
-        reposition(surface);
+        auto geometry = rect_cast<f32>(surface->xdg->current.geometry);
+        scene_tree_set_translation(surface->scene.tree.get(), -geometry.origin);
+        if (pending <= surface->xdg->current.acked_serial
+                || wm_window_get_frame(window.get()).extent != geometry.extent) {
+            wm_window_set_size(window.get(), geometry.extent);
+        }
 
         if (queued) {
-            configure_toplevel(this, vec_cast<u32>(anchor.extent));
+            configure_toplevel(this, vec_cast<u32>(requested_size));
             way_xdg_surface_configure(surface);
             pending = surface->xdg->sent_serial;
             queued = false;
         }
-    } else if (!surface->toplevel->premap_configure_sent) {
-        surface->toplevel->premap_configure_sent = true;
+    } else if (!premap_configure_sent) {
+        premap_configure_sent = true;
         log_info("toplevel surface committed but not mapped, sending configure");
         send_premap_configure(this);
     }

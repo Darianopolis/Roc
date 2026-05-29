@@ -2,6 +2,7 @@
 
 #include <core/math.hpp>
 #include <core/color.hpp>
+#include <core/log.hpp>
 
 WmWindow::~WmWindow()
 {
@@ -68,35 +69,53 @@ void wm_window_post_event(WmWindowEvent* event)
 
 void wm_window_request_reposition(WmWindow* window, rect2f32 frame, vec2f32 gravity)
 {
+    window->relative = 1.f - ((gravity + 1.f) * 0.5f);
+    window->anchor = frame.origin + (frame.extent * window->relative);
+
     wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_reposition_requested,
+        .type = WmEventType::window_request_resize,
         .window = window,
-        .reposition = {
-            .frame = frame,
-            .gravity = gravity,
-        },
+        .size = frame.extent,
     }));
 }
 
 void wm_window_request_close(WmWindow* window)
 {
     wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_close_requested,
+        .type = WmEventType::window_request_close,
         .window = window,
     }));
 }
 
-void wm_window_set_frame(WmWindow* window, rect2f32 frame)
+void wm_window_set_size(WmWindow* window, vec2f32 size)
 {
-    window->extent = frame.extent;
-    scene_tree_set_translation(window->root_tree.get(), frame.origin);
+    window->extent = size;
 
-    scene_texture_set_dst(window->borders.get(), {-border_size, frame.extent + border_size * 2.f, xywh});
+    vec2f32 origin = window->anchor - (size * window->relative);
 
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_repositioned,
-        .window = window,
-    }));
+    if (window->oneshot_output_constraint) {
+        aabb2f32 constraint = wm_output_get_workarea(window->oneshot_output_constraint.get());
+        aabb2f32 constrained = aabb_constrain<f32>({origin, size, xywh}, constraint);
+        window->oneshot_output_constraint = nullptr;
+
+        origin = constrained.min;
+
+        bool constrained_left   = constrained.min.x == constraint.min.x;
+        bool constrained_top    = constrained.min.y == constraint.min.y;
+        bool constrained_right  = constrained.max.x == constraint.max.x;
+        bool constrained_bottom = constrained.max.y == constraint.max.y;
+
+        // Update anchor and relative based on what edges are constrained
+
+        window->relative.x = (0.5f * (f32(constrained_right) - f32(constrained_left))) + 0.5f;
+        window->relative.y = (constrained_bottom && !constrained_top) ? 1 : 0;
+
+        rect2f32 rect = constrained;
+        window->anchor = rect.origin + (rect.extent * window->relative);
+    }
+
+    scene_tree_set_translation(window->root_tree.get(), origin);
+    scene_texture_set_dst(window->borders.get(), {-border_size, size + border_size * 2.f, xywh});
 }
 
 auto wm_window_get_frame(WmWindow* window) -> rect2f32
@@ -308,25 +327,28 @@ auto wm_window_is_resizable(WmWindow* window) -> bool
 
 // -----------------------------------------------------------------------------
 
-auto wm_window_get_initial_position_hint(WmWindow* window) -> WmPositionHint
+auto wm_window_place_auto(WmWindow* window) -> vec2f32
 {
     auto* wm = window->client->wm;
 
-    WmPositionHint hint = {};
+    vec2f32 center_pos;
 
     if (window->parent) {
         // Child, position at center of parent.
         auto parent_bounds = wm_window_get_frame(window->parent);
-        hint.center_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
+        center_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
     } else {
         // Non-child, spawn under mouse
         auto* seat = wm_get_seat(wm);
         auto cursor_pos = seat_pointer_get_position(seat_get_pointer(seat));
-        hint.center_pos = cursor_pos;
+        center_pos = cursor_pos;
     }
 
-    auto output = wm_find_output_at(wm, hint.center_pos).output;
-    hint.bounds = wm_output_get_workarea(output);
+    window->anchor = center_pos;
+    window->relative = {0.5f, 0.5f};
 
-    return hint;
+    auto output = wm_find_output_at(wm, center_pos).output;
+    window->oneshot_output_constraint = output;
+
+    return wm_output_get_workarea(output).extent;
 }

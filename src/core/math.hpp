@@ -195,6 +195,27 @@ auto aabb_intersects(const Aabb<T>& a, const Aabb<T>& b, Aabb<T>* intersection =
 
 template<typename T>
 constexpr
+auto aabb_constrain(Aabb<T> aabb, const Aabb<T>& bounds) -> Rect<T>
+{
+    auto constrain_axis = [&](usz axis) {
+        if (aabb.max[axis] - aabb.min[axis] > bounds.max[axis] - bounds.min[axis]) {
+            aabb.min[axis] = bounds.min[axis];
+            aabb.max[axis] = bounds.max[axis];
+        } else if (aabb.min[axis] < bounds.min[axis]) {
+            aabb.max[axis] += (bounds.min[axis] - aabb.min[axis]);
+            aabb.min[axis] = bounds.min[axis];
+        } else if (aabb.max[axis] > bounds.max[axis]) {
+            aabb.min[axis] -= (aabb.max[axis] - bounds.max[axis]);
+            aabb.max[axis] = bounds.max[axis];
+        }
+    };
+    constrain_axis(0);
+    constrain_axis(1);
+    return aabb;
+}
+
+template<typename T>
+constexpr
 auto aabb_subtract(const Aabb<T>& minuend, const Aabb<T>& subtrahend, Aabb<T>* out) -> u32
 {
     Aabb<T> intersection;
@@ -257,23 +278,6 @@ auto rect_intersects(const Rect<T>& a, const Rect<T>& b, Rect<T>* intersection =
     bool intersects = aabb_intersects<T>(a, b, &i);
     if (intersection) *intersection = i;
     return intersects;
-}
-
-template<typename T>
-constexpr
-auto rect_constrain(Rect<T> rect, const Rect<T>& bounds) -> Rect<T>
-{
-    static constexpr auto constrain_axis = [](T start, T length, T& origin, T& extent) {
-        if (extent > length) {
-            origin = start;
-            extent = length;
-        } else {
-            origin = std::max(origin, start) - std::max(T(0), (origin + extent) - (start + length));
-        }
-    };
-    constrain_axis(bounds.origin.x, bounds.extent.x, rect.origin.x, rect.extent.x);
-    constrain_axis(bounds.origin.y, bounds.extent.y, rect.origin.y, rect.extent.y);
-    return rect;
 }
 
 // -----------------------------------------------------------------------------

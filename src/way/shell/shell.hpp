@@ -69,16 +69,14 @@ struct WayToplevel : WaySurfaceAddon
     WayToplevelState current;
 
     WayResource resource;
-    rect2f32 anchor;
-    vec2f32 gravity = {1, 1};
     Ref<WmWindow> window;
+
+    vec2f32 requested_size;
 
     WaySerial pending; // commit response to resize configure is pending
     bool queued;       // new reposition request received while pending
 
     bool premap_configure_sent = false;
-
-    std::optional<rect2f32> constrain_to;
 
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;
@@ -87,8 +85,8 @@ struct WayToplevel : WaySurfaceAddon
 };
 
 void way_toplevel_on_map_change(WaySurface*, bool mapped);
-void way_toplevel_on_reposition(WaySurface*, rect2f32 frame, vec2f32 gravity);
-void way_toplevel_on_close(     WaySurface*);
+void way_toplevel_on_request_resize(WaySurface*, vec2f32 size);
+void way_toplevel_on_request_close(WaySurface*);
 
 void way_handle_window_event(WayClient*, WmWindowEvent*);
 

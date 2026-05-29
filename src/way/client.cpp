@@ -27,9 +27,8 @@ void way_on_client_create(wl_listener* listener, void* data)
                   case WmEventType::window_destroyed:
                   case WmEventType::window_mapped:
                   case WmEventType::window_unmapped:
-                  case WmEventType::window_repositioned:
-                  case WmEventType::window_reposition_requested:
-                  case WmEventType::window_close_requested:
+                  case WmEventType::window_request_resize:
+                  case WmEventType::window_request_close:
                 way_handle_window_event(client, &event->window);
 
             break;case WmEventType::output_frame:

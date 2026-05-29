@@ -190,6 +190,10 @@ struct WmWindow
 
     WmWindow* parent; // TODO
 
+    vec2f32 anchor;
+    vec2f32 relative;
+    Weak<WmOutput> oneshot_output_constraint;
+
     vec2f32 extent;
     bool mapped;
 
@@ -212,6 +216,8 @@ struct WmWindow
 };
 
 void wm_window_post_event(WmWindowEvent*);
+
+void wm_window_request_reposition(WmWindow*, rect2f32 frame, vec2f32 gravity);
 
 // -----------------------------------------------------------------------------
 
