@@ -55,7 +55,7 @@ void renderdoc_capture(Shell* shell)
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
             .usage = GpuImageUsage::render
         });
-        scene_render(wm_get_scene(wm), texture.get(), viewport);
+        scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), texture.get(), viewport);
         gpu_wait(gpu_flush(gpu));
     }
     gpu->renderdoc->EndFrameCapture(nullptr, nullptr);

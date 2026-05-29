@@ -207,13 +207,11 @@ target_link_libraries(io-test PUBLIC io)
 
 init_library(scene)
 target_sources(scene PRIVATE
-    src/scene/scene.cpp
     src/scene/render.cpp
     src/scene/node/node.cpp
     src/scene/node/texture.cpp
     src/scene/node/tree.cpp
     src/scene/node/input-region.cpp
-    src/scene/damage.cpp
     )
 target_link_libraries(scene PUBLIC core gpu)
 

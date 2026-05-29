@@ -11,24 +11,30 @@
 
 struct SceneNode;
 struct SceneTree;
-struct SceneTexture;
-
-struct Scene;
-
-auto scene_create(Gpu*) -> Ref<Scene>;
-
-auto scene_get_root(Scene*) -> SceneTree*;
 
 // -----------------------------------------------------------------------------
 
-void scene_render(Scene*, GpuImage* target, rect2f32 viewport);
+struct SceneRenderer;
+
+auto scene_renderer_create(Gpu*) -> Ref<SceneRenderer>;
+
+void scene_render(SceneRenderer*, SceneNode*, GpuImage* target, rect2f32 viewport);
 
 // -----------------------------------------------------------------------------
 
-using SceneDamageListener = std::move_only_function<void(SceneNode*)>;
-void scene_add_damage_listener(Scene*, SceneDamageListener);
+enum class SceneDamageType : u32
+{
+    visual = 1 << 0,
+    input  = 1 << 1,
+};
 
-// -----------------------------------------------------------------------------
+struct SceneDamage
+{
+    aabb2f32 region;
+    Flags<SceneDamageType> types;
+};
+
+using SceneDamageCallback = void(SceneDamage);
 
 enum class SceneNodeType
 {
@@ -41,25 +47,23 @@ struct SceneNode
 {
     SceneNodeType type;
     SceneTree* parent;
+    vec2f32 translation;
+
+    struct {
+        Signal<SceneDamageCallback> damage;
+    } signals;
 
     ~SceneNode();
 };
 
 void scene_node_unparent(SceneNode*);
-void scene_node_damage(  SceneNode*);
-
-void scene_post_damage(Scene*, SceneNode*);
 
 // -----------------------------------------------------------------------------
 
 struct SceneTree : SceneNode
 {
-    Scene* scene;
-
     bool enabled;
     f32 opacity = 1.f;
-
-    vec2f32 translation;
 
     struct {
         Uid   id;
@@ -151,7 +155,7 @@ auto scene_visit(SceneNode* node, Visit&& visit)
 }
 
 template<SceneIterateDirection Dir, typename Pre, typename Leaf, typename Post>
-auto scene_iterate(SceneTree* tree, Pre&& pre, Leaf&& leaf, Post&& post) -> SceneIterateAction
+auto scene_iterate(SceneNode* node, Pre&& pre, Leaf&& leaf, Post&& post) -> SceneIterateAction
 {
     static constexpr auto call = [](auto fn, auto* arg) {
         if constexpr (std::same_as<decltype(fn(arg)), SceneIterateAction>) {
@@ -161,6 +165,15 @@ auto scene_iterate(SceneTree* tree, Pre&& pre, Leaf&& leaf, Post&& post) -> Scen
             return SceneIterateAction::next;
         }
     };
+
+    switch (node->type) {
+        break;case SceneNodeType::texture:      return call(leaf, static_cast<SceneTexture*>(node));
+        break;case SceneNodeType::input_region: return call(leaf, static_cast<SceneInputRegion*>(node));
+        break;case SceneNodeType::tree:
+            ;
+    }
+
+    auto* tree = static_cast<SceneTree*>(node);
 
     static constexpr auto is_defaulted = []<typename Fn>(Fn&&) {
         return std::same_as<std::remove_cvref_t<Fn>, std::remove_cvref_t<decltype(scene_iterate_default)>>;

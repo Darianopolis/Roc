@@ -11,11 +11,31 @@ SceneTree::~SceneTree()
     }
 }
 
-void scene_node_damage(SceneTree* tree, Scene* scene)
+auto scene_node_get_damage(SceneTree* tree) -> SceneDamage
 {
+    if (tree->children.empty() || !tree->enabled) return {};
+
+    aabb2f32 region = {{INFINITY, INFINITY}, {-INFINITY, -INFINITY}, minmax};
+    Flags<SceneDamageType> types = {};
+
     for (auto* child : tree->children) {
-        scene_node_damage(child, scene);
+        auto damage = scene_node_get_damage(child);
+        if (damage.types.empty()) continue;
+
+        region.min += child->translation;
+        region.max += child->translation;
+        region = aabb_outer(region, damage.region);
+
+        types |= damage.types;
     }
+    return {region, types};
+}
+
+static
+void damage(SceneTree* tree)
+{
+    auto damage = scene_node_get_damage(tree);
+    if (damage.types) scene_node_post_damage(tree, damage);
 }
 
 auto scene_tree_create() -> Ref<SceneTree>
@@ -34,9 +54,9 @@ void scene_tree_set_enabled(SceneTree* tree, bool enabled)
 
     if (enabled) {
         tree->enabled = true;
-        scene_node_damage(tree);
+        damage(tree);
     } else {
-        scene_node_damage(tree);
+        damage(tree);
         tree->enabled = false;
     }
 }
@@ -75,7 +95,7 @@ placed:
     }
 
     // TODO: We only need to damage regions that were visually affected by the rotate
-    scene_node_damage(tree);
+    damage(tree);
 }
 
 void scene_tree_place_below(SceneTree* tree, SceneNode* reference, SceneNode* to_place)
@@ -102,7 +122,7 @@ void scene_tree_replace(SceneTree* tree, std::span<SceneNode* const> new_childre
 
 void scene_tree_clear(SceneTree* tree)
 {
-    scene_node_damage(tree);
+    damage(tree);
 
     for (auto* child : tree->children) {
         child->parent = nullptr;
@@ -116,7 +136,7 @@ void scene_tree_set_opacity(SceneTree* tree, f32 opacity)
     if (tree->opacity == opacity) return;
 
     tree->opacity = opacity;
-    scene_node_damage(tree);
+    damage(tree);
 }
 
 void scene_tree_set_translation(SceneTree* tree, vec2f32 position)
@@ -125,9 +145,9 @@ void scene_tree_set_translation(SceneTree* tree, vec2f32 position)
 
     NODE_LOG("scene.tree{{{}}}.set_translation{}", (void*)tree, position);
 
-    scene_node_damage(tree);
+    damage(tree);
     tree->translation = position;
-    scene_node_damage(tree);
+    damage(tree);
 }
 
 auto scene_tree_get_position(SceneTree* tree) -> vec2f32

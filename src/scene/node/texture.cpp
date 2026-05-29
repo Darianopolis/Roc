@@ -17,18 +17,24 @@ SceneTexture::~SceneTexture()
     scene_node_unparent(this);
 }
 
-void scene_node_damage(SceneTexture* texture, Scene* scene)
+auto scene_node_get_damage(SceneTexture* texture) -> SceneDamage
 {
-    scene_post_damage(scene, texture);
+    return {texture->dst, SceneDamageType::visual};
+}
+
+static
+void damage(SceneTexture* texture)
+{
+    scene_node_post_damage(texture, scene_node_get_damage(texture));
 }
 
 void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, GpuBlendMode blend)
 {
-    bool damage = bool(texture->image.get())  != bool(image)
-                    || texture->sampler.get() !=      sampler
-                    || texture->blend         !=      blend;
+    bool changed = bool(texture->image.get())  != bool(image)
+                     || texture->sampler.get() !=      sampler
+                     || texture->blend         !=      blend;
 
-    if (texture->image.get() == image && !damage) return;
+    if (texture->image.get() == image && !changed) return;
 
 #if SCENE_NOISY_NODES
     if (texture->image.get()   != image)   NODE_LOG("scene.texture{{{}}}.set_image({})",   (void*)texture, (void*)image);
@@ -40,8 +46,8 @@ void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler*
     texture->sampler = sampler;
     texture->blend = blend;
 
-    if (damage) {
-        scene_node_damage(texture);
+    if (changed) {
+        damage(texture);
     }
 }
 
@@ -52,7 +58,7 @@ void scene_texture_set_tint(SceneTexture* texture, vec4u8 tint)
     NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, tint);
 
     texture->tint = tint;
-    scene_node_damage(texture);
+    damage(texture);
 }
 
 void scene_texture_set_src(SceneTexture* texture, aabb2f32 source)
@@ -62,7 +68,7 @@ void scene_texture_set_src(SceneTexture* texture, aabb2f32 source)
     NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, source);
 
     texture->src = source;
-    scene_node_damage(texture);
+    damage(texture);
 }
 
 void scene_texture_set_dst(SceneTexture* texture, rect2f32 dst)
@@ -71,14 +77,22 @@ void scene_texture_set_dst(SceneTexture* texture, rect2f32 dst)
 
     NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, dst);
 
-    scene_node_damage(texture);
+    damage(texture);
     texture->dst = dst;
-    scene_node_damage(texture);
+    damage(texture);
 }
 
-void scene_texture_damage(SceneTexture* texture, aabb2i32 damage)
+void scene_texture_damage(SceneTexture* texture, aabb2i32 region)
 {
-    NODE_LOG("scene.texture{{{}}}.damage{}", (void*)texture, rect2i32(damage));
+    // Clamp to image
+    auto pixel_extent = vec_cast<i32>(texture->image->extent());
+    region = aabb_inner(region, {{}, pixel_extent, minmax});
 
-    scene_node_damage(texture);
+    // Transfrom from pixels -> scene
+    aabb2f32 transformed = rect_cast<f32>(region);
+    vec2f32 pixels_to_layout = texture->dst.extent / vec_cast<f32>(pixel_extent);
+    transformed.min = transformed.min * pixels_to_layout + texture->dst.origin;
+    transformed.max = transformed.max * pixels_to_layout + texture->dst.origin;
+
+    scene_node_post_damage(texture, {transformed, SceneDamageType::visual});
 }

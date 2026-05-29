@@ -6,34 +6,28 @@
 
 // -----------------------------------------------------------------------------
 
-struct Scene
+struct SceneRenderer
 {
     Gpu* gpu;
 
-    struct {
-        Ref<GpuShader> vertex;
-        Ref<GpuShader> fragment;
-        Ref<GpuImage> white;
-        Ref<GpuSampler> nearest;
-    } render;
+    Ref<GpuShader> vertex;
+    Ref<GpuShader> fragment;
+    Ref<GpuImage> white;
+    Ref<GpuSampler> nearest;
 
-    Ref<SceneTree> root;
-
-    std::vector<SceneDamageListener> damage_listeners;
-
-    ~Scene();
+    ~SceneRenderer();
 };
 
-void scene_render_init(Scene*);
-
-void scene_node_damage(SceneTexture*, Scene*);
-void scene_node_damage(SceneInputRegion*, Scene*);
-void scene_node_damage(SceneTree*, Scene*);
+auto scene_node_get_damage(SceneInputRegion*) -> SceneDamage;
+auto scene_node_get_damage(SceneTree*       ) -> SceneDamage;
+auto scene_node_get_damage(SceneTexture*    ) -> SceneDamage;
 
 inline
-void scene_node_damage(SceneNode* node, Scene* scene)
+auto scene_node_get_damage(SceneNode* node) -> SceneDamage
 {
-    scene_visit(node, [&](auto* node) {
-        scene_node_damage(node, scene);
+    return scene_visit(node, [](auto* node) {
+        return scene_node_get_damage(node);
     });
 }
+
+void scene_node_post_damage(SceneNode*, SceneDamage);

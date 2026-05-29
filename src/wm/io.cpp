@@ -308,36 +308,29 @@ void handle_input_region_damage(WmServer* wm)
 // -----------------------------------------------------------------------------
 
 static
-void handle_damage(WmServer* wm, SceneNode* node)
+void handle_damage(WmServer* wm, const SceneDamage& damage)
 {
-    rect2f32 damaged_region = {};
-
-    scene_visit(node, OverloadSet {
-        [&](SceneTexture* texture) {
-            damaged_region = texture->dst;
-            damaged_region.origin += scene_tree_get_position(node->parent);
-        },
-        [&](SceneInputRegion* input_region) {
-            exec_enqueue(wm->exec, [wm = Weak(wm)] {
-                if (!wm) return;
-                handle_input_region_damage(wm.get());
-            });
-        },
-        [&](SceneTree*) {},
-    });
-
-    for (auto* output : wm->io.outputs) {
-        if (rect_intersects(damaged_region, output->viewport)) {
-            output->needs_redraw = true;
-            output->interface.request_frame(output->userdata);
-        }
+    if (damage.types.contains(SceneDamageType::input)) {
+        exec_enqueue(wm->exec, [wm = Weak(wm)] {
+            if (!wm) return;
+            handle_input_region_damage(wm.get());
+        });
     }
 
+    if (damage.types.contains(SceneDamageType::visual)) {
+        rect2f32 region = damage.region;
+        for (auto* output : wm->io.outputs) {
+            if (rect_intersects(region, output->viewport)) {
+                output->needs_redraw = true;
+                output->interface.request_frame(output->userdata);
+            }
+        }
+    }
 }
 
 void wm_init_io(WmServer* wm)
 {
-    scene_add_damage_listener(wm->scene.get(), [wm](SceneNode* node) {
-        handle_damage(wm, node);
+    wm->scene_damage_listener = wm_get_scene(wm)->signals.damage.listen([wm](SceneDamage damage) {
+        handle_damage(wm, damage);
     });
 }

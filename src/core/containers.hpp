@@ -128,7 +128,7 @@ struct Link
         next = other;
     }
 
-    auto is_linked() -> bool
+    auto is_linked() const -> bool
     {
         return next != this;
     }

@@ -38,6 +38,8 @@ auto find_output(ShellIo* shell_io, IoOutput* io_output) -> WmOutput*
 static
 void handle_event(ShellIo* shell_io, IoEvent* event)
 {
+    auto* wm = shell_io->wm;
+
     switch (event->type) {
         // shutdown
         break;case IoEventType::shutdown_requested:
@@ -45,7 +47,7 @@ void handle_event(ShellIo* shell_io, IoEvent* event)
 
         // input
         break;case IoEventType::input_added:
-            shell_io->input_devices.emplace_back(event->input.device, wm_input_device_create(shell_io->wm, event->input.device, WmInputDeviceInterface {
+            shell_io->input_devices.emplace_back(event->input.device, wm_input_device_create(wm, event->input.device, WmInputDeviceInterface {
                 .update_leds = [](void* data, Flags<libinput_led> leds) {
                     static_cast<IoInputDevice*>(data)->update_leds(leds);
                 },
@@ -66,7 +68,7 @@ void handle_event(ShellIo* shell_io, IoEvent* event)
 
         // output
         break;case IoEventType::output_added:
-            shell_io->outputs.emplace_back(event->output.output, wm_output_create(shell_io->wm, event->output.output, WmOutputInterface {
+            shell_io->outputs.emplace_back(event->output.output, wm_output_create(wm, event->output.output, WmOutputInterface {
                 .request_frame = [](void* data) {
                     static_cast<IoOutput*>(data)->request_frame();
                 },
@@ -95,7 +97,7 @@ void handle_event(ShellIo* shell_io, IoEvent* event)
                     }}))
                 });
 
-                scene_render(wm_get_scene(shell_io->wm), target.get(), wm_output_get_viewport(output));
+                scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), target.get(), wm_output_get_viewport(output));
 
                 io_output->commit(target.get(), gpu_flush(shell_io->gpu), IoOutputCommitFlag::vsync);
             }

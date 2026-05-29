@@ -74,7 +74,9 @@ struct WmServer
 
     Ref<SeatManager> seat_manager;
 
-    Ref<Scene> scene;
+    Ref<SceneRenderer> scene_renderer;
+    Ref<SceneTree> scene;
+    Listener<SceneDamageCallback> scene_damage_listener;
     EnumMap<WmLayer, Ref<SceneTree>> layers;
 
     SeatModifier main_mod;

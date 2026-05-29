@@ -6,37 +6,45 @@
 #include "scene_render_vert.hpp"
 #include "scene_render_frag.hpp"
 
-void scene_render_init(Scene* scene)
+SceneRenderer::~SceneRenderer()
 {
-    scene->render.vertex   = gpu_shader_create(scene->gpu, {
+}
+
+auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
+{
+    auto renderer = ref_create<SceneRenderer>();
+
+    renderer->gpu = gpu;
+
+    renderer->vertex   = gpu_shader_create(renderer->gpu, {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .code  = scene_render_vert,
         .entry = "main",
     });
-    scene->render.fragment = gpu_shader_create(scene->gpu, {
+    renderer->fragment = gpu_shader_create(renderer->gpu, {
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
         .code  = scene_render_frag,
         .entry = "main",
     });
 
-    scene->render.white = gpu_image_create(scene->gpu, {
+    renderer->white = gpu_image_create(renderer->gpu, {
         .extent = {1, 1},
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer_dst
     });
 
-    gpu_copy_memory_to_image(scene->render.white.get(), as_bytes(ptr_to(color_from_hex("#FFFFFF")), 4), {{{{1, 1}}}});
+    gpu_copy_memory_to_image(renderer->white.get(), as_bytes(ptr_to(color_from_hex("#FFFFFF")), 4), {{{{1, 1}}}});
 
-    scene->render.nearest = gpu_sampler_create(scene->gpu, {
+    renderer->nearest = gpu_sampler_create(renderer->gpu, {
         .mag = VK_FILTER_NEAREST,
         .min = VK_FILTER_NEAREST,
     });
+
+    return renderer;
 }
 
-void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
+void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, rect2f32 viewport)
 {
-    auto& render = scene->render;
-
     struct Draw
     {
         u32 vertex_offset;
@@ -101,8 +109,8 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         //  2 ---- 3
 
         auto* draw = get_draw(default_clip,
-            texture->image.get()   ?: render.white.get(),
-            texture->sampler.get() ?: render.nearest.get(),
+            texture->image.get()   ?: renderer->white.get(),
+            texture->sampler.get() ?: renderer->nearest.get(),
             texture->blend,
             {},
             get_opacity(texture));
@@ -128,7 +136,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
     };
 
     scene_iterate<SceneIterateDirection::back_to_front>(
-        scene->root.get(),
+        node,
         scene_iterate_default,
         OverloadSet {
             draw_texture,
@@ -136,7 +144,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
         },
         scene_iterate_default);
 
-    auto gpu = scene->gpu;
+    auto gpu = renderer->gpu;
 
     auto make_gpu = [&]<typename T>(std::span<T> data) {
         GpuArray<T> arr{gpu_buffer_create(gpu, data.size_bytes(), {}), 0};
@@ -152,7 +160,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 
     // Protect images
 
-    gpu_protect(gpu, render.white.get());
+    gpu_protect(gpu, renderer->white.get());
     for (auto& draw : draws) {
         gpu_protect(gpu, draw.image);
     }
@@ -171,7 +179,7 @@ void scene_render(Scene* scene, GpuImage* target, rect2f32 viewport)
 
         gpu_set_blend_state(pass, {{GpuBlendMode::premultiplied}});
 
-        gpu_bind_shaders(pass, {{scene->render.vertex.get(), scene->render.fragment.get()}});
+        gpu_bind_shaders(pass, {{renderer->vertex.get(), renderer->fragment.get()}});
         gpu_bind_index_buffer(pass, gpu_indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
 
         for (auto& draw : draws) {

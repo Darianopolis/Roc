@@ -64,6 +64,11 @@ struct Signal<R(Args...)>
 {
     Link<ListenerState<R(Args...)>> listeners;
 
+    explicit operator bool() const noexcept
+    {
+        return listeners.is_linked();
+    }
+
     template<typename... Args2>
     void operator()(Args2&& ...args)
     {

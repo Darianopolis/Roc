@@ -116,4 +116,3 @@ void fd_listen(
     listener->flags = flags;
     fd_listen(exec, fd, listener.get());
 }
-

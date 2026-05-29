@@ -7,9 +7,15 @@ SceneInputRegion::~SceneInputRegion()
     scene_node_unparent(this);
 }
 
-void scene_node_damage(SceneInputRegion* input_region, Scene* scene)
+auto scene_node_get_damage(SceneInputRegion* input_region) -> SceneDamage
 {
-    scene_post_damage(scene, input_region);
+    return {input_region->clip, SceneDamageType::input};
+}
+
+static
+void damage(SceneInputRegion* input_region)
+{
+    scene_node_post_damage(input_region, scene_node_get_damage(input_region));
 }
 
 auto scene_input_region_create() -> Ref<SceneInputRegion>
@@ -31,7 +37,7 @@ void scene_input_region_set_region(SceneInputRegion* input_region, region2f32 re
 
     input_region->region = std::move(region);
 
-    scene_node_damage(input_region);
+    damage(input_region);
 }
 
 void scene_input_region_set_clip(SceneInputRegion* input_region, rect2f32 clip)
@@ -42,7 +48,7 @@ void scene_input_region_set_clip(SceneInputRegion* input_region, rect2f32 clip)
 
     input_region->clip = clip;
 
-    scene_node_damage(input_region);
+    damage(input_region);
 }
 
 auto scene_find_input_region_at(SceneTree* tree, vec2f32 pos) -> SceneInputRegion*

@@ -9,10 +9,12 @@ auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
 
     wm->seat_manager = seat_manager_create();
 
-    wm->scene = scene_create(wm->gpu);
+    wm->scene_renderer = scene_renderer_create(wm->gpu);
+
+    wm->scene = scene_tree_create();
     for (auto layer : enum_values<WmLayer>()) {
         auto* tree = (wm->layers[layer] = scene_tree_create()).get();
-        scene_tree_place_above(scene_get_root(wm->scene.get()), nullptr, tree);
+        scene_tree_place_above(wm->scene.get(), nullptr, tree);
     }
 
     debug_assert(info.main_mod);
@@ -52,7 +54,12 @@ auto wm_get_exec(WmServer* wm) -> ExecContext*
     return wm->exec;
 }
 
-auto wm_get_scene(WmServer* wm) -> Scene*
+auto wm_get_scene_renderer(WmServer* wm) -> SceneRenderer*
+{
+    return wm->scene_renderer.get();
+}
+
+auto wm_get_scene(WmServer* wm) -> SceneTree*
 {
     return wm->scene.get();
 }
