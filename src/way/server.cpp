@@ -24,6 +24,7 @@ WayServer::~WayServer()
 
     fd_unlisten(exec, get_loop_fd(wl_display));
     wl_display_terminate(wl_display);
+    wl_display_destroy_clients(wl_display);
     wl_display_destroy(wl_display);
 }
 

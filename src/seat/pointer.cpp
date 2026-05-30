@@ -90,10 +90,10 @@ void seat_pointer_button(SeatPointer* pointer, SeatInputCode code, bool pressed,
         }
 
         if (!pressed) {
-            update_pointer_focus(pointer);
             if (pointer->drag && seat_pointer_get_pressed(pointer).empty()) {
                 seat_pointer_end_drag(pointer);
             }
+            update_pointer_focus(pointer);
         }
     }
 }

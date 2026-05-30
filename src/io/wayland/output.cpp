@@ -8,19 +8,19 @@ void format_table(void* udata, zwp_linux_dmabuf_feedback_v1* zwp_linux_dmabuf_fe
     auto _ = Fd(fd);
     auto* io = static_cast<IoContext*>(udata);
 
-    struct entry {
+    struct Entry {
         u32 format;
         u32 padding;
         u64 modifier;
     };
 
-    debug_assert(size % sizeof(entry) == 0);
+    debug_assert(size % sizeof(Entry) == 0);
 
-    auto mapped = static_cast<entry*>(unix_check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
+    auto mapped = static_cast<Entry*>(unix_check<mmap>(nullptr, size, PROT_READ, MAP_SHARED, fd, 0).value);
     debug_assert(mapped);
     defer { munmap(mapped, size); };
 
-    auto count = size / sizeof(entry);
+    auto count = size / sizeof(Entry);
     auto formats = std::span(mapped, count);
 
     io->wayland->format.table.clear();

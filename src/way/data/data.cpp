@@ -36,17 +36,19 @@ void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 
     source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, source.get());
 
-    log_error("WayDataSource created {}", (void*)source.get());
+    log_debug("WayDataSource created {}", (void*)source.get());
 }
 
 void WayDataSource::cancel()
 {
-    way_send<wl_data_source_send_cancelled>(resource);
+    if (resource) {
+        way_send<wl_data_source_send_cancelled>(resource);
+    }
 }
 
 void WayDataSource::send(std::string_view mime, fd_t fd)
 {
-    log_error("WayDataSource::send({}, {})", mime, fd);
+    log_debug("WayDataSource::send({}, {})", mime, fd);
     way_send<wl_data_source_send_send>(resource, std::string(mime).c_str(), fd);
 }
 
@@ -54,7 +56,7 @@ void WayDataSource::action_update(SeatDndAction action)
 {
     if (last_action && *last_action == action) return;
     last_action = action;
-    log_error("WayDataSource::action({})", action);
+    log_debug("WayDataSource::action({})", action);
     way_send<wl_data_source_send_action>(resource, to_wayland_dnd_action(action));
 }
 
@@ -70,7 +72,7 @@ void WayDataSource::dnd_finished()
 
 WayDataSource::~WayDataSource()
 {
-    log_error("WayDataSource destroyed {}", (void*)this);
+    log_debug("WayDataSource destroyed {}", (void*)this);
 }
 
 static
@@ -239,8 +241,28 @@ void set_selection(wl_client* wl_client, wl_resource* wl_data_device, wl_resourc
     auto* client_seat = way_get_userdata<WayClientSeat>(wl_data_device);
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
 
+    if (!source) {
+        seat_clear_selection(client_seat->seat->seat);
+        return;
+    }
+
     std::vector<std::string_view> mime_types;
     mime_types.insert_range(mime_types.begin(), source->offered);
+
+    if (source->source) {
+        log_warn("Client attempted to re-use wl_data_source, migrating to new WayDataSource");
+
+        // WORKAROUND: This is a workaround for certain Wayland clients that re-submit the same data source
+        //             to set_selection. In these cases, we want to suppress the emission of a cancel operation
+        //             that is normally triggered when clearing the previous selection.
+        //
+        //             To do this, we simply temporarily extract the wl_resource (which prevents the cancel
+        //             operation from being sent), destroy the old SeatDataSource, and re-insert the resource.
+
+        auto resource = std::exchange(source->resource, nullptr);
+        source->source.destroy();
+        source->resource = resource;
+    }
 
     source->source = seat_set_selection(client_seat->seat->seat, {
         .interface = source,
@@ -320,23 +342,18 @@ auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
 }
 
 static
-void drag_leave(WayClientSeat* client_seat)
+void drag_leave(WayClient* client, SeatDataEvent* event)
 {
-    if (!client_seat->drag_entered) return;
+    log_trace("drag_leave");
+
+    auto* client_seat = get_client_seat(client, event->seat);
+    debug_assert(client_seat->drag_entered);
 
     for (auto* wl_data_device : client_seat->data_devices) {
         way_send<wl_data_device_send_leave>(wl_data_device);
     }
 
     client_seat->drag_entered = false;
-}
-
-static
-void drag_leave(WayClient* client, SeatDataEvent* event)
-{
-    log_trace("drag_leave");
-
-    drag_leave(get_client_seat(client, event->seat));
 }
 
 static
@@ -348,10 +365,7 @@ void drag_enter(WayClient* client, SeatDataEvent* event)
 
     auto* client_seat = get_client_seat(client, event->seat);
 
-    if (client_seat->drag_entered) {
-        log_trace("drag_leave (implicit)");
-        drag_leave(client_seat);
-    }
+    debug_assert(!client_seat->drag_entered);
 
     client_seat->drag_entered = true;
 
@@ -393,6 +407,8 @@ void drag_drop(WayClient* client, SeatDataEvent* event)
     for (auto* wl_data_device : client_seat->data_devices) {
         wl_data_device_send_drop(wl_data_device);
     }
+
+    client_seat->drag_entered = false;
 }
 
 void way_handle_data_event(WayClient* client, SeatDataEvent* event)

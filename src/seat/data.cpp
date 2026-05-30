@@ -61,6 +61,13 @@ void seat_data_offer_accept(SeatDataOffer* offer, const char* mime_type)
     if (!offer->source) return;
 }
 
+static
+void set_action(SeatDataSource* source, SeatDndAction action)
+{
+    source->current_action = action;
+    source->impl->action_update(action);
+}
+
 auto seat_data_offer_set_actions(SeatDataOffer* offer, Flags<SeatDndAction> actions, SeatDndAction preferred) -> SeatDndAction
 {
     if (!offer->source) return {};
@@ -77,8 +84,7 @@ auto seat_data_offer_set_actions(SeatDataOffer* offer, Flags<SeatDndAction> acti
         else if (actions.contains(SeatDndAction::ask )) selected = SeatDndAction::ask;
     }
 
-    source->current_action = selected;
-    source->impl->action_update(source->current_action);
+    set_action(source, selected);
     return selected;
 }
 
@@ -119,17 +125,33 @@ auto make_source(Seat* seat, SeatDataSourceInterface* interface, std::span<const
     return source;
 }
 
+static
+void disconnect_offers(SeatDataSource* source)
+{
+    for (auto* offer : source->offers) {
+        offer->source = nullptr;
+    }
+    source->offers.clear();
+}
+
+void seat_clear_selection(Seat* seat)
+{
+    if (seat->selection) {
+        disconnect_offers(seat->selection);
+        seat->selection->impl->cancel();
+        seat->selection = nullptr;
+    }
+}
+
 auto seat_set_selection(Seat* seat, const SeatDataSourceCreateInfo& info) -> Ref<SeatDataSource>
 {
+    seat_clear_selection(seat);
+
     auto source = make_source(seat, info.interface, info.mime_types);
-    // WORKAROUND: We check for impl equality to avoid cancelling data sources on double submission.
-    //             The spec disallows re-use, but certain application still do it so we have to handle it.
-    //             Consider filing an issue with the relevant applications.
-    if (seat->selection && seat->selection->impl != info.interface) {
-        seat->selection->impl->cancel();
-    }
     seat->selection = source.get();
+
     offer_selection_to_focus(seat, source.get());
+
     return source;
 }
 
@@ -147,9 +169,42 @@ void update_drag_visual(SeatPointer* pointer, SceneNode* visual)
     pointer->drag_visual = visual;
 }
 
+static
+void drag_leave(SeatPointer* pointer)
+{
+    if (auto* drag_focus = std::exchange(pointer->drag_focus, nullptr).get()) {
+        seat_post_event(pointer->seat, drag_focus->client, ptr_to(SeatEvent {
+            .data = {
+                .type = SeatEventType::drag_leave,
+                .seat = seat_pointer_get_seat(pointer),
+                .drag = {
+                    .focus = drag_focus,
+                }
+            },
+        }));
+    }
+
+    disconnect_offers(pointer->drag);
+
+    set_action(pointer->drag, SeatDndAction{});
+}
+
+static
+void cancel_drag(SeatPointer* pointer)
+{
+    if (!pointer->drag) return;
+
+    drag_leave(pointer);
+
+    pointer->drag->impl->cancel();
+
+    update_drag_visual(pointer, nullptr);
+    pointer->drag = nullptr;
+}
+
 auto seat_start_drag(Seat* seat, const SeatDataSourceCreateInfo& info) -> Ref<SeatDataSource>
 {
-    log_error("START DRAG");
+    log_debug("START DRAG");
 
     auto* pointer = seat_get_pointer(seat);
 
@@ -159,8 +214,7 @@ auto seat_start_drag(Seat* seat, const SeatDataSourceCreateInfo& info) -> Ref<Se
     }
 
     if (pointer->drag) {
-        pointer->drag->impl->cancel();
-        pointer->drag = nullptr;
+        cancel_drag(pointer);
     }
 
     auto source = make_source(seat, info.interface, info.mime_types);
@@ -171,41 +225,41 @@ auto seat_start_drag(Seat* seat, const SeatDataSourceCreateInfo& info) -> Ref<Se
 
     pointer->drag = source.get();
 
+    seat_pointer_focus(pointer, nullptr);
+
     return source;
 }
 
 void seat_pointer_end_drag(SeatPointer* pointer)
 {
-    log_error("END DRAG");
+    log_debug("END DRAG");
 
     if (!pointer->drag) return;
 
     auto action = pointer->drag->current_action;
 
-    log_error("  action = {}", action);
-    log_error("  drag_focus = {}", (void*)pointer->drag_focus.get());
+    log_debug("  action = {}", action);
+    log_debug("  drag_focus = {}", (void*)pointer->drag_focus.get());
 
-    if (action != SeatDndAction{} && pointer->drag_focus) {
-        pointer->drag->impl->dnd_drop_performed();
-
-        log_warn("  performing drop");
-
-        auto drag_client = seat_get_focus_client(pointer->drag_focus.get());
-        seat_post_event(pointer->seat, drag_client, ptr_to(SeatEvent {
-            .data = {
-                .type = SeatEventType::drag_drop,
-                .seat = seat_pointer_get_seat(pointer),
-                .drag = {
-                    .focus = pointer->drag_focus.get(),
-                }
-            },
-        }));
-
-        // Prevent a drag_leave event from being sent
-        pointer->drag_focus = nullptr;
-    } else {
-        pointer->drag->impl->cancel();
+    if (action == SeatDndAction{} || !pointer->drag_focus) {
+        log_warn("  cancelling!");
+        cancel_drag(pointer);
+        return;
     }
+
+    log_debug("  performing drop");
+    auto drag_focus = std::exchange(pointer->drag_focus, nullptr).get();
+    seat_post_event(pointer->seat, drag_focus->client, ptr_to(SeatEvent {
+        .data = {
+            .type = SeatEventType::drag_drop,
+            .seat = seat_pointer_get_seat(pointer),
+            .drag = {
+                .focus = drag_focus,
+            }
+        },
+    }));
+
+    pointer->drag->impl->dnd_drop_performed();
 
     update_drag_visual(pointer, nullptr);
     pointer->drag = nullptr;
@@ -234,30 +288,17 @@ void seat_pointer_update_drag(SeatPointer* pointer)
                 }
             }
         }));
+
         return;
     }
 
-    auto old_client = seat_get_focus_client(old_focus);
-    auto new_client = seat_get_focus_client(new_focus);
-
-    pointer->drag_focus = new_focus;
-
-    if (old_client && old_client != new_client) {
-        log_trace("seat_pointer_update_drag - leave");
-        seat_post_event(pointer->seat, old_client, ptr_to(SeatEvent {
-            .data = {
-                .type = SeatEventType::drag_leave,
-                .seat = seat,
-                .drag = {
-                    .focus = old_focus,
-                }
-            },
-        }));
+    if (old_focus) {
+        drag_leave(pointer);
     }
 
-    if (new_client) {
-        log_trace("seat_pointer_update_drag - enter");
-        seat_post_event(pointer->seat, new_client, ptr_to(SeatEvent {
+    if (new_focus) {
+        pointer->drag_focus = new_focus;
+        seat_post_event(pointer->seat, new_focus->client, ptr_to(SeatEvent {
             .data = {
                 .type = SeatEventType::drag_enter,
                 .seat = seat,
@@ -270,22 +311,24 @@ void seat_pointer_update_drag(SeatPointer* pointer)
     }
 }
 
+void seat_clear_data(Seat* seat)
+{
+    seat_clear_selection(seat);
+    cancel_drag(seat->pointer.get());
+}
+
 SeatDataSource::~SeatDataSource()
 {
     if (seat) {
         if (seat->selection == this) {
-            seat->selection = nullptr;
+            seat_clear_selection(seat.get());
         }
 
-        auto* pointer = seat_get_pointer(seat);
-
+        auto* pointer = seat_get_pointer(seat.get());
         if (pointer->drag == this) {
-            pointer->drag = nullptr;
-            update_drag_visual(pointer, nullptr);
+            cancel_drag(pointer);
         }
     }
 
-    for (auto* offer : offers) {
-        offer->source = nullptr;
-    }
+    disconnect_offers(this);
 }

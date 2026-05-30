@@ -142,7 +142,17 @@ public:
         wl_list_remove(&destroy_listener.link);
     }
 
-    DELETE_COPY_MOVE(WayResource)
+    WayResource(const WayResource& other)
+        : WayResource(other.resource)
+    {}
+
+    auto operator=(const WayResource& other) -> WayResource&
+    {
+        if (this != &other) {
+            reset(other.resource);
+        }
+        return *this;
+    }
 
     operator wl_resource*() const { return resource; }
 };

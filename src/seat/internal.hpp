@@ -28,6 +28,8 @@ struct Seat
     ~Seat();
 };
 
+void seat_clear_data(Seat*);
+
 // -----------------------------------------------------------------------------
 
 struct SeatClient
@@ -102,7 +104,7 @@ auto seat_get_focus_client(SeatFocus* focus)
 
 struct SeatDataSource
 {
-    Seat* seat;
+    Weak<Seat> seat;
 
     Weak<SceneNode> drag_visual;
 

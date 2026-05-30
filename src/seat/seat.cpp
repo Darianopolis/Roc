@@ -27,6 +27,7 @@ auto seat_create(SeatManager* manager, std::string_view name, SeatKeyboard* keyb
 
 Seat::~Seat()
 {
+    seat_clear_data(this);
     std::erase(manager->seats, this);
 }
 

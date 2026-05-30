@@ -145,6 +145,7 @@ struct SeatDataSourceCreateInfo
 };
 
 auto seat_set_selection(Seat*, const SeatDataSourceCreateInfo&) -> Ref<SeatDataSource>;
+void seat_clear_selection(Seat*);
 auto seat_get_selection(Seat*) -> Ref<SeatDataOffer>;
 
 auto seat_start_drag(Seat*, const SeatDataSourceCreateInfo&) -> Ref<SeatDataSource>;

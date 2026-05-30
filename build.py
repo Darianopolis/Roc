@@ -78,14 +78,22 @@ def build(build_type, compiler, linker_type, install = None):
     build_name = f"{build_type.lower()}-{compiler}-{linker_type.lower()}"
     if args.asan:
         build_name += "-asan"
-    cmake_dir = build_dir / build_name
+    cmake_dir = build_dir / "cmake" / build_name
 
     configure_ok = True
 
     if ((args.build or args.install) and not cmake_dir.exists()) or args.configure:
-        cmd  = ["cmake", "--fresh", "-B", cmake_dir, "-G", "Ninja", f"-DVENDOR_DIR={vendor_dir}", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"]
-        cmd += [f"-DCMAKE_C_COMPILER={compiler}", f"-DCMAKE_CXX_COMPILER={cxx_compilers[compiler]}", f"-DCMAKE_LINKER_TYPE={linker_type}"]
-        cmd += [f"-DCMAKE_BUILD_TYPE={build_type}"]
+        cmd = [
+             "cmake", "--fresh",
+             "-B", cmake_dir,
+             "-G", "Ninja",
+            f"-DVENDOR_DIR={vendor_dir}",
+             "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+            f"-DCMAKE_C_COMPILER={compiler}",
+            f"-DCMAKE_CXX_COMPILER={cxx_compilers[compiler]}",
+            f"-DCMAKE_LINKER_TYPE={linker_type}",
+            f"-DCMAKE_BUILD_TYPE={build_type}",
+        ]
         if args.asan:
             cmd += ["-DUSE_ASAN=1"]
 
