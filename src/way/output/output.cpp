@@ -23,8 +23,8 @@ WAY_BIND_GLOBAL(wl_output, bind)
     static constexpr vec2i32 size = {3840, 2160};
 
     way_send<wl_output_send_geometry>(resource,
-        size.x, size.y,
         0, 0,
+        size.x, size.y,
         WL_OUTPUT_SUBPIXEL_HORIZONTAL_RGB,
         "unknown",
         "unknown",
