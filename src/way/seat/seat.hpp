@@ -54,7 +54,7 @@ struct WayClientSeat
     WayResourceList relative_pointers;
     WayResourceList data_devices;
 
-    bool drag_entered;
+    std::vector<Weak<WayDataOffer>> drag_offers;
 
     ~WayClientSeat();
 };

@@ -347,13 +347,12 @@ void drag_leave(WayClient* client, SeatDataEvent* event)
     log_trace("drag_leave");
 
     auto* client_seat = get_client_seat(client, event->seat);
-    debug_assert(client_seat->drag_entered);
 
     for (auto* wl_data_device : client_seat->data_devices) {
         way_send<wl_data_device_send_leave>(wl_data_device);
     }
 
-    client_seat->drag_entered = false;
+    client_seat->drag_offers.clear();
 }
 
 static
@@ -365,16 +364,13 @@ void drag_enter(WayClient* client, SeatDataEvent* event)
 
     auto* client_seat = get_client_seat(client, event->seat);
 
-    debug_assert(!client_seat->drag_entered);
-
-    client_seat->drag_entered = true;
-
     auto serial = way_next_serial(client->server);
     auto* surface = way_find_surface_for_focus(client, event->drag.focus);
     auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
 
     for (auto* wl_data_device : client_seat->data_devices) {
         auto offer = make_offer(client_seat, wl_data_device, event->drag.offer);
+        client_seat->drag_offers.emplace_back(offer);
         way_send<wl_data_device_send_enter>(wl_data_device, serial.value, surface->resource, pos.x, pos.y, offer->resource);
     }
 }
@@ -404,11 +400,16 @@ void drag_drop(WayClient* client, SeatDataEvent* event)
 
     auto* client_seat = get_client_seat(client, event->seat);
 
-    for (auto* wl_data_device : client_seat->data_devices) {
-        wl_data_device_send_drop(wl_data_device);
+    for (auto& offer : client_seat->drag_offers) {
+        if (!offer) continue;
+        way_send<wl_data_offer_send_action>(offer->resource, to_wayland_dnd_action(event->drag.action));
     }
 
-    client_seat->drag_entered = false;
+    for (auto* wl_data_device : client_seat->data_devices) {
+        way_send<wl_data_device_send_drop>(wl_data_device);
+    }
+
+    client_seat->drag_offers.clear();
 }
 
 void way_handle_data_event(WayClient* client, SeatDataEvent* event)

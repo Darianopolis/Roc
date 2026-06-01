@@ -37,9 +37,20 @@ auto seat_get_selection(Seat* seat) -> Ref<SeatDataOffer>
 
 // -----------------------------------------------------------------------------
 
+static
+void send_cancel(SeatDataSource* source)
+{
+    source->cancelled = true;
+    source->impl->cancel();
+}
+
 SeatDataOffer::~SeatDataOffer()
 {
     if (source) {
+        if (source->drag_accepted) {
+            log_warn("Drag was accepted but offer destroyed, cancelling...");
+            send_cancel(source);
+        }
         source->offers.erase(this);
     }
 }
@@ -64,6 +75,7 @@ void seat_data_offer_accept(SeatDataOffer* offer, const char* mime_type)
 static
 void set_action(SeatDataSource* source, SeatDndAction action)
 {
+    source->action_received = true;
     source->current_action = action;
     source->impl->action_update(action);
 }
@@ -138,7 +150,7 @@ void seat_clear_selection(Seat* seat)
 {
     if (seat->selection) {
         disconnect_offers(seat->selection);
-        seat->selection->impl->cancel();
+        send_cancel(seat->selection);
         seat->selection = nullptr;
     }
 }
@@ -170,9 +182,17 @@ void update_drag_visual(SeatPointer* pointer, SceneNode* visual)
 }
 
 static
+void invalidate_drag_action(SeatDataSource* source)
+{
+    if (!source) return;
+    source->action_received = false;
+}
+
+static
 void drag_leave(SeatPointer* pointer)
 {
     if (auto* drag_focus = std::exchange(pointer->drag_focus, nullptr).get()) {
+        invalidate_drag_action(pointer->drag);
         seat_post_event(pointer->seat, drag_focus->client, ptr_to(SeatEvent {
             .data = {
                 .type = SeatEventType::drag_leave,
@@ -196,7 +216,7 @@ void cancel_drag(SeatPointer* pointer)
 
     drag_leave(pointer);
 
-    pointer->drag->impl->cancel();
+    send_cancel(pointer->drag);
 
     update_drag_visual(pointer, nullptr);
     pointer->drag = nullptr;
@@ -236,7 +256,13 @@ void seat_pointer_end_drag(SeatPointer* pointer)
 
     if (!pointer->drag) return;
 
-    auto action = pointer->drag->current_action;
+    auto* source = pointer->drag;
+
+    auto action = source->current_action;
+    if (!source->action_received) {
+        log_warn("Action was not been received for source, setting to NONE");
+        action = {};
+    }
 
     log_debug("  action = {}", action);
     log_debug("  drag_focus = {}", (void*)pointer->drag_focus.get());
@@ -248,6 +274,8 @@ void seat_pointer_end_drag(SeatPointer* pointer)
     }
 
     log_debug("  performing drop");
+    source->drag_accepted = true;
+
     auto drag_focus = std::exchange(pointer->drag_focus, nullptr).get();
     seat_post_event(pointer->seat, drag_focus->client, ptr_to(SeatEvent {
         .data = {
@@ -255,11 +283,14 @@ void seat_pointer_end_drag(SeatPointer* pointer)
             .seat = seat_pointer_get_seat(pointer),
             .drag = {
                 .focus = drag_focus,
+                .action = action,
             }
         },
     }));
 
-    pointer->drag->impl->dnd_drop_performed();
+    if (!source->cancelled) {
+        source->impl->dnd_drop_performed();
+    }
 
     update_drag_visual(pointer, nullptr);
     pointer->drag = nullptr;
@@ -279,6 +310,7 @@ void seat_pointer_update_drag(SeatPointer* pointer)
     auto* old_focus = pointer->drag_focus.get();
 
     if (old_focus == new_focus && new_focus) {
+        invalidate_drag_action(pointer->drag);
         seat_post_event(pointer->seat, seat_get_focus_client(new_focus), ptr_to(SeatEvent {
             .data = {
                 .type = SeatEventType::drag_motion,
@@ -298,6 +330,7 @@ void seat_pointer_update_drag(SeatPointer* pointer)
 
     if (new_focus) {
         pointer->drag_focus = new_focus;
+        invalidate_drag_action(pointer->drag);
         seat_post_event(pointer->seat, new_focus->client, ptr_to(SeatEvent {
             .data = {
                 .type = SeatEventType::drag_enter,

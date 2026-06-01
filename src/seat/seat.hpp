@@ -244,6 +244,7 @@ struct SeatDataEvent
     struct {
         SeatDataOffer* offer;
         SeatFocus* focus;
+        SeatDndAction action;
     } drag;
 };
 

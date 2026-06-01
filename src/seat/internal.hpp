@@ -112,7 +112,12 @@ struct SeatDataSource
 
     Flags<SeatDndAction> supported_actions;
     std::flat_set<std::string> offered;
+
     SeatDndAction current_action;
+    bool          action_received;
+
+    bool drag_accepted;
+    bool cancelled;
 
     std::flat_set<SeatDataOffer*> offers;
 
