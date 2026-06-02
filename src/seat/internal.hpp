@@ -94,14 +94,6 @@ void seat_pointer_end_drag(SeatPointer*);
 
 // -----------------------------------------------------------------------------
 
-inline
-auto seat_get_focus_client(SeatFocus* focus)
-{
-    return focus ? focus->client : nullptr;
-}
-
-// -----------------------------------------------------------------------------
-
 struct SeatDataSource
 {
     Weak<Seat> seat;

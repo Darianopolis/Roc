@@ -32,12 +32,6 @@ auto to_fixed(vec2f32 v) -> Vec<2, wl_fixed_t>
 }
 
 static
-auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
-{
-    return global_pos - scene_tree_get_position(surface->scene.tree.get());
-}
-
-static
 void pointer_frame(WayServer* server, wl_resource* resource)
 {
     if (wl_resource_get_version(resource) >= WL_POINTER_FRAME_SINCE_VERSION) {
@@ -45,28 +39,20 @@ void pointer_frame(WayServer* server, wl_resource* resource)
     }
 }
 
-static
-void pointer_leave_surface(WayClientSeat* client_seat, WaySurface* surface, WaySerial serial)
-{
-    if (!surface->resource) return;
-    for (auto* resource : client_seat->pointers) {
-        way_send<wl_pointer_send_leave>(resource, serial.value, surface->resource);
-    }
-}
-
 void way_seat_on_pointer_leave(WayClientSeat* client_seat, SeatEvent* event)
 {
     auto* seat = client_seat->seat;
 
-    if (auto* surface = seat->focus.pointer.get()) {
-        pointer_leave_surface(client_seat, surface, way_next_serial(seat->server));
-        for (auto* resource : client_seat->pointers) {
-            pointer_frame(client_seat->seat->server, resource);
-        }
+    auto surface = seat->focus.pointer;
+    seat->focus.pointer = nullptr;
+    if (!surface || !surface->resource) return;
+
+    auto serial = way_next_serial(seat->server);
+    for (auto* pointer : client_seat->pointers) {
+        way_send<wl_pointer_send_leave>(pointer, serial.value, surface->resource);
+        pointer_frame(client_seat->seat->server, pointer);
     }
 
-    seat->focus.pointer = nullptr;
-    seat->pointer = nullptr;
 }
 
 void way_seat_on_pointer_enter(WayClientSeat* client_seat, SeatEvent* event)
@@ -74,24 +60,17 @@ void way_seat_on_pointer_enter(WayClientSeat* client_seat, SeatEvent* event)
     auto* seat = client_seat->seat;
     auto* server = seat->server;
 
-    seat->pointer = event->pointer.pointer;
-
     auto serial = way_next_serial(server);
 
-    auto* old_surface = seat->focus.pointer.get();
-    auto* new_surface = way_find_surface_for_focus(client_seat->client, event->pointer.focus);
+    auto* surface = way_find_surface_for_focus(client_seat->client, event->pointer.focus);
+    if (!surface || !surface->resource) return;
 
-    if (old_surface && new_surface && old_surface != new_surface) {
-        pointer_leave_surface(client_seat, old_surface, serial);
-    }
+    seat->focus.pointer = surface;
 
-    seat->focus.pointer = new_surface;
-
-    if (!new_surface->resource) return;
-    auto pos = to_fixed(to_surface_pos(new_surface, seat_pointer_get_position(seat->pointer)));
+    auto pos = to_fixed(event->pointer.position);
 
     for (auto* resource : client_seat->pointers) {
-        way_send<wl_pointer_send_enter>(resource, serial.value, new_surface->resource, pos.x, pos.y);
+        way_send<wl_pointer_send_enter>(resource, serial.value, surface->resource, pos.x, pos.y);
         pointer_frame(server, resource);
     }
 }
@@ -109,7 +88,7 @@ void way_seat_on_motion(WayClientSeat* client_seat, SeatEvent* event)
     auto elapsed = way_get_elapsed(server);
     u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
-    auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(seat->pointer)));
+    auto pos = to_fixed(event->pointer.position);
 
     {
         u64 time_us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
@@ -130,6 +109,14 @@ void way_seat_on_motion(WayClientSeat* client_seat, SeatEvent* event)
     }
 }
 
+static
+auto find_root_toplevel(WaySurface* surface) -> WaySurface*
+{
+    if (surface->role == WaySurfaceRole::xdg_toplevel) return surface;
+    debug_assert(surface->parent);
+    return find_root_toplevel(surface->parent.get());
+}
+
 void way_seat_on_button(WayClientSeat* client_seat, SeatEvent* event)
 {
     auto* seat = client_seat->seat;
@@ -144,6 +131,15 @@ void way_seat_on_button(WayClientSeat* client_seat, SeatEvent* event)
     for (auto* resource : client_seat->pointers) {
         way_send<wl_pointer_send_button>(resource, serial.value, time_ms, button.code, state);
         pointer_frame(server, resource);
+    }
+
+    // Request focus on press
+
+    if (event->pointer.button.pressed) {
+        if (auto* toplevel = find_root_toplevel(seat->focus.pointer.get())) {
+            auto* seat_keyboard = seat_get_keyboard(seat->seat);
+            seat_keyboard_focus(seat_keyboard, toplevel->scene.focus.get());
+        }
     }
 }
 

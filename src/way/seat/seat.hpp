@@ -31,10 +31,7 @@ struct WaySeat
 
     wl_global* global;
 
-    WayKeymap     keymap;
-    SeatKeyboard* keyboard;
-
-    SeatPointer* pointer;
+    WayKeymap keymap;
 
     struct {
         Weak<WaySurface> pointer;

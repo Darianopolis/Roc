@@ -128,11 +128,8 @@ void seat_keyboard_focus(SeatKeyboard* keyboard, SeatFocus* new_focus)
 
     if (old_focus == new_focus) return;
 
-    auto old_client = seat_get_focus_client(old_focus);
-    auto new_client = seat_get_focus_client(new_focus);
-
-    if (old_client && (old_client != new_client)) {
-        seat_post_event(keyboard->seat, old_client, ptr_to(SeatEvent {
+    if (old_focus) {
+        seat_post_event(keyboard->seat, old_focus->client, ptr_to(SeatEvent {
             .keyboard = {
                 .type = SeatEventType::keyboard_leave,
                 .keyboard = keyboard,
@@ -141,7 +138,7 @@ void seat_keyboard_focus(SeatKeyboard* keyboard, SeatFocus* new_focus)
     }
 
     if (new_focus) {
-        seat_post_event(keyboard->seat, new_client, ptr_to(SeatEvent {
+        seat_post_event(keyboard->seat, new_focus->client, ptr_to(SeatEvent {
             .keyboard = {
                 .type = SeatEventType::keyboard_enter,
                 .keyboard = keyboard,

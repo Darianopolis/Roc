@@ -220,6 +220,8 @@ struct SeatPointerEvent
 {
     SeatEventType type;
     SeatPointer* pointer;
+    SeatFocus* focus;
+    vec2f32 position;
     union {
         struct {
             SeatInputCode code;
@@ -233,7 +235,6 @@ struct SeatPointerEvent
         struct {
             vec2f32 delta;
         } scroll;
-        SeatFocus* focus;
     };
 };
 

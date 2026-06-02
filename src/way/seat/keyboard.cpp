@@ -55,41 +55,23 @@ WAY_INTERFACE(wl_keyboard) = {
 
 // -----------------------------------------------------------------------------
 
-static
-void keyboard_leave(WayClientSeat* client_seat)
+void way_seat_on_keyboard_leave(WayClientSeat* client_seat, SeatEvent* event)
 {
     auto* seat = client_seat->seat;
     auto* server = seat->server;
+
+
     auto* surface = seat->focus.keyboard.get();
-    if (!surface) return;
-
-    seat->keyboard = nullptr;
-    auto serial = way_next_serial(server);
-
-    if (surface->resource) {
-        for (auto* resource : client_seat->keyboards) {
-            way_send<wl_keyboard_send_leave>(resource, serial.value, surface->resource);
-
-            // Modifiers are tracked independently of keyboard enter/leave events
-            way_send<wl_keyboard_send_modifiers>(resource, serial.value, 0, 0, 0, 0);
-        }
-    }
-
-    debug_assert(seat->focus.keyboard.get() == surface, "Keyboard left surface that did not have focus");
     seat->focus.keyboard = nullptr;
-}
+    if (!surface || !surface->resource) return;
 
-void way_seat_on_keyboard_leave(WayClientSeat* client_seat, SeatEvent* event)
-{
-    keyboard_leave(client_seat);
-}
+    auto serial = way_next_serial(server);
+    for (auto* keyboard : client_seat->keyboards) {
+        way_send<wl_keyboard_send_leave>(keyboard, serial.value, surface->resource);
 
-static
-auto find_root_toplevel(WaySurface* surface) -> WaySurface*
-{
-    if (surface->role == WaySurfaceRole::xdg_toplevel) return surface;
-    debug_assert(surface->parent);
-    return find_root_toplevel(surface->parent.get());
+        // Modifiers are tracked independently of keyboard enter/leave events
+        way_send<wl_keyboard_send_modifiers>(keyboard, serial.value, 0, 0, 0, 0);
+    }
 }
 
 static
@@ -99,7 +81,7 @@ void send_modifiers(WayClientSeat* client_seat)
     auto* server = seat->server;
 
     auto serial = way_next_serial(server);
-    auto kb = seat_keyboard_get_info(seat->keyboard);
+    auto kb = seat_keyboard_get_info(seat_get_keyboard(seat->seat));
 
     for (auto* resource : client_seat->keyboards) {
         way_send<wl_keyboard_send_modifiers>(resource, serial.value,
@@ -116,32 +98,22 @@ void way_seat_on_keyboard_enter(WayClientSeat* client_seat, SeatEvent* event)
     auto* server = seat->server;
 
     auto* surface = way_find_surface_for_focus(client_seat->client, event->keyboard.focus);
-
-    // xdg_popup and wl_subsurface cannot have keyboard focus
-    surface = find_root_toplevel(surface);
-    if (surface == seat->focus.keyboard.get()) return;
-
-    // Leave previous window
-    keyboard_leave(client_seat);
+    seat->focus.keyboard = surface;
 
     if (surface->toplevel->window) {
         wm_window_raise(surface->toplevel->window.get());
     }
 
-    seat->keyboard = event->keyboard.keyboard;
-
     auto serial = way_next_serial(server);
 
     if (surface->resource) {
-        auto pressed = way_from_span<const u32>(seat_keyboard_get_pressed(seat->keyboard));
+        auto pressed = way_from_span<const u32>(seat_keyboard_get_pressed(event->keyboard.keyboard));
         for (auto* resource : client_seat->keyboards) {
             way_send<wl_keyboard_send_enter>(resource, serial.value, surface->resource, &pressed);
         }
     } else {
         log_error("Keyboard enter failed: wl_surface is destroyed for {}", (void*)surface);
     }
-
-    seat->focus.keyboard = surface;
 
     send_modifiers(client_seat);
 

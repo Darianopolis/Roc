@@ -16,32 +16,39 @@ auto seat_pointer_create(const SeatPointerCreateInfo& info) -> Ref<SeatPointer>
 
 // -----------------------------------------------------------------------------
 
+static
+auto get_local_position(SeatPointer* pointer, SeatFocus* focus) -> vec2f32
+{
+    if (!focus) return {};
+    auto* region = focus->input_region.get();
+    return seat_pointer_get_position(pointer) - (scene_tree_get_position(region->parent) + region->clip.origin);
+}
+
 void seat_pointer_focus(SeatPointer* pointer, SeatFocus* new_focus)
 {
     auto* old_focus = seat_pointer_get_focus(pointer);
 
     if (old_focus == new_focus) return;
 
-    auto old_client = seat_get_focus_client(old_focus);
-    auto new_client = seat_get_focus_client(new_focus);
-
     pointer->focus = new_focus;
 
-    if (old_client && old_client != new_client) {
-        seat_post_event(pointer->seat, old_client, ptr_to(SeatEvent {
+    if (old_focus) {
+        seat_post_event(pointer->seat, old_focus->client, ptr_to(SeatEvent {
             .pointer = {
                 .type = SeatEventType::pointer_leave,
                 .pointer = pointer,
+                .focus = old_focus,
             },
         }));
     }
 
-    if (new_client) {
-        seat_post_event(pointer->seat, new_client, ptr_to(SeatEvent {
+    if (new_focus) {
+        seat_post_event(pointer->seat, new_focus->client, ptr_to(SeatEvent {
             .pointer = {
                 .type = SeatEventType::pointer_enter,
                 .pointer = pointer,
                 .focus = new_focus,
+                .position = get_local_position(pointer, new_focus),
             }
         }));
     }
@@ -70,24 +77,18 @@ void update_pointer_focus(SeatPointer* pointer)
 void seat_pointer_button(SeatPointer* pointer, SeatInputCode code, bool pressed, bool quiet)
 {
     if (pressed ? pointer->pressed.inc(code) : pointer->pressed.dec(code)) {
-        if (seat_post_input_event(pointer, ptr_to(SeatEvent {
+        seat_post_input_event(pointer, ptr_to(SeatEvent {
             .pointer = {
                 .type = SeatEventType::pointer_button,
                 .pointer = pointer,
+                .focus = pointer->focus,
+                .position = get_local_position(pointer, pointer->focus),
                 .button = {
                     .code    = code,
                     .pressed = pressed,
                     .quiet   = quiet,
                 },
-        }}))) {
-            if (pressed) {
-                seat_keyboard_focus(
-                    seat_get_keyboard(pointer->seat),
-                    seat_pointer_get_focus(pointer));
-            }
-        } else if (!pointer->focus && pressed) {
-            seat_keyboard_focus(seat_get_keyboard(pointer->seat), nullptr);
-        }
+        }}));
 
         if (!pressed) {
             if (pointer->drag && seat_pointer_get_pressed(pointer).empty()) {
@@ -116,6 +117,8 @@ void seat_pointer_move(SeatPointer* pointer, vec2f32 position, vec2f32 rel_accel
         .pointer = {
             .type = SeatEventType::pointer_motion,
             .pointer = pointer,
+            .focus = pointer->focus,
+            .position = get_local_position(pointer, pointer->focus),
             .motion = {
                 .rel_accel   = rel_accel,
                 .rel_unaccel = rel_unaccel,
@@ -130,6 +133,8 @@ void seat_pointer_scroll(SeatPointer* pointer, vec2f32 delta)
         .pointer = {
             .type = SeatEventType::pointer_scroll,
             .pointer = pointer,
+            .focus = pointer->focus,
+            .position = get_local_position(pointer, pointer->focus),
             .scroll = {
                 .delta = delta,
             }

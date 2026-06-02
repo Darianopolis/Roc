@@ -311,7 +311,7 @@ void seat_pointer_update_drag(SeatPointer* pointer)
 
     if (old_focus == new_focus && new_focus) {
         invalidate_drag_action(pointer->drag);
-        seat_post_event(pointer->seat, seat_get_focus_client(new_focus), ptr_to(SeatEvent {
+        seat_post_event(pointer->seat, new_focus->client, ptr_to(SeatEvent {
             .data = {
                 .type = SeatEventType::drag_motion,
                 .seat = seat,
