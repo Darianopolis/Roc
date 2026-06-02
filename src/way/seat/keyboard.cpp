@@ -60,7 +60,6 @@ void way_seat_on_keyboard_leave(WayClientSeat* client_seat, SeatEvent* event)
     auto* seat = client_seat->seat;
     auto* server = seat->server;
 
-
     auto* surface = seat->focus.keyboard.get();
     seat->focus.keyboard = nullptr;
     if (!surface || !surface->resource) return;

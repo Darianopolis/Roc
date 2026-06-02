@@ -292,11 +292,6 @@ auto make_offer(WayClientSeat* client_seat, wl_resource* wl_data_device, SeatDat
         way_send<wl_data_offer_send_offer>(offer->resource, mime.c_str());
     }
 
-    if (wl_resource_get_version(offer->resource) >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION) {
-        way_send<wl_data_offer_send_source_actions>(offer->resource,
-            to_wayland_dnd_action(seat_data_offer_get_actions(seat_offer)));
-    }
-
     return offer;
 }
 
@@ -370,6 +365,10 @@ void drag_enter(WayClient* client, SeatDataEvent* event)
 
     for (auto* wl_data_device : client_seat->data_devices) {
         auto offer = make_offer(client_seat, wl_data_device, event->drag.offer);
+        if (wl_resource_get_version(offer->resource) >= WL_DATA_OFFER_SOURCE_ACTIONS_SINCE_VERSION) {
+            way_send<wl_data_offer_send_source_actions>(offer->resource,
+                to_wayland_dnd_action(seat_data_offer_get_actions(event->drag.offer)));
+        }
         client_seat->drag_offers.emplace_back(offer);
         way_send<wl_data_device_send_enter>(wl_data_device, serial.value, surface->resource, pos.x, pos.y, offer->resource);
     }
