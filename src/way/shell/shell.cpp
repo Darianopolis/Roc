@@ -67,7 +67,7 @@ void get_toplevel(wl_client* client, wl_resource* resource, u32 id)
     toplevel->window = wm_window_create(surface->client->wm.get());
     wm_window_set_focus(toplevel->window.get(), surface->scene.focus.get());
 
-    scene_tree_place_above(wm_window_get_tree(toplevel->window.get()), nullptr, surface->scene.tree.get());
+    wm_window_set_content(toplevel->window.get(), surface->scene.tree.get());
 }
 
 static

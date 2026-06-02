@@ -215,9 +215,9 @@ struct WmWindow
     std::string title;
 
     Ref<SceneTree> root_tree;
-    Ref<SceneTree> client_tree;
 
-    Ref<SceneTexture> borders;
+    Ref<SceneTexture> backdrop;
+    RefVector<SceneTexture> borders;
 
     Weak<SeatFocus> focus;
 

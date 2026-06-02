@@ -16,9 +16,20 @@ WmWindow::~WmWindow()
     std::erase(client->wm->windows, this);
 }
 
-static constexpr vec2f32 border_size    = vec2f32(2, 2);
-static constexpr auto    border_normal  = color_from_hex("#4C4C4C");
-static constexpr auto    border_focused = color_from_hex("#6666FF");
+static constexpr vec2f32 border_size      = vec2f32(2, 2);
+static constexpr auto    border_normal    = color_from_hex("#4C4C4C");
+static constexpr auto    border_focused   = color_from_hex("#6666FF");
+static constexpr auto    backdrop_normal  = color_from_hex("#333333");
+static constexpr auto    backdrop_focused = color_from_hex("#4d4dff");
+
+static
+void update_border_colors(WmWindow* window)
+{
+    scene_texture_set_tint(window->backdrop.get(), wm_window_is_focused(window) ? backdrop_focused : backdrop_normal);
+    for (auto* border : window->borders) {
+        scene_texture_set_tint(border, wm_window_is_focused(window) ? border_focused : border_normal);
+    }
+}
 
 auto wm_window_create(WmClient* client) -> Ref<WmWindow>
 {
@@ -32,12 +43,16 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
     window->root_tree = scene_tree_create();
     window->root_tree->userdata = {wm->window_system_id, window.get()};
 
-    window->borders = scene_texture_create();
-    scene_tree_place_above(window->root_tree.get(), nullptr, window->borders.get());
-    scene_texture_set_tint(window->borders.get(), border_normal);
+    window->backdrop = scene_texture_create();
+    scene_tree_place_above(window->root_tree.get(), nullptr, window->backdrop.get());
 
-    window->client_tree = scene_tree_create();
-    scene_tree_place_above(window->root_tree.get(), nullptr, window->client_tree.get());
+    for (usz i = 0; i < 4; ++i) {
+        auto border = scene_texture_create();
+        scene_tree_place_above(window->root_tree.get(), nullptr, border.get());
+        window->borders.emplace_back(border.get());
+    }
+
+    update_border_colors(window.get());
 
     wm_window_post_event(ptr_to(WmWindowEvent {
         .type = WmEventType::window_created,
@@ -47,9 +62,9 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
     return window;
 }
 
-auto wm_window_get_tree(WmWindow* window) -> SceneTree*
+void wm_window_set_content(WmWindow* window, SceneNode* node)
 {
-    return window->client_tree.get();
+    scene_tree_place_above(window->root_tree.get(), window->backdrop.get(), node);
 }
 
 void wm_window_set_title(WmWindow* window, std::string_view title)
@@ -115,7 +130,14 @@ void wm_window_set_size(WmWindow* window, vec2f32 size)
     }
 
     scene_tree_set_translation(window->root_tree.get(), origin);
-    scene_texture_set_dst(window->borders.get(), {-border_size, size + border_size * 2.f, xywh});
+
+    scene_texture_set_dst(window->backdrop.get(), {{}, size, minmax});
+
+    auto bs = border_size;
+    scene_texture_set_dst(window->borders[0 /* left   */], {{ -bs.x,     0}, {            0, size.y       }, minmax});
+    scene_texture_set_dst(window->borders[1 /* right  */], {{size.x,     0}, {size.x + bs.x, size.y       }, minmax});
+    scene_texture_set_dst(window->borders[2 /* top    */], {{-bs.x,  -bs.y}, {size.x + bs.x,              }, minmax});
+    scene_texture_set_dst(window->borders[3 /* bottom */], {{-bs.x, size.y}, {size.x + bs.x, size.y + bs.y}, minmax});
 }
 
 auto wm_window_get_frame(WmWindow* window) -> rect2f32
@@ -205,7 +227,7 @@ static
 void update_border_colors(WmServer* wm)
 {
     for (auto* w : wm->windows) {
-        scene_texture_set_tint(w->borders.get(), wm_window_is_focused(w) ? border_focused : border_normal);
+        update_border_colors(w);
     }
 }
 
@@ -302,10 +324,14 @@ void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
     bool last_output = std::exchange(window->fullscreen.output, output);
 
     if (output) {
-        scene_node_unparent(window->borders.get());
+        for (auto* border : window->borders) {
+            scene_node_unparent(border);
+        }
         wm_window_request_reposition(window, wm_output_get_viewport(output), vec2f32{1, 1});
     } else if (last_output) {
-        scene_tree_place_below(window->root_tree.get(), nullptr, window->borders.get());
+        for (auto* border : window->borders) {
+            scene_tree_place_above(window->root_tree.get(), nullptr, border);
+        }
         wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
     }
 }
