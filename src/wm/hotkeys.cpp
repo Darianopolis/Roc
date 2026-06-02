@@ -35,6 +35,9 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                         return SeatEventFilterResult::capture;
                     break;case KEY_F: {
                         auto window = wm_find_window_for(wm, seat_keyboard_get_focus(event->keyboard.keyboard));
+                        if (!window && !wm->windows.empty()) {
+                            window = wm->windows.back();
+                        }
                         if (window) {
                             auto seat = seat_keyboard_get_seat(event->keyboard.keyboard);
                             auto pointer = seat_get_pointer(seat);
