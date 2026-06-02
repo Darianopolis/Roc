@@ -20,14 +20,32 @@ void log_redirect_stderr(   const std::filesystem::path&);
 
 void log(LogSemantic, std::string_view message);
 
-template<LogSemantic semantic, typename ...Args>
-void log(std::format_string<Args...> fmt, Args&&... args)
+template<typename ...Args>
+void log_trace(std::format_string<Args...> fmt, Args&&... args)
 {
-    log(semantic, std::format(fmt, std::forward<Args>(args)...));
+    log(LogSemantic::trace, std::format(fmt, std::forward<Args>(args)...));
 }
 
-#define log_trace log<LogSemantic::trace>
-#define log_debug log<LogSemantic::debug>
-#define log_info  log<LogSemantic::info>
-#define log_warn  log<LogSemantic::warn>
-#define log_error log<LogSemantic::error>
+template<typename ...Args>
+void log_debug(std::format_string<Args...> fmt, Args&&... args)
+{
+    log(LogSemantic::debug, std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<typename ...Args>
+void log_info(std::format_string<Args...> fmt, Args&&... args)
+{
+    log(LogSemantic::info, std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<typename ...Args>
+void log_warn(std::format_string<Args...> fmt, Args&&... args)
+{
+    log(LogSemantic::warn, std::format(fmt, std::forward<Args>(args)...));
+}
+
+template<typename ...Args>
+void log_error(std::format_string<Args...> fmt, Args&&... args)
+{
+    log(LogSemantic::error, std::format(fmt, std::forward<Args>(args)...));
+}

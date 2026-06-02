@@ -246,6 +246,7 @@ target_sources(wm PRIVATE
     src/wm/movesize.cpp
     src/wm/hotkeys.cpp
     src/wm/zone.cpp
+    src/wm/selection.cpp
     src/wm/focus.cpp
     src/wm/pointer-constraints.cpp
     )

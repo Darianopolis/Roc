@@ -33,6 +33,7 @@ auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
     wm_init_movesize(wm.get());
     wm_init_zone(wm.get());
     wm_init_focus_cycle(wm.get());
+    wm_init_selection(wm.get());
 
     wm_decoration_init(wm.get());
 

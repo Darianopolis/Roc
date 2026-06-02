@@ -35,6 +35,7 @@ enum class WmInteractionMode
     size,
     zone,
     focus_cycle,
+    selection,
 };
 
 struct ShellLauncher;
@@ -138,6 +139,18 @@ struct WmServer
         Seat* seat;
         Weak<WmWindow> cycled;
     } focus;
+
+    struct {
+        Ref<SeatEventFilter> filter;
+        SeatPointer* pointer;
+        Ref<SceneTexture> texture;
+
+        vec2f32 initial_point;
+        aabb2f32 rect;
+        bool selecting = false;
+
+        std::move_only_function<void(aabb2f32)> callback;
+    } selection;
 };
 
 void wm_init_io(     WmServer*);
@@ -147,6 +160,7 @@ void wm_init_hotkeys(WmServer*);
 void wm_init_movesize(   WmServer*);
 void wm_init_zone(       WmServer*);
 void wm_init_focus_cycle(WmServer*);
+void wm_init_selection(  WmServer*);
 
 void wm_interaction_set_mode(WmServer*, WmInteractionMode);
 

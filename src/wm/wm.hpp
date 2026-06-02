@@ -141,6 +141,10 @@ void wm_set_xcursor(WmClient*, const char* semantic);
 
 // -----------------------------------------------------------------------------
 
+void wm_begin_selection(WmServer*, SeatPointer*, std::move_only_function<void(rect2f32)>);
+
+// -----------------------------------------------------------------------------
+
 auto wm_window_create(WmClient*) -> Ref<WmWindow>;
 
 void wm_window_set_focus(WmWindow*, SeatFocus*);

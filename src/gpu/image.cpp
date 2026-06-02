@@ -175,7 +175,7 @@ void gpu_image_init(GpuImageBase* image)
     }));
 }
 
-void gpu_cmd_copy_image_to_buffer(GpuBuffer* buffer, GpuImage* image)
+void gpu_copy_image_to_buffer(GpuBuffer* buffer, GpuImage* image)
 {
     auto* gpu = image->context();
     auto extent = image->extent();
@@ -224,6 +224,13 @@ void gpu_copy_memory_to_image(GpuImage* image, std::span<const byte> data, std::
     std::memcpy(buffer->host_address, data.data(), data.size());
 
     gpu_copy_buffer_to_image(image, buffer.get(), regions);
+}
+
+auto gpu_image_compute_packed_stride(GpuFormat format, u32 width) -> u32
+{
+    auto bw = format->block_extent.width;
+    auto blocks = (width + bw - 1) / bw;
+    return blocks * format->texel_block_size;
 }
 
 auto gpu_image_compute_linear_offset(GpuFormat format, vec2u32 pos, u32 row_stride_bytes) -> u32

@@ -47,6 +47,9 @@ void update_seat_cursor_visual(WmServer* wm, Seat* seat)
         break;case WmInteractionMode::focus_cycle:
             seat_pointer_set_xcursor(pointer, "default");
             return;
+        break;case WmInteractionMode::selection:
+            seat_pointer_set_xcursor(pointer, "crosshair");
+            return;
     }
     if (wm->mode != WmInteractionMode::none) {
         seat_pointer_set_xcursor(pointer, "default");

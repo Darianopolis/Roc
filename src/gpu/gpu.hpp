@@ -444,7 +444,10 @@ void gpu_copy_buffer_to_image(GpuImage*, GpuBuffer*, std::span<const GpuBufferIm
 
 void gpu_copy_memory_to_image(GpuImage*, std::span<const byte> data, std::span<const GpuBufferImageCopy> regions);
 
-auto gpu_image_compute_linear_offset(GpuFormat, vec2u32 position, u32 stride) -> u32;
+auto gpu_image_compute_packed_stride(GpuFormat, u32 width) -> u32;
+auto gpu_image_compute_linear_offset(GpuFormat, vec2u32 position, u32 row_stride_bytes) -> u32;
+
+void gpu_barrier(Gpu*);
 
 // -----------------------------------------------------------------------------
 
