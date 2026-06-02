@@ -60,11 +60,6 @@ void handle_evdev_event(IoContext* io, IoEvdevDevice* device)
             return;
         } else {
             log_trace("Event ({}) = {}", libevdev_event_code_get_name(event.type, event.code), event.value);
-
-            if (event.type == EV_KEY && event.code == BTN_MODE && event.value == 1) {
-                log_error("EMERGENCY SHUTDOWN");
-                debug_kill();
-            }
         }
     }
 }

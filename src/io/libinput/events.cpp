@@ -19,10 +19,6 @@ void handle_keyboard_key(IoLibinputDevice* device, libinput_event_keyboard* even
 
     switch (libinput_event_keyboard_get_key_state(event)) {
         break;case LIBINPUT_KEY_STATE_PRESSED:
-            if (keycode == KEY_PAUSE) {
-                log_error("PAUSE HIT - EMERGENCY SHUTDOWN");
-                debug_kill();
-            }
             io_input_device_key_press(device, keycode);
         break;case LIBINPUT_KEY_STATE_RELEASED:
             io_input_device_key_release(device, keycode);

@@ -11,6 +11,8 @@ void print_scene_graph(Shell* shell)
     auto* wm = shell->wm.get();
     auto* way = shell->way.get();
 
+    std::ostringstream oss;
+
     u32 depth = 0;
     auto indent = [&] { return std::string(depth, ' '); };
     scene_iterate<SceneIterateDirection::back_to_front>(
@@ -19,21 +21,28 @@ void print_scene_graph(Shell* shell)
             WaySurface* surface;
             if (tree->userdata.id == way->userdata_id
                     && (surface = way_get_userdata<WaySurface>(way, tree->userdata.data))) {
-                log_warn("{}tree({}{}) {{", indent(),
+                std::println(oss, "{}{} {} {{", indent(),
                     surface->role,
-                    tree->enabled ? "": ", disabled");
+                    tree->translation);
             } else {
-                log_warn("{}tree{} {{", indent(), tree->enabled ? "": "(disabled)");
+                std::println(oss, "{}tree {} {{", indent(), tree->translation);
             }
             depth += 2;
         },
-        [&](SceneNode* node) {
-            log_warn("{}{}", indent(), typeid(*node).name());
+        OverloadSet {
+            [&](SceneTexture* texture) {
+                std::println(oss, "{}texture {}", indent(), texture->dst);
+            },
+            [&](SceneInputRegion* input_region) {
+                std::println(oss, "{}input_region {}", indent(), rect2f32(input_region->clip));
+            },
         },
         [&](SceneTree* tree) {
             depth -= 2;
-            log_warn("{}}}", indent());
+            std::println(oss, "{}}}", indent());
         });
+
+    log_info("Scene graph:\n{}", oss.str());
 }
 
 static
