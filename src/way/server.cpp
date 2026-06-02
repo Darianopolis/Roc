@@ -65,6 +65,7 @@ auto way_create(WmServer* wm, ExecContext* exec) -> Ref<WayServer>
     way_global(server.get(), wp_cursor_shape_manager_v1);
     way_global(server.get(), zxdg_decoration_manager_v1);
     way_global(server.get(), org_kde_kwin_server_decoration_manager);
+    way_global(server.get(), xdg_activation_v1);
     way_output_init(server.get());
     way_dmabuf_init(server.get());
 

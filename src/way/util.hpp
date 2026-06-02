@@ -415,8 +415,8 @@ auto way_resource_create(wl_client* client, const wl_interface* interface, wl_re
     return way_resource_create(client, interface, wl_resource_get_version(parent), id, impl, object, refcount);
 }
 
-#define way_resource_create_unsafe(Name, Client, Version, IdOrResource, Object) \
-    way_resource_create(Client, &Name##_interface, Version, IdOrResource, &way_##Name##_impl, Object, false)
+#define way_resource_create_unsafe(Name, Client, VersionOrParent, NewId, Object) \
+    way_resource_create(Client, &Name##_interface, VersionOrParent, NewId, &way_##Name##_impl, Object, false)
 
-#define way_resource_create_refcounted(Name, Client, Version, IdOrResource, Object) \
-    way_resource_create(Client, &Name##_interface, Version, IdOrResource, &way_##Name##_impl, Object, true)
+#define way_resource_create_refcounted(Name, Client, VersionOrParent, NewId, Object) \
+    way_resource_create(Client, &Name##_interface, VersionOrParent, NewId, &way_##Name##_impl, Object, true)

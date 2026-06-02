@@ -18,6 +18,7 @@ def list_wayland_protocols(deps):
 
     add(system_protocol_dir / "staging/cursor-shape/cursor-shape-v1.xml")
     add(system_protocol_dir / "staging/linux-drm-syncobj/linux-drm-syncobj-v1.xml")
+    add(system_protocol_dir / "staging/xdg-activation/xdg-activation-v1.xml")
 
     add(system_protocol_dir / "unstable/xdg-decoration/xdg-decoration-unstable-v1.xml")
     add(system_protocol_dir / "unstable/pointer-gestures/pointer-gestures-unstable-v1.xml")

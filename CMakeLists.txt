@@ -281,6 +281,7 @@ target_sources(way PRIVATE
 
     src/way/shell/popup.cpp
     src/way/shell/shell.cpp
+    src/way/shell/activation.cpp
 
     src/way/surface/decoration.cpp
     src/way/surface/subsurface.cpp

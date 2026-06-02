@@ -5,6 +5,7 @@
 #include "../surface/state.hpp"
 
 #include <wayland/server/xdg-shell.h>
+#include <wayland/server/xdg-activation-v1.h>
 
 struct WaySurface;
 struct WaySurfaceState;
@@ -115,3 +116,6 @@ WAY_INTERFACE_DECLARE(xdg_surface);
 WAY_INTERFACE_DECLARE(xdg_toplevel);
 WAY_INTERFACE_DECLARE(xdg_positioner);
 WAY_INTERFACE_DECLARE(xdg_popup);
+
+WAY_INTERFACE_DECLARE(xdg_activation_v1, 1);
+WAY_INTERFACE_DECLARE(xdg_activation_token_v1);
