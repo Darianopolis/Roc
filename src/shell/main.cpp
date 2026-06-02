@@ -9,6 +9,8 @@
 
 auto main(int argc, char* argv[]) -> int
 {
+    debug_handlers();
+
     bool in_direct_session = env_get("WAYLAND_DISPLAY").value_or("").empty();
     auto home_dir = std::filesystem::path(env_get("HOME").value_or(""));
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;

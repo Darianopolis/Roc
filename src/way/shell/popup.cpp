@@ -236,6 +236,11 @@ auto positioner_apply(const WayPositionerRules& rules, rect2i32 constraint) -> r
 static
 void popup_update_geometry(WaySurface* surface)
 {
+    if (!surface->parent) {
+        log_warn("Popup parent destroyed, geometry update cancelled");
+        return;
+    }
+
     auto position    = surface->popup->position;
     auto geom        = surface->xdg->current.geometry;
     auto parent_geom = surface->parent->xdg->current.geometry;
@@ -246,6 +251,11 @@ void popup_update_geometry(WaySurface* surface)
 static
 void position(WaySurface* surface, const WayPositionerRules& rules, std::optional<u32> token = std::nullopt)
 {
+    if (!surface->parent) {
+        log_warn("Popup parent destroyed, position cancelled");
+        return;
+    }
+
     auto* server = surface->client->server;
 
     rect2i32 constraint = {{-INT_MAX/4, -INT_MAX/4}, {INT_MAX/2, INT_MAX/2}, xywh};

@@ -2,28 +2,24 @@
 
 #include "pch.hpp"
 
+void debug_handlers();
+
 CORE_NOINLINE inline
 void debug_break()
 {
-    std::cerr << std::stacktrace::current() << std::endl;
     std::breakpoint();
 }
 
 [[noreturn]] CORE_NOINLINE inline
 void debug_kill()
 {
-    std::cerr << std::stacktrace::current() << std::endl;
     std::terminate();
 }
 
 [[noreturn]] inline
 void debug_unreachable()
 {
-#ifdef NDEBUG
-    std::unreachable();
-#else
     debug_kill();
-#endif
 }
 
 [[noreturn]] CORE_NOINLINE
