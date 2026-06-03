@@ -355,6 +355,7 @@ SeatDataSource::~SeatDataSource()
     if (seat) {
         if (seat->selection == this) {
             seat_clear_selection(seat.get());
+            offer_selection_to_focus(seat.get(), nullptr);
         }
 
         auto* pointer = seat_get_pointer(seat.get());

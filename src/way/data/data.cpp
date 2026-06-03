@@ -299,14 +299,20 @@ void way_data_offer_selection(WayClientSeat* client_seat)
 {
     auto* seat = client_seat->seat;
 
-    auto seat_offer = seat_get_selection(seat->seat);
-    if (!seat_offer) return;
-
     if (!seat->focus.keyboard || !seat->focus.keyboard->client) return;
 
-    for (auto* wl_data_device : client_seat->data_devices) {
-        auto offer = make_offer(client_seat, wl_data_device, seat_offer.get());
-        way_send<wl_data_device_send_selection>(wl_data_device, offer->resource);
+    auto seat_offer = seat_get_selection(seat->seat);
+
+    if (seat_offer) {
+        for (auto* wl_data_device : client_seat->data_devices) {
+            auto offer = make_offer(client_seat, wl_data_device, seat_offer.get());
+            way_send<wl_data_device_send_selection>(wl_data_device, offer->resource);
+        }
+    } else {
+        log_warn("clearing selection");
+        for (auto* wl_data_device : client_seat->data_devices) {
+            way_send<wl_data_device_send_selection>(wl_data_device, nullptr);
+        }
     }
 }
 
