@@ -78,6 +78,7 @@ struct WayToplevel : WaySurfaceAddon
     bool queued;       // new reposition request received while pending
 
     bool premap_configure_sent = false;
+    bool premap_configure_responded = false;
 
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;

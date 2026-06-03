@@ -169,8 +169,23 @@ static
 void configure_toplevel(WayToplevel* toplevel, vec2u32 extent)
 {
     std::vector<xdg_toplevel_state> states{XDG_TOPLEVEL_STATE_ACTIVATED};
+
     if (wm_window_get_fullscreen(toplevel->window.get())) {
         states.emplace_back(XDG_TOPLEVEL_STATE_FULLSCREEN);
+    } else {
+        if (wl_resource_get_version(toplevel->resource) >= XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION) {
+            states.emplace_back(XDG_TOPLEVEL_STATE_TILED_LEFT);
+            states.emplace_back(XDG_TOPLEVEL_STATE_TILED_TOP);
+            states.emplace_back(XDG_TOPLEVEL_STATE_TILED_RIGHT);
+            states.emplace_back(XDG_TOPLEVEL_STATE_TILED_BOTTOM);
+        }
+
+        if (wl_resource_get_version(toplevel->resource) >= XDG_TOPLEVEL_STATE_CONSTRAINED_LEFT_SINCE_VERSION) {
+            states.emplace_back(XDG_TOPLEVEL_STATE_CONSTRAINED_LEFT);
+            states.emplace_back(XDG_TOPLEVEL_STATE_CONSTRAINED_TOP);
+            states.emplace_back(XDG_TOPLEVEL_STATE_CONSTRAINED_RIGHT);
+            states.emplace_back(XDG_TOPLEVEL_STATE_CONSTRAINED_BOTTOM);
+        }
     }
 
     way_send<xdg_toplevel_send_configure>(toplevel->resource,
@@ -211,9 +226,6 @@ void send_premap_configure(WayToplevel* toplevel)
     if (wl_resource_get_version(toplevel->resource) >= XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION) {
         way_send<xdg_toplevel_send_wm_capabilities>(toplevel->resource, ptr_to(way_from_span<const xdg_toplevel_wm_capabilities>({{
             XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN,
-            XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE,
-            XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE,
-            XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU,
         }})));
     }
 
@@ -222,6 +234,17 @@ void send_premap_configure(WayToplevel* toplevel)
     configure_toplevel(toplevel, {0, 0});
 
     toplevel->pending = way_xdg_surface_configure(toplevel->surface);
+
+    toplevel->premap_configure_responded = false;
+}
+
+static
+void send_premap_configure_response(WayToplevel* toplevel)
+{
+    configure_toplevel(toplevel, vec_cast<u32>(toplevel->requested_size));
+    way_xdg_surface_configure(toplevel->surface);
+
+    toplevel->premap_configure_responded = true;
 }
 
 void WayToplevel::commit(WayCommitId id)
@@ -262,9 +285,12 @@ void WayToplevel::apply(WayCommitId id)
 
         if (queued) {
             configure_toplevel(this, vec_cast<u32>(requested_size));
-            way_xdg_surface_configure(surface);
-            pending = surface->xdg->sent_serial;
+            pending = way_xdg_surface_configure(surface);
             queued = false;
+        }
+
+        if (!premap_configure_responded) {
+            send_premap_configure_response(this);
         }
     } else if (!premap_configure_sent) {
         premap_configure_sent = true;
@@ -280,6 +306,9 @@ void set_maximized(wl_client* client, wl_resource* resource)
 {
     log_warn("TODO: xdg_toplevel.{}set_maximized", Enabled ? "" : "un");
 
+    auto* toplevel = way_get_userdata<WayToplevel>(resource);
+
+    configure_toplevel(toplevel, vec_cast<u32>(toplevel->requested_size));
     way_xdg_surface_configure(way_get_userdata<WayToplevel>(resource)->surface);
 }
 
