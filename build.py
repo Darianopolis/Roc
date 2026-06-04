@@ -64,7 +64,7 @@ def install_file(file: Path, target: Path):
         if filecmp.cmp(file, target):
             return
         os.remove(target)
-    print(f"Installing [{file}] to [{target}]")
+    print(f"Installing [{file.relative_to(cwd)}] to [{target}]")
     shutil.copy2(file, target)
 
 # -----------------------------------------------------------------------------
@@ -74,11 +74,11 @@ cxx_compilers = {
     "gcc":   "g++",
 }
 
-def build(build_type, compiler, linker_type, install = None):
+def build(build_type, compiler, linker_type, program_name: str, install: bool):
     build_name = f"{build_type.lower()}-{compiler}-{linker_type.lower()}"
     if args.asan:
         build_name += "-asan"
-    cmake_dir = build_dir / "cmake" / build_name
+    cmake_dir = build_dir / "cmake" / program_name / build_name
 
     configure_ok = True
 
@@ -88,6 +88,7 @@ def build(build_type, compiler, linker_type, install = None):
              "-B", cmake_dir,
              "-G", "Ninja",
             f"-DVENDOR_DIR={vendor_dir}",
+            f"-DPROGRAM_NAME={program_name}",
              "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             f"-DCMAKE_C_COMPILER={compiler}",
             f"-DCMAKE_CXX_COMPILER={cxx_compilers[compiler]}",
@@ -110,15 +111,20 @@ def build(build_type, compiler, linker_type, install = None):
         if res.returncode != 0:
             os._exit(res.returncode)
 
+    install_file(cmake_dir / program_name, build_dir / program_name)
+
     if install:
-        install_file(cmake_dir / install, local_bin_dir / install)
-        install_file(cwd / "resources/portals.conf", xdg_portal_dir / f"{install}-portals.conf")
+        install_file(cmake_dir / program_name, local_bin_dir / program_name)
+        install_file(cwd / "resources/portals.conf", xdg_portal_dir / f"{program_name}-portals.conf")
 
 # -----------------------------------------------------------------------------
 
 use_mold = not args.system_linker and shutil.which("mold")
 
-build(build_type  = "RelWithDebInfo" if args.release   else "Debug",
-      compiler    = "clang"          if args.use_clang else "gcc",
-      linker_type = "MOLD"           if use_mold       else "SYSTEM",
-      install     = "roc"            if args.install   else None)
+build(
+    build_type   = "RelWithDebInfo" if args.release   else "Debug",
+    compiler     = "clang"          if args.use_clang else "gcc",
+    linker_type  = "MOLD"           if use_mold       else "SYSTEM",
+    program_name = "roc",
+    install      = args.install
+    )
