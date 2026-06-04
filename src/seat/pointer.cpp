@@ -24,6 +24,11 @@ auto get_local_position(SeatPointer* pointer, SeatFocus* focus) -> vec2f32
     return seat_pointer_get_position(pointer) - (scene_tree_get_position(region->parent) + region->clip.origin);
 }
 
+void seat_pointer_set_sticky_focus(SeatPointer* pointer, bool locked)
+{
+    pointer->sticky_focus = locked;
+}
+
 void seat_pointer_focus(SeatPointer* pointer, SeatFocus* new_focus)
 {
     auto* old_focus = seat_pointer_get_focus(pointer);
@@ -63,8 +68,8 @@ void update_pointer_focus(SeatPointer* pointer)
 {
     SeatFocus* new_focus = nullptr;
 
-    if (!seat_pointer_get_pressed(pointer).empty()) {
-        // Pointer retains old focus while any pointer buttons pressed
+    if (!seat_pointer_get_pressed(pointer).empty() || pointer->sticky_focus) {
+        // Pointer retains old focus while any pointer buttons pressed or sticky focus enabled
         new_focus = seat_pointer_get_focus(pointer);
 
     } else if (auto* region = scene_find_input_region_at(pointer->root, seat_pointer_get_position(pointer))) {

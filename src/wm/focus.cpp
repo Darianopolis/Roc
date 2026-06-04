@@ -14,6 +14,10 @@ void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
         return true;
     };
 
+    if (wm->focus.cycled && !in_cycle(wm->focus.cycled.get())) {
+        wm->focus.cycled = nullptr;
+    }
+
     auto iter = std::ranges::find(wm->windows, wm->focus.cycled.get());
     if (iter == wm->windows.end()) {
         for (auto* window : wm->windows | std::views::reverse) {
@@ -51,15 +55,20 @@ void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
 static
 void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 {
-    bool new_cycle = wm->mode != WmInteractionMode::focus_cycle
-        && (pointer || seat_keyboard_get_focus(seat_get_keyboard(seat)));
+    seat_pointer_set_sticky_focus(seat_get_pointer(seat), true);
+
+    bool extra_cycle = wm->mode != WmInteractionMode::focus_cycle
+        && (pointer
+            ? forward
+            : bool(seat_keyboard_get_focus(seat_get_keyboard(seat))));
+
     wm_interaction_set_mode(wm, WmInteractionMode::focus_cycle);
     wm->focus.seat = seat;
 
     log_warn("Focus cycle ({}) {}", pointer ? "pointer" : "keyboard", forward ? "forward" : "backward");
 
     cycle_next_window(wm, pointer, forward);
-    if (new_cycle) {
+    if (extra_cycle) {
         cycle_next_window(wm, pointer, forward);
     }
     wm_arrange_windows(wm);
@@ -68,6 +77,8 @@ void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 static
 void focus_cycle_end(WmServer* wm)
 {
+    seat_pointer_set_sticky_focus(seat_get_pointer(wm->focus.seat), false);
+
     wm_interaction_set_mode(wm, WmInteractionMode::none);
 
     if (wm->focus.cycled) {
@@ -113,11 +124,19 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                 focus_cycle_end(wm);
             }
         }
+        break;case SeatEventType::pointer_motion:
+            if (wm->mode == WmInteractionMode::focus_cycle) {
+                return SeatEventFilterResult::capture;
+            }
+        break;case SeatEventType::pointer_button:
+            if (wm->mode == WmInteractionMode::focus_cycle && event->pointer.button.pressed) {
+                return SeatEventFilterResult::capture;
+            }
         break;default:
             ;
     }
 
-    return {};
+    return SeatEventFilterResult::passthrough;
 }
 
 // -----------------------------------------------------------------------------

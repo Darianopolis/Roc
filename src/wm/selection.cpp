@@ -49,6 +49,8 @@ void toggle_selecting(WmServer* wm)
 
 void wm_begin_selection(WmServer* wm, SeatPointer* pointer, std::move_only_function<void(rect2f32)> callback)
 {
+    seat_pointer_set_sticky_focus(pointer, true);
+
     wm->selection.pointer = pointer;
     wm->selection.selecting = false;
     wm->selection.callback = std::move(callback);
@@ -60,6 +62,8 @@ void wm_begin_selection(WmServer* wm, SeatPointer* pointer, std::move_only_funct
 static
 void end_selection(WmServer* wm)
 {
+    seat_pointer_set_sticky_focus(wm->selection.pointer, false);
+
     wm->selection.pointer = nullptr;
     update_rectangle(wm);
 
@@ -75,26 +79,33 @@ auto filter_event_selection(WmServer* wm, SeatEvent* event) -> SeatEventFilterRe
 {
     switch (event->type) {
         break;case SeatEventType::pointer_motion:
-            if (event->pointer.pointer == wm->selection.pointer) selection_update_regions(wm);
+            if (event->pointer.pointer == wm->selection.pointer) {
+                selection_update_regions(wm);
+                return SeatEventFilterResult::capture;
+            }
         break;case SeatEventType::pointer_button:
             if (event->pointer.pointer == wm->selection.pointer) {
                 if (event->pointer.button.pressed) {
                     if (event->pointer.button.code == BTN_LEFT) {
                         toggle_selecting(wm);
                     }
-                    return SeatEventFilterResult::capture;
                 }
                 if (seat_pointer_get_pressed(wm->selection.pointer).empty()) {
                     end_selection(wm);
                 }
+                if (event->pointer.button.pressed) {
+                    return SeatEventFilterResult::capture;
+                }
             }
         break;case SeatEventType::pointer_scroll:
-            if (event->pointer.pointer == wm->selection.pointer) return SeatEventFilterResult::capture;
+            if (event->pointer.pointer == wm->selection.pointer) {
+                return SeatEventFilterResult::capture;
+            }
         break;default:
             ;
     }
 
-    return {};
+    return SeatEventFilterResult::passthrough;
 }
 
 static

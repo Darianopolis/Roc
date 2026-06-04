@@ -69,7 +69,9 @@ struct SeatPointerCreateInfo
 
 auto seat_pointer_create(const SeatPointerCreateInfo&) -> Ref<SeatPointer>;
 
-void seat_pointer_focus(       SeatPointer*, SeatFocus*);
+void seat_pointer_focus(           SeatPointer*, SeatFocus*);
+void seat_pointer_set_sticky_focus(SeatPointer*, bool);
+
 auto seat_pointer_get_position(SeatPointer*) -> vec2f32;
 auto seat_pointer_get_pressed( SeatPointer*) -> std::span<const SeatInputCode>;
 auto seat_pointer_get_focus(   SeatPointer*) -> SeatFocus*;

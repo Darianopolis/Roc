@@ -44,7 +44,9 @@ auto wm_pointer_constraint_apply(WmServer* wm, vec2f32 position, vec2f32 delta) 
 {
     wm_update_active_pointer_constraint(wm);
 
-    if (!wm->active_pointer_constraint) return position + delta;
+    if (!wm->active_pointer_constraint || wm->mode != WmInteractionMode::none) {
+        return position + delta;
+    }
 
     auto* input_region = wm->active_pointer_constraint->input_region.get();
 

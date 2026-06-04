@@ -87,6 +87,8 @@ struct SeatPointer : SeatInputDevice
     SeatDataSource* drag;
     Weak<SceneNode> drag_visual;
     Weak<SeatFocus> drag_focus;
+
+    bool sticky_focus;
 };
 
 void seat_pointer_update_drag(SeatPointer*);
