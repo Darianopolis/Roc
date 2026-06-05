@@ -80,6 +80,9 @@ struct WayToplevel : WaySurfaceAddon
     bool premap_configure_sent = false;
     bool premap_configure_responded = false;
 
+    WayToplevel* parent;
+    std::vector<WayToplevel*> children;
+
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;
 

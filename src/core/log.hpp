@@ -2,7 +2,6 @@
 
 #include "pch.hpp"
 #include "types.hpp"
-#include "signal.hpp"
 
 enum class LogSemantic : u32
 {

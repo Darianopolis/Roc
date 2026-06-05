@@ -86,7 +86,9 @@ struct WmServer
 
     Ref<ShellLauncher> launcher;
 
-    Uid                    window_system_id;
+    Uid window_system_id;
+
+    Link<WmWindow> root_windows;
     std::vector<WmWindow*> windows;
 
     std::vector<WmClient*> clients;
@@ -202,7 +204,10 @@ struct WmWindow
 {
     WmClient* client;
 
-    WmWindow* parent; // TODO
+    Link<WmWindow> link;
+
+    WmWindow* parent;
+    Link<WmWindow> children;
 
     vec2f32 anchor;
     vec2f32 relative;

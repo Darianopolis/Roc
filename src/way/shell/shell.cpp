@@ -149,6 +149,36 @@ auto way_xdg_surface_configure(WaySurface* surface) -> WaySerial
 
 // -----------------------------------------------------------------------------
 
+static
+void set_parent(WayToplevel* toplevel, WayToplevel* parent)
+{
+    // TODO: Disallow forming cyclic relationships
+
+    if (parent && (!parent->surface || !parent->surface->mapped)) parent = nullptr;
+
+    if (toplevel->parent && toplevel->parent != parent) {
+        std::erase(toplevel->parent->children, toplevel);
+    }
+
+    toplevel->parent = parent;
+
+    if (parent) {
+        parent->children.emplace_back(toplevel);
+    }
+
+    wm_window_set_parent(toplevel->window.get(), parent ? parent->window.get() : nullptr);
+}
+
+static
+void toplevel_unparent_children(WayToplevel* toplevel)
+{
+    for (auto* child : toplevel->children) {
+        child->parent = nullptr;
+        set_parent(child, toplevel->parent);
+    }
+    toplevel->children.clear();
+}
+
 void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
 {
     auto* toplevel = surface->toplevel;
@@ -156,12 +186,11 @@ void way_toplevel_on_map_change(WaySurface* surface, bool mapped)
     auto* window = toplevel->window.get();
     if (mapped) {
         wm_window_map(window);
-        for (auto* seat : wm_get_seats(surface->client->server->wm)) {
-            seat_keyboard_focus(seat_get_keyboard(seat), surface->scene.focus.get());
-        }
+        wm_focus(surface->client->server->wm, window);
     } else {
         wm_window_unmap(window);
         toplevel->premap_configure_sent = false;
+        toplevel_unparent_children(toplevel);
     }
 }
 
@@ -301,6 +330,13 @@ void WayToplevel::apply(WayCommitId id)
 
 // -----------------------------------------------------------------------------
 
+static
+void set_parent(wl_client* client, wl_resource* resource, wl_resource* parent)
+{
+    auto* toplevel = way_get_userdata<WayToplevel>(resource);
+    set_parent(toplevel, parent ? way_get_userdata<WayToplevel>(parent) : nullptr);
+}
+
 template<bool Enabled>
 void set_maximized(wl_client* client, wl_resource* resource)
 {
@@ -325,7 +361,7 @@ void set_fullscreen(wl_client* client, wl_resource* resource, wl_resource* outpu
 
 WAY_INTERFACE(xdg_toplevel) = {
     .destroy = way_simple_destroy,
-    WAY_STUB(set_parent),
+    .set_parent = set_parent,
     .set_title  = [](wl_client* client, wl_resource* resource, const char* title) {
         auto* toplevel = way_get_userdata<WayToplevel>(resource);
         wm_window_set_title(toplevel->window.get(), title);
@@ -358,6 +394,7 @@ WAY_INTERFACE(xdg_toplevel) = {
 
 WayToplevel::~WayToplevel()
 {
+    set_parent(this, nullptr);
     if (surface) {
         surface->toplevel = nullptr;
         surface->role = WaySurfaceRole::none;

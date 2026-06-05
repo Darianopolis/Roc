@@ -4,6 +4,39 @@
 #include <core/color.hpp>
 #include <core/log.hpp>
 
+static
+void set_parent_impl(WmWindow* window, WmWindow* parent)
+{
+    if (window->parent == parent) return;
+
+    auto* wm = window->client->wm;
+
+    window->parent = parent;
+
+    if (parent) {
+        parent->children.link_prev(&window->link);
+    } else {
+        wm->root_windows.link_prev(&window->link);
+    }
+}
+
+static
+void flatten_window_list(WmServer* wm)
+{
+    wm->windows.clear();
+    auto append = [&](this auto&& append, WmWindow* window) -> void {
+        wm->windows.emplace_back(window);
+        for (auto* l = window->children.next; l != &window->children; l = l->next) {
+            auto* child = LINK_GET(WmWindow, link, l);
+            append(child);
+        }
+    };
+    for (auto* l = wm->root_windows.next; l != &wm->root_windows; l = l->next) {
+        auto* window = LINK_GET(WmWindow, link, l);
+        append(window);
+    }
+}
+
 WmWindow::~WmWindow()
 {
     wm_window_post_event(ptr_to(WmWindowEvent {
@@ -11,9 +44,16 @@ WmWindow::~WmWindow()
         .window = this,
     }));
 
+    for (auto* l = children.next; l != &children; l = l->next) {
+        auto* child = LINK_GET(WmWindow, link, l);
+        set_parent_impl(child, parent);
+    }
+
+    link.unlink();
+    flatten_window_list(client->wm);
+
     root_tree->userdata = {};
     wm_window_unmap(this);
-    std::erase(client->wm->windows, this);
 }
 
 static constexpr vec2f32 border_size      = vec2f32(2, 2);
@@ -38,8 +78,6 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
     auto window = ref_create<WmWindow>();
     window->client = client;
 
-    wm->windows.emplace_back(window.get());
-
     window->root_tree = scene_tree_create();
     window->root_tree->userdata = {wm->window_system_id, window.get()};
 
@@ -59,7 +97,19 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
         .window = window.get(),
     }));
 
+    wm->root_windows.link_prev(&window->link);
+    flatten_window_list(wm);
+
     return window;
+}
+
+void wm_window_set_parent(WmWindow* window, WmWindow* parent)
+{
+    set_parent_impl(window, parent);
+
+    auto* wm = window->client->wm;
+    flatten_window_list(wm);
+    wm_arrange_windows(wm);
 }
 
 void wm_window_set_content(WmWindow* window, SceneNode* node)
@@ -171,36 +221,31 @@ void wm_window_raise(WmWindow* window)
 {
     if (!window->mapped) return;
 
+    auto raise = [](this auto&& raise, WmWindow* window) -> void {
+        if (window->parent) {
+            window->parent->children.link_prev(&window->link);
+            raise(window->parent);
+        } else {
+            auto* wm = window->client->wm;
+            wm->root_windows.link_prev(&window->link);
+        }
+    };
+
+    raise(window);
     auto* wm = window->client->wm;
-
-    std::erase(wm->windows, window);
-    wm->windows.emplace_back(window);
-
+    flatten_window_list(wm);
     wm_arrange_windows(wm);
 }
 
 static
 void try_revert_focus(WmServer* wm, WmWindow* window)
 {
-    for (auto* seat : wm_get_seats(wm)) {
-        auto* keyboard = seat_get_keyboard(seat);
-        if (seat_focus_contains(window->focus.get(), seat_keyboard_get_focus(keyboard))) {
-            // TODO: Refactor to share this logic with `focus.cpp`
-            bool found_new_focus = false;
-            for (auto* new_window : wm->windows | std::views::reverse) {
-                if (new_window == window) continue;
-                if (!new_window->mapped) continue;
-                seat_keyboard_focus(keyboard, new_window->focus.get());
-                found_new_focus = true;
-                break;
-            }
-            if (!found_new_focus) {
-                seat_keyboard_focus(keyboard, nullptr);
-            }
-        }
+    if (!wm_window_is_focused(window)) return;
 
-        auto* pointer = seat_get_pointer(seat);
-        seat_pointer_move(pointer, seat_pointer_get_position(pointer), {}, {});
+    for (auto* new_window : wm->windows | std::views::reverse) {
+        if (new_window == window || !new_window->mapped) continue;
+        wm_focus(wm, new_window);
+        break;
     }
 }
 
@@ -278,14 +323,21 @@ void wm_window_set_focus(WmWindow* window, SeatFocus* focus)
     window->focus = focus;
 }
 
-void wm_window_focus(WmWindow* window)
+void wm_focus(WmServer* wm, WmWindow* window)
 {
-    auto* wm = window->client->wm;
-
     auto* keyboard = seat_get_keyboard(wm_get_seat(wm));
-    if (keyboard) {
-        seat_keyboard_focus(keyboard, window->focus.get());
+
+    if (!window) {
+        seat_keyboard_focus(keyboard, nullptr);
+        return;
     }
+
+    // Find the currently top-most leaf
+    while (window->children.is_linked()) {
+        window = LINK_GET(WmWindow, link, window->children.prev);
+    }
+
+    seat_keyboard_focus(keyboard, window->focus.get());
     wm_window_raise(window);
 }
 

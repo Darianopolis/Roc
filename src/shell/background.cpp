@@ -84,13 +84,11 @@ auto load_background_image(Shell* shell) -> Ref<GpuImage>
 }
 
 static
-void handle_seat_event(SeatEvent* event)
+void handle_seat_event(ShellBackground* bg, SeatEvent* event)
 {
     switch (event->type) {
         break;case SeatEventType::pointer_button: {
-            auto* seat = seat_pointer_get_seat(event->pointer.pointer);
-            auto* keyboard = seat_get_keyboard(seat);
-            seat_keyboard_focus(keyboard, nullptr);
+            wm_focus(bg->shell->wm.get(), nullptr);
         }
         break;default:
             ;
@@ -116,7 +114,7 @@ void shell_init_background(Shell* shell)
             break;case WmEventType::output_layout:
                 update_backgrounds(bg);
             break;case WmEventType::seat_event:
-                handle_seat_event(event->seat.event);
+                handle_seat_event(bg, event->seat.event);
 
             break;default:
                 ;

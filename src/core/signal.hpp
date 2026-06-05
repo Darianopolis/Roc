@@ -78,7 +78,7 @@ struct Signal<R(Args...)>
         usz count = 0;
         auto* link = listeners.next;
         while (link != &listeners) {
-            stored[count++] = CONTAINER_OF(ListenerState<R(Args...)>, link, link);
+            stored[count++] = LINK_GET(ListenerState<R(Args...)>, link, link);
             link = link->next;
         }
         stack.set_head(stored + count);

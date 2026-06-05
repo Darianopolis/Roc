@@ -31,7 +31,7 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
             if (seat_keyboard_get_modifiers(event->keyboard.keyboard).contains(wm->main_mod)) {
                 switch (event->keyboard.key.code) {
                     break;case KEY_S:
-                        seat_keyboard_focus(event->keyboard.keyboard, nullptr);
+                        wm_focus(wm, nullptr);
                         return SeatEventFilterResult::capture;
                     break;case KEY_F: {
                         auto window = wm_find_window_for(wm, seat_keyboard_get_focus(event->keyboard.keyboard));
@@ -60,8 +60,7 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                         seat_pointer_get_seat(event->pointer.pointer),
                         seat_pointer_get_focus(event->pointer.pointer));
                 break;case BTN_EXTRA: {
-                    auto* seat = seat_pointer_get_seat(event->pointer.pointer);
-                    seat_keyboard_focus(seat_get_keyboard(seat), nullptr);
+                    wm_focus(wm, nullptr);
                     return SeatEventFilterResult::capture;
                 }
             }

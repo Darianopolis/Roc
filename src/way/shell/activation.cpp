@@ -19,10 +19,7 @@ void activate(wl_client* client, wl_resource* resource, const char* token, wl_re
 
     if (surface->toplevel && surface->mapped) {
         log_warn("  activating!");
-        wm_window_raise(surface->toplevel->window.get());
-        for (auto* seat : wm_get_seats(surface->client->server->wm)) {
-            seat_keyboard_focus(seat_get_keyboard(seat), surface->scene.focus.get());
-        }
+        wm_focus(surface->client->server->wm, surface->toplevel->window.get());
     }
 }
 

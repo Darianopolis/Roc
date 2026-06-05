@@ -127,7 +127,7 @@ void end_zone(WmServer* wm)
 
     if (auto* window = wm->zone.window.get()) {
         wm_window_request_reposition(window, rect_cast<f32>(wm->zone.final_zone), {1, 1});
-        wm_window_focus(window);
+        wm_focus(wm, window);
     }
 }
 

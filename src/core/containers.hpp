@@ -114,6 +114,9 @@ struct Link
 
     void link_prev(Link<T>* other)
     {
+        if (other->is_linked()) {
+            other->unlink();
+        }
         prev->next = other;
         other->prev = prev;
         other->next = this;
@@ -122,6 +125,9 @@ struct Link
 
     void link_next(Link<T>* other)
     {
+        if (other->is_linked()) {
+            other->unlink();
+        }
         next->prev = other;
         other->next = next;
         other->prev = this;
@@ -133,6 +139,9 @@ struct Link
         return next != this;
     }
 };
+
+#define LINK_GET(Type, Member, Ptr) \
+    ((Type*)(uintptr_t(static_cast<Link<Type>*>(Ptr)) - offsetof(Type, Member)))
 
 // -----------------------------------------------------------------------------
 

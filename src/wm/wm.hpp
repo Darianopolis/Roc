@@ -147,6 +147,8 @@ void wm_begin_selection(WmServer*, SeatPointer*, std::move_only_function<void(re
 
 auto wm_window_create(WmClient*) -> Ref<WmWindow>;
 
+void wm_window_set_parent(WmWindow*, WmWindow*);
+
 void wm_window_set_focus(WmWindow*, SeatFocus*);
 
 void wm_window_set_title( WmWindow*, std::string_view title);
@@ -174,7 +176,6 @@ void wm_window_set_size(WmWindow*, vec2f32 size);
 auto wm_window_get_frame(WmWindow*) -> rect2f32;
 
 auto wm_window_is_focused(WmWindow*) -> bool;
-void wm_window_focus(     WmWindow*);
 
 void wm_window_set_fullscreen(WmWindow*, WmOutput*);
 auto wm_window_get_fullscreen(WmWindow*) -> WmOutput*;
@@ -184,6 +185,8 @@ auto wm_window_is_resizable(WmWindow*) -> bool;
 
 auto wm_find_window_for(WmServer*, SeatFocus*)    -> WmWindow*;
 auto wm_find_window_at( WmServer*, vec2f32 point) -> WmWindow*;
+
+void wm_focus(WmServer*, WmWindow*);
 
 // -----------------------------------------------------------------------------
 

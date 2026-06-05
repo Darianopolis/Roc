@@ -137,8 +137,7 @@ void way_seat_on_button(WayClientSeat* client_seat, SeatEvent* event)
 
     if (event->pointer.button.pressed) {
         if (auto* toplevel = find_root_toplevel(seat->focus.pointer.get())) {
-            auto* seat_keyboard = seat_get_keyboard(seat->seat);
-            seat_keyboard_focus(seat_keyboard, toplevel->scene.focus.get());
+            wm_focus(server->wm, toplevel->toplevel->window.get());
         }
     }
 }

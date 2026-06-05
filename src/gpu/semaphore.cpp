@@ -111,7 +111,7 @@ GpuSyncobj::~GpuSyncobj()
         wait.skips++;
         auto first = wait.list.next;
         first->unlink();
-        delete CONTAINER_OF(GpuWaitFn, link, first);
+        delete LINK_GET(GpuWaitFn, link, first);
     }
 
     unix_check<drmSyncobjDestroy>(gpu->drm.fd, syncobj);
@@ -154,7 +154,7 @@ void handle_waits(GpuSyncobj* syncobj)
             auto link = syncobj->wait.list.next;
             debug_assert(link != &syncobj->wait.list);
             link->unlink();
-            auto wait = CONTAINER_OF(GpuWaitFn, link, link);
+            auto wait = LINK_GET(GpuWaitFn, link, link);
             wait->handle(wait->point);
             delete wait;
         }
@@ -178,7 +178,7 @@ void gpu_syncobj_wait(GpuSyncobj* syncobj, GpuWaitFn* wait)
 
     // Insert sorted into list
     auto cur = syncobj->wait.list.prev;
-    for (; cur != &syncobj->wait.list && CONTAINER_OF(GpuWaitFn, link, cur)->point > wait->point; cur = cur->prev);
+    for (; cur != &syncobj->wait.list && LINK_GET(GpuWaitFn, link, cur)->point > wait->point; cur = cur->prev);
     cur->link_next(&wait->link);
 
     unix_check<drmIoctl>(gpu->drm.fd, DRM_IOCTL_SYNCOBJ_EVENTFD, ptr_to(drm_syncobj_eventfd {
@@ -199,7 +199,7 @@ void gpu_wait(GpuSyncpoint syncpoint)
     if (std::this_thread::get_id() == gpu->exec->os_thread) {
         Link<GpuWaitFn>* link;
         while (link = syncobj->wait.list.next, link != &syncobj->wait.list) {
-            auto* wait = CONTAINER_OF(GpuWaitFn, link, link);
+            auto* wait = LINK_GET(GpuWaitFn, link, link);
             if (wait->point <= value) continue;
             syncobj->wait.skips++;
             link->unlink();

@@ -6,12 +6,22 @@
 static
 void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
 {
-    auto in_cycle = [&](WmWindow* window) {
+    auto in_cycle = [&](this auto& in_cycle, WmWindow* window) -> bool {
         if (!window->mapped) return false;
-        if (pointer && !rect_contains(wm_window_get_frame(window), seat_pointer_get_position(pointer))) {
-            return false;
+
+        // Consider only leaf windows
+        if (window->children.is_linked()) return false;
+
+        if (!pointer) return true;
+
+        // Consider window and all parent windows for cursor intersection
+        for (WmWindow* w = window; w; w = w->parent) {
+            if (rect_contains(wm_window_get_frame(w), seat_pointer_get_position(pointer))) {
+                return true;
+            }
         }
-        return true;
+
+        return false;
     };
 
     if (wm->focus.cycled && !in_cycle(wm->focus.cycled.get())) {
@@ -82,7 +92,7 @@ void focus_cycle_end(WmServer* wm)
     wm_interaction_set_mode(wm, WmInteractionMode::none);
 
     if (wm->focus.cycled) {
-        wm_window_focus(wm->focus.cycled.get());
+        wm_focus(wm, wm->focus.cycled.get());
     }
 
     wm->focus.cycled = nullptr;
@@ -154,21 +164,57 @@ void wm_arrange_windows(WmServer* wm)
 {
     // TODO: More generic system for adjusting window arrangement
 
+    ankerl::unordered_dense::set<WmWindow*> highlighted;
+    if (wm->mode == WmInteractionMode::focus_cycle) {
+        for (auto* window : wm->windows) {
+            if (window == wm->focus.cycled.get()) {
+                while (window) {
+                    highlighted.emplace(window);
+                    window = window->parent;
+                }
+                break;
+            }
+        }
+    } else {
+        for (auto* window : wm->windows) {
+            if (wm_window_is_focused(window)) {
+                while (window) {
+                    highlighted.emplace(window);
+                    window = window->parent;
+                }
+                break;
+            }
+        }
+    }
+
     std::vector<SceneNode*> order;
     order.reserve(wm->windows.size());
-    for (auto* window : wm->windows) {
-        if (!window->mapped) continue;
-        if (wm->mode == WmInteractionMode::focus_cycle && window == wm->focus.cycled.get()) continue;
 
-        bool faded = wm->mode == WmInteractionMode::focus_cycle && window != wm->focus.cycled.get();
-        f32 opacity = faded ? 0.1f : 1.f;
-        scene_tree_set_opacity(window->root_tree.get(), opacity);
+    auto place_windows = [&](this auto&& place_windows, Link<WmWindow>& windows) -> void {
+        auto place = [&](WmWindow* window) {
+            bool faded = wm->mode == WmInteractionMode::focus_cycle && !highlighted.contains(window);
+            f32 opacity = faded ? 0.1f : 1.f;
+            scene_tree_set_opacity(window->root_tree.get(), opacity);
 
-        order.emplace_back(window->root_tree.get());
-    }
-    if (wm->mode == WmInteractionMode::focus_cycle && wm->focus.cycled) {
-        scene_tree_set_opacity(wm->focus.cycled->root_tree.get(), 1.f);
-        order.emplace_back(wm->focus.cycled->root_tree.get());
-    }
+            order.emplace_back(window->root_tree.get());
+            place_windows(window->children);
+        };
+
+        WmWindow* last = nullptr;
+        for (auto l = windows.next; l != &windows; l = l->next) {
+            auto* window = LINK_GET(WmWindow, link, l);
+            if (!window->mapped) continue;
+            if (highlighted.contains(window)) {
+                last = window;
+                continue;
+            }
+
+            place(window);
+        }
+        if (last) place(last);
+    };
+
+    place_windows(wm->root_windows);
+
     scene_tree_replace(wm_get_layer(wm, WmLayer::window), order);
 }
