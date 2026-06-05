@@ -161,6 +161,7 @@ void wm_window_raise(WmWindow*);
 auto wm_window_is_mapped(WmWindow*) -> bool;
 
 void wm_window_set_content(WmWindow*, SceneNode*);
+void wm_window_set_overlay(WmWindow*, SceneNode*);
 
 void wm_window_request_close(WmWindow*);
 

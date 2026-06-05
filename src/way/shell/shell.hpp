@@ -39,6 +39,8 @@ struct WayXdgSurface : WaySurfaceAddon
     WaySerial sent_serial;
     WaySerial acked_serial;
 
+    Ref<SceneTree> popup_tree;
+
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;
 

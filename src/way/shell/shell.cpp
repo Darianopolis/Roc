@@ -10,6 +10,7 @@ void get_xdg_surface(wl_client* client, wl_resource* resource, u32 id, wl_resour
     auto* surface = way_get_userdata<WaySurface>(wl_surface);
     auto xdg_surface = ref_create<WayXdgSurface>();
     xdg_surface->resource = way_resource_create_refcounted(xdg_surface, client, resource, id, xdg_surface.get());
+    xdg_surface->popup_tree = scene_tree_create();
     surface->xdg = xdg_surface.get();
     way_surface_addon_register(surface, xdg_surface.get());
 }
@@ -68,6 +69,7 @@ void get_toplevel(wl_client* client, wl_resource* resource, u32 id)
     wm_window_set_focus(toplevel->window.get(), surface->scene.focus.get());
 
     wm_window_set_content(toplevel->window.get(), surface->scene.tree.get());
+    wm_window_set_overlay(toplevel->window.get(), surface->xdg->popup_tree.get());
 }
 
 static

@@ -241,11 +241,8 @@ void popup_update_geometry(WaySurface* surface)
         return;
     }
 
-    auto position    = surface->popup->position;
-    auto geom        = surface->xdg->current.geometry;
-    auto parent_geom = surface->parent->xdg->current.geometry;
-    scene_tree_set_translation(surface->scene.tree.get(),
-        position + vec_cast<f32>(parent_geom.origin - geom.origin));
+    scene_tree_set_translation(surface->xdg->popup_tree.get(), surface->popup->position);
+    scene_tree_set_translation(surface->scene.tree.get(), -vec_cast<f32>(surface->xdg->current.geometry.origin));
 }
 
 static
@@ -304,8 +301,10 @@ void way_get_popup(wl_client* client, wl_resource* resource, u32 id, wl_resource
 
     seat_focus_set_parent(surface->scene.focus.get(), parent->scene.focus.get());
 
-    // Place into parent's surface stack
-    scene_tree_place_above(parent->scene.tree.get(), nullptr, surface->scene.tree.get());
+    scene_tree_place_above(popup->surface->xdg->popup_tree.get(), nullptr, surface->scene.tree.get());
+
+    // Place into parent's popup tree
+    scene_tree_place_above(parent->xdg->popup_tree.get(), nullptr, popup->surface->xdg->popup_tree.get());
 
     position(surface, way_get_userdata<WayPositioner>(positioner)->rules);
 }

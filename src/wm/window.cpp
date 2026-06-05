@@ -117,6 +117,11 @@ void wm_window_set_content(WmWindow* window, SceneNode* node)
     scene_tree_place_above(window->root_tree.get(), window->backdrop.get(), node);
 }
 
+void wm_window_set_overlay(WmWindow* window, SceneNode* node)
+{
+    scene_tree_place_above(window->root_tree.get(), nullptr, node);
+}
+
 void wm_window_set_title(WmWindow* window, std::string_view title)
 {
     window->title = title;
