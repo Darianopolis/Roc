@@ -1,6 +1,7 @@
 #include "buffer.hpp"
 
 #include "../server.hpp"
+#include "../client.hpp"
 
 #include "../surface/surface.hpp"
 #include "../surface/region.hpp"
@@ -224,8 +225,12 @@ struct WayDmaBuffer : WayBuffer
 
     std::optional<GpuDmaParams> params;
 
+    FixedArray<bool, gpu_dma_max_planes> plane_waits_pending;
+
     virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
 };
+
+#define NOISY_DMABUFS 0
 
 static
 auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuFormat format,
@@ -262,8 +267,11 @@ auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuF
     params.format = format;
     params.extent = extent;
 
+#if NOISY_DMABUFS
     log_debug("DMA-BUF {} - {} : {}",
         buffer->extent, format->name, gpu_get_modifier_name(params.modifier));
+#endif
+
     buffer->image = gpu_image_import(server->gpu, params, GpuImageUsage::texture);
 
     dma_params->params = {};
@@ -308,8 +316,33 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
             params = gpu_image_export(image.get());
         }
 
-        for (auto& plane : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1)) {
-            unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, -1);
+        bool all_ready = true;
+        for (auto[i, plane] : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1) | std::views::enumerate) {
+            if (plane_waits_pending[i]) {
+                all_ready = false;
+                continue;
+            }
+
+            auto res = unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0).value;
+            if (res <= 0) {
+                all_ready = false;
+
+#if WAY_BUFFER_NOISY_WAITS
+                log_warn("plane[{}] ({}) not ready yet, waiting...", i, plane.fd.get());
+#endif
+
+                plane_waits_pending[i] = true;
+                fd_listen(surface->client->server->exec, plane.fd.get(), FdEventBit::readable,
+                    [surface = Weak(surface), buffer = Weak(this), i](fd_t, Flags<FdEventBit>) {
+                        if (!buffer || !surface) return;
+                        buffer->plane_waits_pending[i] = false;
+                        way_surface_try_flush(surface.get());
+                    }, FdListenFlag::oneshot);
+            }
+        }
+
+        if (!all_ready) {
+            return nullptr;
         }
     }
 

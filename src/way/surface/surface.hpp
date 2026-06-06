@@ -133,6 +133,8 @@ struct WaySurface
     ~WaySurface();
 };
 
+void way_surface_try_flush(WaySurface*);
+
 void way_surface_addon_register(WaySurface*, WaySurfaceAddon*);
 
 void way_surface_on_frame(WaySurface*, WmOutput*, u64 frame_id);

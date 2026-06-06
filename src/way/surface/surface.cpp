@@ -310,8 +310,7 @@ WaySurfaceAddon::~WaySurfaceAddon()
     std::erase(surface->addons, this);
 }
 
-static
-void flush(WaySurface* surface)
+void way_surface_try_flush(WaySurface* surface)
 {
     // TODO: Queued applications
 
@@ -329,7 +328,7 @@ void flush(WaySurface* surface)
         // Check for buffer ready
 
         if (packet.buffer && !(packet.image = packet.buffer->acquire(surface, &packet))) {
-            debug_kill();
+            break;
         }
 
         apply(surface, packet);
@@ -347,7 +346,7 @@ void flush(WaySurface* surface)
         if (child->type != SceneNodeType::tree) continue;
         auto* tree = static_cast<SceneTree*>(child);
         if (tree->userdata.id != server->userdata_id) continue;
-        flush(way_get_userdata<WaySurface>(server, tree->userdata.data));
+        way_surface_try_flush(way_get_userdata<WaySurface>(server, tree->userdata.data));
     }
 }
 
@@ -378,7 +377,7 @@ void commit(wl_client* client, wl_resource* resource)
 
     // Attempt to flush any state immediately
 
-    flush(surface);
+    way_surface_try_flush(surface);
 }
 
 WAY_INTERFACE(wl_surface) = {

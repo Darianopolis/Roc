@@ -23,6 +23,8 @@ struct WayBuffer
 
     WayTimelinePoint release_point;
 
+    bool syncboj_wait_pending = false;
+
     // Sent on apply, should return a GpuImage when the buffer is ready to display
     [[nodiscard]] virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> = 0;
 
@@ -32,6 +34,8 @@ struct WayBuffer
 protected:
     ~WayBuffer() = default;
 };
+
+#define WAY_BUFFER_NOISY_WAITS 0
 
 // -----------------------------------------------------------------------------
 

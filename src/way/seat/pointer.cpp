@@ -95,6 +95,12 @@ void way_seat_on_motion(WayClientSeat* client_seat, SeatEvent* event)
         u32 time_us_hi = time_us >> 32;
         u32 time_us_lo = time_us & ~0u;
 
+        if (way_client_is_behind(client_seat->client)) {
+            log_warn("Client is running behind, skipping pointer motion: {}", time_us);
+            // TODO: Ensure that we send up-to-date motion before button or scroll
+            return;
+        }
+
         auto accel   = to_fixed(event->pointer.motion.rel_accel);
         auto unaccel = to_fixed(event->pointer.motion.rel_unaccel);
         for (auto* resource : client_seat->relative_pointers) {

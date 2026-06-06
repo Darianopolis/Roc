@@ -32,7 +32,23 @@ auto WayBuffer::acquire(WaySurface* surface, WaySurfaceState* pending) -> Ref<Gp
     // Wait for acquire
 
     if (pending->acquire_point.syncobj) {
-        gpu_wait({pending->acquire_point.syncobj.get(), pending->acquire_point.value});
+        if (syncboj_wait_pending) {
+            return nullptr;
+        }
+
+        auto value = gpu_syncobj_get_value(pending->acquire_point.syncobj.get());
+        if (pending->acquire_point.value > value) {
+#if WAY_BUFFER_NOISY_WAITS
+            log_warn("syncobj target value {} > {}, waiting...", pending->acquire_point.value, value);
+#endif
+            gpu_wait({pending->acquire_point.syncobj.get(), pending->acquire_point.value}, [surface = Weak(surface), buffer = Weak(this)](u64) {
+                if (!surface || !buffer) return;
+                buffer->syncboj_wait_pending = false;
+                way_surface_try_flush(surface.get());
+            });
+            return nullptr;
+        }
+
         flags |= WayBufferAcquireFlags::wait_handled;
     }
 
