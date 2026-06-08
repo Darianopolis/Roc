@@ -73,15 +73,23 @@ endfunction()
 # ------------------------------------------------------------------------------
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(libevdev REQUIRED IMPORTED_TARGET libevdev)
-pkg_check_modules(libdrm   REQUIRED IMPORTED_TARGET libdrm)
-pkg_check_modules(libseat  REQUIRED IMPORTED_TARGET libseat)
+
+pkg_check_modules(libevdev       REQUIRED IMPORTED_TARGET libevdev)
+pkg_check_modules(libdrm         REQUIRED IMPORTED_TARGET libdrm)
+pkg_check_modules(libseat        REQUIRED IMPORTED_TARGET libseat)
+pkg_check_modules(wayland-server REQUIRED IMPORTED_TARGET wayland-server)
+pkg_check_modules(wayland-client REQUIRED IMPORTED_TARGET wayland-client)
+pkg_check_modules(xkbcommon      REQUIRED IMPORTED_TARGET xkbcommon)
+pkg_check_modules(libinput       REQUIRED IMPORTED_TARGET libinput)
+pkg_check_modules(xcursor        REQUIRED IMPORTED_TARGET xcursor)
+pkg_check_modules(libudev        REQUIRED IMPORTED_TARGET libudev)
+pkg_check_modules(libcap         REQUIRED IMPORTED_TARGET libcap)
 
 # ------------------------------------------------------------------------------
 #       Git Dependencies
 # ------------------------------------------------------------------------------
 
-add_subdirectory(.build/wayland EXCLUDE_FROM_ALL)
+add_subdirectory(${BUILD_DIR}/wayland EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
 
@@ -89,6 +97,7 @@ add_library(stb-image)
 target_include_directories(stb-image PUBLIC ${VENDOR_DIR}/stb)
 target_generated_source(stb-image PRIVATE stb_image.c       "#define STB_IMAGE_IMPLEMENTATION 1"       "#include <stb_image.h>")
 target_generated_source(stb-image PRIVATE stb_image_write.c "#define STB_IMAGE_WRITE_IMPLEMENTATION 1" "#include <stb_image_write.h>")
+add_library(vendor::stb-image ALIAS stb-image)
 
 # ------------------------------------------------------------------------------
 
@@ -103,15 +112,17 @@ add_subdirectory(${VENDOR_DIR}/vulkan-headers EXCLUDE_FROM_ALL)
 add_subdirectory(${VENDOR_DIR}/vulkan-memory-allocator EXCLUDE_FROM_ALL)
 
 add_library(vma-object)
-target_generated_source(   vma-object PRIVATE vk_mem_alloc.cpp "#define VMA_IMPLEMENTATION" "#include <vk_mem_alloc.h>")
-target_compile_options(    vma-object PRIVATE -w)
-target_link_libraries(     vma-object PUBLIC GPUOpen::VulkanMemoryAllocator Vulkan::Headers)
+target_generated_source(vma-object PRIVATE vk_mem_alloc.cpp "#define VMA_IMPLEMENTATION" "#include <vk_mem_alloc.h>")
+target_compile_options(vma-object PRIVATE -w)
+target_link_libraries(vma-object PUBLIC GPUOpen::VulkanMemoryAllocator Vulkan::Headers)
 target_compile_definitions(vma-object PUBLIC "VMA_STATIC_VULKAN_FUNCTIONS=0" "VMA_DYNAMIC_VULKAN_FUNCTIONS=1")
+add_library(vendor::vma-object ALIAS vma-object)
 
 # ------------------------------------------------------------------------------
 
 add_library(renderdoc-api INTERFACE)
 target_include_directories(renderdoc-api INTERFACE ${VENDOR_DIR}/renderdoc/renderdoc/api/app)
+add_library(vendor::renderdoc-api ALIAS renderdoc-api)
 
 # ------------------------------------------------------------------------------
 #       Core
@@ -132,30 +143,33 @@ target_sources(core PRIVATE
     )
 target_include_directories(core PUBLIC src)
 target_link_libraries(core PUBLIC
-    wayland-server
-    wayland-client
-    wayland-header
-    xkbcommon
+    PkgConfig::wayland-server
+    PkgConfig::wayland-client
+    PkgConfig::xkbcommon
     PkgConfig::libevdev
-    input
-    stdc++exp
-    Vulkan::Headers
-    vma-object
-    stb-image
-    unordered_dense::unordered_dense
-    Xcursor
+    PkgConfig::libinput
+    PkgConfig::xcursor
     PkgConfig::libdrm
-    udev
+    PkgConfig::libudev
     PkgConfig::libseat
-    cap
-    renderdoc-api
+    PkgConfig::libcap
+
+    vendor::stb-image
+    vendor::renderdoc-api
+    vendor::vma-object
+
+    Vulkan::Headers
+    unordered_dense::unordered_dense
+    generated::wayland
+
+    stdc++exp
     )
 
 # ------------------------------------------------------------------------------
 #       GPU
 # ------------------------------------------------------------------------------
 
-add_subdirectory(.build/shaders)
+add_subdirectory(${BUILD_DIR}/shaders)
 
 init_library(gpu)
 target_sources(gpu PRIVATE
@@ -169,9 +183,9 @@ target_sources(gpu PRIVATE
     src/gpu/commands.cpp
     src/gpu/semaphore.cpp
     src/gpu/image-pool.cpp
-    .build/formats/formats.cpp
+    ${BUILD_DIR}/formats/formats.cpp
     )
-target_link_libraries(gpu PUBLIC core shaders)
+target_link_libraries(gpu PUBLIC core generated::shaders)
 
 # ------------------------------------------------------------------------------
 #       Session IO

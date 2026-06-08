@@ -37,10 +37,12 @@ def generate_wayland_protocols(wayland_dir, deps):
     wayland_client_include = ensure_dir(wayland_include / "client")
     wayland_server_include = ensure_dir(wayland_include / "server")
 
-    cmake_target_name = "wayland-header"
+    alias = "generated::wayland"
+    target = "generated-wayland"
+
     cmake_file = wayland_dir / "CMakeLists.txt"
 
-    cmake = f"add_library({cmake_target_name}\n"
+    cmake = f"add_library({target}\n"
 
     for xml_path, name in list_wayland_protocols(deps):
 
@@ -72,6 +74,7 @@ def generate_wayland_protocols(wayland_dir, deps):
         cmake += f"    \"src/{source_name}\"\n"
 
     cmake += "    )\n"
-    cmake += f"target_include_directories({cmake_target_name} PUBLIC include)\n"
+    cmake += f"target_include_directories({target} PUBLIC include)\n"
+    cmake += f"add_library({alias} ALIAS {target})\n"
 
     write_file_lazy(cmake_file, cmake)

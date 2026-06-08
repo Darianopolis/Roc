@@ -15,13 +15,14 @@ def build_shaders(cwd, build_dir):
     shader_gen_source_dir  = ensure_dir(shader_gen_dir / "src")
     shader_gen_stamp_dir   = ensure_dir(shader_gen_dir / "stamp")
 
-    target_name = "shaders"
+    target = "generated-shaders"
+    alias = "generated::shaders"
 
     cmake_path = shader_gen_dir / "CMakeLists.txt"
-    cmake_out  = f"add_library({target_name})\n"
-    cmake_out += f"target_include_directories({target_name} PUBLIC include)\n"
-    cmake_out += f"target_compile_options({target_name} PRIVATE -std=c++26 -Wno-c23-extensions)\n"
-    cmake_out += f"target_sources({target_name} PRIVATE\n"
+    cmake_out  = f"add_library({target})\n"
+    cmake_out += f"target_include_directories({target} PUBLIC include)\n"
+    cmake_out += f"target_compile_options({target} PRIVATE -std=c++26 -Wno-c23-extensions)\n"
+    cmake_out += f"target_sources({target} PRIVATE\n"
 
     # Dependency tracking: glslang doesn't give us dependency info,
     # so we just check mtime against all .glsl/.h files.
@@ -86,4 +87,5 @@ def build_shaders(cwd, build_dir):
         write_file_lazy(header_path, header_out)
 
     cmake_out += "    )\n"
+    cmake_out += f"add_library({alias} ALIAS {target})\n"
     write_file_lazy(cmake_path, cmake_out)

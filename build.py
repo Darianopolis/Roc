@@ -87,6 +87,7 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
              "cmake", "--fresh",
              "-B", cmake_dir,
              "-G", "Ninja",
+            f"-DBUILD_DIR={build_dir}",
             f"-DVENDOR_DIR={vendor_dir}",
             f"-DPROGRAM_NAME={program_name}",
              "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
