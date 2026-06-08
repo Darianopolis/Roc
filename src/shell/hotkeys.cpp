@@ -59,7 +59,8 @@ void renderdoc_capture(Shell* shell)
     static u32 capture = 0;
     gpu->renderdoc->StartFrameCapture(nullptr, nullptr);
     gpu->renderdoc->SetCaptureTitle(std::format("Shell capture {}", ++capture).c_str());
-    for (auto* output : wm_list_outputs(wm)) {
+    auto* output = wm_find_output_at(wm, seat_pointer_get_position(seat_get_pointer(wm_get_seat(wm)))).output;
+    if (output) {
         auto viewport = wm_output_get_viewport(output);
         auto texture = gpu_image_create(gpu, {
             .extent = vec_cast<u32>(viewport.extent),
@@ -67,7 +68,7 @@ void renderdoc_capture(Shell* shell)
             .usage = GpuImageUsage::render
         });
         scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), texture.get(), viewport);
-        gpu_wait(gpu_flush(gpu));
+        gpu_flush(gpu);
     }
     gpu->renderdoc->EndFrameCapture(nullptr, nullptr);
 }

@@ -103,6 +103,16 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
         aabb2f32 src = texture->src;
         aabb2f32 dst = texture->dst;
 
+        auto translation = scene_tree_get_position(texture->parent);
+
+        {
+            rect2f32 bounds = dst;
+            bounds.origin += translation;
+            if (!rect_intersects(viewport, bounds)) {
+                return;
+            }
+        }
+
         //  0 ---- 1
         //  | a /  |  a = 0,2,1
         //  |  / b |  b = 1,2,3
@@ -121,7 +131,6 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
             indices.emplace_back(base_vtx + idx);
         }
 
-        auto translation = scene_tree_get_position(texture->parent);
         auto push_vtx = [&](vec2f32 pos, vec2f32 uv = {}) {
             vertices.emplace_back(SceneVertex {
                 .pos = translation + pos,
