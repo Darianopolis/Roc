@@ -360,6 +360,7 @@ auto wm_window_is_focused(WmWindow* window) -> bool
 
 auto wm_find_window_for(WmServer* wm, SeatFocus* focus) -> WmWindow*
 {
+    if (!focus) return nullptr;
     for (auto* window : wm->windows) {
         if (seat_focus_contains(window->focus.get(), focus)) {
             return window;

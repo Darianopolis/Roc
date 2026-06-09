@@ -4,39 +4,39 @@
 #include <core/log.hpp>
 
 static
-void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
+auto in_cycle(WmServer* wm, SeatPointer* pointer, WmWindow* window) -> bool
 {
-    auto in_cycle = [&](this auto& in_cycle, WmWindow* window) -> bool {
-        if (!window->mapped) return false;
+    if (!window->mapped) return false;
 
-        // Consider only leaf windows
-        if (window->children.is_linked()) return false;
+    // Consider only leaf windows
+    if (window->children.is_linked()) return false;
 
-        if (!pointer) return true;
+    if (!pointer) return true;
 
-        // Consider window and all parent windows for cursor intersection
-        for (WmWindow* w = window; w; w = w->parent) {
-            if (rect_contains(wm_window_get_frame(w), seat_pointer_get_position(pointer))) {
-                return true;
-            }
+    // Consider window and all parent windows for cursor intersection
+    for (WmWindow* w = window; w; w = w->parent) {
+        if (rect_contains(wm_window_get_frame(w), seat_pointer_get_position(pointer))) {
+            return true;
         }
-
-        return false;
-    };
-
-    if (wm->focus.cycled && !in_cycle(wm->focus.cycled.get())) {
-        wm->focus.cycled = nullptr;
     }
 
-    auto iter = std::ranges::find(wm->windows, wm->focus.cycled.get());
+    return false;
+}
+
+static
+auto next_window_in_cycle(WmServer* wm, SeatPointer* pointer, bool forward, WmWindow* current) -> WmWindow*
+{
+    if (current && !in_cycle(wm, pointer, current)) {
+        current = nullptr;
+    }
+
+    auto iter = std::ranges::find(wm->windows, current);
     if (iter == wm->windows.end()) {
         for (auto* window : wm->windows | std::views::reverse) {
-            if (!in_cycle(window)) continue;
-            wm->focus.cycled = window;
-            return;
+            if (!in_cycle(wm, pointer, window)) continue;
+            return window;
         }
-        wm->focus.cycled = nullptr;
-        return;
+        return nullptr;
     }
 
     auto orig = iter;
@@ -49,33 +49,41 @@ void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
             if (iter == wm->windows.end()) iter = wm->windows.begin();
         }
 
-        if (in_cycle(*iter)) {
-            wm->focus.cycled = *iter;
-            return;
+        if (in_cycle(wm, pointer, *iter)) {
+            return *iter;
         }
 
         if (iter == orig) {
             // We wrapped around without finding any surface in cycle
-            wm->focus.cycled = nullptr;
-            return;
+            return nullptr;
         }
     }
 }
 
 static
+void cycle_next_window(WmServer* wm, SeatPointer* pointer, bool forward)
+{
+    wm->focus.cycled = next_window_in_cycle(wm, pointer, forward, wm->focus.cycled.get());
+}
+
+static
 void focus_cycle(WmServer* wm, Seat* seat, SeatPointer* pointer, bool forward)
 {
+    if (wm->mode != WmInteractionMode::focus_cycle && !forward && pointer) {
+        auto* window = next_window_in_cycle(wm, pointer, true, nullptr);
+        if (window && window != wm_find_window_for(wm, seat_keyboard_get_focus(seat_get_keyboard(seat)))) {
+            wm_focus(wm, window);
+            return;
+        }
+    }
+
     seat_pointer_set_sticky_focus(seat_get_pointer(seat), true);
 
     bool extra_cycle = wm->mode != WmInteractionMode::focus_cycle
-        && (pointer
-            ? forward
-            : bool(seat_keyboard_get_focus(seat_get_keyboard(seat))));
+        && (pointer ||  bool(seat_keyboard_get_focus(seat_get_keyboard(seat))));
 
     wm_interaction_set_mode(wm, WmInteractionMode::focus_cycle);
     wm->focus.seat = seat;
-
-    log_warn("Focus cycle ({}) {}", pointer ? "pointer" : "keyboard", forward ? "forward" : "backward");
 
     cycle_next_window(wm, pointer, forward);
     if (extra_cycle) {
@@ -97,7 +105,6 @@ void focus_cycle_end(WmServer* wm)
 
     wm->focus.cycled = nullptr;
     wm_arrange_windows(wm);
-    log_warn("Focus cycle ended");
 }
 
 static
