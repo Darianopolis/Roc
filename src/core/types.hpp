@@ -70,6 +70,8 @@ struct Vec<4, T>
 #endif
 
     constexpr auto operator<=>(const Vec&) const -> std::strong_ordering = default;
+
+    constexpr decltype(auto) operator*=(T s) { x *= s; y *= s; z *= s; w *= s; return *this; }
 };
 
 using vec2u32 = Vec<2, u32>;

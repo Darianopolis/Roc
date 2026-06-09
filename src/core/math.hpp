@@ -20,6 +20,7 @@ template<typename T> constexpr auto operator-(Vec<2, T> a, T b) -> Vec<2, T> { r
 template<typename T> constexpr auto operator*(Vec<2, T> a, T b) -> Vec<2, T> { return {a.x * b, a.y * b}; }
 template<typename T> constexpr auto operator/(Vec<2, T> a, T b) -> Vec<2, T> { return {a.x / b, a.y / b}; }
 
+template<typename T> constexpr auto operator*(Vec<4, T> a, T b) -> Vec<4, T> { return {a.x * b, a.y * b, a.z * b, a.w * b}; }
 template<typename T> constexpr auto operator/(Vec<4, T> a, T b) -> Vec<4, T> { return {a.x / b, a.y / b, a.z / b, a.w / b}; }
 
 // -----------------------------------------------------------------------------

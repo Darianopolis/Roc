@@ -10,10 +10,11 @@ struct SceneRenderer
 {
     Gpu* gpu;
 
-    Ref<GpuShader> vertex;
-    Ref<GpuShader> fragment;
-    Ref<GpuImage> white;
+    Ref<GpuShader>  vertex;
+    Ref<GpuShader>  fragment;
+    Ref<GpuImage>   white;
     Ref<GpuSampler> nearest;
+    GpuArray<u32>   indices;
 
     ~SceneRenderer();
 };
