@@ -11,33 +11,46 @@ Gpu::~Gpu()
 {
     log_info("GPU context destroyed");
 
-    queue.syncobj.destroy();
-    debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
+    if (device) {
+        queue.syncobj.destroy();
+        debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
 
-    debug_assert(!queue.commands, "Unflushed commands");
-    vk.DestroyCommandPool(device, queue.pool, nullptr);
+        debug_assert(!queue.commands, "Unflushed commands");
+        vk.DestroyCommandPool(device, queue.pool, nullptr);
 
-    debug_assert(stats.active_images == 0, "{} unexpected images", stats.active_images);
-    debug_assert(stats.active_buffers == 0, "{} unexpected buffers", stats.active_buffers);
-    debug_assert(stats.active_samplers == 0, "{} unexpected samplers", stats.active_samplers);
+        debug_assert(stats.active_images == 0, "{} unexpected images", stats.active_images);
+        debug_assert(stats.active_buffers == 0, "{} unexpected buffers", stats.active_buffers);
+        debug_assert(stats.active_samplers == 0, "{} unexpected samplers", stats.active_samplers);
 
-    vmaDestroyAllocator(vma);
+        vmaDestroyAllocator(vma);
 
-    for (auto* binary_sema : free_binary_semaphores) {
-        vk.DestroySemaphore(device, binary_sema, nullptr);
+        for (auto* binary_sema : free_binary_semaphores) {
+            vk.DestroySemaphore(device, binary_sema, nullptr);
+        }
+
+        vk.DestroyPipelineLayout(device, pipeline_layout, nullptr);
+        vk.DestroyDescriptorSetLayout(device, set_layout, nullptr);
+        vk.DestroyDescriptorPool(device, pool, nullptr);
+
+        vk.DestroyDevice(device, nullptr);
     }
 
-    vk.DestroyPipelineLayout(device, pipeline_layout, nullptr);
-    vk.DestroyDescriptorSetLayout(device, set_layout, nullptr);
-    vk.DestroyDescriptorPool(device, pool, nullptr);
+    if (instance) {
+        vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+        vk.DestroyInstance(instance, nullptr);
+    }
 
-    vk.DestroyDevice(device, nullptr);
-    vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
-    vk.DestroyInstance(instance, nullptr);
+    if (fd_is_valid(drm.fd)) {
+        unix_check<drmSyncobjDestroy>(drm.fd, drm.syncobj);
+    }
 
-    unix_check<drmSyncobjDestroy>(drm.fd, drm.syncobj);
-    drmFreeDevice(&drm.device);
-    close(drm.fd);
+    if (drm.device) {
+        drmFreeDevice(&drm.device);
+    }
+
+    if (fd_is_valid(drm.fd)) {
+        close(drm.fd);
+    }
 }
 
 static

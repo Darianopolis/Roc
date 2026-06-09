@@ -52,6 +52,7 @@ auto main(int argc, char* argv[]) -> int
     // Systems
 
     shell->gpu = gpu_create(exec.get(), {});
+    debug_assert(shell->gpu, "Failed to initialize GPU");
     shell->io = io_create(exec.get(), shell->gpu.get());
     shell->wm = wm_create({
         .exec = exec.get(),
