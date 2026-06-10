@@ -472,6 +472,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
                 }),
                 ptr_to(VkPhysicalDeviceVulkan11Features {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+                    .storageBuffer16BitAccess = true,
                     .storagePushConstant16 = true,
                     .samplerYcbcrConversion = true,
                     .shaderDrawParameters = true,

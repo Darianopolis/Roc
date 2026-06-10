@@ -251,7 +251,7 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
 {
     auto cmd = gpu_get_commands(gpu)->buffer;
 
-    gpu_protect(gpu, info.target);
+    gpu_use_resources(gpu, *info.reads, *info.writes);
 
     GpuRenderPass pass{gpu, cmd};
 
@@ -294,19 +294,47 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
     gpu->vk.CmdEndRendering(cmd);
 }
 
-void gpu_barrier(Gpu* gpu)
-{
-    auto* cmd = gpu_get_commands(gpu)->buffer;
+// -----------------------------------------------------------------------------
 
-    gpu->vk.CmdPipelineBarrier2(cmd, ptr_to(VkDependencyInfo {
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .memoryBarrierCount = 1,
-        .pMemoryBarriers = ptr_to(VkMemoryBarrier2 {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-            .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-            .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
-        }),
-    }));
+void gpu_use_resources(Gpu* gpu,
+    const ankerl::unordered_dense::set<void*>& reads,
+    const ankerl::unordered_dense::set<void*>& writes)
+{
+    bool need_barrier =
+            std::ranges::any_of(gpu->unbarriered_writes, [&](const auto& _pending) {
+                auto pending = _pending.get();
+                return pending && (reads.contains(pending) /* RAW */ || writes.contains(pending) /* WAW */);
+            })
+         || std::ranges::any_of(writes, [&](void* write) {
+                return gpu->unbarriered_reads.contains(Weak(write)) /* WAR */;
+            });
+
+    // TODO: Granular barriers and QFOTs
+    //
+    //       For simplicity currently we just launch a single uber-barrier to cover everything
+    //       For optimal granularity, we would track stages+access and ranges for every resource
+    //       We also need to apply QFOTs for DMABUFs
+
+    if (need_barrier) {
+        auto* cmd = gpu_get_commands(gpu)->buffer;
+        gpu->vk.CmdPipelineBarrier2(cmd, ptr_to(VkDependencyInfo {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = ptr_to(VkMemoryBarrier2 {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+            }),
+        }));
+        gpu->unbarriered_reads.clear();
+        gpu->unbarriered_writes.clear();
+    }
+
+    gpu->unbarriered_reads.insert( reads.begin(),  reads.end());
+    gpu->unbarriered_writes.insert(writes.begin(), writes.end());
+
+    for (auto& read  : reads)  gpu_protect(gpu, read);
+    for (auto& write : writes) gpu_protect(gpu, write);
 }

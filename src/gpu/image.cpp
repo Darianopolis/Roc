@@ -180,8 +180,7 @@ void gpu_copy_image_to_buffer(GpuBuffer* buffer, GpuImage* image)
     auto* gpu = image->context();
     auto extent = image->extent();
 
-    gpu_protect(gpu, image);
-    gpu_protect(gpu, buffer);
+    gpu_use_resources(gpu, {image}, {buffer});
 
     gpu->vk.CmdCopyImageToBuffer(get_cmdbuf(gpu), image->handle(), VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
@@ -197,8 +196,7 @@ void gpu_copy_buffer_to_image(GpuImage* image, GpuBuffer* buffer, std::span<cons
 
     ThreadStack stack;
 
-    gpu_protect(gpu, image);
-    gpu_protect(gpu, buffer);
+    gpu_use_resources(gpu, {buffer}, {image});
 
     auto* copies = stack.allocate<VkBufferImageCopy>(regions.size());
     for (auto[i, region] : regions | std::views::enumerate) {

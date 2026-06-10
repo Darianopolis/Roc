@@ -196,6 +196,9 @@ struct Gpu
     VkPhysicalDevice physical_device;
     VkDevice device;
 
+    ankerl::unordered_dense::set<Weak<void>> unbarriered_reads;
+    ankerl::unordered_dense::set<Weak<void>> unbarriered_writes;
+
     struct {
         drmDevice* device;
         dev_t      id;
@@ -309,8 +312,6 @@ void gpu_wait(GpuSyncpoint sync, Fn&& fn)
 }
 
 // -----------------------------------------------------------------------------
-
-void gpu_protect(Gpu*, Ref<void>);
 
 auto gpu_flush(Gpu*) -> GpuSyncpoint;
 
@@ -447,8 +448,6 @@ void gpu_copy_memory_to_image(GpuImage*, std::span<const byte> data, std::span<c
 auto gpu_image_compute_packed_stride(GpuFormat, u32 width) -> u32;
 auto gpu_image_compute_linear_offset(GpuFormat, vec2u32 position, u32 row_stride_bytes) -> u32;
 
-void gpu_barrier(Gpu*);
-
 // -----------------------------------------------------------------------------
 
 struct GpuSampler
@@ -498,7 +497,8 @@ enum class GpuDepthEnable
     write = 1 << 1,
 };
 
-struct GpuDrawInfo {
+struct GpuDrawInfo
+{
     u32 index_count;
     u32 instance_count;
     u32 first_index;
@@ -523,6 +523,8 @@ struct GpuRenderPassInfo
 {
     GpuImage* target;
     std::optional<vec4f32> clear_color;
+    const ankerl::unordered_dense::set<void*>* reads;
+    const ankerl::unordered_dense::set<void*>* writes;
 };
 
 void gpu_render(Gpu*, const GpuRenderPassInfo&, std::function_ref<void(GpuRenderPass*)>);

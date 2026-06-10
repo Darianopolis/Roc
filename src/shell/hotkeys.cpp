@@ -99,7 +99,6 @@ void take_screenshot(Shell* shell, rect2f32 region)
     auto buffer = gpu_buffer_create(gpu, extent.x * extent.y * 4, GpuBufferFlag::host);
 
     scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), texture.get(), region);
-    gpu_barrier(shell->gpu.get());
     gpu_copy_image_to_buffer(buffer.get(), texture.get());
 
     gpu_wait(gpu_flush(gpu), [buffer, extent, dir = shell->app_share](u64) {

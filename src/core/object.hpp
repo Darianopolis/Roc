@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "util.hpp"
 #include "debug.hpp"
+#include "hash.hpp"
 
 // -----------------------------------------------------------------------------
 
@@ -224,4 +225,10 @@ struct Weak
         : value(other.value)
         , version(other.version)
     {}
+};
+
+template<typename T>
+struct std::hash<Weak<T>>
+{
+    auto operator()(const Weak<T>& v) -> usz { return hash_variadic(v.value, v.version); }
 };

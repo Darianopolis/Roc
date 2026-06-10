@@ -52,6 +52,9 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
 {
     std::vector<SceneQuad> quads;
 
+    ankerl::unordered_dense::set<void*> reads;
+    ankerl::unordered_dense::set<void*> writes{target};
+
     auto draw_texture = [&](SceneTexture* texture, vec2f32 translation, f32 opacity) {
         aabb2f32 src = texture->src;
         rect2f32 dst = texture->dst;
@@ -78,8 +81,8 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
             .flags = flags,
         });
 
-        gpu_protect(renderer->gpu, image);
-        gpu_protect(renderer->gpu, sampler);
+        reads.emplace(image);
+        reads.emplace(sampler);
     };
 
     [&](this auto&& visit, SceneNode* node, vec2f32 translation, f32 opacity) -> void {
@@ -101,7 +104,7 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
 
     GpuArray<SceneQuad> gpu_rects{gpu_buffer_create(renderer->gpu, quads.size() * sizeof(SceneQuad), {}), 0};
     std::memcpy(gpu_rects.host(), quads.data(), quads.size() * sizeof(SceneQuad));
-    gpu_protect(renderer->gpu, gpu_rects.buffer.get());
+    reads.emplace(gpu_rects.buffer.get());
 
     // Record
 
@@ -111,6 +114,8 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
     gpu_render(renderer->gpu, {
         .target = target,
         .clear_color = {{0,0,0,1}},
+        .reads = &reads,
+        .writes = &writes,
     }, [&](GpuRenderPass* pass) {
         gpu_set_viewports(pass, {{{{}, vec_cast<f32>(target->extent()), xywh}}});
         gpu_set_scissors( pass, {{{{}, vec_cast<i32>(target->extent()), xywh}}});
