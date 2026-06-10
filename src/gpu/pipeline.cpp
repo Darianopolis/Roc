@@ -257,7 +257,7 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
 
     reset_graphics_state(&pass);
 
-    auto extent = info.target->extent();
+    auto extent = info.target->base()->extent;
 
     gpu->vk.CmdBeginRendering(cmd, ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -266,7 +266,7 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
         .colorAttachmentCount = 1,
         .pColorAttachments = ptr_to(VkRenderingAttachmentInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = info.target->view(),
+            .imageView = info.target->base()->view,
             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
             .loadOp = info.clear_color
                 ? VK_ATTACHMENT_LOAD_OP_CLEAR

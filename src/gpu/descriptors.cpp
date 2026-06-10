@@ -113,9 +113,9 @@ void gpu_allocate_image_descriptor(GpuImageBase* image)
 
     auto id = gpu->image_descriptor_allocator.allocate();
 
-    image->data.id = id;
+    image->id = id;
 
-    auto usage = gpu_image_usage_to_vulkan(image->usage());
+    auto usage = gpu_image_usage_to_vulkan(image->usage);
 
     if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
         vk.UpdateDescriptorSets(gpu->device, 1, std::array {
@@ -127,7 +127,7 @@ void gpu_allocate_image_descriptor(GpuImageBase* image)
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                 .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view(),
+                    .imageView = image->view,
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
             },
@@ -144,7 +144,7 @@ void gpu_allocate_image_descriptor(GpuImageBase* image)
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view(),
+                    .imageView = image->view,
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
             },

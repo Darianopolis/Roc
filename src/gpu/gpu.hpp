@@ -294,8 +294,7 @@ void gpu_syncobj_signal_value(GpuSyncobj*, u64 value);
 
 void gpu_syncobj_wait(GpuSyncobj*, GpuWaitFn*);
 
-// WARNING: Blocking
-void gpu_wait(GpuSyncpoint);
+void gpu_wait_blocking(GpuSyncpoint);
 
 template<typename Fn>
 void gpu_wait(GpuSyncpoint sync, Fn&& fn)
@@ -351,50 +350,6 @@ auto gpu_buffer_create(Gpu*, usz size, Flags<GpuBufferFlag>) -> Ref<GpuBuffer>;
 
 // -----------------------------------------------------------------------------
 
-template<typename T>
-struct GpuArrayElementProxy
-{
-    T* host_value;
-
-    void operator=(const T& value)
-    {
-        std::memcpy(host_value, &value, sizeof(value));
-    }
-};
-
-template<typename T>
-struct GpuArray
-{
-    Ref<GpuBuffer> buffer;
-    usz count = 0;
-    usz byte_offset = 0;
-
-    GpuArray() = default;
-
-    GpuArray(const auto& buffer, usz count, usz byte_offset = {})
-        : buffer(buffer)
-        , count(count)
-        , byte_offset(byte_offset)
-    {}
-
-    auto device() const -> T*
-    {
-        return buffer->device<T>(byte_offset);
-    }
-
-    auto host() const -> T*
-    {
-        return buffer->host<T>(byte_offset);
-    }
-
-    auto operator[](usz index) const -> GpuArrayElementProxy<T>
-    {
-        return {buffer->host<T>(byte_offset) + index};
-    }
-};
-
-// -----------------------------------------------------------------------------
-
 enum class GpuImageUsage : u32
 {
     transfer_src = 1 << 0,
@@ -405,20 +360,33 @@ enum class GpuImageUsage : u32
     storage      = 1 << 4,
 };
 
+struct GpuImageBase;
+
 struct GpuImage
 {
     virtual ~GpuImage() = default;
 
-    virtual auto base() -> GpuImage* = 0;
+    virtual auto base() -> GpuImageBase* = 0;
+};
 
-    auto context()    -> Gpu*;
-    auto extent()     -> vec2u32;
-    auto format()     -> GpuFormat;
-    auto modifier()   -> GpuDrmModifier;
-    auto view()       -> VkImageView;
-    auto handle()     -> VkImage;
-    auto usage()      -> Flags<GpuImageUsage>;
-    auto descriptor() -> GpuDescriptorId;
+struct GpuImageBase : GpuImage
+{
+    Gpu* gpu;
+
+    GpuFormat format;
+    GpuDrmModifier modifier = DRM_FORMAT_MOD_INVALID;
+
+    VkImage     image;
+    VkImageView view;
+    vec2u32     extent;
+
+    GpuDescriptorId id;
+
+    Flags<GpuImageUsage> usage;
+
+    virtual ~GpuImageBase();
+
+    virtual auto base() -> GpuImageBase* final override { return this; }
 };
 
 struct GpuImageCreateInfo
@@ -563,36 +531,36 @@ struct GpuImageHandle
     GpuImageHandle() = default;
 
     GpuImageHandle(GpuImage* image, GpuSampler* sampler)
-        : image  (image->descriptor())
+        : image  (image->base()->id)
         , sampler(sampler ? sampler->id : GpuDescriptorId{})
     {}
 };
 
 // -----------------------------------------------------------------------------
 
-template<typename Lessor>
+template<typename Release>
 struct GpuImageLease : GpuImage
 {
     Ref<GpuImage> image;
-    Lessor        lessor;
+    Release       release;
 
-    GpuImageLease(Ref<GpuImage> image, Lessor&& lessor)
+    GpuImageLease(Ref<GpuImage> image, Release&& lessor)
         : image(std::move(image))
-        , lessor(std::move(lessor))
+        , release(std::move(lessor))
     {}
 
-    virtual auto base() -> GpuImage* final override { return image->base(); }
+    virtual auto base() -> GpuImageBase* final override { return image->base(); }
 
     ~GpuImageLease()
     {
-        lessor(std::move(image));
+        release(std::move(image));
     }
 };
 
-template<typename Lessor>
-auto gpu_lease_image(Ref<GpuImage> image, Lessor&& lessor) -> Ref<GpuImageLease<Lessor>>
+template<typename Release>
+auto gpu_lease_image(Ref<GpuImage> image, Release&& release) -> Ref<GpuImageLease<Release>>
 {
-    return ref_create<GpuImageLease<Lessor>>(std::move(image), std::move(lessor));
+    return ref_create<GpuImageLease<Release>>(std::move(image), std::move(release));
 }
 
 // -----------------------------------------------------------------------------

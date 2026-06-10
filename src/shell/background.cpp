@@ -42,7 +42,7 @@ void update_backgrounds(ShellBackground* bg)
         bgo.focus = seat_focus_create(wm_get_seat_client(bg->client.get()), bgo.region.get());
 
         if (bg->image) {
-            auto image_size = vec_cast<f32>(bg->image->extent());
+            auto image_size = vec_cast<f32>(bg->image->base()->extent);
 
             // Create texture node
             bgo.texture = scene_texture_create();
@@ -79,7 +79,7 @@ auto load_background_image(Shell* shell) -> Ref<GpuImage>
         .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
         .usage = GpuImageUsage::texture | GpuImageUsage::transfer
     });
-    gpu_copy_memory_to_image(image.get(), as_bytes(data, w * h * 4), {{{image->extent()}}});
+    gpu_copy_memory_to_image(image.get(), as_bytes(data, w * h * 4), {{{image->base()->extent}}});
     return image;
 }
 

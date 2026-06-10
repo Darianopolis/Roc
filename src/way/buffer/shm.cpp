@@ -137,8 +137,8 @@ auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*
     auto* candidate = surface->current.image.get();
 
     // ...if compatible with the newly attached buffer
-    if (candidate->extent() != buffer->extent) return nullptr;
-    if (candidate->format() != buffer->format) return nullptr;
+    if (candidate->base()->extent != buffer->extent) return nullptr;
+    if (candidate->base()->format != buffer->format) return nullptr;
 
 #if NOISY_SHM_BUFFER_IMAGES
     if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  candidate->extent());

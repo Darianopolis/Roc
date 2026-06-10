@@ -36,9 +36,9 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
     });
     gpu_copy_memory_to_image(renderer->white.get(), view_bytes(color_from_hex("#FFFFFF")), {{{{1, 1}}}});
 
-    renderer->indices = {gpu_buffer_create(renderer->gpu, sizeof(u32) * 6, {}), 0};
+    renderer->indices = gpu_buffer_create(renderer->gpu, sizeof(u32) * 6, {});
     auto indices = std::to_array<u32>({ 0, 2, 1, 1, 2, 3 });
-    std::memcpy(renderer->indices.host(), indices.data(), indices.size() * sizeof(u32));
+    std::memcpy(renderer->indices->host_address, indices.data(), indices.size() * sizeof(u32));
 
     renderer->nearest = gpu_sampler_create(renderer->gpu, {
         .mag = VK_FILTER_NEAREST,
@@ -102,9 +102,9 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
         });
     }(node, {}, 1.f);
 
-    GpuArray<SceneQuad> gpu_rects{gpu_buffer_create(renderer->gpu, quads.size() * sizeof(SceneQuad), {}), 0};
-    std::memcpy(gpu_rects.host(), quads.data(), quads.size() * sizeof(SceneQuad));
-    reads.emplace(gpu_rects.buffer.get());
+    auto gpu_rects = gpu_buffer_create(renderer->gpu, quads.size() * sizeof(SceneQuad), {});
+    std::memcpy(gpu_rects->host_address, quads.data(), gpu_rects->size);
+    reads.emplace(gpu_rects.get());
 
     // Record
 
@@ -117,16 +117,16 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
         .reads = &reads,
         .writes = &writes,
     }, [&](GpuRenderPass* pass) {
-        gpu_set_viewports(pass, {{{{}, vec_cast<f32>(target->extent()), xywh}}});
-        gpu_set_scissors( pass, {{{{}, vec_cast<i32>(target->extent()), xywh}}});
+        gpu_set_viewports(pass, {{{{}, vec_cast<f32>(target->base()->extent), xywh}}});
+        gpu_set_scissors( pass, {{{{}, vec_cast<i32>(target->base()->extent), xywh}}});
 
         gpu_set_blend_state(pass, {{GpuBlendMode::premultiplied}});
 
         gpu_bind_shaders(pass, {{renderer->vertex.get(), renderer->fragment.get()}});
-        gpu_bind_index_buffer(pass, renderer->indices.buffer.get(), 0, VK_INDEX_TYPE_UINT32);
+        gpu_bind_index_buffer(pass, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
 
         gpu_push_constants(pass, 0, view_bytes(SceneRenderInput {
-            .quads = gpu_rects.device(),
+            .quads = gpu_rects->device<SceneQuad>(),
             .offset = draw_offset,
             .scale = draw_scale,
         }));

@@ -94,7 +94,7 @@ struct IoWayland
     bool in_keyboard_enter;
 
     IoWaylandProxyCache<GpuSyncobj, wp_linux_drm_syncobj_timeline_v1> syncobj_cache { wp_linux_drm_syncobj_timeline_v1_destroy };
-    IoWaylandProxyCache<GpuImage, wl_buffer> buffer_cache  { wl_buffer_destroy };
+    IoWaylandProxyCache<GpuImageBase, wl_buffer> buffer_cache  { wl_buffer_destroy };
 
     ~IoWayland();
 };

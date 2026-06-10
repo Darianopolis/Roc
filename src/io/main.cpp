@@ -19,7 +19,7 @@ void render(Gpu* gpu, IoOutput* output, GpuImagePool* pool)
     });
 
     auto* cmd = gpu_get_commands(gpu);
-    gpu->vk.CmdClearColorImage(cmd->buffer, image->handle(),
+    gpu->vk.CmdClearColorImage(cmd->buffer, image->base()->image,
         VK_IMAGE_LAYOUT_GENERAL,
         ptr_to(VkClearColorValue{.float32={1, 1, 1, 1}}),
         1, ptr_to(VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));

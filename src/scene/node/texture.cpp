@@ -85,7 +85,7 @@ void scene_texture_set_dst(SceneTexture* texture, rect2f32 dst)
 void scene_texture_damage(SceneTexture* texture, aabb2i32 region)
 {
     // Clamp to image
-    auto pixel_extent = vec_cast<i32>(texture->image->extent());
+    auto pixel_extent = vec_cast<i32>(texture->image->base()->extent);
     region = aabb_inner(region, {{}, pixel_extent, minmax});
 
     // Transfrom from pixels -> scene

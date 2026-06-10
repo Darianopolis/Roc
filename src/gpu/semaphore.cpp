@@ -188,25 +188,13 @@ void gpu_syncobj_wait(GpuSyncobj* syncobj, GpuWaitFn* wait)
     }));
 }
 
-void gpu_wait(GpuSyncpoint syncpoint)
+void gpu_wait_blocking(GpuSyncpoint syncpoint)
 {
     auto[syncobj, value, stages] = syncpoint;
     auto* gpu = syncobj->gpu;
 
     u32 first_signalled;
     unix_check<drmSyncobjTimelineWait>(gpu->drm.fd, &syncobj->syncobj, &value, 1, INT64_MAX, 0, &first_signalled);
-
-    if (std::this_thread::get_id() == gpu->exec->os_thread) {
-        Link<GpuWaitFn>* link;
-        while (link = syncobj->wait.list.next, link != &syncobj->wait.list) {
-            auto* wait = LINK_GET(GpuWaitFn, link, link);
-            if (wait->point <= value) continue;
-            syncobj->wait.skips++;
-            link->unlink();
-            wait->handle(value);
-            delete wait;
-        }
-    }
 }
 
 void gpu_syncobj_signal_value(GpuSyncobj* syncobj, u64 value)

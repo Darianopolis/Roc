@@ -55,28 +55,6 @@ auto gpu_get_required_format_features(GpuFormat, Flags<GpuImageUsage>) -> VkForm
 
 auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage>) -> VkImageUsageFlags;
 
-struct GpuImageBase : GpuImage
-{
-    Gpu* gpu;
-
-    struct {
-        GpuFormat format;
-        GpuDrmModifier modifier = DRM_FORMAT_MOD_INVALID;
-
-        VkImage     image;
-        VkImageView view;
-        vec2u32     extent;
-
-        GpuDescriptorId id;
-
-        Flags<GpuImageUsage> usage;
-    } data;
-
-    virtual ~GpuImageBase();
-
-    virtual auto base() -> GpuImage* final override { return this; }
-};
-
 void gpu_image_init(GpuImageBase*);
 
 auto gpu_image_create_dmabuf(Gpu*, const GpuImageCreateInfo&) -> Ref<GpuImage>;

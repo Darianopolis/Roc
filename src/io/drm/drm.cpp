@@ -174,11 +174,8 @@ void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, v
 // -----------------------------------------------------------------------------
 
 static
-auto get_image_fb2(IoContext* io, GpuImage* image) -> u32
+auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
 {
-    // We need to cache based on the underlying image, not any lease handle
-    image = image->base();
-
     std::optional<u32> found = std::nullopt;
     std::erase_if(io->drm->buffer_cache, [&](const auto& entry) {
         if (!entry.image) {
@@ -193,8 +190,8 @@ auto get_image_fb2(IoContext* io, GpuImage* image) -> u32
     log_warn("Importing new FB2 buffer");
 
     auto dma_params = gpu_image_export(image);
-    auto size = image->extent();
-    auto format = image->format();
+    auto size = image->extent;
+    auto format = image->format;
 
     // Acquire GEM handles and prepare for import
 
@@ -234,10 +231,12 @@ void IoDrmOutput::commit(
     GpuSyncpoint acquire,
     Flags<IoOutputCommitFlag> in_flags)
 {
+    auto* image_base = image->base();
+
     debug_assert(commit_available);
     commit_available = false;
 
-    auto fb2_handle = get_image_fb2(io, image);
+    auto fb2_handle = get_image_fb2(io, image_base);
 
     auto req = drmModeAtomicAlloc();
     defer { drmModeAtomicFree(req); };
@@ -248,12 +247,13 @@ void IoDrmOutput::commit(
 
     auto in_fence = gpu_syncobj_export_syncfile(acquire.syncobj, acquire.value);
 
+
     plane_set("FB_ID", fb2_handle);
     plane_set("IN_FENCE_FD", in_fence.get());
     plane_set("SRC_X", 0);
     plane_set("SRC_Y", 0);
-    plane_set("SRC_W", image->extent().x << 16);
-    plane_set("SRC_H", image->extent().y << 16);
+    plane_set("SRC_W", image_base->extent.x << 16);
+    plane_set("SRC_H", image_base->extent.y << 16);
     plane_set("CRTC_X", 0);
     plane_set("CRTC_Y", 0);
     plane_set("CRTC_W", size.x);

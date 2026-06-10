@@ -14,7 +14,7 @@ struct SceneRenderer
     Ref<GpuShader>  fragment;
     Ref<GpuImage>   white;
     Ref<GpuSampler> nearest;
-    GpuArray<u32>   indices;
+    Ref<GpuBuffer>  indices;
 
     ~SceneRenderer();
 };

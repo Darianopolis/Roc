@@ -203,7 +203,7 @@ void io_output_create(IoContext* io)
 // -----------------------------------------------------------------------------
 
 static
-auto get_image_proxy(IoContext* io, GpuImage* image) -> wl_buffer*
+auto get_image_proxy(IoContext* io, GpuImageBase* image) -> wl_buffer*
 {
     auto* wl = io->wayland.get();
 
@@ -211,8 +211,8 @@ auto get_image_proxy(IoContext* io, GpuImage* image) -> wl_buffer*
 
     if (auto* found = wl->buffer_cache.find(image)) return found;
 
-    auto size = image->extent();
-    auto format = image->format();
+    auto size = image->extent;
+    auto format = image->format;
 
     auto dma_params = gpu_image_export(image);
     u32 mod_hi = dma_params.modifier >> 32;
@@ -276,7 +276,7 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
         release->image = nullptr;
     });
 
-    auto* wl_buffer = get_image_proxy(io, image);
+    auto* wl_buffer = get_image_proxy(io, image->base());
     auto* acquire_proxy = get_syncobj_proxy(io, done.syncobj);
     auto* release_proxy = get_syncobj_proxy(io, release->syncobj.get());
 

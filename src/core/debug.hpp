@@ -91,7 +91,7 @@ auto unix_check(auto... args) -> UnixResult<decltype(Function(args...))>
         err = errno;
     }
 
-    if (!(... || (err == Quiet))) log_unix_error("unix_check", err);
+    if (!(... || (err == Quiet))) log_unix_error(__PRETTY_FUNCTION__, err);
     return { res, err };
 }
 
@@ -101,4 +101,4 @@ auto unix_check(auto... args) -> UnixResult<decltype(Function(args...))>
     };
 
 
-#include "unix-check.inl"
+#include "debug-checks.inl"
