@@ -83,7 +83,6 @@ std::array required_device_extensions = {
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
     VK_KHR_GLOBAL_PRIORITY_EXTENSION_NAME,
-    VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
 
     VK_KHR_MAINTENANCE_8_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_9_EXTENSION_NAME,
@@ -504,10 +503,6 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
                     .maintenance5 = true,
                     .maintenance6 = true,
-                }),
-                ptr_to(VkPhysicalDeviceShaderObjectFeaturesEXT {
-                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT,
-                    .shaderObject = true,
                 }),
                 ptr_to(VkPhysicalDeviceMaintenance8FeaturesKHR {
                     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_8_FEATURES_KHR,

@@ -7,8 +7,32 @@
 #include "scene_render_vert.hpp"
 #include "scene_render_frag.hpp"
 
-SceneRenderer::~SceneRenderer()
+auto get_pipeline(SceneRenderer* renderer, GpuFormat format) -> GpuPipeline*
 {
+    auto iter = renderer->pipelines.find(format);
+    if (iter != renderer->pipelines.end()) return iter->second.get();
+
+    auto pipeline = gpu_pipeline_create(renderer->gpu, {
+        .format = format,
+        .shaders = {{
+            {
+                .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                .code  = scene_render_vert,
+                .entry = "main",
+            },
+            {
+                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .code  = scene_render_frag,
+                .entry = "main",
+            }
+        }},
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .blend_mode = GpuBlendMode::premultiplied,
+    });
+
+    renderer->pipelines.emplace(format, pipeline);
+
+    return pipeline.get();
 }
 
 auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
@@ -16,18 +40,6 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
     auto renderer = ref_create<SceneRenderer>();
 
     renderer->gpu = gpu;
-
-    renderer->vertex   = gpu_shader_create(renderer->gpu, {
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .code  = scene_render_vert,
-        .entry = "main",
-    });
-
-    renderer->fragment = gpu_shader_create(renderer->gpu, {
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .code  = scene_render_frag,
-        .entry = "main",
-    });
 
     renderer->white = gpu_image_create(renderer->gpu, {
         .extent = {1, 1},
@@ -120,9 +132,7 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
         gpu_set_viewports(pass, {{{{}, vec_cast<f32>(target->base()->extent), xywh}}});
         gpu_set_scissors( pass, {{{{}, vec_cast<i32>(target->base()->extent), xywh}}});
 
-        gpu_set_blend_state(pass, {{GpuBlendMode::premultiplied}});
-
-        gpu_bind_shaders(pass, {{renderer->vertex.get(), renderer->fragment.get()}});
+        gpu_bind_pipeline(pass, get_pipeline(renderer, target->base()->format));
         gpu_bind_index_buffer(pass, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
 
         gpu_push_constants(pass, 0, view_bytes(SceneRenderInput {

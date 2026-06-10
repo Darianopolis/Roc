@@ -10,13 +10,10 @@ struct SceneRenderer
 {
     Gpu* gpu;
 
-    Ref<GpuShader>  vertex;
-    Ref<GpuShader>  fragment;
-    Ref<GpuImage>   white;
+    ankerl::unordered_dense::map<GpuFormat, Ref<GpuPipeline>> pipelines;
+    Ref<GpuImage> white;
     Ref<GpuSampler> nearest;
-    Ref<GpuBuffer>  indices;
-
-    ~SceneRenderer();
+    Ref<GpuBuffer> indices;
 };
 
 auto scene_node_get_damage(SceneInputRegion*) -> SceneDamage;

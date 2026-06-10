@@ -446,16 +446,24 @@ enum class GpuBlendMode : u32
     postmultiplied,
 };
 
-struct GpuShader;
-
-struct GpuShaderCreateInfo
+struct GpuShaderStageInfo
 {
     VkShaderStageFlagBits stage;
-    std::span<const u32>  code;
-    const char*           entry;
+    std::span<const u32> code;
+    const char* entry;
 };
 
-auto gpu_shader_create(Gpu*, const GpuShaderCreateInfo&) -> Ref<GpuShader>;
+struct GpuPipeline;
+
+struct GpuGraphicsPipelineCreateInfo
+{
+    GpuFormat format;
+    std::span<const GpuShaderStageInfo> shaders;
+    VkPrimitiveTopology topology;
+    GpuBlendMode blend_mode;
+};
+
+auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuPipeline>;
 
 // -----------------------------------------------------------------------------
 
@@ -479,12 +487,8 @@ struct GpuRenderPass;
 void gpu_push_constants(   GpuRenderPass*, u32 offset, std::span<const byte> data);
 void gpu_set_scissors(     GpuRenderPass*, std::span<const rect2i32> scissors);
 void gpu_set_viewports(    GpuRenderPass*, std::span<const rect2f32> viewports);
-void gpu_set_polygon_state(GpuRenderPass*, VkPrimitiveTopology, VkPolygonMode, f32 line_width);
-void gpu_set_cull_state(   GpuRenderPass*, VkCullModeFlagBits, VkFrontFace);
-void gpu_set_depth_state(  GpuRenderPass*, Flags<GpuDepthEnable> enabled, VkCompareOp);
-void gpu_set_blend_state(  GpuRenderPass*, std::span<const GpuBlendMode>);
 void gpu_bind_index_buffer(GpuRenderPass*, GpuBuffer*, u32 offset, VkIndexType);
-void gpu_bind_shaders(     GpuRenderPass*, std::span<GpuShader* const>);
+void gpu_bind_pipeline(    GpuRenderPass*, GpuPipeline*);
 void gpu_draw_indexed(     GpuRenderPass*, const GpuDrawInfo&);
 
 struct GpuRenderPassInfo

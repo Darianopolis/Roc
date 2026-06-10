@@ -2,53 +2,109 @@
 
 #include <core/stack.hpp>
 
-struct GpuShader
+struct GpuPipeline
 {
     Gpu* gpu;
 
-    VkShaderStageFlagBits stage;
-    VkShaderEXT shader = {};
+    VkPipeline pipeline;
 
-    ~GpuShader();
+    ~GpuPipeline()
+    {
+        gpu->vk.DestroyPipeline(gpu->device, pipeline, nullptr);
+    }
 };
 
-GpuShader::~GpuShader()
+auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) -> Ref<GpuPipeline>
 {
-    gpu->vk.DestroyShaderEXT(gpu->device, shader, nullptr);
-}
+    ThreadStack stack;
 
-auto gpu_shader_create(Gpu* gpu, const GpuShaderCreateInfo& info) -> Ref<GpuShader>
-{
-    auto shader = ref_create<GpuShader>();
-    shader->gpu = gpu;
-    shader->stage = info.stage;
+    auto pipeline = ref_create<GpuPipeline>();
+    pipeline->gpu = gpu;
 
-    Flags<VkShaderStageFlagBits> next_stages = {};
-    switch (info.stage) {
-        break;case VK_SHADER_STAGE_VERTEX_BIT:
-            next_stages = VK_SHADER_STAGE_FRAGMENT_BIT;
-        break;default:
-            ;
+    auto shaders = stack.allocate<VkPipelineShaderStageCreateInfo>(info.shaders.size());
+    auto modules = stack.allocate<VkShaderModuleCreateInfo>(info.shaders.size());
+    for (usz i = 0; i < info.shaders.size(); ++i) {
+        modules[i] = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = info.shaders[i].code.size_bytes(),
+            .pCode = info.shaders[i].code.data(),
+        };
+        shaders[i] = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = &modules[i],
+            .stage = info.shaders[i].stage,
+            .pName=  info.shaders[i].entry,
+        };
     }
 
-    gpu_check(gpu->vk.CreateShadersEXT(gpu->device, 1, ptr_to(VkShaderCreateInfoEXT {
-        .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
-        .stage = info.stage,
-        .nextStage = next_stages.get(),
-        .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
-        .codeSize = info.code.size() * 4,
-        .pCode = info.code.data(),
-        .pName = info.entry,
-        .setLayoutCount = 1,
-        .pSetLayouts = &gpu->set_layout,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = ptr_to(VkPushConstantRange {
-            .stageFlags = VK_SHADER_STAGE_ALL,
-            .size = gpu_push_constant_size,
-        }),
-    }), nullptr, &shader->shader));
+    VkPipelineColorBlendAttachmentState blend = {
+        .blendEnable = true,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT
+                        | VK_COLOR_COMPONENT_G_BIT
+                        | VK_COLOR_COMPONENT_B_BIT
+                        | VK_COLOR_COMPONENT_A_BIT,
+    };
 
-    return shader;
+    switch (info.blend_mode) {
+        break;case GpuBlendMode::none:
+            blend.blendEnable = false;
+        break;case GpuBlendMode::postmultiplied:
+            blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        break;case GpuBlendMode::premultiplied:
+            blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    }
+
+    gpu_check(gpu->vk.CreateGraphicsPipelines(gpu->device, nullptr, 1, ptr_to(VkGraphicsPipelineCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = ptr_to(VkPipelineRenderingCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = ptr_to(info.format->vk),
+        }),
+        .stageCount = u32(info.shaders.size()),
+        .pStages = shaders,
+        .pVertexInputState = ptr_to(VkPipelineVertexInputStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        }),
+        .pInputAssemblyState = ptr_to(VkPipelineInputAssemblyStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .topology = info.topology,
+        }),
+        .pViewportState = ptr_to(VkPipelineViewportStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        }),
+        .pRasterizationState = ptr_to(VkPipelineRasterizationStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .lineWidth = 1.f,
+        }),
+        .pMultisampleState = ptr_to(VkPipelineMultisampleStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        }),
+        .pDepthStencilState = nullptr,
+        .pColorBlendState = ptr_to(VkPipelineColorBlendStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .attachmentCount = 1,
+            .pAttachments = &blend,
+        }),
+        .pDynamicState = ptr_to(VkPipelineDynamicStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .dynamicStateCount = 2,
+            .pDynamicStates = std::array {
+                VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT,
+                VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
+            }.data(),
+        }),
+        .layout = gpu->pipeline_layout,
+    }), nullptr, &pipeline->pipeline));
+
+
+    return pipeline;
 }
 
 // -----------------------------------------------------------------------------
@@ -105,102 +161,11 @@ void gpu_set_viewports(GpuRenderPass* pass, std::span<const rect2f32> viewports)
     gpu->vk.CmdSetViewportWithCount(cmd, u32(viewports.size()), vk_viewports);
 }
 
-void gpu_set_polygon_state(GpuRenderPass* pass, VkPrimitiveTopology topology, VkPolygonMode polygon_mode, f32 line_width)
+void gpu_bind_pipeline(GpuRenderPass* pass, GpuPipeline* pipeline)
 {
     auto[gpu, cmd] = *pass;
 
-    gpu->vk.CmdSetPrimitiveTopology(cmd, topology);
-    gpu->vk.CmdSetPolygonModeEXT(   cmd, polygon_mode);
-    gpu->vk.CmdSetLineWidth(        cmd, line_width);
-}
-
-void gpu_set_cull_state(GpuRenderPass* pass, VkCullModeFlagBits cull_mode, VkFrontFace front_face)
-{
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdSetCullMode( cmd, cull_mode);
-    gpu->vk.CmdSetFrontFace(cmd, front_face);
-}
-
-void gpu_set_depth_state(GpuRenderPass* pass, Flags<GpuDepthEnable> enabled, VkCompareOp compare_op)
-{
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdSetDepthTestEnable( cmd, enabled.contains(GpuDepthEnable::test));
-    gpu->vk.CmdSetDepthWriteEnable(cmd, enabled.contains(GpuDepthEnable::write));
-    gpu->vk.CmdSetDepthCompareOp(  cmd, compare_op);
-}
-
-void gpu_set_blend_state(GpuRenderPass* pass, std::span<const GpuBlendMode> blends)
-{
-    auto[gpu, cmd] = *pass;
-
-    auto count = u32(blends.size());
-
-    ThreadStack stack;
-
-    auto* components         = stack.allocate<VkColorComponentFlags>(  count);
-    auto* blend_enable_bools = stack.allocate<VkBool32>(               count);
-    auto* blend_equations    = stack.allocate<VkColorBlendEquationEXT>(count);
-
-    for (u32 i = 0; i < count; ++i) {
-        components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-            | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        blend_enable_bools[i] = blends[i] != GpuBlendMode::none;
-
-        switch (blends[i]) {
-            break;case GpuBlendMode::none:
-                blend_equations[i] = {
-                    .srcColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
-                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
-                };
-            break;case GpuBlendMode::postmultiplied:
-                blend_equations[i] = {
-                    .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
-                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
-                };
-            break;case GpuBlendMode::premultiplied:
-                blend_equations[i] = {
-                    .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-                    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
-                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
-                };
-        }
-    }
-
-    gpu->vk.CmdSetColorBlendEnableEXT(  cmd, 0, count, blend_enable_bools);
-    gpu->vk.CmdSetColorWriteMaskEXT(    cmd, 0, count, components);
-    gpu->vk.CmdSetColorBlendEquationEXT(cmd, 0, count, blend_equations);
-}
-
-void gpu_bind_shaders(GpuRenderPass* pass, std::span<GpuShader* const> shaders)
-{
-    auto[gpu, cmd] = *pass;
-
-    u32 count = u32(shaders.size());
-
-    ThreadStack stack;
-
-    auto* stage_flags    = stack.allocate<VkShaderStageFlagBits>(count);
-    auto* shader_objects = stack.allocate<VkShaderEXT>(count);
-
-    for (u32 i = 0; i < shaders.size(); ++i) {
-        stage_flags[i] = VkShaderStageFlagBits(shaders[i]->stage);
-        shader_objects[i] = shaders[i]->shader;
-    }
-
-    gpu->vk.CmdBindShadersEXT(cmd, count, stage_flags, shader_objects);
+    gpu->vk.CmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 }
 
 void gpu_bind_index_buffer(GpuRenderPass* pass, GpuBuffer* buffer, u32 offset, VkIndexType type)
@@ -217,36 +182,6 @@ void gpu_draw_indexed(GpuRenderPass* pass, const GpuDrawInfo& info)
     gpu->vk.CmdDrawIndexed(cmd, info.index_count, info.instance_count, info.first_index, info.vertex_offset, info.first_instance);
 }
 
-static
-void reset_graphics_state(GpuRenderPass* pass)
-{
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdSetAlphaToCoverageEnableEXT(cmd, false);
-    gpu->vk.CmdSetSampleMaskEXT(           cmd, VK_SAMPLE_COUNT_1_BIT, ptr_to<VkSampleMask>(0xFFFF'FFFF));
-    gpu->vk.CmdSetRasterizationSamplesEXT( cmd, VK_SAMPLE_COUNT_1_BIT);
-    gpu->vk.CmdSetVertexInputEXT(          cmd, 0, nullptr, 0, nullptr);
-
-    gpu->vk.CmdSetRasterizerDiscardEnable(cmd, false);
-    gpu->vk.CmdSetPrimitiveRestartEnable( cmd, false);
-
-    // Stencil tests
-
-    gpu->vk.CmdSetStencilTestEnable(cmd, false);
-    gpu->vk.CmdSetStencilOp(        cmd, VK_STENCIL_FACE_FRONT_AND_BACK,
-        VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_NEVER);
-
-    // Depth (extended)
-
-    gpu->vk.CmdSetDepthBiasEnable(      cmd, false);
-    gpu->vk.CmdSetDepthBoundsTestEnable(cmd, false);
-    gpu->vk.CmdSetDepthBounds(          cmd, 0.f, 1.f);
-
-    gpu_set_polygon_state(pass, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, 1.f);
-    gpu_set_cull_state(pass,   VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    gpu_set_depth_state(pass,  {}, VK_COMPARE_OP_ALWAYS);
-}
-
 void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(GpuRenderPass*)> fn)
 {
     auto cmd = gpu_get_commands(gpu)->buffer;
@@ -254,8 +189,6 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
     gpu_use_resources(gpu, *info.reads, *info.writes);
 
     GpuRenderPass pass{gpu, cmd};
-
-    reset_graphics_state(&pass);
 
     auto extent = info.target->base()->extent;
 
