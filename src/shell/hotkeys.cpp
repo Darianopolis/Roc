@@ -13,34 +13,31 @@ void print_scene_graph(Shell* shell)
 
     std::ostringstream oss;
 
-    u32 depth = 0;
-    auto indent = [&] { return std::string(depth, ' '); };
-    scene_iterate<SceneIterateDirection::back_to_front>(
-        wm_get_layer(wm, WmLayer::window)->parent,
-        [&](SceneTree* tree) {
-            WaySurface* surface;
-            if (tree->userdata.id == way->userdata_id
-                    && (surface = way_get_userdata<WaySurface>(way, tree->userdata.data))) {
-                std::println(oss, "{}{} {} {{", indent(),
-                    surface->role,
-                    tree->translation);
-            } else {
-                std::println(oss, "{}tree {} {{", indent(), tree->translation);
-            }
-            depth += 2;
-        },
-        OverloadSet {
+    [&](this auto&& visit, SceneNode* node, u32 depth = 0) -> void {
+        auto indent = [&] { return std::string(depth, ' '); };
+        scene_visit(node, OverloadSet {
+            [&](SceneTree* tree) {
+                WaySurface* surface;
+                if (tree->userdata.id == way->userdata_id && (surface = way_get_userdata<WaySurface>(way, tree->userdata.data))) {
+                    std::println(oss, "{}{} {} {{", indent(),
+                        surface->role,
+                        tree->translation);
+                } else {
+                    std::println(oss, "{}tree {} {{", indent(), tree->translation);
+                }
+                for (auto* child : tree->children) {
+                    visit(child, depth + 2);
+                }
+                std::println(oss, "{}}}", indent());
+            },
             [&](SceneTexture* texture) {
                 std::println(oss, "{}texture {}", indent(), texture->dst);
             },
             [&](SceneInputRegion* input_region) {
                 std::println(oss, "{}input_region {}", indent(), rect2f32(input_region->clip));
             },
-        },
-        [&](SceneTree* tree) {
-            depth -= 2;
-            std::println(oss, "{}}}", indent());
         });
+    }(wm_get_scene(wm));
 
     log_info("Scene graph:\n{}", oss.str());
 }
@@ -172,7 +169,7 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                 break;case KEY_VOLUMEUP:
                     spawn_path("wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}});
                     return SeatEventFilterResult::capture;
-                break;case KEY_SYSRQ: {
+                break;case KEY_SYSRQ /* PRINT */: {
                     auto* seat = seat_keyboard_get_seat(event->keyboard.keyboard);
                     wm_begin_selection(shell->wm.get(), seat_get_pointer(seat), [shell = Weak(shell)](rect2f32 region) {
                         if (!shell) return;

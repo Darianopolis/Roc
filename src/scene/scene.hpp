@@ -30,7 +30,7 @@ enum class SceneDamageType : u32
 
 struct SceneDamage
 {
-    aabb2f32 region;
+    aabb2f32               region;
     Flags<SceneDamageType> types;
 };
 
@@ -46,8 +46,8 @@ enum class SceneNodeType
 struct SceneNode
 {
     SceneNodeType type;
-    SceneTree* parent;
-    vec2f32 translation;
+    SceneTree*    parent;
+    vec2f32       translation;
 
     struct {
         Signal<SceneDamageCallback> damage;
@@ -63,7 +63,7 @@ void scene_node_unparent(SceneNode*);
 struct SceneTree : SceneNode
 {
     bool enabled;
-    f32 opacity = 1.f;
+    f32  opacity = 1.f;
 
     struct {
         Uid   id;
@@ -109,7 +109,7 @@ struct SceneTexture : SceneNode
 {
     Ref<GpuImage>   image;
     Ref<GpuSampler> sampler;
-    GpuBlendMode   blend;
+    GpuBlendMode    blend;
 
     vec4u8   tint;
     aabb2f32 src;

@@ -56,18 +56,14 @@ WmWindow::~WmWindow()
     wm_window_unmap(this);
 }
 
-static constexpr vec2f32 border_size      = vec2f32(2, 2);
-static constexpr auto    border_normal    = color_from_hex("#4C4C4C");
-static constexpr auto    border_focused   = color_from_hex("#6666FF");
-static constexpr auto    backdrop_normal  = color_from_hex("#333333");
-static constexpr auto    backdrop_focused = color_from_hex("#4d4dff");
-
 static
 void update_border_colors(WmWindow* window)
 {
-    scene_texture_set_tint(window->backdrop.get(), wm_window_is_focused(window) ? backdrop_focused : backdrop_normal);
+    auto* wm = window->client->wm;
     for (auto* border : window->borders) {
-        scene_texture_set_tint(border, wm_window_is_focused(window) ? border_focused : border_normal);
+        scene_texture_set_tint(border, wm_window_is_focused(window)
+            ? wm->config.border.focused
+            : wm->config.border.normal);
     }
 }
 
@@ -83,6 +79,7 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
 
     window->backdrop = scene_texture_create();
     scene_tree_place_above(window->root_tree.get(), nullptr, window->backdrop.get());
+    scene_texture_set_tint(window->backdrop.get(), color_from_hex("#000000"));
 
     for (usz i = 0; i < 4; ++i) {
         auto border = scene_texture_create();
@@ -188,7 +185,7 @@ void wm_window_set_size(WmWindow* window, vec2f32 size)
 
     scene_texture_set_dst(window->backdrop.get(), {{}, size, minmax});
 
-    auto bs = border_size;
+    auto bs = window->client->wm->config.border.size;
     scene_texture_set_dst(window->borders[0 /* left   */], {{ -bs.x,     0}, {            0, size.y       }, minmax});
     scene_texture_set_dst(window->borders[1 /* right  */], {{size.x,     0}, {size.x + bs.x, size.y       }, minmax});
     scene_texture_set_dst(window->borders[2 /* top    */], {{-bs.x,  -bs.y}, {size.x + bs.x,              }, minmax});

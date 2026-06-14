@@ -15,7 +15,7 @@ void main()
     SceneQuad quad = pc.quads.data[in_rect];
 
     vec4f32 tint = unpack_unorm4u8(quad.tint);
-    vec4f32 color = image_sample(quad.texture, in_uv) * tint;
+    vec4f32 color = gpu_image_sample(quad.texture, in_uv) * tint;
 
     if ((quad.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) == 0) {
         color.rgb *= color.a;

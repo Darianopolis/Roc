@@ -42,30 +42,30 @@ struct GpuImageHandle { u16 img; u16 smp; };
 
 // -----------------------------------------------------------------------------
 
-bool image_valid(GpuImageHandle h) { return h.img != 0 && h.smp != 0; }
+bool gpu_image_valid(GpuImageHandle h) { return h.img != 0 && h.smp != 0; }
 
-vec2i32 image_dimensions(GpuImageHandle h)
+vec2i32 gpu_image_dimensions(GpuImageHandle h)
 {
     return vec2i32(textureSize(sampler2D(
         gpu_heap_texture[nonuniformEXT(u32(h.img))],
         gpu_heap_sampler[nonuniformEXT(u32(h.smp))]), 0));
 }
 
-vec4f32 image_sample(GpuImageHandle h, vec2f32 uv)
+vec4f32 gpu_image_sample(GpuImageHandle h, vec2f32 uv)
 {
     return texture(sampler2D(
         gpu_heap_texture[nonuniformEXT(u32(h.img))],
         gpu_heap_sampler[nonuniformEXT(u32(h.smp))]), uv);
 }
 
-vec4f32 image_sample_lod(GpuImageHandle h, vec2f32 uv, i32 lod)
+vec4f32 gpu_image_sample_lod(GpuImageHandle h, vec2f32 uv, i32 lod)
 {
     return textureLod(sampler2D(
         gpu_heap_texture[nonuniformEXT(u32(h.img))],
         gpu_heap_sampler[nonuniformEXT(u32(h.smp))]), uv, f32(lod));
 }
 
-vec4f32 image_load(GpuImageHandle h, vec2i32 idx)
+vec4f32 gpu_image_load(GpuImageHandle h, vec2i32 idx)
 {
     return imageLoad(gpu_heap_storage[nonuniformEXT(u32(h.img))], idx);
 }

@@ -59,10 +59,6 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
                     return close_focused(wm,
                         seat_pointer_get_seat(event->pointer.pointer),
                         seat_pointer_get_focus(event->pointer.pointer));
-                break;case BTN_EXTRA: {
-                    wm_focus(wm, nullptr);
-                    return SeatEventFilterResult::capture;
-                }
             }
         break;default:
             ;

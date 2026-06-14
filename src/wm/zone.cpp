@@ -4,9 +4,9 @@
 #include <core/color.hpp>
 
 static
-auto get_zone_rect(rect2i32 workarea, vec2u32 zone) -> rect2i32
+auto get_zone_rect(WmServer* wm, rect2i32 workarea, vec2u32 zone) -> rect2i32
 {
-    auto& c = wm_config;
+    auto& c = wm->config;
 
     rect2i32 out;
 
@@ -35,7 +35,7 @@ void update_rectangle(WmServer* wm)
         return;
     }
 
-    auto color = selecting ? wm_config.zone.color_selected : wm_config.zone.color_initial;
+    auto color = selecting ? wm->config.zone.color_selected : wm->config.zone.color_initial;
 
     scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
     scene_texture_set_dst(wm->zone.texture.get(), rect_cast<f32>(rect));
@@ -45,7 +45,7 @@ void update_rectangle(WmServer* wm)
 static
 void zone_update_regions(WmServer* wm)
 {
-    auto& c = wm_config;
+    auto& c = wm->config;
 
     auto pointer = wm->zone.pointer;
     vec2f32 point = seat_pointer_get_position(pointer);
@@ -59,7 +59,7 @@ void zone_update_regions(WmServer* wm)
 
     for (u32 zone_x = 0; zone_x < c.zone.count.x; ++zone_x) {
         for (u32 zone_y = 0; zone_y < c.zone.count.y; ++zone_y) {
-            rect2i32 rect = get_zone_rect(workarea, {zone_x, zone_y});
+            rect2i32 rect = get_zone_rect(wm, workarea, {zone_x, zone_y});
             vec2f64 leeway = vec_cast<f64>(c.zone.selection_leeway * f32(std::min(rect.extent.x, rect.extent.y)));
             aabb2f64 aabb = aabb_cast<f64>(rect);
             aabb2f64 check_aabb = {

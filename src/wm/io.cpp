@@ -133,9 +133,11 @@ auto wm_output_get_viewport(WmOutput* output) -> rect2f32
 
 auto wm_output_get_workarea(WmOutput* output) -> rect2f32
 {
+    auto* wm = output->server;
+
     auto workarea = output->viewport;
-    workarea.origin += vec_cast<f32>(wm_config.workarea.padding.tl);
-    workarea.extent -= vec_cast<f32>(wm_config.workarea.padding.tl + wm_config.workarea.padding.br);
+    workarea.origin += vec_cast<f32>(wm->config.workarea.padding.tl);
+    workarea.extent -= vec_cast<f32>(wm->config.workarea.padding.tl + wm->config.workarea.padding.br);
     return workarea;
 }
 
@@ -211,9 +213,15 @@ void update_leds(WmServer* wm, SeatKeyboard* keyboard)
 static
 void handle_key(WmServer* wm, Seat* seat, bool quiet, WmInputDeviceChannel channel)
 {
-    // TODO: Hacky fix to remap mouse side button to super key
-    if (channel.code == BTN_SIDE) {
-        channel.code = KEY_LEFTMETA;
+    // TODO: Hacky fix to remap mouse side buttons
+    // switch (channel.code) {
+    //     break;case BTN_EXTRA: channel.code = KEY_LEFTCTRL;
+    //     break;case BTN_SIDE:  channel.code = KEY_LEFTMETA;
+    // }
+
+    auto rebind = wm->config.rebinds.find(channel.code);
+    if (rebind != wm->config.rebinds.end()) {
+        channel.code = rebind->second;
     }
 
     switch (channel.code) {

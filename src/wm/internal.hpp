@@ -8,9 +8,14 @@
 #include <scene/scene.hpp>
 #include <way/way.hpp>
 
-static
 struct WmConfig
 {
+    struct {
+        vec2f32 size    = vec2f32(2, 2);
+        vec4u8  normal  = color_from_hex("#4C4C4C");
+        vec4u8  focused = color_from_hex("#6666FF");
+    } border;
+
     struct {
         vec2u32 count = {6, 2};
         vec2f32 selection_leeway = {0.3f, 0.3f};
@@ -26,7 +31,11 @@ struct WmConfig
         } padding;
     } workarea;
 
-} wm_config;
+    ankerl::unordered_dense::map<u32, u32> rebinds {
+        {BTN_EXTRA, KEY_LEFTCTRL},
+        {BTN_SIDE,  KEY_LEFTMETA},
+    };
+};
 
 enum class WmInteractionMode
 {
@@ -70,6 +79,8 @@ struct WmInputDevice
 
 struct WmServer
 {
+    WmConfig config;
+
     ExecContext* exec;
     Gpu*         gpu;
 

@@ -16,7 +16,7 @@ void update_rectangle(WmServer* wm)
 
     scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->selection.texture.get());
     scene_texture_set_dst(wm->selection.texture.get(), rect_cast<f32>(rect));
-    scene_texture_set_tint(wm->selection.texture.get(), wm_config.zone.color_initial);
+    scene_texture_set_tint(wm->selection.texture.get(), wm->config.zone.color_initial);
 }
 
 static
