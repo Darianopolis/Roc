@@ -31,8 +31,10 @@ void get_subsurface(wl_client* client, wl_resource* resource, u32 id, wl_resourc
     // Subsurfaces start synchronized
     surface->subsurface->synchronized = true;
 
-    // Place into parent's surface stack
     ensure_tree(parent);
+    parent->tree->children.emplace_back(surface);
+
+    // Place into parent's surface stack
     parent->tree->queue.pending->places.emplace_back(WaySurfaceTreePlace {
         .reference = nullptr,
         .surface = surface,
@@ -101,6 +103,9 @@ WAY_INTERFACE(wl_subsurface) = {
 WaySubsurface::~WaySubsurface()
 {
     if (surface) {
+        if (surface->parent) {
+            std::erase(surface->parent->tree->children, surface);
+        }
         surface->role = WaySurfaceRole::none;
         surface->subsurface = nullptr;
     }

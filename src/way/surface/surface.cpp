@@ -344,13 +344,10 @@ void way_surface_try_flush(WaySurface* surface)
 
     // Flush subsurface state recursively
 
-    auto* server = surface->client->server;
-
-    for (auto* child : surface->scene.tree->children) {
-        if (child->type != SceneNodeType::tree) continue;
-        auto* tree = static_cast<SceneTree*>(child);
-        if (tree->userdata.id != server->userdata_id) continue;
-        way_surface_try_flush(way_get_userdata<WaySurface>(server, tree->userdata.data));
+    if (surface->tree) {
+        for (auto* child : surface->tree->children) {
+            way_surface_try_flush(child);
+        }
     }
 }
 

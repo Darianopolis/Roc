@@ -168,6 +168,8 @@ struct WaySurfaceTree : WaySurfaceAddon
 {
     WayCommitQueue<WaySurfaceStateRequest> queue;
 
+    std::vector<WaySurface*> children;
+
     virtual void commit(WayCommitId) final override;
     virtual void apply( WayCommitId) final override;
 };
