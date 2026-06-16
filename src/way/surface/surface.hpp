@@ -109,9 +109,9 @@ struct WaySurface
         bool waiting_for_timer = false;
     } frame;
 
-    // scene
     struct {
         Ref<SceneTree>        tree;
+        Ref<SceneTree>        content;
         Ref<SceneTexture>     texture;
         Ref<SceneInputRegion> input_region;
         Ref<SeatFocus>        focus;

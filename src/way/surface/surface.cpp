@@ -37,12 +37,16 @@ void create_surface(wl_client* client, wl_resource* resource, u32 id)
     surface->scene.tree->userdata = {server->userdata_id, surface.get()};
     scene_tree_set_enabled(surface->scene.tree.get(), false);
 
+    surface->scene.content = scene_tree_create();
+    scene_tree_set_enabled(surface->scene.tree.get(), false);
+    scene_tree_place_above(surface->scene.tree.get(), nullptr, surface->scene.content.get());
+
     surface->scene.texture = scene_texture_create();
-    scene_tree_place_above(surface->scene.tree.get(), nullptr, surface->scene.texture.get());
+    scene_tree_place_above(surface->scene.content.get(), nullptr, surface->scene.texture.get());
 
     surface->scene.input_region = scene_input_region_create();
     surface->scene.focus = seat_focus_create(wm_get_seat_client(surface->client->wm.get()), surface->scene.input_region.get());
-    scene_tree_place_above(surface->scene.tree.get(), nullptr, surface->scene.input_region.get());
+    scene_tree_place_above(surface->scene.content.get(), nullptr, surface->scene.input_region.get());
 
     surface->resource = way_resource_create_refcounted(wl_surface, client, resource, id, surface.get());
 }

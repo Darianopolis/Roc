@@ -155,7 +155,13 @@ void WaySurfaceTree::apply(WayCommitId id)
     from->moves.clear();
 
     for (auto& place : from->places) {
-        auto* reference = place.reference ? place.reference->scene.tree.get() : nullptr;
+        SceneTree* reference = nullptr;
+        if (auto* ref = place.reference.get()) {
+            reference = ref == surface
+                ? ref->scene.content.get() // reference is parent, use content tree
+                : ref->scene.tree.get();   // reference is sibling, use root tree
+        }
+
         if (place.above) {
             scene_tree_place_above(
                 surface->scene.tree.get(),
