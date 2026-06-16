@@ -17,12 +17,9 @@ void handle_keyboard_key(IoLibinputDevice* device, libinput_event_keyboard* even
 {
     auto keycode = libinput_event_keyboard_get_key(event);
 
-    switch (libinput_event_keyboard_get_key_state(event)) {
-        break;case LIBINPUT_KEY_STATE_PRESSED:
-            io_input_device_key_press(device, keycode);
-        break;case LIBINPUT_KEY_STATE_RELEASED:
-            io_input_device_key_release(device, keycode);
-    }
+    io_input_device_post(device, false, {{
+        {EV_KEY, keycode, libinput_event_keyboard_get_key_state(event) == LIBINPUT_KEY_STATE_PRESSED ? 1.0 : 0.0}
+    }});
 }
 
 void IoLibinputDevice::update_leds(Flags<libinput_led> leds)
@@ -46,34 +43,33 @@ void handle_pointer_button(IoLibinputDevice* device, libinput_event_pointer* eve
 {
     auto button = libinput_event_pointer_get_button(event);
 
-    switch (libinput_event_pointer_get_button_state(event)) {
-        break;case LIBINPUT_BUTTON_STATE_PRESSED:  io_input_device_key_press(device, button);
-        break;case LIBINPUT_BUTTON_STATE_RELEASED: io_input_device_key_release(device, button);
-    }
+    io_input_device_post(device, false, {{
+        {EV_KEY, button, libinput_event_pointer_get_button_state(event) == LIBINPUT_BUTTON_STATE_PRESSED ? 1.0 : 0.0}
+    }});
 }
 
 static
 void handle_pointer_motion(IoLibinputDevice* device, libinput_event_pointer* event)
 {
-    io_input_device_pointer_motion(device, {
-        f32(libinput_event_pointer_get_dx(event)),
-        f32(libinput_event_pointer_get_dy(event))
-    });
+    io_input_device_post(device, false, {{
+        {EV_REL, REL_X, libinput_event_pointer_get_dx(event)},
+        {EV_REL, REL_Y, libinput_event_pointer_get_dy(event)},
+    }});
 }
 
 static
 void handle_pointer_scroll_wheel(IoLibinputDevice* device, libinput_event_pointer* event)
 {
-    auto get = [&](libinput_pointer_axis axis) -> f32 {
+    auto get = [&](libinput_pointer_axis axis) -> f64 {
         return libinput_event_pointer_has_axis(event, axis)
             ? libinput_event_pointer_get_scroll_value_v120(event, axis) / 120.0
             : 0.0;
     };
 
-    io_input_device_pointer_scroll(device, {
-        get(LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL),
-        get(LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)
-    });
+    io_input_device_post(device, false, {{
+        {EV_REL, REL_HWHEEL, get(LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)},
+        {EV_REL, REL_WHEEL,  get(LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL)},
+    }});
 }
 
 // -----------------------------------------------------------------------------
@@ -114,7 +110,6 @@ void handle_device_removed(IoLibinputDevice* device)
 {
     log_debug("Device removed - {}", libinput_device_get_name(device->handle));
 
-    io_input_device_remove(device);
     device->io->libinput->input_devices.erase(device);
 }
 

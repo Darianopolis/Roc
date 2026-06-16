@@ -237,7 +237,7 @@ void handle_key(WmServer* wm, Seat* seat, bool quiet, WmInputDeviceChannel chann
             }
         }
         break;default:
-            ;
+            ; // TODO
     }
 }
 
@@ -294,7 +294,7 @@ void wm_input_device_push_events(WmInputDevice* input_device, bool quiet, std::s
                     break;case REL_WHEEL:  scroll.y += channel.value;
                 }
             break;case EV_ABS:
-                log_warn("Unknown  {} = {}", libevdev_event_code_get_name(channel.type, channel.code), channel.value);
+                ; // TODO
         }
     }
 

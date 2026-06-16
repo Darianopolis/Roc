@@ -63,7 +63,7 @@ struct WmInputDeviceChannel
 {
     u32 type;   // evdev type
     u32 code;   // evdev code
-    f32 value;  // normalized channel value
+    f64 value;  // normalized channel value
 };
 
 auto wm_input_device_create(WmServer*, void*, WmInputDeviceInterface) -> Ref<WmInputDevice>;

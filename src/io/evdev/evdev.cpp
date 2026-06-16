@@ -3,7 +3,7 @@
 #include <core/log.hpp>
 #include <core/fd.hpp>
 
-struct IoEvdevDevice
+struct IoEvdevDevice : IoInputDeviceBase
 {
     Fd fd = {};
     struct libevdev* evdev = nullptr;
@@ -30,6 +30,22 @@ struct IoEvdev
 };
 
 static
+void send_event(IoEvdevDevice* device, const input_event& event, bool quiet)
+{
+    switch (event.type) {
+        break;case EV_KEY:
+              case EV_REL:
+            io_input_device_post(device, false, {{{event.type, event.code, f64(event.value)}}});
+        break;case EV_ABS: {
+            auto* info = libevdev_get_abs_info(device->evdev, event.code);
+            f64 range = info->maximum - info->minimum;
+            f64 progress = event.value - info->minimum;
+            io_input_device_post(device, quiet, {{{event.type, event.code, (progress / range) * 2 - 1}}});
+        }
+    }
+}
+
+static
 void handle_evdev_event(IoContext* io, IoEvdevDevice* device)
 {
     input_event event;
@@ -42,24 +58,24 @@ void handle_evdev_event(IoContext* io, IoEvdevDevice* device)
         if (res.value == LIBEVDEV_READ_STATUS_SYNC) {
             device->needs_sync = true;
             if (event.type == EV_SYN && event.code == SYN_DROPPED) {
-                log_debug("Sync required");
+                log_debug("evdev :: sync required");
                 continue;
             } else {
-                log_debug("Sync ({}) = {}", libevdev_event_code_get_name(event.type, event.code), event.value);
+                send_event(device, event, true);
             }
         } else if (res.error == EAGAIN) {
             if (device->needs_sync) {
-                log_debug("Sync completed!");
+                log_debug("evdev :: sync completed!");
                 device->needs_sync = false;
             }
             return;
         } else if (res.error == ENODEV) {
-            log_debug("Device disconnected");
+            log_debug("evdev :: device disconnected");
             device->destroy(io);
             io->evdev->devices.erase(device);
             return;
         } else {
-            log_trace("Event ({}) = {}", libevdev_event_code_get_name(event.type, event.code), event.value);
+            send_event(device, event, false);
         }
     }
 }
@@ -82,9 +98,12 @@ void handle_device(IoContext* io, udev_device* dev)
     log_debug("  pid = {:#06x}", libevdev_get_id_product(evdev));
 
     auto device = ref_create<IoEvdevDevice>();
+    device->io    = io;
     device->fd    = std::move(fd);
     device->evdev = std::exchange(evdev, nullptr);
     io->evdev->devices.emplace_back(device.get());
+
+    io_input_device_add(device.get());
 
     fd_listen(io->exec, device->fd.get(), FdEventBit::readable, [io, device = device.get()](fd_t, Flags<FdEventBit>) {
         handle_evdev_event(io, device);

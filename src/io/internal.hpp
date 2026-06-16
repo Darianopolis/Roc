@@ -42,8 +42,7 @@ struct IoContext
     ExecContext* exec;
     Gpu* gpu;
 
-    std::vector<IoInputDeviceBase*> input_devices;
-    std::vector<IoOutputBase*>      outputs;
+    std::vector<IoOutputBase*> outputs;
 
     Ref<GpuImagePool> image_pool;
 
@@ -100,7 +99,7 @@ void io_output_remove(IoOutputBase*);
 // -----------------------------------------------------------------------------
 
 /**
- * Base type for input devices. There are three types of input devices:
+ * Base type for input devices. There are three sources of input devices:
  * 1. libinput - Handles keyboard/pointer/tablet/gesture/switch devices with seat access.
  * 2. wayland  - Handles the above devices when running in a nested Wayland session.
  * 3. evdev    - Handles all remaining input devices (gamepad/joystick/etc...) that do not require privileged seat access.
@@ -118,11 +117,5 @@ struct IoInputDeviceBase
     virtual ~IoInputDeviceBase() = default;
 };
 
-void io_input_device_add(           IoInputDeviceBase*);
-void io_input_device_remove(        IoInputDeviceBase*);
-void io_input_device_leave(         IoInputDeviceBase*);
-void io_input_device_key_enter(     IoInputDeviceBase*, std::span<const u32> keys);
-void io_input_device_key_press(     IoInputDeviceBase*, u32 key);
-void io_input_device_key_release(   IoInputDeviceBase*, u32 key);
-void io_input_device_pointer_motion(IoInputDeviceBase*, vec2f32 delta);
-void io_input_device_pointer_scroll(IoInputDeviceBase*, vec2f32 delta);
+void io_input_device_add( IoInputDeviceBase*);
+void io_input_device_post(IoInputDeviceBase*, bool quiet, std::span<const WmInputDeviceChannel> channels);
