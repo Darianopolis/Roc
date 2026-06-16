@@ -13,13 +13,6 @@ struct IoLibinputDevice : IoInputDeviceBase
 {
     libinput_device* handle;
 
-    virtual auto info() -> IoInputDeviceInfo final override
-    {
-        return {
-            .capabilities = IoInputDeviceCapability::libinput_led,
-        };
-    }
-
     virtual void update_leds(Flags<libinput_led> leds) final override;
 
     ~IoLibinputDevice();

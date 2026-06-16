@@ -140,7 +140,7 @@ struct IoWaylandOutput : IoOutputBase
 };
 
 inline
-auto get_impl(IoOutput* output) -> IoWaylandOutput*
+auto get_impl(IoOutputBase* output) -> IoWaylandOutput*
 {
     return dynamic_cast<IoWaylandOutput*>(output);
 }
@@ -151,11 +151,6 @@ struct IoWaylandKeyboard : IoInputDeviceBase
 {
     IO_WL_INTERFACE(wl_keyboard);
 
-    virtual auto info() -> IoInputDeviceInfo final override
-    {
-        return {};
-    }
-
     ~IoWaylandKeyboard();
 };
 
@@ -165,13 +160,8 @@ struct IoWaylandPointer : IoInputDeviceBase
     IO_WL_INTERFACE(zwp_relative_pointer_v1);
     IO_WL_INTERFACE(wp_cursor_shape_device_v1);
 
-    Weak<IoOutput> current_output;
+    Weak<IoOutputBase> current_output;
     u32 last_serial;
-
-    virtual auto info() -> IoInputDeviceInfo final override
-    {
-        return {};
-    }
 
     ~IoWaylandPointer();
 };

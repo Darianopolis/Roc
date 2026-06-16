@@ -53,12 +53,12 @@ auto main(int argc, char* argv[]) -> int
 
     shell->gpu = gpu_create(exec.get(), {});
     debug_assert(shell->gpu, "Failed to initialize GPU");
-    shell->io = io_create(exec.get(), shell->gpu.get());
     shell->wm = wm_create({
         .exec = exec.get(),
         .gpu = shell->gpu.get(),
         .main_mod = shell->main_mod,
     });
+    shell->io = io_create(shell->wm.get(), exec.get(), shell->gpu.get());
     shell->way = way_create(shell->wm.get(), exec.get());
 
     // Applets
@@ -68,8 +68,6 @@ auto main(int argc, char* argv[]) -> int
     shell_init_hotkeys(shell.get());
 
     // IO
-
-    shell_init_io_bridge(shell.get());
 
     auto _ = io_get_signals(shell->io.get()).shutdown.listen([&] {
         shell.destroy();

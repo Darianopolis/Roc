@@ -38,11 +38,14 @@ struct IoContext
 
     bool stop_requested = false;
 
+    WmServer* wm;
     ExecContext* exec;
     Gpu* gpu;
 
     std::vector<IoInputDeviceBase*> input_devices;
     std::vector<IoOutputBase*>      outputs;
+
+    Ref<GpuImagePool> image_pool;
 
     struct udev* udev;
 
@@ -55,13 +58,24 @@ struct IoContext
     ~IoContext();
 };
 
-void io_request_shutdown(IoContext* io, IoShutdownReason reason);
-
 // -----------------------------------------------------------------------------
 
-struct IoOutputBase : IoOutput
+enum class IoOutputCommitFlag : u32
+{
+    vsync = 1 << 0,
+};
+
+struct IoOutputInfo
+{
+    vec2u32 size;
+    const GpuFormatSet* formats;
+};
+
+struct IoOutputBase
 {
     IoContext* io;
+
+    Ref<WmOutput> output;
 
     bool frame_requested;
 
@@ -70,7 +84,8 @@ struct IoOutputBase : IoOutput
     // True if commit will accept a new frame
     bool commit_available = true;
 
-    virtual void request_frame() final override;
+    virtual auto info() -> IoOutputInfo = 0;
+    virtual void commit(GpuImage*, GpuSyncpoint done, Flags<IoOutputCommitFlag>) = 0;
 
     virtual ~IoOutputBase();
 };
@@ -90,16 +105,18 @@ void io_output_remove(IoOutputBase*);
  * 2. wayland  - Handles the above devices when running in a nested Wayland session.
  * 3. evdev    - Handles all remaining input devices (gamepad/joystick/etc...) that do not require privileged seat access.
  */
-struct IoInputDeviceBase : IoInputDevice
+struct IoInputDeviceBase
 {
     IoContext* io;
 
+    Ref<WmInputDevice> input_device;
+
     std::flat_set<u32> pressed;
+
+    virtual void update_leds(Flags<libinput_led>) {}
 
     virtual ~IoInputDeviceBase() = default;
 };
-
-void io_post_event(IoContext*, IoEvent*);
 
 void io_input_device_add(           IoInputDeviceBase*);
 void io_input_device_remove(        IoInputDeviceBase*);

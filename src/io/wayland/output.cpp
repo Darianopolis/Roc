@@ -91,7 +91,8 @@ void toplevel_close(void* udata, xdg_toplevel*)
     auto* io = output->io;
     io->wayland->outputs.erase(output);
     if (io->wayland->outputs.empty()) {
-        io_request_shutdown(io, IoShutdownReason::no_more_outputs);
+        // TODO: Should we be doing this?
+        io_stop(io);
     }
 }
 

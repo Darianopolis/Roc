@@ -4,12 +4,15 @@
 
 #define IO_EVDEV_ENABLED 0
 
-auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
+auto io_create(WmServer* wm, ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 {
     auto io = ref_create<IoContext>();
 
+    io->wm = wm;
     io->exec = exec;
     io->gpu = gpu;
+
+    io->image_pool = gpu_image_pool_create(gpu);
 
     io_udev_init(    io.get());
     io_session_init( io.get());
@@ -21,17 +24,6 @@ auto io_create(ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     io_wayland_init( io.get());
 
     return io;
-}
-
-static
-void post_shutdown_request(IoContext* io, IoShutdownReason reason)
-{
-    io_post_event(io, ptr_to(IoEvent {
-        .shutdown {
-            .type = IoEventType::shutdown_requested,
-            .reason = reason,
-        }
-    }));
 }
 
 static
@@ -87,9 +79,8 @@ void handle_signal(IoContext* io)
 
     switch (info.ssi_signo) {
         break;case SIGINT:
-            post_shutdown_request(io, IoShutdownReason::interrupt_received);
-        break;case SIGTERM:
-            post_shutdown_request(io, IoShutdownReason::terminate_received);
+              case SIGTERM:
+            io_stop(io);
         break;case SIGCHLD:
             reap_child_processes(io);
         break;default:
@@ -120,14 +111,6 @@ void io_start(IoContext* io)
     });
 }
 
-void io_request_shutdown(IoContext* io, IoShutdownReason reason)
-{
-    exec_enqueue(io->exec, [io = Weak(io), reason] {
-        if (!io) return;
-        post_shutdown_request(io.get(), reason);
-    });
-}
-
 void io_stop(IoContext* io)
 {
     if (io->stop_requested) return;
@@ -137,9 +120,4 @@ void io_stop(IoContext* io)
         if (!io) return;
         shutdown(io.get());
     });
-}
-
-void io_post_event(IoContext* io, IoEvent* event)
-{
-    io->signals.event(event);
 }

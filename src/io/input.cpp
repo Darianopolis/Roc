@@ -6,43 +6,28 @@ void io_input_device_add(IoInputDeviceBase* device)
 {
     debug_assert(!std::ranges::contains(device->io->input_devices, device));
     device->io->input_devices.emplace_back(device);
-    io_post_event(device->io, ptr_to(IoEvent {
-        .input = IoInputEvent {
-            .type = IoEventType::input_added,
-            .device = device,
-        },
-    }));
+    device->input_device = wm_input_device_create(device->io->wm, device, WmInputDeviceInterface {
+        .update_leds = [](void* data, Flags<libinput_led> leds) {
+            static_cast<IoInputDeviceBase*>(data)->update_leds(leds);
+        }
+    });
 }
 
 void io_input_device_remove(IoInputDeviceBase* device)
 {
-    if (std::erase(device->io->input_devices, device)) {
-        io_post_event(device->io, ptr_to(IoEvent {
-            .input = IoInputEvent {
-                .type = IoEventType::input_removed,
-                .device = device,
-            },
-        }));
-    }
+    std::erase(device->io->input_devices, device);
 }
 
 static
-void post_input(IoInputDeviceBase* device, bool quiet, std::span<const IoInputChannel> channels)
+void post_input(IoInputDeviceBase* device, bool quiet, std::span<const WmInputDeviceChannel> channels)
 {
-    io_post_event(device->io, ptr_to(IoEvent {
-        .input = {
-            .type = IoEventType::input_event,
-            .device = device,
-            .quiet = quiet,
-            .channels = channels,
-        },
-    }));
+    wm_input_device_push_events(device->input_device.get(), quiet, channels);
 }
 
 void io_input_device_leave(IoInputDeviceBase* device)
 {
     ThreadStack stack;
-    auto* events = stack.allocate<IoInputChannel>(device->pressed.size());
+    auto* events = stack.allocate<WmInputDeviceChannel>(device->pressed.size());
     usz count = 0;
     for (auto key : device->pressed) {
         events[count++] = {EV_KEY, key, 0};
@@ -56,7 +41,7 @@ void io_input_device_leave(IoInputDeviceBase* device)
 void io_input_device_key_enter(IoInputDeviceBase* device, std::span<const u32> keys)
 {
     ThreadStack stack;
-    auto* events = stack.allocate<IoInputChannel>(keys.size());
+    auto* events = stack.allocate<WmInputDeviceChannel>(keys.size());
     usz count = 0;
     for (auto key : keys) {
         if (device->pressed.insert(key).second) {
@@ -85,7 +70,7 @@ void io_input_device_key_release(IoInputDeviceBase* device, u32 key)
 static
 void post_rel2(IoInputDeviceBase* device, vec2u32 code, vec2f32 delta)
 {
-    IoInputChannel events[2];
+    WmInputDeviceChannel events[2];
     u32 count = 0;
     if (delta.x) events[count++] = {EV_REL, code.x, delta.x};
     if (delta.y) events[count++] = {EV_REL, code.y, delta.y};

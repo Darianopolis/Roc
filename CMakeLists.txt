@@ -188,32 +188,6 @@ target_sources(gpu PRIVATE
 target_link_libraries(gpu PUBLIC core generated::shaders)
 
 # ------------------------------------------------------------------------------
-#       Session IO
-# ------------------------------------------------------------------------------
-
-init_library(io)
-target_sources(io PRIVATE
-    src/io/io.cpp
-    src/io/output.cpp
-    src/io/input.cpp
-    src/io/drm/drm.cpp
-    src/io/drm/properties.cpp
-    src/io/evdev/evdev.cpp
-    src/io/libinput/libinput.cpp
-    src/io/libinput/events.cpp
-    src/io/session/session.cpp
-    src/io/udev/udev.cpp
-    src/io/wayland/wayland.cpp
-    src/io/wayland/output.cpp
-    src/io/wayland/seat.cpp
-    )
-target_link_libraries(io PUBLIC core gpu)
-
-init_executable(io-test)
-target_sources(io-test PRIVATE src/io/main.cpp)
-target_link_libraries(io-test PUBLIC io)
-
-# ------------------------------------------------------------------------------
 #       Scene
 # ------------------------------------------------------------------------------
 
@@ -265,6 +239,28 @@ target_sources(wm PRIVATE
 target_link_libraries(wm PUBLIC core scene seat)
 
 # ------------------------------------------------------------------------------
+#       Session IO
+# ------------------------------------------------------------------------------
+
+init_library(io)
+target_sources(io PRIVATE
+    src/io/io.cpp
+    src/io/output.cpp
+    src/io/input.cpp
+    src/io/drm/drm.cpp
+    src/io/drm/properties.cpp
+    src/io/evdev/evdev.cpp
+    src/io/libinput/libinput.cpp
+    src/io/libinput/events.cpp
+    src/io/session/session.cpp
+    src/io/udev/udev.cpp
+    src/io/wayland/wayland.cpp
+    src/io/wayland/output.cpp
+    src/io/wayland/seat.cpp
+    )
+target_link_libraries(io PUBLIC wm)
+
+# ------------------------------------------------------------------------------
 #       Wayland
 # ------------------------------------------------------------------------------
 
@@ -309,7 +305,6 @@ target_link_libraries(way PUBLIC wm)
 init_executable(${PROGRAM_NAME})
 target_sources(${PROGRAM_NAME} PRIVATE
     src/shell/main.cpp
-    src/shell/io.cpp
     src/shell/xwayland.cpp
     src/shell/hotkeys.cpp
     src/shell/background.cpp

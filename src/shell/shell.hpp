@@ -35,5 +35,4 @@ struct Shell
 
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
 void shell_init_background(Shell*);
-void shell_init_io_bridge(Shell*);
 void shell_init_hotkeys(Shell*);
