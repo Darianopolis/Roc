@@ -218,4 +218,5 @@ struct WmFindOutputResult
 };
 
 auto wm_find_output_at(WmServer*, vec2f32 point) -> WmFindOutputResult;
+auto wm_find_output_for(WmServer*, rect2f32 rect) -> WmOutput*;
 auto wm_find_output_for(WmServer*, WmWindow*) -> WmOutput*;

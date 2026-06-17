@@ -173,10 +173,15 @@ auto wm_find_output_at(WmServer* wm, vec2f32 point) -> WmFindOutputResult
     return { best_output, best_position };
 }
 
+auto wm_find_output_for(WmServer* wm, rect2f32 rect) -> WmOutput*
+{
+    auto point = rect.origin + rect.extent / 2.f;
+    return wm_find_output_at(wm, point).output;
+}
+
 auto wm_find_output_for(WmServer* wm, WmWindow* window) -> WmOutput*
 {
-    auto point = scene_tree_get_position(window->root_tree.get()) + window->extent / 2.f;
-    return wm_find_output_at(wm, point).output;
+    return wm_find_output_for(wm, wm_window_get_frame(window));
 }
 
 // -----------------------------------------------------------------------------

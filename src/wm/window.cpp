@@ -160,6 +160,10 @@ void wm_window_set_size(WmWindow* window, vec2f32 size)
 
     vec2f32 origin = window->anchor - (size * window->relative);
 
+    if (window->fullscreen.output) {
+        window->oneshot_output_constraint = nullptr;
+    }
+
     if (window->oneshot_output_constraint) {
         aabb2f32 constraint = wm_output_get_workarea(window->oneshot_output_constraint.get());
         aabb2f32 constrained = aabb_constrain<f32>({origin, size, xywh}, constraint);
@@ -387,6 +391,7 @@ void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
         for (auto* border : window->borders) {
             scene_tree_place_above(window->root_tree.get(), nullptr, border);
         }
+        window->oneshot_output_constraint = wm_find_output_for(window->client->wm, window->fullscreen.restore);
         wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
     }
 }
@@ -421,8 +426,7 @@ auto wm_window_place_auto(WmWindow* window) -> vec2f32
     } else {
         // Non-child, spawn under mouse
         auto* seat = wm_get_seat(wm);
-        auto cursor_pos = seat_pointer_get_position(seat_get_pointer(seat));
-        center_pos = cursor_pos;
+        center_pos = seat_pointer_get_position(seat_get_pointer(seat));
     }
 
     window->anchor = center_pos;
