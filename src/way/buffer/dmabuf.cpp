@@ -228,6 +228,8 @@ struct WayDmaBuffer : WayBuffer
     FixedArray<bool, gpu_dma_max_planes> plane_waits_pending;
 
     virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
+
+    ~WayDmaBuffer();
 };
 
 #define NOISY_DMABUFS 0
@@ -309,6 +311,24 @@ WAY_INTERFACE(zwp_linux_buffer_params_v1) = {
 
 // -----------------------------------------------------------------------------
 
+WayDmaBuffer::~WayDmaBuffer()
+{
+    if (params) {
+        for (auto[i, plane] : params->planes | std::views::enumerate) {
+            if (plane_waits_pending[i]) {
+                fd_unlisten(server->exec, plane.fd.get());
+                plane_waits_pending[i] = false;
+            }
+        }
+    }
+}
+
+// TODO: We are currently implementing QFOT barriers manually
+//       This results in conservative over-sync.
+//       We should move this in to GPU and batch barriers
+//
+#include <gpu/internal.hpp>
+
 auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBufferAcquireFlags> flags) -> Ref<GpuImage>
 {
     if (!flags.contains(WayBufferAcquireFlags::wait_handled)) {
@@ -332,7 +352,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
 #endif
 
                 plane_waits_pending[i] = true;
-                fd_listen(surface->client->server->exec, plane.fd.get(), FdEventBit::readable,
+                fd_listen(server->exec, plane.fd.get(), FdEventBit::readable,
                     [surface = Weak(surface), buffer = Weak(this), i](fd_t, Flags<FdEventBit>) {
                         if (!buffer || !surface) return;
                         buffer->plane_waits_pending[i] = false;
@@ -346,9 +366,64 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
         }
     }
 
-    return gpu_lease_image(image.get(), [buffer = Weak(this)](Ref<GpuImage>) {
-        if (buffer) {
+    auto* gpu = server->gpu;
+    auto cmd = gpu_get_commands(gpu);
+    gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+            .dstQueueFamilyIndex = gpu->queue.family,
+            .image = image->base()->image,
+            .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+        })
+    }));
+
+    auto lease = gpu_lease_image(image.get(), [buffer = Weak(this)](Ref<GpuImage>) {
+        if (!buffer) return;
+
+        auto* gpu = buffer->server->gpu;
+        auto cmd = gpu_get_commands(gpu);
+
+        // The following barrier will handle any further accesses for this image
+        gpu->unbarriered_reads.erase(buffer->image.get());
+        gpu->unbarriered_writes.erase(buffer->image.get());
+
+        gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = ptr_to(VkImageMemoryBarrier2 {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+                .dstQueueFamilyIndex = gpu->queue.family,
+                .image = buffer->image->base()->image,
+                .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            })
+        }));
+
+        gpu_protect(gpu, buffer->image);
+
+        gpu_wait(gpu_flush(gpu), [buffer](u64) {
+            if (!buffer) return;
+
             buffer->release();
-        }
+        });
     });
+
+    gpu_protect(gpu, lease);
+
+    return lease;
 }
