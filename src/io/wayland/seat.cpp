@@ -25,7 +25,7 @@ static
 void leave(IoInputDeviceBase* device)
 {
     ThreadStack stack;
-    auto events = stack.allocate<WmInputDeviceChannel>(device->pressed.size());
+    auto events = stack.allocate<WmInputDeviceEvent>(device->pressed.size());
     for (auto[i, pressed] : device->pressed | std::views::enumerate) {
         events[i] = {EV_KEY, pressed, 0};
     }

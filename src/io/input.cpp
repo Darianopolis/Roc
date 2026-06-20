@@ -12,10 +12,10 @@ void io_input_device_add(IoInputDeviceBase* device)
     });
 }
 
-void io_input_device_post(IoInputDeviceBase* device, bool quiet, std::span<const WmInputDeviceChannel> channels)
+void io_input_device_post(IoInputDeviceBase* device, bool quiet, std::span<const WmInputDeviceEvent> channels)
 {
     ThreadStack stack;
-    auto out = stack.allocate<WmInputDeviceChannel>(channels.size());
+    auto out = stack.allocate<WmInputDeviceEvent>(channels.size());
     u32 count = 0;
     for (auto channel : channels) {
         switch (channel.type) {

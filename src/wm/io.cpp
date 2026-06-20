@@ -216,7 +216,7 @@ void update_leds(WmServer* server, SeatKeyboard* keyboard)
 }
 
 static
-void handle_key(WmServer* server, Seat* seat, bool quiet, WmInputDeviceChannel channel)
+void handle_key(WmServer* server, Seat* seat, bool quiet, WmInputDeviceEvent channel)
 {
     // TODO: Hacky fix to remap mouse side buttons
     // switch (channel.code) {
@@ -279,7 +279,7 @@ void handle_motion(WmServer* server, SeatPointer* pointer, vec2f32 rel_unaccel)
     seat_pointer_move(pointer, position, rel_accel, rel_unaccel);
 }
 
-void wm_input_device_push_events(WmInputDevice* input_device, bool quiet, std::span<WmInputDeviceChannel const> events)
+void wm_input_device_push_events(WmInputDevice* input_device, bool quiet, std::span<WmInputDeviceEvent const> events)
 {
     auto* server = input_device->server;
     auto* seat = wm_get_seat(server);
@@ -338,6 +338,11 @@ void handle_damage(WmServer* server, const SceneDamage& damage)
                 output->interface.request_frame(output->userdata);
             }
         }
+
+        exec_enqueue(server->exec, [server = Weak(server)] {
+            if (!server) return;
+            wm_cursor_visual_update(server.get());
+        });
     }
 }
 

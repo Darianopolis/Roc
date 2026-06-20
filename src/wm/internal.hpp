@@ -192,10 +192,6 @@ void wm_arrange_windows(WmServer*);
 
 // -----------------------------------------------------------------------------
 
-struct WmCursorUnset  { constexpr auto operator==(const WmCursorUnset& ) const -> bool { return true; } };
-struct WmCursorHidden { constexpr auto operator==(const WmCursorHidden&) const -> bool { return true; } };
-using WmCursorVisual = std::variant<WmCursorUnset, WmCursorHidden, Weak<SceneNode>, std::string>;
-
 struct WmClient
 {
     WmServer* server;

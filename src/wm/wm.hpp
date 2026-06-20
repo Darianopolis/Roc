@@ -59,7 +59,7 @@ struct WmInputDeviceInterface
     void(*update_leds)(void*, Flags<libinput_led>);
 };
 
-struct WmInputDeviceChannel
+struct WmInputDeviceEvent
 {
     u32 type;   // evdev type
     u32 code;   // evdev code
@@ -67,7 +67,7 @@ struct WmInputDeviceChannel
 };
 
 auto wm_input_device_create(WmServer*, void*, WmInputDeviceInterface) -> Ref<WmInputDevice>;
-void wm_input_device_push_events(WmInputDevice*, bool quiet, std::span<WmInputDeviceChannel const>);
+void wm_input_device_push_events(WmInputDevice*, bool quiet, std::span<WmInputDeviceEvent const>);
 
 // -----------------------------------------------------------------------------
 
@@ -136,8 +136,10 @@ void wm_listen(WmClient*, std::move_only_function<void(WmClient*, WmEvent*)>);
 
 auto wm_get_seat_client(WmClient*) -> SeatClient*;
 
-void wm_set_cursor( WmClient*, SceneNode* visual);
-void wm_set_xcursor(WmClient*, const char* semantic);
+struct WmCursorUnset { constexpr auto operator==(const WmCursorUnset& ) const -> bool = default; };
+using  WmCursorVisual = std::variant<WmCursorUnset, Weak<SceneNode>, std::string>;
+
+void wm_set_cursor(WmClient*, WmCursorVisual visual);
 
 // -----------------------------------------------------------------------------
 

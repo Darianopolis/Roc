@@ -118,4 +118,4 @@ struct IoInputDeviceBase
 };
 
 void io_input_device_add( IoInputDeviceBase*);
-void io_input_device_post(IoInputDeviceBase*, bool quiet, std::span<const WmInputDeviceChannel> channels);
+void io_input_device_post(IoInputDeviceBase*, bool quiet, std::span<const WmInputDeviceEvent> channels);
