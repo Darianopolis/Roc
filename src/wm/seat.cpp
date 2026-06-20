@@ -2,20 +2,20 @@
 
 #include <core/process.hpp>
 
-auto wm_get_seat(WmServer* wm) -> Seat*
+auto wm_get_seat(WmServer* server) -> Seat*
 {
-    debug_assert(wm->seats.size() == 1, "TODO: Support multiple seats");
-    return wm->seats.front();
+    debug_assert(server->seats.size() == 1, "TODO: Support multiple seats");
+    return server->seats.front();
 }
 
-auto wm_get_seats(WmServer* wm) -> std::span<Seat* const>
+auto wm_get_seats(WmServer* server) -> std::span<Seat* const>
 {
-    return wm->seats;
+    return server->seats;
 }
 
-void wm_init_seat(WmServer* wm)
+void wm_init_seat(WmServer* server)
 {
-    wm->cursor_manager = seat_cursor_manager_create(wm->gpu,
+    server->cursor_manager = seat_cursor_manager_create(server->gpu,
         env_get("XCURSOR_THEME").transform(&std::string::c_str).value_or(nullptr),
         env_get<int>("XCURSOR_SIZE").value_or(24));
 
@@ -26,13 +26,13 @@ void wm_init_seat(WmServer* wm)
     });
 
     auto pointer = seat_pointer_create({
-        .cursor_manager = wm->cursor_manager.get(),
-        .root = wm_get_scene(wm),
-        .layer = wm_get_layer(wm, WmLayer::overlay),
+        .cursor_manager = server->cursor_manager.get(),
+        .root = wm_get_scene(server),
+        .layer = wm_get_layer(server, WmLayer::overlay),
     });
 
-    auto seat = seat_create(wm_get_seat_manager(wm), "seat-0", keyboard.get(), pointer.get());
-    wm->seats.emplace_back(seat.get());
+    auto seat = seat_create(wm_get_seat_manager(server), "seat-0", keyboard.get(), pointer.get());
+    server->seats.emplace_back(seat.get());
 
     // Pointer
 

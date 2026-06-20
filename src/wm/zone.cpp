@@ -4,9 +4,9 @@
 #include <core/color.hpp>
 
 static
-auto get_zone_rect(WmServer* wm, rect2i32 workarea, vec2u32 zone) -> rect2i32
+auto get_zone_rect(WmServer* server, rect2i32 workarea, vec2u32 zone) -> rect2i32
 {
-    auto& c = wm->config;
+    auto& c = server->config;
 
     rect2i32 out;
 
@@ -24,33 +24,33 @@ auto get_zone_rect(WmServer* wm, rect2i32 workarea, vec2u32 zone) -> rect2i32
 }
 
 static
-void update_rectangle(WmServer* wm)
+void update_rectangle(WmServer* server)
 {
-    bool show = wm->zone.pointer;
-    bool selecting = wm->zone.selecting;
-    rect2f64 rect = wm->zone.final_zone;
+    bool show = server->zone.pointer;
+    bool selecting = server->zone.selecting;
+    rect2f64 rect = server->zone.final_zone;
 
     if (!show) {
-        scene_node_unparent(wm->zone.texture.get());
+        scene_node_unparent(server->zone.texture.get());
         return;
     }
 
-    auto color = selecting ? wm->config.zone.color_selected : wm->config.zone.color_initial;
+    auto color = selecting ? server->config.zone.color_selected : server->config.zone.color_initial;
 
-    scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->zone.texture.get());
-    scene_texture_set_dst(wm->zone.texture.get(), rect_cast<f32>(rect));
-    scene_texture_set_tint(wm->zone.texture.get(), color);
+    scene_tree_place_below(wm_get_layer(server, WmLayer::overlay), nullptr, server->zone.texture.get());
+    scene_texture_set_dst(server->zone.texture.get(), rect_cast<f32>(rect));
+    scene_texture_set_tint(server->zone.texture.get(), color);
 }
 
 static
-void zone_update_regions(WmServer* wm)
+void zone_update_regions(WmServer* server)
 {
-    auto& c = wm->config;
+    auto& c = server->config;
 
-    auto pointer = wm->zone.pointer;
+    auto pointer = server->zone.pointer;
     vec2f32 point = seat_pointer_get_position(pointer);
 
-    auto[output, position] = wm_find_output_at(wm, point);
+    auto[output, position] = wm_find_output_at(server, point);
 
     auto workarea = rect_cast<i32>(wm_output_get_workarea(output));
 
@@ -59,7 +59,7 @@ void zone_update_regions(WmServer* wm)
 
     for (u32 zone_x = 0; zone_x < c.zone.count.x; ++zone_x) {
         for (u32 zone_y = 0; zone_y < c.zone.count.y; ++zone_y) {
-            rect2i32 rect = get_zone_rect(wm, workarea, {zone_x, zone_y});
+            rect2i32 rect = get_zone_rect(server, workarea, {zone_x, zone_y});
             vec2f64 leeway = vec_cast<f64>(c.zone.selection_leeway * f32(std::min(rect.extent.x, rect.extent.y)));
             aabb2f64 aabb = aabb_cast<f64>(rect);
             aabb2f64 check_aabb = {
@@ -75,16 +75,16 @@ void zone_update_regions(WmServer* wm)
     }
 
     if (any_zones) {
-        if (wm->zone.selecting) {
-            wm->zone.final_zone = aabb_outer(wm->zone.initial_zone, pointer_zone);
+        if (server->zone.selecting) {
+            server->zone.final_zone = aabb_outer(server->zone.initial_zone, pointer_zone);
         } else {
-            wm->zone.final_zone = wm->zone.initial_zone = pointer_zone;
+            server->zone.final_zone = server->zone.initial_zone = pointer_zone;
         }
     } else {
-        wm->zone.final_zone = {};
+        server->zone.final_zone = {};
     }
 
-    update_rectangle(wm);
+    update_rectangle(server);
 }
 
 static
@@ -94,63 +94,63 @@ auto is_interactable(WmWindow* window) -> bool
 }
 
 static
-void toggle_selecting(WmServer* wm)
+void toggle_selecting(WmServer* server)
 {
-    wm->zone.selecting = !wm->zone.selecting;
-    zone_update_regions(wm);
-    wm_cursor_visual_update(wm);
+    server->zone.selecting = !server->zone.selecting;
+    zone_update_regions(server);
+    wm_cursor_visual_update(server);
 }
 
 static
-void begin_zone(WmServer* wm, SeatPointer* pointer)
+void begin_zone(WmServer* server, SeatPointer* pointer)
 {
-    auto window = wm_find_window_at(wm, seat_pointer_get_position(pointer));
+    auto window = wm_find_window_at(server, seat_pointer_get_position(pointer));
     if (!window || !is_interactable(window)) return;
 
-    wm->zone.pointer = pointer;
-    wm->zone.window = window;
-    wm->zone.selecting = false;
+    server->zone.pointer = pointer;
+    server->zone.window = window;
+    server->zone.selecting = false;
 
-    zone_update_regions(wm);
-    wm_interaction_set_mode(wm, WmInteractionMode::zone);
+    zone_update_regions(server);
+    wm_interaction_set_mode(server, WmInteractionMode::zone);
 }
 
 static
-void end_zone(WmServer* wm)
+void end_zone(WmServer* server)
 {
-    wm->zone.pointer = nullptr;
-    update_rectangle(wm);
+    server->zone.pointer = nullptr;
+    update_rectangle(server);
 
-    wm_interaction_set_mode(wm, WmInteractionMode::none);
+    wm_interaction_set_mode(server, WmInteractionMode::none);
 
-    if (!wm->zone.selecting) return;
+    if (!server->zone.selecting) return;
 
-    if (auto* window = wm->zone.window.get()) {
-        wm_window_request_reposition(window, rect_cast<f32>(wm->zone.final_zone), {1, 1});
-        wm_focus(wm, window);
+    if (auto* window = server->zone.window.get()) {
+        wm_window_request_reposition(window, rect_cast<f32>(server->zone.final_zone), {1, 1});
+        wm_focus(server, window);
     }
 }
 
 static
-auto filter_event_zone(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event_zone(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     switch (event->type) {
         break;case SeatEventType::pointer_motion:
-            if (event->pointer.pointer == wm->zone.pointer) zone_update_regions(wm);
+            if (event->pointer.pointer == server->zone.pointer) zone_update_regions(server);
         break;case SeatEventType::pointer_button:
-            if (event->pointer.pointer == wm->zone.pointer) {
+            if (event->pointer.pointer == server->zone.pointer) {
                 if (event->pointer.button.pressed) {
                     if (event->pointer.button.code == BTN_RIGHT) {
-                        toggle_selecting(wm);
+                        toggle_selecting(server);
                     }
                     return SeatEventFilterResult::capture;
                 }
-                if (seat_pointer_get_pressed(wm->zone.pointer).empty()) {
-                    end_zone(wm);
+                if (seat_pointer_get_pressed(server->zone.pointer).empty()) {
+                    end_zone(server);
                 }
             }
         break;case SeatEventType::pointer_scroll:
-            if (event->pointer.pointer == wm->zone.pointer) return SeatEventFilterResult::capture;
+            if (event->pointer.pointer == server->zone.pointer) return SeatEventFilterResult::capture;
         break;default:
             ;
     }
@@ -159,7 +159,7 @@ auto filter_event_zone(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
 }
 
 static
-auto filter_event_default(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event_default(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     if (event->type != SeatEventType::pointer_button) return {};
 
@@ -169,21 +169,21 @@ auto filter_event_default(WmServer* wm, SeatEvent* event) -> SeatEventFilterResu
     if (button.code != BTN_LEFT) return {};
 
     auto mods = seat_get_modifiers(seat_pointer_get_seat(event->pointer.pointer));
-    if (!mods.contains(wm->main_mod)) return {};
+    if (!mods.contains(server->main_mod)) return {};
     if (mods.contains(SeatModifier::shift)) return {}; // Avoid conflicts with movesize interaction
 
-    begin_zone(wm, event->pointer.pointer);
+    begin_zone(server, event->pointer.pointer);
     return SeatEventFilterResult::capture;
 }
 
 static
-auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
-    switch (wm->mode) {
+    switch (server->mode) {
         break;case WmInteractionMode::none:
-            return filter_event_default(wm, event);
+            return filter_event_default(server, event);
         break;case WmInteractionMode::zone:
-            return filter_event_zone(wm, event);
+            return filter_event_zone(server, event);
         break;default:
             ;
     }
@@ -193,10 +193,10 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
 
 // -----------------------------------------------------------------------------
 
-void wm_init_zone(WmServer* wm)
+void wm_init_zone(WmServer* server)
 {
-    wm->zone.texture = scene_texture_create();
-    wm->zone.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
-        return filter_event(wm, event);
+    server->zone.texture = scene_texture_create();
+    server->zone.filter = seat_add_event_filter(wm_get_seat(server), [server](SeatEvent* event) {
+        return filter_event(server, event);
     });
 }

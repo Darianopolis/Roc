@@ -1,19 +1,19 @@
 #include "internal.hpp"
 
 static
-void end_interaction(WmServer* wm)
+void end_interaction(WmServer* server)
 {
-    wm->movesize.pointer = nullptr;
-    wm_interaction_set_mode(wm, WmInteractionMode::none);
+    server->movesize.pointer = nullptr;
+    wm_interaction_set_mode(server, WmInteractionMode::none);
 }
 
 static
-void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode mode)
+void begin_interaction(WmServer* server, SeatPointer* pointer, WmInteractionMode mode)
 {
-    wm->movesize.pointer = pointer;
+    server->movesize.pointer = pointer;
 
     auto pos = seat_pointer_get_position(pointer);
-    auto* window = wm_find_window_at(wm, pos);
+    auto* window = wm_find_window_at(server, pos);
     if (!window) return;
     auto frame = wm_window_get_frame(window);
 
@@ -21,74 +21,74 @@ void begin_interaction(WmServer* wm, SeatPointer* pointer, WmInteractionMode mod
         mode = WmInteractionMode::move;
     }
 
-    wm->movesize.window = window;
-    wm->movesize.frame = frame;
-    wm->movesize.grab = pos;
+    server->movesize.window = window;
+    server->movesize.frame = frame;
+    server->movesize.grab = pos;
 
     auto dirs = (vec_cast<i32>(pos - frame.origin) * 3 / vec_cast<i32>(frame.extent)) - 1;
 
-    wm->movesize.relative = {
+    server->movesize.relative = {
         f32(dirs.x || !dirs.y),
         f32(dirs.y || !dirs.x),
     };
 
     if (mode == WmInteractionMode::move && dirs.y < 0) {
-        wm->movesize.relative.x = 1;
+        server->movesize.relative.x = 1;
     } else if (mode == WmInteractionMode::size) {
         if (!dirs.x && !dirs.y) {
             mode = WmInteractionMode::move;
         } else {
-            wm->movesize.relative = vec_cast<f32>(dirs);
+            server->movesize.relative = vec_cast<f32>(dirs);
         }
     }
 
-    wm_interaction_set_mode(wm, mode);
+    wm_interaction_set_mode(server, mode);
 
-    if (wm->mode == WmInteractionMode::move && !wm_window_is_movable(window)) {
-        end_interaction(wm);
+    if (server->mode == WmInteractionMode::move && !wm_window_is_movable(window)) {
+        end_interaction(server);
     }
 }
 
 // -----------------------------------------------------------------------------
 
 static
-void handle_motion(WmServer* wm)
+void handle_motion(WmServer* server)
 {
-    if (!wm->movesize.window) {
+    if (!server->movesize.window) {
         return;
     }
 
-    auto pos = seat_pointer_get_position(wm->movesize.pointer);
-    auto delta = (pos - wm->movesize.grab) * wm->movesize.relative;
-    auto frame = wm->movesize.frame;
+    auto pos = seat_pointer_get_position(server->movesize.pointer);
+    auto delta = (pos - server->movesize.grab) * server->movesize.relative;
+    auto frame = server->movesize.frame;
 
-    if (wm->mode == WmInteractionMode::move) {
+    if (server->mode == WmInteractionMode::move) {
         frame.origin += delta;
 
-    } else if (wm->mode == WmInteractionMode::size) {
+    } else if (server->mode == WmInteractionMode::size) {
         delta = vec_max(delta, 100.f - frame.extent);
-        frame.origin += vec_min(wm->movesize.relative, {0,0}) * delta;
+        frame.origin += vec_min(server->movesize.relative, {0,0}) * delta;
         frame.extent += delta;
     }
 
-    wm_window_request_reposition(wm->movesize.window.get(), frame, wm->movesize.relative);
+    wm_window_request_reposition(server->movesize.window.get(), frame, server->movesize.relative);
 }
 
 static
-auto filter_event_movesize(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event_movesize(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     switch (event->type) {
         break;case SeatEventType::pointer_motion:
-            if (event->pointer.pointer == wm->movesize.pointer) handle_motion(wm);
+            if (event->pointer.pointer == server->movesize.pointer) handle_motion(server);
         break;case SeatEventType::pointer_button:
-            if (event->pointer.pointer == wm->movesize.pointer) {
+            if (event->pointer.pointer == server->movesize.pointer) {
                 if (event->pointer.button.pressed) return SeatEventFilterResult::capture;
-                if (seat_pointer_get_pressed(wm->movesize.pointer).empty()) {
-                    end_interaction(wm);
+                if (seat_pointer_get_pressed(server->movesize.pointer).empty()) {
+                    end_interaction(server);
                 }
             }
         break;case SeatEventType::pointer_scroll:
-            if (event->pointer.pointer == wm->movesize.pointer) return SeatEventFilterResult::capture;
+            if (event->pointer.pointer == server->movesize.pointer) return SeatEventFilterResult::capture;
         break;default:
             ;
     }
@@ -97,7 +97,7 @@ auto filter_event_movesize(WmServer* wm, SeatEvent* event) -> SeatEventFilterRes
 }
 
 static
-auto filter_event_default(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event_default(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     if (event->type != SeatEventType::pointer_button) return {};
 
@@ -105,14 +105,14 @@ auto filter_event_default(WmServer* wm, SeatEvent* event) -> SeatEventFilterResu
     if (!button.pressed) return {};
 
     auto mods = seat_get_modifiers(seat_pointer_get_seat(event->pointer.pointer));
-    if (!mods.contains(wm->main_mod)) return {};
+    if (!mods.contains(server->main_mod)) return {};
 
     if (button.code == BTN_LEFT && mods.contains(SeatModifier::shift)) {
-        begin_interaction(wm, event->pointer.pointer, WmInteractionMode::move);
+        begin_interaction(server, event->pointer.pointer, WmInteractionMode::move);
         return SeatEventFilterResult::capture;
 
     } else if (button.code == BTN_RIGHT) {
-        begin_interaction(wm, event->pointer.pointer, WmInteractionMode::size);
+        begin_interaction(server, event->pointer.pointer, WmInteractionMode::size);
         return SeatEventFilterResult::capture;
     }
 
@@ -120,14 +120,14 @@ auto filter_event_default(WmServer* wm, SeatEvent* event) -> SeatEventFilterResu
 }
 static
 
-auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
-    switch (wm->mode) {
+    switch (server->mode) {
         break;case WmInteractionMode::none:
-            return filter_event_default(wm, event);
+            return filter_event_default(server, event);
         break;case WmInteractionMode::move:
               case WmInteractionMode::size:
-            return filter_event_movesize(wm, event);
+            return filter_event_movesize(server, event);
         break;default:
             ;
     }
@@ -135,9 +135,9 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
     return SeatEventFilterResult::passthrough;
 }
 
-void wm_init_movesize(WmServer* wm)
+void wm_init_movesize(WmServer* server)
 {
-    wm->movesize.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
-        return filter_event(wm, event);
+    server->movesize.filter = seat_add_event_filter(wm_get_seat(server), [server](SeatEvent* event) {
+        return filter_event(server, event);
     });
 }

@@ -2,76 +2,76 @@
 
 auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
 {
-    auto wm = ref_create<WmServer>();
+    auto server = ref_create<WmServer>();
 
-    wm->exec = info.exec;
-    wm->gpu = info.gpu;
+    server->exec = info.exec;
+    server->gpu = info.gpu;
 
-    wm->seat_manager = seat_manager_create();
+    server->seat_manager = seat_manager_create();
 
-    wm->scene_renderer = scene_renderer_create(wm->gpu);
+    server->scene_renderer = scene_renderer_create(server->gpu);
 
-    wm->scene = scene_tree_create();
+    server->scene = scene_tree_create();
     for (auto layer : enum_values<WmLayer>()) {
-        auto* tree = (wm->layers[layer] = scene_tree_create()).get();
-        scene_tree_place_above(wm->scene.get(), nullptr, tree);
+        auto* tree = (server->layers[layer] = scene_tree_create()).get();
+        scene_tree_place_above(server->scene.get(), nullptr, tree);
     }
 
     debug_assert(info.main_mod);
-    wm->main_mod = info.main_mod;
+    server->main_mod = info.main_mod;
 
-    wm->window_system_id = uid_allocate();
+    server->window_system_id = uid_allocate();
 
-    wm_init_io(wm.get());
-    wm_init_seat(wm.get());
+    wm_init_io(server.get());
+    wm_init_seat(server.get());
 
-    wm_cursor_init(wm.get());
+    wm_cursor_init(server.get());
 
-    wm_pointer_constraints_init(wm.get());
+    wm_pointer_constraints_init(server.get());
 
-    wm_init_hotkeys(wm.get());
-    wm_init_movesize(wm.get());
-    wm_init_zone(wm.get());
-    wm_init_focus_cycle(wm.get());
-    wm_init_selection(wm.get());
+    wm_init_hotkeys(server.get());
+    wm_init_movesize(server.get());
+    wm_init_zone(server.get());
+    wm_init_focus_cycle(server.get());
+    wm_init_selection(server.get());
 
-    wm_decoration_init(wm.get());
+    wm_decoration_init(server.get());
 
-    return wm;
+    return server;
 }
 
-auto wm_get_seat_manager(WmServer* wm) -> SeatManager*
+auto wm_get_seat_manager(WmServer* server) -> SeatManager*
 {
-    return wm->seat_manager.get();
+    return server->seat_manager.get();
 }
 
-auto wm_get_gpu(WmServer* wm) -> Gpu*
+auto wm_get_gpu(WmServer* server) -> Gpu*
 {
-    return wm->gpu;
+    return server->gpu;
 }
 
-auto wm_get_exec(WmServer* wm) -> ExecContext*
+auto wm_get_exec(WmServer* server) -> ExecContext*
 {
-    return wm->exec;
+    return server->exec;
 }
 
-auto wm_get_scene_renderer(WmServer* wm) -> SceneRenderer*
+auto wm_get_scene_renderer(WmServer* server) -> SceneRenderer*
 {
-    return wm->scene_renderer.get();
+    return server->scene_renderer.get();
 }
 
-auto wm_get_scene(WmServer* wm) -> SceneTree*
+auto wm_get_scene(WmServer* server) -> SceneTree*
 {
-    return wm->scene.get();
+    return server->scene.get();
 }
 
-auto wm_get_layer(WmServer* wm, WmLayer layer) -> SceneTree*
+auto wm_get_layer(WmServer* server, WmLayer layer) -> SceneTree*
 {
-    return wm->layers[layer].get();
+    return server->layers[layer].get();
 }
 
-void wm_interaction_set_mode(WmServer* wm, WmInteractionMode mode)
+void wm_interaction_set_mode(WmServer* server, WmInteractionMode mode)
 {
-    wm->mode = mode;
-    wm_cursor_visual_update(wm);
+    server->mode = mode;
+    wm_cursor_visual_update(server);
 }

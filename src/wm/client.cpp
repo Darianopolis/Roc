@@ -3,7 +3,7 @@
 auto wm_connect(WmServer* server) -> Ref<WmClient>
 {
     auto client = ref_create<WmClient>();
-    client->wm = server;
+    client->server = server;
     client->seat_client = seat_connect(wm_get_seat_manager(server));
     server->clients.emplace_back(client.get());
 
@@ -23,7 +23,7 @@ auto wm_connect(WmServer* server) -> Ref<WmClient>
 
 WmClient::~WmClient()
 {
-    std::erase(wm->clients, this);
+    std::erase(server->clients, this);
 }
 
 void wm_listen(WmClient* client, std::move_only_function<void(WmClient*, WmEvent*)> listener)

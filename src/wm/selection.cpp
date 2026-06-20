@@ -4,101 +4,101 @@
 #include <core/color.hpp>
 
 static
-void update_rectangle(WmServer* wm)
+void update_rectangle(WmServer* server)
 {
-    bool show = wm->selection.pointer;
-    rect2f32 rect = wm->selection.rect;
+    bool show = server->selection.pointer;
+    rect2f32 rect = server->selection.rect;
 
     if (!show) {
-        scene_node_unparent(wm->selection.texture.get());
+        scene_node_unparent(server->selection.texture.get());
         return;
     }
 
-    scene_tree_place_below(wm_get_layer(wm, WmLayer::overlay), nullptr, wm->selection.texture.get());
-    scene_texture_set_dst(wm->selection.texture.get(), rect_cast<f32>(rect));
-    scene_texture_set_tint(wm->selection.texture.get(), wm->config.zone.color_initial);
+    scene_tree_place_below(wm_get_layer(server, WmLayer::overlay), nullptr, server->selection.texture.get());
+    scene_texture_set_dst(server->selection.texture.get(), rect_cast<f32>(rect));
+    scene_texture_set_tint(server->selection.texture.get(), server->config.zone.color_initial);
 }
 
 static
-void selection_update_regions(WmServer* wm)
+void selection_update_regions(WmServer* server)
 {
-    auto pointer = wm->selection.pointer;
+    auto pointer = server->selection.pointer;
     vec2f32 point = seat_pointer_get_position(pointer);
 
-    if (wm->selection.selecting) {
-        wm->selection.rect = {
-            vec_min(wm->selection.initial_point, point),
-            vec_max(wm->selection.initial_point, point),
+    if (server->selection.selecting) {
+        server->selection.rect = {
+            vec_min(server->selection.initial_point, point),
+            vec_max(server->selection.initial_point, point),
             minmax,
         };
     } else {
-        wm->selection.initial_point = point;
-        wm->selection.rect = {point, point, minmax};
+        server->selection.initial_point = point;
+        server->selection.rect = {point, point, minmax};
     }
 
-    update_rectangle(wm);
+    update_rectangle(server);
 }
 
 static
-void toggle_selecting(WmServer* wm)
+void toggle_selecting(WmServer* server)
 {
-    wm->selection.selecting = !wm->selection.selecting;
-    selection_update_regions(wm);
-    wm_cursor_visual_update(wm);
+    server->selection.selecting = !server->selection.selecting;
+    selection_update_regions(server);
+    wm_cursor_visual_update(server);
 }
 
-void wm_begin_selection(WmServer* wm, SeatPointer* pointer, std::move_only_function<void(rect2f32)> callback)
+void wm_begin_selection(WmServer* server, SeatPointer* pointer, std::move_only_function<void(rect2f32)> callback)
 {
     seat_pointer_set_sticky_focus(pointer, true);
 
-    wm->selection.pointer = pointer;
-    wm->selection.selecting = false;
-    wm->selection.callback = std::move(callback);
+    server->selection.pointer = pointer;
+    server->selection.selecting = false;
+    server->selection.callback = std::move(callback);
 
-    selection_update_regions(wm);
-    wm_interaction_set_mode(wm, WmInteractionMode::selection);
+    selection_update_regions(server);
+    wm_interaction_set_mode(server, WmInteractionMode::selection);
 }
 
 static
-void end_selection(WmServer* wm)
+void end_selection(WmServer* server)
 {
-    seat_pointer_set_sticky_focus(wm->selection.pointer, false);
+    seat_pointer_set_sticky_focus(server->selection.pointer, false);
 
-    wm->selection.pointer = nullptr;
-    update_rectangle(wm);
+    server->selection.pointer = nullptr;
+    update_rectangle(server);
 
-    wm_interaction_set_mode(wm, WmInteractionMode::none);
+    wm_interaction_set_mode(server, WmInteractionMode::none);
 
-    if (!wm->selection.selecting) return;
+    if (!server->selection.selecting) return;
 
-    wm->selection.callback(wm->selection.rect);
+    server->selection.callback(server->selection.rect);
 }
 
 static
-auto filter_event_selection(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event_selection(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     switch (event->type) {
         break;case SeatEventType::pointer_motion:
-            if (event->pointer.pointer == wm->selection.pointer) {
-                selection_update_regions(wm);
+            if (event->pointer.pointer == server->selection.pointer) {
+                selection_update_regions(server);
                 return SeatEventFilterResult::capture;
             }
         break;case SeatEventType::pointer_button:
-            if (event->pointer.pointer == wm->selection.pointer) {
+            if (event->pointer.pointer == server->selection.pointer) {
                 if (event->pointer.button.pressed) {
                     if (event->pointer.button.code == BTN_LEFT) {
-                        toggle_selecting(wm);
+                        toggle_selecting(server);
                     }
                 }
-                if (seat_pointer_get_pressed(wm->selection.pointer).empty()) {
-                    end_selection(wm);
+                if (seat_pointer_get_pressed(server->selection.pointer).empty()) {
+                    end_selection(server);
                 }
                 if (event->pointer.button.pressed) {
                     return SeatEventFilterResult::capture;
                 }
             }
         break;case SeatEventType::pointer_scroll:
-            if (event->pointer.pointer == wm->selection.pointer) {
+            if (event->pointer.pointer == server->selection.pointer) {
                 return SeatEventFilterResult::capture;
             }
         break;default:
@@ -109,11 +109,11 @@ auto filter_event_selection(WmServer* wm, SeatEvent* event) -> SeatEventFilterRe
 }
 
 static
-auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
+auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
-    switch (wm->mode) {
+    switch (server->mode) {
         break;case WmInteractionMode::selection:
-            return filter_event_selection(wm, event);
+            return filter_event_selection(server, event);
         break;default:
             return SeatEventFilterResult::passthrough;
     }
@@ -121,10 +121,10 @@ auto filter_event(WmServer* wm, SeatEvent* event) -> SeatEventFilterResult
 
 // -----------------------------------------------------------------------------
 
-void wm_init_selection(WmServer* wm)
+void wm_init_selection(WmServer* server)
 {
-    wm->selection.texture = scene_texture_create();
-    wm->selection.filter = seat_add_event_filter(wm_get_seat(wm), [wm](SeatEvent* event) {
-        return filter_event(wm, event);
+    server->selection.texture = scene_texture_create();
+    server->selection.filter = seat_add_event_filter(wm_get_seat(server), [server](SeatEvent* event) {
+        return filter_event(server, event);
     });
 }

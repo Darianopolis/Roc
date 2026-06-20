@@ -198,7 +198,7 @@ using WmCursorVisual = std::variant<WmCursorUnset, WmCursorHidden, Weak<SceneNod
 
 struct WmClient
 {
-    WmServer* wm;
+    WmServer* server;
 
     std::move_only_function<void(WmClient*, WmEvent*)> listener;
 
@@ -253,7 +253,7 @@ void wm_window_request_reposition(WmWindow*, rect2f32 frame, vec2f32 gravity);
 
 struct WmPointerConstraint
 {
-    WmServer* wm;
+    WmServer* server;
 
     Weak<WmWindow> window;
     Weak<SceneInputRegion> input_region;

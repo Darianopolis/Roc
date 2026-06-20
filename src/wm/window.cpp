@@ -9,29 +9,29 @@ void set_parent_impl(WmWindow* window, WmWindow* parent)
 {
     if (window->parent == parent) return;
 
-    auto* wm = window->client->wm;
+    auto* server = window->client->server;
 
     window->parent = parent;
 
     if (parent) {
         parent->children.link_prev(&window->link);
     } else {
-        wm->root_windows.link_prev(&window->link);
+        server->root_windows.link_prev(&window->link);
     }
 }
 
 static
-void flatten_window_list(WmServer* wm)
+void flatten_window_list(WmServer* server)
 {
-    wm->windows.clear();
+    server->windows.clear();
     auto append = [&](this auto&& append, WmWindow* window) -> void {
-        wm->windows.emplace_back(window);
+        server->windows.emplace_back(window);
         for (auto* l = window->children.next; l != &window->children; l = l->next) {
             auto* child = LINK_GET(WmWindow, link, l);
             append(child);
         }
     };
-    for (auto* l = wm->root_windows.next; l != &wm->root_windows; l = l->next) {
+    for (auto* l = server->root_windows.next; l != &server->root_windows; l = l->next) {
         auto* window = LINK_GET(WmWindow, link, l);
         append(window);
     }
@@ -50,7 +50,7 @@ WmWindow::~WmWindow()
     }
 
     link.unlink();
-    flatten_window_list(client->wm);
+    flatten_window_list(client->server);
 
     root_tree->userdata = {};
     wm_window_unmap(this);
@@ -59,23 +59,23 @@ WmWindow::~WmWindow()
 static
 void update_border_colors(WmWindow* window)
 {
-    auto* wm = window->client->wm;
+    auto* server = window->client->server;
     for (auto* border : window->borders) {
         scene_texture_set_tint(border, wm_window_is_focused(window)
-            ? wm->config.border.focused
-            : wm->config.border.normal);
+            ? server->config.border.focused
+            : server->config.border.normal);
     }
 }
 
 auto wm_window_create(WmClient* client) -> Ref<WmWindow>
 {
-    auto* wm = client->wm;
+    auto* server = client->server;
 
     auto window = ref_create<WmWindow>();
     window->client = client;
 
     window->root_tree = scene_tree_create();
-    window->root_tree->userdata = {wm->window_system_id, window.get()};
+    window->root_tree->userdata = {server->window_system_id, window.get()};
 
     window->backdrop = scene_texture_create();
     scene_tree_place_above(window->root_tree.get(), nullptr, window->backdrop.get());
@@ -94,8 +94,8 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
         .window = window.get(),
     }));
 
-    wm->root_windows.link_prev(&window->link);
-    flatten_window_list(wm);
+    server->root_windows.link_prev(&window->link);
+    flatten_window_list(server);
 
     return window;
 }
@@ -104,9 +104,9 @@ void wm_window_set_parent(WmWindow* window, WmWindow* parent)
 {
     set_parent_impl(window, parent);
 
-    auto* wm = window->client->wm;
-    flatten_window_list(wm);
-    wm_arrange_windows(wm);
+    auto* server = window->client->server;
+    flatten_window_list(server);
+    wm_arrange_windows(server);
 }
 
 void wm_window_set_content(WmWindow* window, SceneNode* node)
@@ -189,7 +189,7 @@ void wm_window_set_size(WmWindow* window, vec2f32 size)
 
     scene_texture_set_dst(window->backdrop.get(), {{}, size, minmax});
 
-    auto bs = window->client->wm->config.border.size;
+    auto bs = window->client->server->config.border.size;
     scene_texture_set_dst(window->borders[0 /* left   */], {{ -bs.x,     0}, {            0, size.y       }, minmax});
     scene_texture_set_dst(window->borders[1 /* right  */], {{size.x,     0}, {size.x + bs.x, size.y       }, minmax});
     scene_texture_set_dst(window->borders[2 /* top    */], {{-bs.x,  -bs.y}, {size.x + bs.x,              }, minmax});
@@ -210,7 +210,7 @@ void wm_window_map(WmWindow* window)
     if (window->mapped) return;
 
     window->mapped = true;
-    wm_arrange_windows(window->client->wm);
+    wm_arrange_windows(window->client->server);
 
     wm_window_post_event(ptr_to(WmWindowEvent {
         .type = WmEventType::window_mapped,
@@ -232,25 +232,25 @@ void wm_window_raise(WmWindow* window)
             window->parent->children.link_prev(&window->link);
             raise(window->parent);
         } else {
-            auto* wm = window->client->wm;
-            wm->root_windows.link_prev(&window->link);
+            auto* server = window->client->server;
+            server->root_windows.link_prev(&window->link);
         }
     };
 
     raise(window);
-    auto* wm = window->client->wm;
-    flatten_window_list(wm);
-    wm_arrange_windows(wm);
+    auto* server = window->client->server;
+    flatten_window_list(server);
+    wm_arrange_windows(server);
 }
 
 static
-void try_revert_focus(WmServer* wm, WmWindow* window)
+void try_revert_focus(WmServer* server, WmWindow* window)
 {
     if (!wm_window_is_focused(window)) return;
 
-    for (auto* new_window : wm->windows | std::views::reverse) {
+    for (auto* new_window : server->windows | std::views::reverse) {
         if (new_window == window || !new_window->mapped) continue;
-        wm_focus(wm, new_window);
+        wm_focus(server, new_window);
         break;
     }
 }
@@ -259,12 +259,12 @@ void wm_window_unmap(WmWindow* window)
 {
     if (!window->mapped) return;
 
-    auto* wm = window->client->wm;
+    auto* server = window->client->server;
 
     window->mapped = false;
-    wm_arrange_windows(wm);
+    wm_arrange_windows(server);
 
-    try_revert_focus(wm, window);
+    try_revert_focus(server, window);
 
     wm_window_post_event(ptr_to(WmWindowEvent {
         .type = WmEventType::window_unmapped,
@@ -275,19 +275,19 @@ void wm_window_unmap(WmWindow* window)
 // -----------------------------------------------------------------------------
 
 static
-void update_border_colors(WmServer* wm)
+void update_border_colors(WmServer* server)
 {
-    for (auto* w : wm->windows) {
+    for (auto* w : server->windows) {
         update_border_colors(w);
     }
 }
 
-void wm_decoration_init(WmServer* wm)
+void wm_decoration_init(WmServer* server)
 {
-    for (auto* seat : wm->seats) {
-        wm->decoration.filter.emplace_back(seat_add_event_filter(seat, [wm](SeatEvent* event) -> SeatEventFilterResult {
+    for (auto* seat : server->seats) {
+        server->decoration.filter.emplace_back(seat_add_event_filter(seat, [server](SeatEvent* event) -> SeatEventFilterResult {
             if (event->type == SeatEventType::keyboard_enter || event->type == SeatEventType::keyboard_leave) {
-                update_border_colors(wm);
+                update_border_colors(server);
             }
             return SeatEventFilterResult::passthrough;
         }));
@@ -296,7 +296,7 @@ void wm_decoration_init(WmServer* wm)
 
 // -----------------------------------------------------------------------------
 
-auto wm_find_window_at(WmServer* wm, vec2f32 point) -> WmWindow*
+auto wm_find_window_at(WmServer* server, vec2f32 point) -> WmWindow*
 {
     // TODO: This will ignore any `input_plane`s currently.
     //       Should we provide (optional) mappings from `input_plane` back to windows
@@ -305,11 +305,11 @@ auto wm_find_window_at(WmServer* wm, vec2f32 point) -> WmWindow*
     WmWindow* window = nullptr;
 
     scene_iterate<SceneIterateDirection::front_to_back>(
-        wm_get_layer(wm, WmLayer::window),
+        wm_get_layer(server, WmLayer::window),
         scene_iterate_default,
         scene_iterate_default,
         [&](SceneTree* tree) {
-            if (tree->userdata.id == wm->window_system_id) {
+            if (tree->userdata.id == server->window_system_id) {
                 auto w = static_cast<WmWindow*>(tree->userdata.data);
                 if (rect_contains(wm_window_get_frame(w), point)) {
                     window = w;
@@ -329,9 +329,9 @@ void wm_window_set_focus(WmWindow* window, SeatFocus* focus)
     window->focus = focus;
 }
 
-void wm_focus(WmServer* wm, WmWindow* window)
+void wm_focus(WmServer* server, WmWindow* window)
 {
-    auto* keyboard = seat_get_keyboard(wm_get_seat(wm));
+    auto* keyboard = seat_get_keyboard(wm_get_seat(server));
 
     if (!window) {
         seat_keyboard_focus(keyboard, nullptr);
@@ -349,8 +349,8 @@ void wm_focus(WmServer* wm, WmWindow* window)
 
 auto wm_window_is_focused(WmWindow* window) -> bool
 {
-    auto* wm = window->client->wm;
-    return std::ranges::any_of(wm->seats, [&](auto* seat) {
+    auto* server = window->client->server;
+    return std::ranges::any_of(server->seats, [&](auto* seat) {
         auto* focus = seat_keyboard_get_focus(seat_get_keyboard(seat));
         if (seat_focus_contains(window->focus.get(), focus)) {
             return true;
@@ -359,10 +359,10 @@ auto wm_window_is_focused(WmWindow* window) -> bool
     });;
 }
 
-auto wm_find_window_for(WmServer* wm, SeatFocus* focus) -> WmWindow*
+auto wm_find_window_for(WmServer* server, SeatFocus* focus) -> WmWindow*
 {
     if (!focus) return nullptr;
-    for (auto* window : wm->windows) {
+    for (auto* window : server->windows) {
         if (seat_focus_contains(window->focus.get(), focus)) {
             return window;
         }
@@ -391,7 +391,7 @@ void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
         for (auto* border : window->borders) {
             scene_tree_place_above(window->root_tree.get(), nullptr, border);
         }
-        window->oneshot_output_constraint = wm_find_output_for(window->client->wm, window->fullscreen.restore);
+        window->oneshot_output_constraint = wm_find_output_for(window->client->server, window->fullscreen.restore);
         wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
     }
 }
@@ -415,7 +415,7 @@ auto wm_window_is_resizable(WmWindow* window) -> bool
 
 auto wm_window_place_auto(WmWindow* window) -> vec2f32
 {
-    auto* wm = window->client->wm;
+    auto* server = window->client->server;
 
     vec2f32 center_pos;
 
@@ -425,14 +425,14 @@ auto wm_window_place_auto(WmWindow* window) -> vec2f32
         center_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
     } else {
         // Non-child, spawn under mouse
-        auto* seat = wm_get_seat(wm);
+        auto* seat = wm_get_seat(server);
         center_pos = seat_pointer_get_position(seat_get_pointer(seat));
     }
 
     window->anchor = center_pos;
     window->relative = {0.5f, 0.5f};
 
-    auto output = wm_find_output_at(wm, center_pos).output;
+    auto output = wm_find_output_at(server, center_pos).output;
     window->oneshot_output_constraint = output;
 
     return wm_output_get_workarea(output).extent;
