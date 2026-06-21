@@ -100,32 +100,6 @@ void wm_output_set_pixel_size(WmOutput* output, vec2u32 pixel_size)
     reflow_outputs(output->server);
 }
 
-auto wm_output_frame(WmOutput* output) -> bool
-{
-    auto* server = output->server;
-
-    if (output->bump_frame_id) {
-        output->frame_id = ++server->io.prev_frame_id;
-        output->bump_frame_id = false;
-    }
-
-    wm_broadcast_event(server, ptr_to(WmEvent {
-        .output = {
-            .type = WmEventType::output_frame,
-            .output = output,
-            .frame_id = output->frame_id,
-        }
-    }));
-
-    if (output->needs_redraw) {
-        output->needs_redraw = false;
-        output->bump_frame_id = true;
-        return true;
-    }
-
-    return false;
-}
-
 auto wm_output_get_viewport(WmOutput* output) -> rect2f32
 {
     return output->viewport;

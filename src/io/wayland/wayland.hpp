@@ -134,7 +134,7 @@ struct IoWaylandOutput : IoOutputBase
 
     std::vector<ReleaseSlot> release_slots;
 
-    virtual void commit(GpuImage*, GpuSyncpoint done, Flags<IoOutputCommitFlag>) final override;
+    virtual auto commit(const WmOutputCommitInfo&) -> bool final override;
 
     ~IoWaylandOutput();
 };

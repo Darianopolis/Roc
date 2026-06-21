@@ -44,8 +44,6 @@ struct IoContext
 
     std::vector<IoOutputBase*> outputs;
 
-    Ref<GpuImagePool> image_pool;
-
     struct udev* udev;
 
     Ref<IoSession>  session;
@@ -58,11 +56,6 @@ struct IoContext
 };
 
 // -----------------------------------------------------------------------------
-
-enum class IoOutputCommitFlag : u32
-{
-    vsync = 1 << 0,
-};
 
 struct IoOutputInfo
 {
@@ -84,7 +77,7 @@ struct IoOutputBase
     bool commit_available = true;
 
     virtual auto info() -> IoOutputInfo = 0;
-    virtual void commit(GpuImage*, GpuSyncpoint done, Flags<IoOutputCommitFlag>) = 0;
+    virtual auto commit(const WmOutputCommitInfo&) -> bool = 0;
 
     virtual ~IoOutputBase();
 };

@@ -92,6 +92,10 @@ auto gpu_flush(Gpu* gpu) -> GpuSyncpoint
 {
     auto* commands = gpu->queue.commands.get();
 
+    if (!commands) {
+        return {gpu->queue.syncobj.get(), gpu->queue.submitted};
+    }
+
     gpu_check(gpu->vk.EndCommandBuffer(commands->buffer));
 
     commands->submitted_value = ++gpu->queue.submitted;

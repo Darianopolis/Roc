@@ -11,6 +11,8 @@ auto wm_create(const WmServerCreateInfo& info) -> Ref<WmServer>
 
     server->scene_renderer = scene_renderer_create(server->gpu);
 
+    server->image_pool = gpu_image_pool_create(server->gpu);
+
     server->scene = scene_tree_create();
     for (auto layer : enum_values<WmLayer>()) {
         auto* tree = (server->layers[layer] = scene_tree_create()).get();

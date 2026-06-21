@@ -523,6 +523,7 @@ struct GpuDmaParams
 };
 
 auto gpu_image_import(Gpu*, const GpuDmaParams&, Flags<GpuImageUsage>) -> Ref<GpuImage>;
+auto gpu_image_is_exportable(GpuImage*) -> bool;
 auto gpu_image_export(GpuImage*) -> GpuDmaParams;
 
 // -----------------------------------------------------------------------------

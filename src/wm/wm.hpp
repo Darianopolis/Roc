@@ -38,15 +38,43 @@ auto wm_get_layer(WmServer*, WmLayer) -> SceneTree*;
 
 // -----------------------------------------------------------------------------
 
+enum class WmOutputCommitFlag
+{
+    vsync = 1 << 0,
+    test  = 1 << 1,
+};
+
+enum class WmOutputPlaneType
+{
+    primary,
+    overlay,
+    cursor,
+};
+
+struct WmOutputPlane
+{
+    GpuImage* image;
+    vec2i32 position;
+    WmOutputPlaneType type;
+};
+
+struct WmOutputCommitInfo
+{
+    std::span<const WmOutputPlane> planes;
+    GpuSyncpoint ready;
+    Flags<WmOutputCommitFlag> flags;
+};
+
 struct WmOutput;
 struct WmOutputInterface
 {
     void(*request_frame)(void*);
+    auto(*commit)(void*, const WmOutputCommitInfo&) -> bool;
 };
 
 auto wm_output_create(WmServer*, void*, WmOutputInterface) -> Ref<WmOutput>;
 void wm_output_set_pixel_size(WmOutput*, vec2u32);
-auto wm_output_frame(WmOutput*) -> bool;
+auto wm_output_frame(WmOutput*, const GpuFormatSet*) -> bool;
 
 auto wm_output_get_viewport(WmOutput*) -> rect2f32;
 auto wm_output_get_workarea(WmOutput*) -> rect2f32;

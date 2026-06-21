@@ -91,6 +91,8 @@ struct WmServer
     Listener<SceneDamageCallback> scene_damage_listener;
     EnumMap<WmLayer, Ref<SceneTree>> layers;
 
+    Ref<GpuImagePool> image_pool;
+
     SeatModifier main_mod;
 
     WmInteractionMode mode;

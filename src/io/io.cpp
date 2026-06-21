@@ -10,8 +10,6 @@ auto io_create(WmServer* wm, ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     io->exec = exec;
     io->gpu = gpu;
 
-    io->image_pool = gpu_image_pool_create(gpu);
-
     io_udev_init(    io.get());
     io_session_init( io.get());
     io_libinput_init(io.get());

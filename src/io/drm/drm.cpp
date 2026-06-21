@@ -75,7 +75,7 @@ void add_output(IoContext* io, IoDrmResources* resources, drmModeConnector* conn
     output->crtc_prop  = IoDrmPropertyMap(io->drm->fd, crtc->crtc_id,   DRM_MODE_OBJECT_CRTC);
 
     output->size = {crtc->width, crtc->height};
-    output->format_set = parse_plane_formats(io, resources, plane);
+    output->formats = parse_plane_formats(io, resources, plane);
 
     io->drm->outputs.emplace_back(output.get());
     io_output_add(output.get());
@@ -226,11 +226,11 @@ auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
 
 // -----------------------------------------------------------------------------
 
-void IoDrmOutput::commit(
-    GpuImage* image,
-    GpuSyncpoint acquire,
-    Flags<IoOutputCommitFlag> in_flags)
+auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 {
+    if (commit.planes.size() != 1) return false;
+
+    auto image = commit.planes[0].image;
     auto* image_base = image->base();
 
     debug_assert(commit_available);
@@ -245,8 +245,7 @@ void IoDrmOutput::commit(
         drmModeAtomicAddProperty(req, primary_plane_id, plane_prop.get_prop_id(name), value);
     };
 
-    auto in_fence = gpu_syncobj_export_syncfile(acquire.syncobj, acquire.value);
-
+    auto in_fence = gpu_syncobj_export_syncfile(commit.ready.syncobj, commit.ready.value);
 
     plane_set("FB_ID", fb2_handle);
     plane_set("IN_FENCE_FD", in_fence.get());
@@ -264,9 +263,10 @@ void IoDrmOutput::commit(
     drmModeAtomicAddProperty(req, crtc_id, crtc_prop.get_prop_id("VRR_ENABLED"), true);
 
     if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, this).err()) {
-        debug_assert_fail("IoDrmOutput::commit", "TODO: FAILED TO COMMIT");
+        return false;
     }
 
     pending_image = image;
     last_commit_time = std::chrono::steady_clock::now();
+    return true;
 }

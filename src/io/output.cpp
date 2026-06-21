@@ -22,6 +22,9 @@ void io_output_add(IoOutputBase* output)
         .request_frame = [](void* data) {
             request_frame(static_cast<IoOutputBase*>(data));
         },
+        .commit = [](void* data, const WmOutputCommitInfo& info) -> bool {
+            return static_cast<IoOutputBase*>(data)->commit(info);
+        }
     });
 }
 
@@ -40,29 +43,7 @@ void io_output_try_redraw(IoOutputBase* output)
 
     output->frame_requested = false;
 
-    auto needs_redraw = wm_output_frame(output->output.get());
-
-    auto* io = output->io;
-    auto* wm = io->wm;
-
-    if (needs_redraw) {
-        auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-        auto usage = GpuImageUsage::render;
-
-        auto target = io->image_pool->acquire({
-            .extent = output->info().size,
-            .format = format,
-            .usage = usage,
-            .modifiers = ptr_to(gpu_intersect_format_modifiers({{
-                &gpu_get_format_properties(io->gpu, format, usage)->mods,
-                &output->info().formats->get(format),
-            }}))
-        });
-
-        scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), target.get(), wm_output_get_viewport(output->output.get()));
-
-        output->commit(target.get(), gpu_flush(io->gpu), IoOutputCommitFlag::vsync);
-    }
+    wm_output_frame(output->output.get(), output->info().formats);
 }
 
 void io_output_try_redraw_later(IoOutputBase* output)

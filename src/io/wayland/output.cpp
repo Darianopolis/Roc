@@ -251,8 +251,12 @@ void on_present_frame(void* udata, wl_callback*, u32 time)
     }
 }
 
-void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputCommitFlag> flags)
+auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
 {
+    if (commit.planes.size() != 1) return false;
+
+    auto image = commit.planes[0].image;
+
     debug_assert(commit_available);
 
     auto release = std::ranges::find_if(release_slots, [](auto& s) { return !s.image; });
@@ -272,14 +276,14 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
     });
 
     auto* wl_buffer = get_image_proxy(io, image->base());
-    auto* acquire_proxy = get_syncobj_proxy(io, done.syncobj);
+    auto* acquire_proxy = get_syncobj_proxy(io, commit.ready.syncobj);
     auto* release_proxy = get_syncobj_proxy(io, release->syncobj.get());
 
     wl_surface_attach(wl_surface, wl_buffer, 0, 0);
     wl_surface_damage_buffer(wl_surface, 0, 0, INT32_MAX, INT32_MAX);
 
-    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, done.value     >> 32, done.value     & ~0u);
-    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, release->point >> 32, release->point & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, commit.ready.value >> 32, commit.ready.value & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, release->point     >> 32, release->point     & ~0u);
 
     if (!frame_callback) {
         frame_callback = wl_surface_frame(wl_surface);
@@ -287,12 +291,14 @@ void IoWaylandOutput::commit(GpuImage* image, GpuSyncpoint done, Flags<IoOutputC
         wl_callback_add_listener(frame_callback, &listener, this);
     }
 
-    if (flags.contains(IoOutputCommitFlag::vsync)) {
+    if (commit.flags.contains(WmOutputCommitFlag::vsync)) {
         commit_available = false;
     }
 
     wl_surface_commit(wl_surface);
     wl_display_flush(io->wayland->wl_display);
+
+    return true;
 }
 
 IoWaylandOutput::~IoWaylandOutput()

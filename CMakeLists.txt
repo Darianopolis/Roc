@@ -226,6 +226,7 @@ target_sources(wm PRIVATE
     src/wm/wm.cpp
     src/wm/client.cpp
     src/wm/io.cpp
+    src/wm/render.cpp
     src/wm/seat.cpp
     src/wm/cursor.cpp
     src/wm/window.cpp

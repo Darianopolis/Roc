@@ -61,8 +61,6 @@ struct IoDrmOutput : IoOutputBase
     Ref<GpuImage> current_image;
     Ref<GpuImage> pending_image;
 
-    GpuFormatSet format_set;
-
     std::chrono::steady_clock::time_point last_commit_time = {};
 
     GpuFormatSet formats;
@@ -75,7 +73,7 @@ struct IoDrmOutput : IoOutputBase
         };
     }
 
-    virtual void commit(GpuImage*, GpuSyncpoint done, Flags<IoOutputCommitFlag>) final override;
+    virtual auto commit(const WmOutputCommitInfo&) -> bool final override;
 };
 
 struct IoDrmBuffer

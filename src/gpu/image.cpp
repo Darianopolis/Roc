@@ -392,6 +392,11 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
     return image;
 }
 
+auto gpu_image_is_exportable(GpuImage* image) -> bool
+{
+    return dynamic_cast<GpuImageDmabuf*>(image->base());
+}
+
 auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
 {
     auto* image = dynamic_cast<GpuImageDmabuf*>(_image->base());
