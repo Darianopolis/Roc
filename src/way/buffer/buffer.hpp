@@ -21,15 +21,13 @@ struct WayBuffer
 
     vec2u32 extent;
 
-    WayTimelinePoint release_point;
-
     bool syncboj_wait_pending = false;
 
     // Sent on apply, should return a GpuImage when the buffer is ready to display
-    [[nodiscard]] virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> = 0;
+    [[nodiscard]] virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>, WayTimelinePoint) -> Ref<GpuImage> = 0;
 
     auto acquire(WaySurface*, WaySurfaceState* pending) -> Ref<GpuImage>;
-    void release();
+    void release(WayTimelinePoint&&);
 
 protected:
     ~WayBuffer() = default;

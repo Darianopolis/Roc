@@ -52,21 +52,17 @@ auto WayBuffer::acquire(WaySurface* surface, WaySurfaceState* pending) -> Ref<Gp
         flags |= WayBufferAcquireFlags::wait_handled;
     }
 
-    if (pending->release_point.syncobj) {
-        release_point = std::move(pending->release_point);
-    }
-
     // Check for buffer ready
 
     debug_assert(!pending->image);
-    return pending->buffer->do_acquire(surface, pending->buffer_damage, flags);
+    return pending->buffer->do_acquire(surface, pending->buffer_damage, flags, std::move(pending->release_point));
 }
 
-void WayBuffer::release()
+void WayBuffer::release(WayTimelinePoint&& point)
 {
-    if (release_point.syncobj) {
-        gpu_syncobj_signal_value(release_point.syncobj.get(), release_point.value);
-    } else {
-        way_send<wl_buffer_send_release>(_resource);
+    if (point.syncobj) {
+        gpu_syncobj_signal_value(point.syncobj.get(), point.value);
+        point.syncobj = nullptr;
     }
+    way_send<wl_buffer_send_release>(_resource);
 }

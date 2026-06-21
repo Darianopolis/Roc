@@ -81,7 +81,7 @@ struct WayShmBuffer : WayBuffer
     i32 stride;
     GpuFormat format;
 
-    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
+    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>, WayTimelinePoint release_point) -> Ref<GpuImage> final override;
 };
 
 static
@@ -148,7 +148,7 @@ auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*
     return candidate;
 }
 
-auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage>
+auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags<WayBufferAcquireFlags>, WayTimelinePoint release_point) -> Ref<GpuImage>
 {
     Ref image = try_steal(this, surface);
 
@@ -195,7 +195,7 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
     }
 #endif
 
-    release();
+    release(std::move(release_point));
 
     return image;
 }

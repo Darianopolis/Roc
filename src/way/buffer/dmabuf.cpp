@@ -227,7 +227,7 @@ struct WayDmaBuffer : WayBuffer
 
     FixedArray<bool, gpu_dma_max_planes> plane_waits_pending;
 
-    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>) -> Ref<GpuImage> final override;
+    virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>, WayTimelinePoint release_point) -> Ref<GpuImage> final override;
 
     ~WayDmaBuffer();
 };
@@ -329,7 +329,7 @@ WayDmaBuffer::~WayDmaBuffer()
 //
 #include <gpu/internal.hpp>
 
-auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBufferAcquireFlags> flags) -> Ref<GpuImage>
+auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBufferAcquireFlags> flags, WayTimelinePoint release_point) -> Ref<GpuImage>
 {
     if (!flags.contains(WayBufferAcquireFlags::wait_handled)) {
         if (!params) {
@@ -386,7 +386,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
         })
     }));
 
-    auto lease = gpu_lease_image(image.get(), [buffer = Weak(this)](Ref<GpuImage>) {
+    auto lease = gpu_lease_image(image.get(), [buffer = Weak(this), release_point = std::move(release_point)](Ref<GpuImage>) mutable {
         if (!buffer) return;
 
         auto* gpu = buffer->server->gpu;
@@ -416,10 +416,10 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
 
         gpu_protect(gpu, buffer->image);
 
-        gpu_wait(gpu_flush(gpu), [buffer](u64) {
+        gpu_wait(gpu_flush(gpu), [buffer, release_point = std::move(release_point)](u64) mutable {
             if (!buffer) return;
 
-            buffer->release();
+            buffer->release(std::move(release_point));
         });
     });
 
