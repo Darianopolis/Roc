@@ -1,4 +1,5 @@
 #include "drm.hpp"
+#include "debug.hpp"
 
 #include "../session/session.hpp"
 
@@ -8,7 +9,46 @@
 // -----------------------------------------------------------------------------
 
 static
-void add_output(IoContext* io, IoDrmResources* resources, drmModeConnector* connector)
+auto parse_plane_formats(IoContext* io, IoDrmPlane* plane) -> GpuFormatSet
+{
+    auto drm = io->drm->fd;
+
+    auto blob_id = plane->get("IN_FORMATS");
+    if (!blob_id) {
+        log_error("Plane has no IN_FORMATS property");
+        return {};
+    }
+
+    auto blob = drmModeGetPropertyBlob(drm, blob_id);
+    defer { drmModeFreePropertyBlob(blob); };
+
+    GpuFormatSet set;
+    if (!blob) return set;
+
+    auto* header = static_cast<drm_format_modifier_blob*>(blob->data);
+
+    auto* formats = byte_offset_pointer<GpuDrmFormat>(blob->data, header->formats_offset);
+    auto* modifiers = byte_offset_pointer<drm_format_modifier>(blob->data, header->modifiers_offset);
+
+    for (auto mod : std::span(modifiers, header->count_modifiers)) {
+        u32 index = mod.offset;
+        while (mod.formats) {
+            auto bit_idx = std::countr_zero(mod.formats);
+            index += bit_idx;
+
+            auto format = gpu_format_from_drm(formats[index]);
+            if (format) set.add(format, mod.modifier);
+
+            mod.formats >>= bit_idx + 1;
+            index++;
+        }
+    }
+
+    return set;
+}
+
+static
+void try_add_output(IoContext* io, IoDrmConnector* connector)
 {
     /*
      * TODO: In the interest of fast prototyping, we will initially just re-use the existing
@@ -20,67 +60,81 @@ void add_output(IoContext* io, IoDrmResources* resources, drmModeConnector* conn
 
     // Find encoder for this connector
 
-    if (!connector->encoder_id) {
-        log_warn("Connector {} has no encoder", connector->connector_id);
+    auto* encoder = io_drm_find_encoder(io, connector->info->encoder_id);
+    if (!encoder) {
+        log_warn("Connector {} has no encoder", connector->info->connector_id);
         return;
     }
-    auto encoder = resources->find_encoder(connector->encoder_id);
-    debug_assert(encoder);
 
     // Find CRTC currently used by this connector
 
-    if (!encoder->crtc_id) {
-        log_warn("Connector {} has no active CRTC", connector->connector_id);
+    auto* crtc = io_drm_find_crtc(io, encoder->info->crtc_id);
+    if (!crtc) {{
+        log_warn("Connector {} has no active CRTC", connector->id);
         return;
-    }
-    auto* crtc = resources->find_crtc(encoder->crtc_id);
-    debug_assert(crtc);
+    }}
 
     // Ensure the CRTC is active
 
-    if (!crtc->buffer_id) {
-        log_warn("Connector is not active", connector->connector_id);
+    if (!crtc->info->buffer_id) {
+        log_warn("Connector is not active", connector->id);
         return;
     }
 
     // Find plane currently used by CRTC
 
-    drmModePlane* plane = nullptr;
-    for (auto[i, p] : resources->planes | std::views::enumerate) {
-        if (p->crtc_id == crtc->crtc_id && p->fb_id == crtc->buffer_id) {
+    IoDrmPlane* plane;
+    for (auto* p : io->drm->planes) {
+        if (p->info->crtc_id == crtc->id && p->info->fb_id == crtc->info->buffer_id) {
             plane = p;
+            break;
         }
     }
     debug_assert(plane);
 
     // Compute refresh rate
 
-    u64 refresh = ((crtc->mode.clock * 1000000ul / crtc->mode.htotal) + (crtc->mode.vtotal / 2)) / crtc->mode.vtotal;
+    u64 refresh = ((crtc->info->mode.clock * 1000000ul / crtc->info->mode.htotal) + (crtc->info->mode.vtotal / 2)) / crtc->info->mode.vtotal;
 
     log_warn("Creating output");
-    log_warn("  crtc: {}", crtc->crtc_id);
-    log_warn("  conn: {}", connector->connector_id);
-    log_warn("  plane: {}", plane->plane_id);
+    log_warn("  crtc: {}", crtc->id);
+    log_warn("  conn: {}", connector->id);
+    log_warn("  plane: {}", plane->id);
     log_warn("  refresh: {} mHz", refresh);
-    log_warn("  extent: ({}, {})", crtc->width, crtc->height);
+    log_warn("  extent: ({}, {})", crtc->info->width, crtc->info->height);
 
     auto output = ref_create<IoDrmOutput>();
     output->io = io;
 
-    output->primary_plane_id = plane->plane_id;
-    output->crtc_id = crtc->crtc_id;
-    output->connector_id = connector->connector_id;
+    output->primary_plane = plane;
+    output->crtc = crtc;
+    output->connector = connector;
 
-    output->plane_prop = IoDrmPropertyMap(io->drm->fd, plane->plane_id, DRM_MODE_OBJECT_PLANE);
-    output->crtc_prop  = IoDrmPropertyMap(io->drm->fd, crtc->crtc_id,   DRM_MODE_OBJECT_CRTC);
-
-    output->size = {crtc->width, crtc->height};
-    output->formats = parse_plane_formats(io, resources, plane);
+    output->size = {crtc->info->width, crtc->info->height};
+    output->formats = parse_plane_formats(io, plane);
 
     io->drm->outputs.emplace_back(output.get());
     io_output_add(output.get());
     io_output_post_configure(output.get());
     io_output_try_redraw_later(output.get());
+}
+
+void io_drm_configure_outputs(IoContext* io)
+{
+    io->drm->outputs.erase_if([](IoDrmOutput* output) { return !output->connector; });
+
+    io_drm_dump_planes(io);
+
+    for (auto* connector : io->drm->connectors) {
+        if (std::ranges::any_of(io->drm->outputs,
+                [&](auto* output) {
+                    return output->connector.get() == connector;
+                })) {
+            // Connector is already used in any existing output
+            continue;
+        }
+        try_add_output(io, connector);
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -151,11 +205,9 @@ void io_drm_deinit(IoContext* io)
 
 void io_drm_start(IoContext* io)
 {
-    IoDrmResources res(io->drm->fd);
-
-    for (auto* connector : res.connectors) {
-        add_output(io, &res, connector);
-    }
+    io_drm_enumerate_static_objects(io);
+    io_drm_enumerate_connectors(io);
+    io_drm_configure_outputs(io);
 }
 
 // -----------------------------------------------------------------------------
@@ -241,26 +293,22 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
     auto req = drmModeAtomicAlloc();
     defer { drmModeAtomicFree(req); };
 
-    auto plane_set = [&](std::string_view name, u64 value) {
-        drmModeAtomicAddProperty(req, primary_plane_id, plane_prop.get_prop_id(name), value);
-    };
-
     auto in_fence = gpu_syncobj_export_syncfile(commit.ready.syncobj, commit.ready.value);
 
-    plane_set("FB_ID", fb2_handle);
-    plane_set("IN_FENCE_FD", in_fence.get());
-    plane_set("SRC_X", 0);
-    plane_set("SRC_Y", 0);
-    plane_set("SRC_W", image_base->extent.x << 16);
-    plane_set("SRC_H", image_base->extent.y << 16);
-    plane_set("CRTC_X", 0);
-    plane_set("CRTC_Y", 0);
-    plane_set("CRTC_W", size.x);
-    plane_set("CRTC_H", size.y);
+    primary_plane->set(req, "FB_ID", fb2_handle);
+    primary_plane->set(req, "IN_FENCE_FD", in_fence.get());
+    primary_plane->set(req, "SRC_X", 0);
+    primary_plane->set(req, "SRC_Y", 0);
+    primary_plane->set(req, "SRC_W", image_base->extent.x << 16);
+    primary_plane->set(req, "SRC_H", image_base->extent.y << 16);
+    primary_plane->set(req, "CRTC_X", 0);
+    primary_plane->set(req, "CRTC_Y", 0);
+    primary_plane->set(req, "CRTC_W", size.x);
+    primary_plane->set(req, "CRTC_H", size.y);
 
     auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
 
-    drmModeAtomicAddProperty(req, crtc_id, crtc_prop.get_prop_id("VRR_ENABLED"), true);
+    crtc->set(req, "VRR_ENABLED", true);
 
     if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, this).err()) {
         return false;

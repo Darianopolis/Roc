@@ -2,61 +2,63 @@
 
 #include "../internal.hpp"
 
-struct IoDrmResources
+template<auto Fn>
+struct IoDrmDeleter { void operator()(auto v) { Fn(v); } };
+
+// -----------------------------------------------------------------------------
+
+using IoDrmObjectId = u32;
+using IoDrmPropertyId = u32;
+using IoDrmObjectType = u32;
+
+struct IoDrmProperty
 {
-    std::vector<drmModeConnector*> connectors;
-    std::vector<drmModeEncoder*>   encoders;
-    std::vector<drmModeCrtc*>      crtcs;
-    std::vector<drmModePlane*>     planes;
+    std::unique_ptr<drmModePropertyRes, IoDrmDeleter<drmModeFreeProperty>> info;
 
-    auto find_connector(u32 id) -> drmModeConnector*;
-    auto find_encoder(  u32 id) -> drmModeEncoder*;
-    auto find_crtc(     u32 id) -> drmModeCrtc*;
-    auto find_plane(    u32 id) -> drmModePlane*;
+    auto id()   -> u32              { return info->prop_id; }
+    auto name() -> std::string_view { return info->name;    }
 
-    IoDrmResources(fd_t drm_fd);
-    ~IoDrmResources();
+    auto enum_name(u64 value) -> std::string_view
+    {
+        for (int e = 0; e < info->count_enums; ++e) {
+            if (value == info->enums[e].value)  return info->enums[e].name;
+        }
+        return "";
+    }
 };
 
-struct IoDrmPropertyMap
+auto io_drm_get_property(IoContext*, IoDrmPropertyId) -> IoDrmProperty*;
+
+struct IoDrmObject
 {
-    struct PropDeleter
-    {
-        void operator()(drmModeObjectProperties* v)
-        {
-            drmModeFreeObjectProperties(v);
-        }
-    };
-    using PropPtr = std::unique_ptr<drmModeObjectProperties, PropDeleter>;
+    IoContext* io;
+    IoDrmObjectId id;
+    IoDrmObjectType type;
 
-    fd_t drm;
-    PropPtr props;
-    ankerl::unordered_dense::map<std::string_view, drmModePropertyRes*> properties;
+    ankerl::unordered_dense::map<IoDrmPropertyId, u64> property_values;
+    ankerl::unordered_dense::map<std::string_view, IoDrmPropertyId> property_name_lookup;
 
-    IoDrmPropertyMap() = default;
+    void update_properties();
 
-    IoDrmPropertyMap(fd_t drm, u32 object_id, u32 object_type);
+    auto get(std::string_view name) -> u64;
+    void set(drmModeAtomicReqPtr, std::string_view name, u64);
 
-    IoDrmPropertyMap(IoDrmPropertyMap&& other);
-    DEFINE_BASIC_MOVE(IoDrmPropertyMap)
-
-    ~IoDrmPropertyMap();
-
-    auto get_prop_id(   std::string_view prop_name) -> u32;
-    auto get_prop_value(std::string_view prop_name) -> u64;
-    auto get_enum_value(std::string_view prop_name, std::string_view enum_name) -> int;
+    IoDrmObject() = default;
+    DELETE_COPY_MOVE(IoDrmObject);
 };
 
 // -----------------------------------------------------------------------------
 
+struct IoDrmCrtc;
+struct IoDrmEncoder;
+struct IoDrmConnector;
+struct IoDrmPlane;
+
 struct IoDrmOutput : IoOutputBase
 {
-    u32 primary_plane_id;
-    u32 crtc_id;
-    u32 connector_id;
-
-    IoDrmPropertyMap plane_prop;
-    IoDrmPropertyMap crtc_prop;
+    IoDrmPlane* primary_plane;
+    IoDrmCrtc* crtc;
+    Weak<IoDrmConnector> connector;
 
     Ref<GpuImage> current_image;
     Ref<GpuImage> pending_image;
@@ -76,21 +78,62 @@ struct IoDrmOutput : IoOutputBase
     virtual auto commit(const WmOutputCommitInfo&) -> bool final override;
 };
 
+// -----------------------------------------------------------------------------
+
 struct IoDrmBuffer
 {
     Weak<GpuImageBase> image;
     u32 fb2_handle;
 };
 
+// -----------------------------------------------------------------------------
+
 struct IoDrm
 {
     fd_t fd;
+
+    ankerl::unordered_dense::segmented_map<IoDrmPropertyId, IoDrmProperty> properties;
+
+    RefVector<IoDrmPlane> planes;
+    RefVector<IoDrmCrtc> crtcs;
+    RefVector<IoDrmEncoder> encoders;
+    RefVector<IoDrmConnector> connectors;
 
     RefVector<IoDrmOutput> outputs;
 
     std::vector<IoDrmBuffer> buffer_cache;
 };
 
+void io_drm_enumerate_static_objects(IoContext*);
+void io_drm_enumerate_connectors(IoContext*);
+void io_drm_configure_outputs(IoContext*);
+
 // -----------------------------------------------------------------------------
 
-auto parse_plane_formats(IoContext* io, IoDrmResources* resources, drmModePlane* plane) -> GpuFormatSet;
+template<typename T>
+auto io_drm_find_object(auto&& list, IoDrmObjectId id) -> T*
+{
+    if (!id) return nullptr;
+    for (T* object : list) {
+        if (object->id == id) return object;
+    }
+    return nullptr;
+}
+
+#define IO_DRM_DEFINE_OBJECT(T, L, U) \
+    struct IoDrm ## T : IoDrmObject \
+    { \
+        std::unique_ptr<_drmMode ## T, IoDrmDeleter<drmModeFree ## T>> info; \
+        static constexpr IoDrmObjectType Type = DRM_MODE_OBJECT_ ## U; \
+        IoDrm ## T() { type = Type; } \
+        void update_info() { info.reset(drmModeGet ## T(io->drm->fd, id)); } \
+    }; \
+    inline auto io_drm_find_ ## L (IoContext* io, IoDrmObjectId id) -> IoDrm ## T* \
+    { \
+        return io_drm_find_object<IoDrm ## T>(io->drm->L ## s, id); \
+    }
+
+IO_DRM_DEFINE_OBJECT(Crtc, crtc, CRTC)
+IO_DRM_DEFINE_OBJECT(Plane, plane, PLANE)
+IO_DRM_DEFINE_OBJECT(Connector, connector, CONNECTOR)
+IO_DRM_DEFINE_OBJECT(Encoder, encoder, ENCODER)

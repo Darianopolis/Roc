@@ -1,147 +1,102 @@
 #include "drm.hpp"
+#include "debug.hpp"
 
 #include <core/log.hpp>
 
-IoDrmResources::IoDrmResources(fd_t drm_fd)
+template<typename T>
+static
+auto create_drm_object(IoContext* io, IoDrmObjectId id) -> Ref<T>
 {
-    auto mode_res = unix_check<drmModeGetResources>(drm_fd).value;
-    if (!mode_res) {
-        log_warn("Failed to get mode resources");
-        return;
-    }
-    defer { drmModeFreeResources(mode_res); };
-
-    auto plane_res = unix_check<drmModeGetPlaneResources>(drm_fd).value;
-    if (!plane_res) {
-        log_warn("Failed to get plane resources");
-        return;
-    }
-    defer { drmModeFreePlaneResources(plane_res); };
-
-#define DO(Type, Name, Res) \
-    for (decltype(Res->count_##Name) i = 0; i < Res->count_ ## Name; ++i) { \
-        Name.emplace_back(drmModeGet##Type(drm_fd, Res->Name[i])); \
-    }
-
-    DO(Connector, connectors, mode_res)
-    DO(Encoder, encoders, mode_res)
-    DO(Crtc, crtcs, mode_res)
-    DO(Plane, planes, plane_res)
-
-#undef DO
+    auto object = ref_create<T>();
+    object->io = io;
+    object->id = id;
+    object->update_properties();
+    object->update_info();
+    io_drm_object_dump_properties(object.get());
+    return object;
 }
 
-#define DO(Type, Name) \
-    drmMode##Type* IoDrmResources::find_##Name(u32 id) \
-    { \
-        for (auto* c : Name##s) if (c->Name##_id == id) return c;\
-        return nullptr; \
+void io_drm_enumerate_static_objects(IoContext* io)
+{
+    auto resources = drmModeGetResources(io->drm->fd);
+    defer { drmModeFreeResources(resources); };
+
+    for (int i = 0; i < resources->count_crtcs; ++i) {
+        io->drm->crtcs.emplace_back(create_drm_object<IoDrmCrtc>(io, resources->crtcs[i]));
     }
 
-DO(Connector, connector)
-DO(Encoder, encoder)
-DO(Crtc, crtc)
-DO(Plane, plane)
+    for (int i = 0; i < resources->count_encoders; ++i) {
+        io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i]));
+    }
 
-#undef DO
+    auto planes = drmModeGetPlaneResources(io->drm->fd);
+    defer { drmModeFreePlaneResources(planes); };
 
-IoDrmResources::~IoDrmResources()
-{
-    for (auto* c : connectors) drmModeFreeConnector(c);
-    for (auto* e : encoders)   drmModeFreeEncoder(e);
-    for (auto* c : crtcs)      drmModeFreeCrtc(c);
-    for (auto* p : planes)     drmModeFreePlane(p);
-}
-
-// -----------------------------------------------------------------------------
-
-IoDrmPropertyMap::IoDrmPropertyMap(fd_t drm, u32 object_id, u32 object_type)
-    : drm(drm)
-    , props(PropPtr(drmModeObjectGetProperties(drm, object_id, object_type)))
-{
-    for (u32 i = 0; i < props->count_props; ++i) {
-        auto* prop = drmModeGetProperty(drm, props->props[i]);
-        properties[prop->name] = prop;
+    for (u32 i = 0; i < planes->count_planes; ++i) {
+        io->drm->planes.emplace_back(create_drm_object<IoDrmPlane>(io, planes->planes[i]));
     }
 }
 
-IoDrmPropertyMap::IoDrmPropertyMap(IoDrmPropertyMap&& other)
-    : drm(other.drm)
-    , props(std::move(other.props))
-    , properties(std::move(other.properties))
-{}
-
-IoDrmPropertyMap::~IoDrmPropertyMap()
+void io_drm_enumerate_connectors(IoContext* io)
 {
-    for (auto[_, prop] : properties) drmModeFreeProperty(prop);
-}
+    ankerl::unordered_dense::set<IoDrmObjectId> new_connectors;
 
-auto IoDrmPropertyMap::get_prop_id(std::string_view prop_name) -> u32
-{
-    return properties.at(prop_name)->prop_id;
-}
-
-auto IoDrmPropertyMap::get_prop_value(std::string_view prop_name) -> u64
-{
-    auto id = get_prop_id(prop_name);
-    for (u32 i = 0; i < props->count_props; ++i) {
-        if (props->props[i] == id) {
-            return props->prop_values[i];
-        }
-    }
-    debug_assert_fail("Failed to find property");
-}
-
-auto IoDrmPropertyMap::get_enum_value(std::string_view prop_name, std::string_view enum_name) -> int
-{
-    auto* prop = properties.at(prop_name);
-
-    debug_assert(prop->flags & DRM_MODE_PROP_ENUM);
-    for (int e = 0; e < prop->count_enums; ++e) {
-        if (enum_name == prop->enums[e].name) {
-            return prop->enums[e].value;
-        }
+    auto resources = drmModeGetResources(io->drm->fd);
+    defer { drmModeFreeResources(resources); };
+    for (int i = 0; i < resources->count_connectors; ++i) {
+        new_connectors.emplace(resources->connectors[i]);
     }
 
-    log_error("Failed to find enum value: {}.{}", prop_name, enum_name);
-    debug_kill();
+    io->drm->connectors.erase_if([&](IoDrmConnector* connector) {
+        return !new_connectors.contains(connector->id);
+    });
+
+    for (auto* existing : io->drm->connectors) {
+        new_connectors.erase(existing->id);
+    }
+
+    for (auto id : new_connectors) {
+        io->drm->connectors.emplace_back(create_drm_object<IoDrmConnector>(io, id));
+    }
 }
 
-// -----------------------------------------------------------------------------
-
-auto parse_plane_formats(IoContext* io, IoDrmResources* resources, drmModePlane* plane) -> GpuFormatSet
+auto io_drm_get_property(IoContext* io, IoDrmPropertyId id) -> IoDrmProperty*
 {
-    auto drm = io->drm->fd;
+    auto iter = io->drm->properties.find(id);
+    if (iter != io->drm->properties.end()) return &iter->second;
 
-    IoDrmPropertyMap props{drm, plane->plane_id, DRM_MODE_OBJECT_PLANE};
-    auto blob_id = props.get_prop_value("IN_FORMATS");
-    if (!blob_id) {
-        log_error("Plane has no IN_FORMATS property");
-        return {};
+    auto& properties = io->drm->properties[id];
+    properties.info.reset(drmModeGetProperty(io->drm->fd, id));
+    return &properties;
+}
+
+void IoDrmObject::update_properties()
+{
+    property_name_lookup.clear();
+    property_values.clear();
+
+    auto properties = drmModeObjectGetProperties(io->drm->fd, id, type);
+    defer { drmModeFreeObjectProperties(properties); };
+
+    if (!properties) return;
+
+    for (u32 i = 0; i < properties->count_props; ++i) {
+        auto prop_id = IoDrmPropertyId(properties->props[i]);
+        auto prop = io_drm_get_property(io, prop_id);
+        auto prop_name = prop->name();
+        property_name_lookup[prop_name] = prop_id;
+        property_values[prop_id] = properties->prop_values[i];
     }
+}
 
-    auto blob = drmModeGetPropertyBlob(drm, blob_id);
-    defer { drmModeFreePropertyBlob(blob); };
+auto IoDrmObject::get(std::string_view name) -> u64
+{
+    auto prop_id = property_name_lookup.at(name);
+    return property_values.at(prop_id);
+}
 
-    auto* header = static_cast<drm_format_modifier_blob*>(blob->data);
-
-    auto* formats = byte_offset_pointer<GpuDrmFormat>(blob->data, header->formats_offset);
-    auto* modifiers = byte_offset_pointer<drm_format_modifier>(blob->data, header->modifiers_offset);
-
-    GpuFormatSet set;
-    for (auto mod : std::span(modifiers, header->count_modifiers)) {
-        u32 index = mod.offset;
-        while (mod.formats) {
-            auto bit_idx = std::countr_zero(mod.formats);
-            index += bit_idx;
-
-            auto format = gpu_format_from_drm(formats[index]);
-            if (format) set.add(format, mod.modifier);
-
-            mod.formats >>= bit_idx + 1;
-            index++;
-        }
-    }
-
-    return set;
+void IoDrmObject::set(drmModeAtomicReqPtr req, std::string_view name, u64 value)
+{
+    auto prop_id = property_name_lookup.at(name);
+    unix_check<drmModeAtomicAddProperty>(req, id, prop_id, value);
 }
