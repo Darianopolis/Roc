@@ -51,7 +51,7 @@ void configure(void* udata, xdg_surface* xdg_surface, u32 serial)
     auto* output = static_cast<IoWaylandOutput*>(udata);
 
     xdg_surface_ack_configure(xdg_surface, serial);
-    wl_surface_commit(output->wl_surface);
+    wl_surface_commit(output->primary.wl_surface);
 
     bool post_configure = false;
 
@@ -151,8 +151,8 @@ void create_output(IoContext* io)
 
     wl->outputs.emplace_back(output.get());
 
-    output->wl_surface = wl_compositor_create_surface(wl->wl_compositor);
-    output->xdg_surface = xdg_wm_base_get_xdg_surface(wl->xdg_wm_base, output->wl_surface);
+    output->primary.init(wl);
+    output->xdg_surface = xdg_wm_base_get_xdg_surface(wl->xdg_wm_base, output->primary.wl_surface);
     xdg_surface_add_listener(output->xdg_surface, &io_xdg_surface_listener, output.get());
 
     output->xdg_toplevel = xdg_surface_get_toplevel(output->xdg_surface);
@@ -171,15 +171,21 @@ void create_output(IoContext* io)
 
     output->zwp_locked_pointer_v1 = zwp_pointer_constraints_v1_lock_pointer(
         wl->zwp_pointer_constraints_v1,
-        output->wl_surface,
+        output->primary.wl_surface,
         wl->pointer->wl_pointer,
         nullptr,
         ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
     zwp_locked_pointer_v1_add_listener(output->zwp_locked_pointer_v1, &io_zwp_locked_pointer_v1_listener, output.get());
 
-    output->wp_linux_drm_syncobj_surface_v1 = wp_linux_drm_syncobj_manager_v1_get_surface(wl->wp_linux_drm_syncobj_manager_v1, output->wl_surface);
+    wl_surface_commit(output->primary.wl_surface);
 
-    wl_surface_commit(output->wl_surface);
+    output->cursor.init(wl);
+    output->cursor_subsurface = wl_subcompositor_get_subsurface(wl->wl_subcompositor, output->cursor.wl_surface, output->primary.wl_surface);
+
+    auto region = wl_compositor_create_region(wl->wl_compositor);
+    wl_surface_set_input_region(output->cursor.wl_surface, region);
+    wl_region_destroy(region);
+
     wl_display_flush(wl->wl_display);
 
     io_output_add(output.get());
@@ -237,28 +243,14 @@ auto get_syncobj_proxy(IoContext* io, GpuSyncobj* syncobj) -> wp_linux_drm_synco
     return wl->syncobj_cache.insert(syncobj, proxy);
 }
 
-static
-void on_present_frame(void* udata, wl_callback*, u32 time)
+void IoWaylandSurface::init(IoWayland* wl)
 {
-    auto* output = static_cast<IoWaylandOutput*>(udata);
-
-    wl_callback_destroy(output->frame_callback);
-    output->frame_callback = nullptr;
-
-    if (!output->commit_available) {
-        output->commit_available = true;
-        io_output_try_redraw(output);
-    }
+    wl_surface = wl_compositor_create_surface(wl->wl_compositor);
+    wp_linux_drm_syncobj_surface_v1 = wp_linux_drm_syncobj_manager_v1_get_surface(wl->wp_linux_drm_syncobj_manager_v1, wl_surface);
 }
 
-auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
+void IoWaylandSurface::attach(IoContext* io, GpuImage* image, GpuSyncpoint ready)
 {
-    if (commit.planes.size() != 1) return false;
-
-    auto image = commit.planes[0].image;
-
-    debug_assert(commit_available);
-
     auto release = std::ranges::find_if(release_slots, [](auto& s) { return !s.image; });
     if (release == release_slots.end()) {
         release = release_slots.insert(release_slots.end(), ReleaseSlot {
@@ -276,17 +268,53 @@ auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
     });
 
     auto* wl_buffer = get_image_proxy(io, image->base());
-    auto* acquire_proxy = get_syncobj_proxy(io, commit.ready.syncobj);
+    auto* acquire_proxy = get_syncobj_proxy(io, ready.syncobj);
     auto* release_proxy = get_syncobj_proxy(io, release->syncobj.get());
 
     wl_surface_attach(wl_surface, wl_buffer, 0, 0);
     wl_surface_damage_buffer(wl_surface, 0, 0, INT32_MAX, INT32_MAX);
 
-    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, commit.ready.value >> 32, commit.ready.value & ~0u);
-    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, release->point     >> 32, release->point     & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, ready.value    >> 32, ready.value    & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, release->point >> 32, release->point & ~0u);
+}
+
+IoWaylandSurface::~IoWaylandSurface()
+{
+    IO_WL_DESTROY(wp_linux_drm_syncobj_surface_v1);
+    IO_WL_DESTROY(wl_surface);
+}
+
+static
+void on_present_frame(void* udata, wl_callback*, u32 time)
+{
+    auto* output = static_cast<IoWaylandOutput*>(udata);
+
+    wl_callback_destroy(output->frame_callback);
+    output->frame_callback = nullptr;
+
+    if (!output->commit_available) {
+        output->commit_available = true;
+        io_output_try_redraw(output);
+    }
+}
+
+auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
+{
+    debug_assert(commit_available);
+
+    primary.attach(io, commit.primary.image, commit.ready);
+
+    xdg_surface_set_window_geometry(xdg_surface, 0, 0, size.x, size.y);
+
+    if (commit.cursor.image) {
+        cursor.attach(io, commit.cursor.image, commit.ready);
+        wl_subsurface_set_position(cursor_subsurface, commit.cursor.position.x, commit.cursor.position.y);
+    } else {
+        wl_surface_attach(cursor.wl_surface, nullptr, 0, 0);
+    }
 
     if (!frame_callback) {
-        frame_callback = wl_surface_frame(wl_surface);
+        frame_callback = wl_surface_frame(primary.wl_surface);
         static constexpr wl_callback_listener listener { on_present_frame };
         wl_callback_add_listener(frame_callback, &listener, this);
     }
@@ -295,7 +323,9 @@ auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
         commit_available = false;
     }
 
-    wl_surface_commit(wl_surface);
+    wl_surface_commit(cursor.wl_surface);
+    wl_surface_commit(primary.wl_surface);
+
     wl_display_flush(io->wayland->wl_display);
 
     return true;
@@ -303,8 +333,6 @@ auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
 
 IoWaylandOutput::~IoWaylandOutput()
 {
-    IO_WL_DESTROY(wp_linux_drm_syncobj_surface_v1);
-
     io_wl_destroy(wl_callback_destroy, frame_callback);
 
     IO_WL_DESTROY(zwp_locked_pointer_v1);
@@ -313,5 +341,6 @@ IoWaylandOutput::~IoWaylandOutput()
 
     IO_WL_DESTROY(xdg_toplevel);
     IO_WL_DESTROY(xdg_surface);
-    IO_WL_DESTROY(wl_surface);
+
+    if (cursor_subsurface) wl_subsurface_destroy(cursor_subsurface);
 }

@@ -79,7 +79,7 @@ static
 auto find_output_for_surface(IoContext* io, wl_surface* surface) -> IoWaylandOutput*
 {
     for (auto* output : io->wayland->outputs) {
-        if (output->wl_surface == surface) {
+        if (output->primary.wl_surface == surface) {
             return output;
         }
     }

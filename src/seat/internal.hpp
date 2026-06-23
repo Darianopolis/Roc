@@ -80,6 +80,7 @@ struct SeatPointer : SeatInputDevice
     SeatCursorManager* cursor_manager;
     SceneTree* root;
 
+    Ref<SceneTree> visual_root;
     Ref<SceneTree> tree;
 
     Weak<SceneNode> cursor_visual;

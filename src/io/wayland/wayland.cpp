@@ -32,6 +32,7 @@ void registry_global(void* data, wl_registry*, u32 name, const char* interface, 
 
     BIND_BEGIN
     BIND_INTERFACE(wl_compositor) {}
+    BIND_INTERFACE(wl_subcompositor) {}
     BIND_INTERFACE(xdg_wm_base) {
         xdg_wm_base_add_listener(wl->xdg_wm_base, &io_xdg_wm_base_listener, io);
     }

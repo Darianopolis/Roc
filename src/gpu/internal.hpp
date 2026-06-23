@@ -47,7 +47,7 @@ auto gpu_vulkan_make_chain(std::span<void* const> structures) -> void*
 
 // -----------------------------------------------------------------------------
 
-auto gpu_find_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags properties) -> u32;
+auto gpu_find_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags required, VkMemoryPropertyFlags disallowed = {}) -> u32;
 
 auto gpu_get_required_format_features(GpuFormat, Flags<GpuImageUsage>) -> VkFormatFeatureFlags;
 

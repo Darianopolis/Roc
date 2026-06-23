@@ -56,6 +56,9 @@ struct WmOutput
     vec2u32 pixel_size;
     rect2f32 viewport;
 
+    Ref<GpuImage> primary_image;
+    u64           primary_version = 0;
+
     // TODO: Partial redraws
     bool needs_redraw = false;
     u64 frame_id = 0;
@@ -86,12 +89,21 @@ struct WmServer
 
     Ref<SeatManager> seat_manager;
 
-    Ref<SceneRenderer> scene_renderer;
-    Ref<SceneTree> scene;
-    Listener<SceneDamageCallback> scene_damage_listener;
-    EnumMap<WmLayer, Ref<SceneTree>> layers;
+    Ref<SceneRenderer>               scene_renderer;
+    Ref<SceneTree>                   scene_root;
+    Listener<SceneDamageCallback>    scene_damage_listener;
+    EnumMap<WmLayer, Ref<SceneTree>> scene_layers;
+    // The primary tree includes everything that should always be composited onto a "primary" KMS plane
+    // This allows us to track damage for "primary" and "cursor" planes independently, while sharing the same scene root
+    Ref<SceneTree>                   scene_primary_tree;
 
     Ref<GpuImagePool> image_pool;
+
+    Ref<GpuImage>                 cursor_image;
+    rect2f32                      cursor_image_bounds;
+    bool                          cursor_image_valid;
+    u64                           cursor_version = 0;
+    Listener<SceneDamageCallback> cursor_damage_listener;
 
     SeatModifier main_mod;
 

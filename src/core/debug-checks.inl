@@ -72,8 +72,8 @@ UNIX_ERROR_BEHAVIOUR(drmModeGetPlaneResources,   null)
 UNIX_ERROR_BEHAVIOUR(drmModeObjectGetProperties, null)
 UNIX_ERROR_BEHAVIOUR(drmPrimeFDToHandle,         negative_one)
 UNIX_ERROR_BEHAVIOUR(drmModeAddFB2WithModifiers, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmModeAtomicCommit,        negative_one)
-UNIX_ERROR_BEHAVIOUR(drmModeAtomicAddProperty,   negative_one)
+UNIX_ERROR_BEHAVIOUR(drmModeAtomicCommit,        negative_errno)
+UNIX_ERROR_BEHAVIOUR(drmModeAtomicAddProperty,   negative_errno)
 
 // udev
 

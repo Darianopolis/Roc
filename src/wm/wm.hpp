@@ -32,6 +32,7 @@ enum class WmLayer
     background,
     window,
     overlay,
+    cursor,
 };
 
 auto wm_get_layer(WmServer*, WmLayer) -> SceneTree*;
@@ -44,23 +45,15 @@ enum class WmOutputCommitFlag
     test  = 1 << 1,
 };
 
-enum class WmOutputPlaneType
-{
-    primary,
-    overlay,
-    cursor,
-};
-
-struct WmOutputPlane
-{
-    GpuImage* image;
-    vec2i32 position;
-    WmOutputPlaneType type;
-};
-
 struct WmOutputCommitInfo
 {
-    std::span<const WmOutputPlane> planes;
+    struct {
+        GpuImage* image;
+    } primary;
+    struct {
+        GpuImage* image;
+        vec2i32 position;
+    } cursor;
     GpuSyncpoint ready;
     Flags<WmOutputCommitFlag> flags;
 };
@@ -168,6 +161,8 @@ struct WmCursorUnset { constexpr auto operator==(const WmCursorUnset& ) const ->
 using  WmCursorVisual = std::variant<WmCursorUnset, Weak<SceneNode>, std::string>;
 
 void wm_set_cursor(WmClient*, WmCursorVisual visual);
+
+void wm_prepare_cursor_image(WmServer*);
 
 // -----------------------------------------------------------------------------
 

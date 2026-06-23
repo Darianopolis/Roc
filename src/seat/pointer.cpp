@@ -8,8 +8,11 @@ auto seat_pointer_create(const SeatPointerCreateInfo& info) -> Ref<SeatPointer>
     pointer->cursor_manager = info.cursor_manager;
     pointer->root = info.root;
 
+    pointer->visual_root = scene_tree_create();
+    scene_tree_place_above(info.layer, nullptr, pointer->visual_root.get());
+
     pointer->tree = scene_tree_create();
-    scene_tree_place_above(info.layer, nullptr, pointer->tree .get());
+    scene_tree_place_above(pointer->visual_root.get(), nullptr, pointer->tree.get());
 
     return pointer;
 }
@@ -110,7 +113,7 @@ void seat_pointer_move(SeatPointer* pointer, vec2f32 position, vec2f32 rel_accel
                    || rel_accel.x   || rel_accel.y
                    || rel_unaccel.x || rel_unaccel.y;
 
-    scene_tree_set_translation(pointer->tree.get(), position);
+    scene_tree_set_translation(pointer->visual_root.get(), position);
 
     update_pointer_focus(pointer);
 
@@ -167,4 +170,9 @@ auto seat_pointer_get_focus(SeatPointer* pointer) -> SeatFocus*
 auto seat_pointer_get_seat(SeatPointer* pointer) -> Seat*
 {
     return pointer->seat;
+}
+
+auto seat_pointer_get_tree(SeatPointer* pointer) -> SceneTree*
+{
+    return pointer->tree.get();
 }

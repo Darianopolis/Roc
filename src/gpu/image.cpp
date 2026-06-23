@@ -265,14 +265,15 @@ GpuSampler::~GpuSampler()
 
 // -----------------------------------------------------------------------------
 
-auto gpu_find_memory_type_index(Gpu* gpu, u32 type_filter, VkMemoryPropertyFlags properties) -> u32
+auto gpu_find_memory_type_index(Gpu* gpu, u32 type_filter, VkMemoryPropertyFlags required, VkMemoryPropertyFlags disallowed) -> u32
 {
     VkPhysicalDeviceMemoryProperties props;
     gpu->vk.GetPhysicalDeviceMemoryProperties(gpu->physical_device, &props);
 
     for (u32 i = 0; i < props.memoryTypeCount; ++i) {
         if (!(type_filter & (1 << i))) continue;
-        if ((props.memoryTypes[i].propertyFlags & properties) != properties) continue;
+        if ((props.memoryTypes[i].propertyFlags & required) != required) continue;
+        if (props.memoryTypes[i].propertyFlags & disallowed) continue;
 
         return i;
     }
@@ -349,7 +350,9 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
     VkMemoryRequirements mem_reqs;
     gpu->vk.GetImageMemoryRequirements(gpu->device, image->image, &mem_reqs);
 
-    auto index = gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    auto index = info.flags.contains(GpuImageFlag::host)
+        ? gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, 0, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        : gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = gpu_vulkan_make_chain({{

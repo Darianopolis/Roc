@@ -5,6 +5,29 @@
 #define WM_NOISY_COMPOSITING 0
 
 static
+bool try_commit(WmOutput* output, GpuImage* primary)
+{
+    auto* server = output->server;
+
+    auto* pointer = seat_get_pointer(wm_get_seat(server));
+
+    auto pointer_region = server->cursor_image_bounds;
+    pointer_region.origin += seat_pointer_get_position(pointer);
+
+    return output->interface.commit(output->userdata, {
+        .primary { .image = primary },
+        .cursor {
+            .image = rect_intersects<f32>(pointer_region, output->viewport) && server->cursor_image_valid
+                ? server->cursor_image.get()
+                : nullptr,
+            .position = vec_cast<i32>(pointer_region.origin - output->viewport.origin),
+        },
+        .ready = gpu_flush(server->gpu),
+        .flags = WmOutputCommitFlag::vsync
+    });
+}
+
+static
 auto get_topmost_texture(SceneTree* tree, rect2f32 viewport) -> SceneTexture*
 {
     if (!tree->enabled) return nullptr;
@@ -31,7 +54,7 @@ bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
 
     // Find topmost image in scene that intersects with the output
 
-    auto texture = get_topmost_texture(wm_get_scene(server), wm_output_get_viewport(output));
+    auto texture = get_topmost_texture(server->scene_primary_tree.get(), wm_output_get_viewport(output));
     if (!texture) return false;
     if (!texture->image) return false;
 
@@ -67,16 +90,7 @@ bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
     // TODO: We need to QFOT the image back to foreign in this case
     //       We should delay QFOT from foreign to avoid needing to do this on what should be the fast-path
 
-    bool committed = output->interface.commit(output->userdata, {
-        .planes = {{
-            {
-                .image = image,
-                .type = WmOutputPlaneType::primary,
-            }
-        }},
-        .ready = gpu_flush(output->server->gpu),
-        .flags = WmOutputCommitFlag::vsync
-    });
+    bool committed = try_commit(output, image);
 
 #if WM_NOISY_COMPOSITING
     if (!committed) {
@@ -106,38 +120,40 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
 
     if (!output->needs_redraw) return false;
 
+    wm_prepare_cursor_image(server);
+
     output->needs_redraw = false;
     output->bump_frame_id = true;
 
-    if (try_direct_scanout(output, formats)) {
+    if (server->cursor_image_valid && try_direct_scanout(output, formats)) {
         return true;
     }
 
-    auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-    auto usage = GpuImageUsage::render;
+    if (output->primary_version != server->scene_primary_tree->version || !server->cursor_image_valid) {
+        output->primary_version = server->cursor_image_valid ? server->scene_primary_tree->version : 0;
 
-    auto target = server->image_pool->acquire({
-        .extent = vec_cast<u32>(output->viewport.extent),
-        .format = format,
-        .usage = usage,
-        .modifiers = ptr_to(gpu_intersect_format_modifiers({{
-            &gpu_get_format_properties(server->gpu, format, usage)->mods,
-            &formats->get(format),
-        }}))
-    });
+        auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
+        auto usage = GpuImageUsage::render;
 
-    scene_render(wm_get_scene_renderer(server), wm_get_scene(server), target.get(), wm_output_get_viewport(output));
+        output->primary_image = server->image_pool->acquire({
+            .extent = vec_cast<u32>(output->viewport.extent),
+            .format = format,
+            .usage = usage,
+            .modifiers = ptr_to(gpu_intersect_format_modifiers({{
+                &gpu_get_format_properties(server->gpu, format, usage)->mods,
+                &formats->get(format),
+            }}))
+        });
 
-    bool committed = output->interface.commit(output->userdata, {
-        .planes = {{
-            {
-                .image = target.get(),
-                .type = WmOutputPlaneType::primary,
-            }
-        }},
-        .ready = gpu_flush(server->gpu),
-        .flags = WmOutputCommitFlag::vsync
-    });
+        scene_render(wm_get_scene_renderer(server),
+            server->cursor_image_valid
+                ? server->scene_primary_tree.get()
+                : server->scene_root.get(),
+            output->primary_image.get(),
+            wm_output_get_viewport(output));
+    }
+
+    bool committed = try_commit(output, output->primary_image.get());
     debug_assert(committed, "Failed to commit to output!");
 
     return true;

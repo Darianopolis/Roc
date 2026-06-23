@@ -17,8 +17,8 @@ struct GpuImagePattern
 {
     GpuDefaultImagePool* pool;
 
-    GpuFormatModifierSet    modifiers;
-    GpuImageCreateInfo      info;
+    GpuFormatModifierSet modifiers;
+    GpuImageCreateInfo info;
     RefVector<GpuImage> images;
 
     ~GpuImagePattern()
@@ -48,6 +48,7 @@ auto find_pattern(GpuDefaultImagePool* pool, const GpuImageCreateInfo& info) -> 
         if (pattern->info.extent != info.extent) continue;
         if (pattern->info.format != info.format) continue;
         if (pattern->info.usage  != info.usage)  continue;
+        if (pattern->info.flags  != info.flags)  continue;
         if (bool(pattern->info.modifiers) != bool(info.modifiers)) continue;
         if (info.modifiers && *pattern->info.modifiers != *info.modifiers) continue;
 

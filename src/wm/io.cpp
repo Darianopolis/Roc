@@ -312,11 +312,6 @@ void handle_damage(WmServer* server, const SceneDamage& damage)
                 output->interface.request_frame(output->userdata);
             }
         }
-
-        exec_enqueue(server->exec, [server = Weak(server)] {
-            if (!server) return;
-            wm_cursor_visual_update(server.get());
-        });
     }
 }
 

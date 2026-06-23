@@ -70,6 +70,7 @@ struct IoWayland
     IO_WL_INTERFACE(wl_display);
     IO_WL_INTERFACE(wl_registry);
     IO_WL_INTERFACE(wl_compositor);
+    IO_WL_INTERFACE(wl_subcompositor);
     IO_WL_INTERFACE(xdg_wm_base);
     IO_WL_INTERFACE(wl_seat);
     IO_WL_INTERFACE(zxdg_decoration_manager_v1);
@@ -101,14 +102,39 @@ struct IoWayland
 
 // -----------------------------------------------------------------------------
 
-struct IoWaylandOutput : IoOutputBase
+struct IoWaylandSurface
 {
     IO_WL_INTERFACE(wl_surface);
+    IO_WL_INTERFACE(wp_linux_drm_syncobj_surface_v1);
+
+    struct ReleaseSlot
+    {
+        Ref<GpuImage>   image;
+        Ref<GpuSyncobj> syncobj;
+        u64             point;
+    };
+
+    std::vector<ReleaseSlot> release_slots;
+
+    void init(IoWayland*);
+    void attach(IoContext*, GpuImage*, GpuSyncpoint ready);
+
+    ~IoWaylandSurface();
+
+    IoWaylandSurface() = default;
+    DELETE_COPY_MOVE(IoWaylandSurface);
+};
+
+struct IoWaylandOutput : IoOutputBase
+{
+    IoWaylandSurface primary;
     IO_WL_INTERFACE(xdg_surface);
     IO_WL_INTERFACE(xdg_toplevel);
     IO_WL_INTERFACE(zxdg_toplevel_decoration_v1);
     IO_WL_INTERFACE(zwp_locked_pointer_v1);
-    IO_WL_INTERFACE(wp_linux_drm_syncobj_surface_v1);
+
+    IoWaylandSurface cursor;
+    struct wl_subsurface* cursor_subsurface;
 
     wl_callback* frame_callback = {};
     bool pointer_locked = false;

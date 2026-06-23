@@ -3,6 +3,12 @@
 #include "types.hpp"
 
 inline
+auto as_bytes(auto&& range) -> std::span<const byte>
+{
+    return { reinterpret_cast<const byte*>(range.data()), range.size() * sizeof(decltype(*range.data())) };
+}
+
+inline
 auto as_bytes(const void* data, usz size) -> std::span<const byte>
 {
     return { reinterpret_cast<const byte*>(data), size };

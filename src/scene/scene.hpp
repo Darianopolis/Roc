@@ -49,6 +49,8 @@ struct SceneNode
     SceneTree*    parent;
     vec2f32       translation;
 
+    u64 version = 1;
+
     struct {
         Signal<SceneDamageCallback> damage;
     } signals;

@@ -84,6 +84,8 @@ void seat_pointer_move(  SeatPointer*, vec2f32 position, vec2f32 rel_accel, vec2
 void seat_pointer_set_cursor( SeatPointer*, SceneNode*);
 void seat_pointer_set_xcursor(SeatPointer*, const char* xcursor_semantic);
 
+auto seat_pointer_get_tree(SeatPointer*) -> SceneTree*;
+
 struct SeatKeyboardInfo
 {
     xkb_context* context;

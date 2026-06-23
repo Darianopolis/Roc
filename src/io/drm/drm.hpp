@@ -35,6 +35,8 @@ struct IoDrmObject
     IoDrmObjectId id;
     IoDrmObjectType type;
 
+    u32 index;
+
     ankerl::unordered_dense::map<IoDrmPropertyId, u64> property_values;
     ankerl::unordered_dense::map<std::string_view, IoDrmPropertyId> property_name_lookup;
 
@@ -57,11 +59,15 @@ struct IoDrmPlane;
 struct IoDrmOutput : IoOutputBase
 {
     IoDrmPlane* primary_plane;
+    IoDrmPlane* cursor_plane;
     IoDrmCrtc* crtc;
     Weak<IoDrmConnector> connector;
 
     Ref<GpuImage> current_image;
     Ref<GpuImage> pending_image;
+
+    Ref<GpuImage> current_cursor_image;
+    Ref<GpuImage> pending_cursor_image;
 
     std::chrono::steady_clock::time_point last_commit_time = {};
 

@@ -5,11 +5,12 @@
 
 template<typename T>
 static
-auto create_drm_object(IoContext* io, IoDrmObjectId id) -> Ref<T>
+auto create_drm_object(IoContext* io, IoDrmObjectId id, u32 index) -> Ref<T>
 {
     auto object = ref_create<T>();
     object->io = io;
     object->id = id;
+    object->index = index;
     object->update_properties();
     object->update_info();
     io_drm_object_dump_properties(object.get());
@@ -22,29 +23,29 @@ void io_drm_enumerate_static_objects(IoContext* io)
     defer { drmModeFreeResources(resources); };
 
     for (int i = 0; i < resources->count_crtcs; ++i) {
-        io->drm->crtcs.emplace_back(create_drm_object<IoDrmCrtc>(io, resources->crtcs[i]));
+        io->drm->crtcs.emplace_back(create_drm_object<IoDrmCrtc>(io, resources->crtcs[i], i));
     }
 
     for (int i = 0; i < resources->count_encoders; ++i) {
-        io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i]));
+        io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i], i));
     }
 
     auto planes = drmModeGetPlaneResources(io->drm->fd);
     defer { drmModeFreePlaneResources(planes); };
 
     for (u32 i = 0; i < planes->count_planes; ++i) {
-        io->drm->planes.emplace_back(create_drm_object<IoDrmPlane>(io, planes->planes[i]));
+        io->drm->planes.emplace_back(create_drm_object<IoDrmPlane>(io, planes->planes[i], i));
     }
 }
 
 void io_drm_enumerate_connectors(IoContext* io)
 {
-    ankerl::unordered_dense::set<IoDrmObjectId> new_connectors;
+    ankerl::unordered_dense::map<IoDrmObjectId, u32> new_connectors;
 
     auto resources = drmModeGetResources(io->drm->fd);
     defer { drmModeFreeResources(resources); };
     for (int i = 0; i < resources->count_connectors; ++i) {
-        new_connectors.emplace(resources->connectors[i]);
+        new_connectors.emplace(resources->connectors[i], i);
     }
 
     io->drm->connectors.erase_if([&](IoDrmConnector* connector) {
@@ -55,8 +56,8 @@ void io_drm_enumerate_connectors(IoContext* io)
         new_connectors.erase(existing->id);
     }
 
-    for (auto id : new_connectors) {
-        io->drm->connectors.emplace_back(create_drm_object<IoDrmConnector>(io, id));
+    for (auto[id, index] : new_connectors) {
+        io->drm->connectors.emplace_back(create_drm_object<IoDrmConnector>(io, id, index));
     }
 }
 

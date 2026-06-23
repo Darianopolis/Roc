@@ -125,7 +125,7 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
 
     gpu_render(renderer->gpu, {
         .target = target,
-        .clear_color = {{0,0,0,1}},
+        .clear_color = {{0,0,0,0}},
         .reads = &reads,
         .writes = &writes,
     }, [&](GpuRenderPass* pass) {

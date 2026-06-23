@@ -389,11 +389,17 @@ struct GpuImageBase : GpuImage
     virtual auto base() -> GpuImageBase* final override { return this; }
 };
 
+enum class GpuImageFlag
+{
+    host = 1 << 0,
+};
+
 struct GpuImageCreateInfo
 {
     vec2u32                     extent;
     GpuFormat                   format;
     Flags<GpuImageUsage>        usage;
+    Flags<GpuImageFlag>         flags;
     const GpuFormatModifierSet* modifiers;
 };
 

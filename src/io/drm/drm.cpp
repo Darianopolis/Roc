@@ -81,16 +81,25 @@ void try_add_output(IoContext* io, IoDrmConnector* connector)
         return;
     }
 
-    // Find plane currently used by CRTC
+    auto output = ref_create<IoDrmOutput>();
+    output->io = io;
 
-    IoDrmPlane* plane;
+    // Find primary and cursor planes
+
     for (auto* p : io->drm->planes) {
-        if (p->info->crtc_id == crtc->id && p->info->fb_id == crtc->info->buffer_id) {
-            plane = p;
-            break;
+        if (std::popcount(p->info->possible_crtcs) != 1) {
+            // TODO: Handle cross-crtc plane allocation
+            continue;
+        }
+        if (!(p->info->possible_crtcs & (1 << crtc->index))) continue;
+        switch (p->get("type")) {
+            break;case DRM_PLANE_TYPE_PRIMARY:
+                output->primary_plane = p;
+            break;case DRM_PLANE_TYPE_CURSOR:
+                output->cursor_plane = p;
         }
     }
-    debug_assert(plane);
+    debug_assert(output->primary_plane);
 
     // Compute refresh rate
 
@@ -99,19 +108,16 @@ void try_add_output(IoContext* io, IoDrmConnector* connector)
     log_warn("Creating output");
     log_warn("  crtc: {}", crtc->id);
     log_warn("  conn: {}", connector->id);
-    log_warn("  plane: {}", plane->id);
+    log_warn("  primary plane: {}", output->primary_plane->id);
+    log_warn("  cursor plane: {}", output->cursor_plane->id);
     log_warn("  refresh: {} mHz", refresh);
     log_warn("  extent: ({}, {})", crtc->info->width, crtc->info->height);
 
-    auto output = ref_create<IoDrmOutput>();
-    output->io = io;
-
-    output->primary_plane = plane;
     output->crtc = crtc;
     output->connector = connector;
 
     output->size = {crtc->info->width, crtc->info->height};
-    output->formats = parse_plane_formats(io, plane);
+    output->formats = parse_plane_formats(io, output->primary_plane);
 
     io->drm->outputs.emplace_back(output.get());
     io_output_add(output.get());
@@ -218,6 +224,7 @@ void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, v
     auto* output = static_cast<IoDrmOutput*>(data);
 
     output->current_image = output->pending_image;
+    output->current_cursor_image = output->pending_cursor_image;
 
     output->commit_available = true;
     io_output_try_redraw(output);
@@ -280,31 +287,42 @@ auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
 
 auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 {
-    if (commit.planes.size() != 1) return false;
-
-    auto image = commit.planes[0].image;
-    auto* image_base = image->base();
-
     debug_assert(commit_available);
     commit_available = false;
-
-    auto fb2_handle = get_image_fb2(io, image_base);
 
     auto req = drmModeAtomicAlloc();
     defer { drmModeAtomicFree(req); };
 
     auto in_fence = gpu_syncobj_export_syncfile(commit.ready.syncobj, commit.ready.value);
 
-    primary_plane->set(req, "FB_ID", fb2_handle);
+    primary_plane->set(req, "FB_ID", get_image_fb2(io, commit.primary.image->base()));
     primary_plane->set(req, "IN_FENCE_FD", in_fence.get());
     primary_plane->set(req, "SRC_X", 0);
     primary_plane->set(req, "SRC_Y", 0);
-    primary_plane->set(req, "SRC_W", image_base->extent.x << 16);
-    primary_plane->set(req, "SRC_H", image_base->extent.y << 16);
+    primary_plane->set(req, "SRC_W", commit.primary.image->base()->extent.x << 16);
+    primary_plane->set(req, "SRC_H", commit.primary.image->base()->extent.y << 16);
     primary_plane->set(req, "CRTC_X", 0);
     primary_plane->set(req, "CRTC_Y", 0);
     primary_plane->set(req, "CRTC_W", size.x);
     primary_plane->set(req, "CRTC_H", size.y);
+    primary_plane->set(req, "CRTC_ID", crtc->id);
+
+    if (commit.cursor.image) {
+        cursor_plane->set(req, "FB_ID", get_image_fb2(io, commit.cursor.image->base()));
+        cursor_plane->set(req, "IN_FENCE_FD", in_fence.get());
+        cursor_plane->set(req, "SRC_X", 0);
+        cursor_plane->set(req, "SRC_Y", 0);
+        cursor_plane->set(req, "SRC_W", commit.cursor.image->base()->extent.x << 16);
+        cursor_plane->set(req, "SRC_H", commit.cursor.image->base()->extent.y << 16);
+        cursor_plane->set(req, "CRTC_X", commit.cursor.position.x);
+        cursor_plane->set(req, "CRTC_Y", commit.cursor.position.y);
+        cursor_plane->set(req, "CRTC_W", commit.cursor.image->base()->extent.x);
+        cursor_plane->set(req, "CRTC_H", commit.cursor.image->base()->extent.y);
+        cursor_plane->set(req, "CRTC_ID", crtc->id);
+    } else {
+        cursor_plane->set(req, "FB_ID", 0);
+        cursor_plane->set(req, "CRTC_ID", 0);
+    }
 
     auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
 
@@ -314,7 +332,8 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
         return false;
     }
 
-    pending_image = image;
+    pending_image = commit.primary.image;
+    pending_cursor_image = commit.cursor.image;
     last_commit_time = std::chrono::steady_clock::now();
     return true;
 }

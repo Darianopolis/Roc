@@ -18,6 +18,8 @@ void scene_node_unparent(SceneNode* node)
 
 void scene_node_post_damage(SceneNode* node, SceneDamage damage)
 {
+    node->version++;
+
     if (node->signals.damage) {
         node->signals.damage(damage);
     }

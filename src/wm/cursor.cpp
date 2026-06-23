@@ -76,6 +76,81 @@ void update_seat_cursor_visual(WmServer* server, Seat* seat)
     }
 }
 
+#define WM_NOISY_CURSOR_IMAGE 0
+
+void wm_prepare_cursor_image(WmServer* server)
+{
+    static const vec2u32 extent { 64, 64 };
+    static const auto format = gpu_format_from_drm(DRM_FORMAT_ARGB8888);
+    static const GpuFormatModifierSet modifiers = {DRM_FORMAT_MOD_LINEAR};
+
+    auto* pointer = seat_get_pointer(wm_get_seat(server));
+    auto* pointer_tree = seat_pointer_get_tree(pointer);
+
+    if (server->cursor_version == pointer_tree->version) return;
+
+#if WM_NOISY_CURSOR_IMAGE
+    log_warn("Updating cursor image");
+#endif
+
+    server->cursor_version = pointer_tree->version;
+
+    {
+        aabb2f32 bounds{{INFINITY, INFINITY}, {-INFINITY, -INFINITY}, minmax};
+        [&](this auto&& visit, SceneNode* node, vec2f32 translation) -> void {
+            scene_visit(node, OverloadSet {
+                [&](SceneTexture* texture) {
+                    auto dst = texture->dst;
+                    dst.origin += translation;
+                    bounds = aabb_outer<f32>(bounds, dst);
+                },
+                [&](SceneTree* tree) {
+                    if (!tree->enabled) return;
+                    translation += tree->translation;
+                    for (auto* child : tree->children) {
+                        visit(child, translation);
+                    }
+                },
+                [&](SceneInputRegion*) {}
+            });
+        }(pointer_tree, {});
+#if WM_NOISY_CURSOR_IMAGE
+        log_warn("  bounds: {}", bounds);
+#endif
+
+        server->cursor_image_bounds = bounds;
+    }
+
+    if (server->cursor_image_bounds.extent.x > extent.x || server->cursor_image_bounds.extent.y > extent.y) {
+        log_warn("Cursor tree bounds {} are greater than cursor plane max extent {} - falling back to composition", server->cursor_image_bounds, extent);
+        server->cursor_image_valid = false;
+        return;
+    }
+
+    server->cursor_image = server->image_pool->acquire(GpuImageCreateInfo {
+        .extent = extent,
+        .format = format,
+        .usage = GpuImageUsage::render,
+        .flags = GpuImageFlag::host,
+        .modifiers = &modifiers,
+    });
+
+    server->cursor_image_valid = true;
+
+    if (server->cursor_image_bounds.origin == vec2f32{INFINITY, INFINITY}) {
+        gpu_render(server->gpu, GpuRenderPassInfo {
+            .target = server->cursor_image.get(),
+            .clear_color = vec4f32{0.f, 0.f, 0.f, 0.f},
+            .reads = ptr_to(ankerl::unordered_dense::set<void*>{server->cursor_image.get()}),
+            .writes = ptr_to(ankerl::unordered_dense::set<void*>{server->cursor_image.get()}),
+        }, [](GpuRenderPass*) {});
+        server->cursor_image_bounds = {seat_pointer_get_position(pointer), {}, xywh};
+    } else {
+        scene_render(server->scene_renderer.get(), pointer_tree, server->cursor_image.get(),
+            {server->cursor_image_bounds.origin, vec_cast<f32>(extent), xywh});
+    }
+}
+
 void wm_cursor_visual_update(WmServer* server)
 {
     for (auto* seat : wm_get_seats(server)) {
@@ -98,6 +173,15 @@ void wm_cursor_init(WmServer* server)
             return SeatEventFilterResult::passthrough;
         }));
     }
+
+    server->cursor_damage_listener = seat_pointer_get_tree(seat_get_pointer(wm_get_seat(server)))->signals.damage.listen(
+        [server](SceneDamage damage) {
+            exec_enqueue(server->exec, [server = Weak(server)] {
+                if (!server) return;
+                wm_cursor_visual_update(server.get());
+            });
+        });
+
     wm_cursor_visual_update(server);
 }
 
