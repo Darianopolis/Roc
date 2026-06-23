@@ -22,8 +22,8 @@ auto scene_node_get_damage(SceneTree* tree) -> SceneDamage
         auto damage = scene_node_get_damage(child);
         if (damage.types.empty()) continue;
 
-        region.min += child->translation;
-        region.max += child->translation;
+        damage.region.min += child->translation;
+        damage.region.max += child->translation;
         region = aabb_outer(region, damage.region);
 
         types |= damage.types;
