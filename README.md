@@ -1,30 +1,39 @@
 # Roc
 
-An experiment in writing a simple, opinionated, and independent desktop environment for educational and personal use.
+An experiment in writing a simple, independent desktop environment for personal and educational use.
 
-- Protocol-independent shell and window manager
+- Protocol-independent core components
 - Thin Wayland client adapter built on `libwayland`
-- Standard I/O as a first class client protocol
 
-## Non-Goals
+## Dependencies
 
-- Support a wide range of (especially older) hardware
-- Support generic Wayland configuration/shell protocols
+The following packages must be discoverable by PkgConfig:
 
-# Building
-
-### System dependencies (build-time)
-
-- python 3
-- cmake
-- ninja
-- wayland-protocols
+- libevdev
+- libdrm
+- libseat
+- wayland-server
+- wayland-client
 - xkbcommon
-- mold (optional)
+- libinput
+- xcursor
+- libudev
+- libcap
+
+The following executables must be available on the environment path:
+
+- python
+- cmake
+- wayland-scanner
 - gcc/clang (C++26 reflection capable)
 - glslang
 
-### Quickstart
+The following packages must also be discoverable by CMake:
+
+- ninja
+- mold (optional)
+
+## Build
 
 Build in release mode and install to `~/.local/bin/roc`
 
@@ -40,13 +49,8 @@ Roc can take advantage of higher queue scheduling priority when given the NICE s
 # setcap cap_sys_nice+ep ~/.local/bin/roc
 ```
 
-### Build Options
+### Options
 
-- `-B` : Build project
-- `-I` : Install project
-- `-R` : Build in release mode
-- `-C` : Force reconfigure and clean build
-- `-U` : Check and update dependencies (updates `build.json`)
-- `--asan` : Enable address sanitizer
+Pass `-h` or `--help` to see build options
 
 Build artifacts are placed into `.build` (E.g. `.build/roc`)

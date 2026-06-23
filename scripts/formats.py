@@ -115,7 +115,7 @@ def generate_formats(build_dir):
     # Format list
 
     out +=  "static\n"
-    out += f"constexpr std::array<GpuFormatInfo, {len(formats) + 1}> gpu_format_infos =\n"
+    out += f"constexpr std::array<GpuFormatInfo, {len(formats)}> gpu_format_infos =\n"
     out +=  "{\n"
     for (drm, vk, flags) in formats:
         out +=  "    GpuFormatInfo {\n"

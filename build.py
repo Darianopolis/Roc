@@ -25,7 +25,7 @@ parser.add_argument("-R", "--release",   action="store_true", help="Release")
 parser.add_argument("-I", "--install",   action="store_true", help="Install")
 parser.add_argument("--asan",            action="store_true", help="Enable Address Sanitizer")
 parser.add_argument("--system-linker",   action="store_true", help="Use system linker")
-parser.add_argument("--use-clang",       action="store_true", help="Use Clang")
+parser.add_argument("--clang",           action="store_true", help="Use Clang")
 args = parser.parse_args()
 
 # -----------------------------------------------------------------------------
@@ -123,9 +123,9 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
 use_mold = not args.system_linker and shutil.which("mold")
 
 build(
-    build_type   = "RelWithDebInfo" if args.release   else "Debug",
-    compiler     = "clang"          if args.use_clang else "gcc",
-    linker_type  = "MOLD"           if use_mold       else "SYSTEM",
+    build_type   = "RelWithDebInfo" if args.release else "Debug",
+    compiler     = "clang"          if args.clang   else "gcc",
+    linker_type  = "MOLD"           if use_mold     else "SYSTEM",
     program_name = "roc",
     install      = args.install
     )

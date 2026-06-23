@@ -2,12 +2,12 @@
     "dependencies": {
         "kde-protocols": {
             "branch": "master",
-            "commit": "13b3c2f1a0d9aee395598d773a639e9bca35f526",
+            "commit": "39de7050bd60f104019193a494d819d5eae6ae9b",
             "repo": "https://github.com/KDE/plasma-wayland-protocols.git"
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "f2cb40edc010f13b8235fac9189be2efdd7a1eeb",
+            "commit": "20b908968fcc5da0208263a33262501e5891be7c",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
@@ -22,12 +22,12 @@
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "8cfaaa1d4deedc865e52a42e654c5ec0d7d75eb0",
+            "commit": "0307c70bfbf0646d56a604384b2a91525cefea15",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         },
         "vulkan-memory-allocator": {
             "branch": "master",
-            "commit": "b3cbbb43ea3a506dffe10759e205a41c27c35ae2",
+            "commit": "3aa921224c154a0d2c43912bc88e1c42ce1f7607",
             "repo": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"
         }
     }
