@@ -100,7 +100,7 @@ IO_WL_LISTENER(xdg_toplevel) = {
     .configure = toplevel_configure,
     .close = toplevel_close,
     IO_WL_STUB(xdg_toplevel, configure_bounds),
-    IO_WL_STUB(xdg_toplevel, wm_capabilities),
+    IO_WL_STUB_QUIET(wm_capabilities),
 };
 
 IO_WL_LISTENER(zwp_linux_dmabuf_feedback_v1) = {
