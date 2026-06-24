@@ -89,7 +89,7 @@ struct IoDrmOutput : IoOutputBase
 struct IoDrmBuffer
 {
     Weak<GpuImageBase> image;
-    u32 fb2_handle;
+    u32 framebuffer;
 };
 
 // -----------------------------------------------------------------------------

@@ -186,9 +186,9 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
             return false;
         }
     } else {
-        auto num_devices = drmGetDevices2(0, nullptr, 0);
+        auto num_devices = unix_check<drmGetDevices2>(0, nullptr, 0).value;
         std::vector<drmDevice*> devices(num_devices);
-        num_devices = drmGetDevices2(0, devices.data(), devices.size());
+        num_devices = unix_check<drmGetDevices2>(0, devices.data(), devices.size()).value;
         devices.resize(std::min(devices.size(), usz(num_devices)));
         defer {
             for (auto& device : devices) if (device) drmFreeDevice(&device);
@@ -333,9 +333,9 @@ auto test_timeline_syncobj_export(Gpu* gpu) -> bool
     // Check if importable as DRM syncobj
 
     u32 handle;
-    auto err = drmSyncobjFDToHandle(gpu->drm.fd, fd, &handle);
-    if (!err) drmSyncobjDestroy(gpu->drm.fd, handle);
-    return !err;
+    auto res = unix_check<drmSyncobjFDToHandle, EINVAL>(gpu->drm.fd, fd, &handle);
+    if (res.ok()) unix_check<drmSyncobjDestroy>(gpu->drm.fd, handle);
+    return res.ok();
 }
 
 auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>

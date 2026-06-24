@@ -19,7 +19,7 @@ auto create_drm_object(IoContext* io, IoDrmObjectId id, u32 index) -> Ref<T>
 
 void io_drm_enumerate_static_objects(IoContext* io)
 {
-    auto resources = drmModeGetResources(io->drm->fd);
+    auto resources = unix_check<drmModeGetResources>(io->drm->fd).value;
     defer { drmModeFreeResources(resources); };
 
     for (int i = 0; i < resources->count_crtcs; ++i) {
@@ -30,7 +30,7 @@ void io_drm_enumerate_static_objects(IoContext* io)
         io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i], i));
     }
 
-    auto planes = drmModeGetPlaneResources(io->drm->fd);
+    auto planes = unix_check<drmModeGetPlaneResources>(io->drm->fd).value;
     defer { drmModeFreePlaneResources(planes); };
 
     for (u32 i = 0; i < planes->count_planes; ++i) {
@@ -42,7 +42,7 @@ void io_drm_enumerate_connectors(IoContext* io)
 {
     ankerl::unordered_dense::map<IoDrmObjectId, u32> new_connectors;
 
-    auto resources = drmModeGetResources(io->drm->fd);
+    auto resources = unix_check<drmModeGetResources>(io->drm->fd).value;
     defer { drmModeFreeResources(resources); };
     for (int i = 0; i < resources->count_connectors; ++i) {
         new_connectors.emplace(resources->connectors[i], i);
@@ -67,7 +67,7 @@ auto io_drm_get_property(IoContext* io, IoDrmPropertyId id) -> IoDrmProperty*
     if (iter != io->drm->properties.end()) return &iter->second;
 
     auto& properties = io->drm->properties[id];
-    properties.info.reset(drmModeGetProperty(io->drm->fd, id));
+    properties.info.reset(unix_check<drmModeGetProperty>(io->drm->fd, id).value);
     return &properties;
 }
 
@@ -76,7 +76,7 @@ void IoDrmObject::update_properties()
     property_name_lookup.clear();
     property_values.clear();
 
-    auto properties = drmModeObjectGetProperties(io->drm->fd, id, type);
+    auto properties = unix_check<drmModeObjectGetProperties>(io->drm->fd, id, type).value;
     defer { drmModeFreeObjectProperties(properties); };
 
     if (!properties) return;

@@ -19,7 +19,7 @@ auto parse_plane_formats(IoContext* io, IoDrmPlane* plane) -> GpuFormatSet
         return {};
     }
 
-    auto blob = drmModeGetPropertyBlob(drm, blob_id);
+    auto blob = unix_check<drmModeGetPropertyBlob>(drm, blob_id).value;
     defer { drmModeFreePropertyBlob(blob); };
 
     GpuFormatSet set;
@@ -170,7 +170,7 @@ void io_drm_init(IoContext* io)
     auto drm = io->drm->fd;
 
     fd_listen(io->exec, io->drm->fd, FdEventBit::readable, [](fd_t fd, Flags<FdEventBit>) {
-        drmHandleEvent(fd, ptr_to(drmEventContext {
+        unix_check<drmHandleEvent>(fd, ptr_to(drmEventContext {
             .version = 3,
             .page_flip_handler2 = on_page_flip,
         }));
@@ -233,20 +233,21 @@ void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, v
 // -----------------------------------------------------------------------------
 
 static
-auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
+auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
 {
     std::optional<u32> found = std::nullopt;
     std::erase_if(io->drm->buffer_cache, [&](const auto& entry) {
         if (!entry.image) {
-            drmCloseBufferHandle(io->drm->fd, entry.fb2_handle);
+            log_warn("KMS : Retiring old framebuffer");
+            unix_check<drmModeCloseFB>(io->drm->fd, entry.framebuffer);
             return true;
         }
-        if (entry.image.get() == image) found = entry.fb2_handle;
+        if (entry.image.get() == image) found = entry.framebuffer;
         return false;
     });
     if (found) return *found;
 
-    log_warn("Importing new FB2 buffer");
+    log_warn("KMS : Importing new framebuffer");
 
     auto dma_params = gpu_image_export(image);
     auto size = image->extent;
@@ -260,7 +261,7 @@ auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
     u64 modifiers[4] = {};
     for (u32 i = 0; i < dma_params.planes.count; ++i) {
         unix_check<drmPrimeFDToHandle>(io->drm->fd, dma_params.planes[i].fd.get(), &handles[i]);
-        log_warn("  plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
+        log_warn("KMS :   plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
         pitches[i] = dma_params.planes[i].stride;
         offsets[i] = dma_params.planes[i].offset;
         modifiers[i] = dma_params.modifier;
@@ -268,19 +269,25 @@ auto get_image_fb2(IoContext* io, GpuImageBase* image) -> u32
 
     // Import
 
-    u32 fb2_handle = 0;
+    u32 framebuffer = 0;
     unix_check<drmModeAddFB2WithModifiers>(io->drm->fd,
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
-        &fb2_handle, DRM_MODE_FB_MODIFIERS);
+        &framebuffer, DRM_MODE_FB_MODIFIERS);
+    log_warn("KMS :   framebuffer: {}", framebuffer);
 
     // Close GEM handles
+    //
+    // NOTE: Each PRIME buffer only has a single GEM handle slot that is *NOT* reference counted
+    //       Therefore we must duplicate the handles to avoid double-closing
 
     std::flat_set<u32> unique_handles;
-    unique_handles.insert_range(handles);
-    for (auto handle : unique_handles) drmCloseBufferHandle(io->drm->fd, handle);
+    unique_handles.insert_range(handles | std::views::filter([](u32 v) { return v; }));
+    for (auto handle : unique_handles) {
+        unix_check<drmCloseBufferHandle>(io->drm->fd, handle);
+    }
 
-    return io->drm->buffer_cache.emplace_back(image, fb2_handle).fb2_handle;
+    return io->drm->buffer_cache.emplace_back(image, framebuffer).framebuffer;
 }
 
 // -----------------------------------------------------------------------------
@@ -290,12 +297,12 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
     debug_assert(commit_available);
     commit_available = false;
 
-    auto req = drmModeAtomicAlloc();
+    auto req = unix_check<drmModeAtomicAlloc>().value;
     defer { drmModeAtomicFree(req); };
 
     auto in_fence = gpu_syncobj_export_syncfile(commit.ready.syncobj, commit.ready.value);
 
-    primary_plane->set(req, "FB_ID", get_image_fb2(io, commit.primary.image->base()));
+    primary_plane->set(req, "FB_ID", get_image_framebuffer(io, commit.primary.image->base()));
     primary_plane->set(req, "IN_FENCE_FD", in_fence.get());
     primary_plane->set(req, "SRC_X", 0);
     primary_plane->set(req, "SRC_Y", 0);
@@ -308,7 +315,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
     primary_plane->set(req, "CRTC_ID", crtc->id);
 
     if (commit.cursor.image) {
-        cursor_plane->set(req, "FB_ID", get_image_fb2(io, commit.cursor.image->base()));
+        cursor_plane->set(req, "FB_ID", get_image_framebuffer(io, commit.cursor.image->base()));
         cursor_plane->set(req, "IN_FENCE_FD", in_fence.get());
         cursor_plane->set(req, "SRC_X", 0);
         cursor_plane->set(req, "SRC_Y", 0);
@@ -324,9 +331,9 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
         cursor_plane->set(req, "CRTC_ID", 0);
     }
 
-    auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
+    crtc->set(req, "VRR_ENABLED", connector->get("vrr_capable"));
 
-    crtc->set(req, "VRR_ENABLED", true);
+    auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
 
     if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, this).err()) {
         return false;
