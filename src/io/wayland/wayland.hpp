@@ -12,7 +12,7 @@
 #include <wayland/client/linux-dmabuf-v1.h>
 #include <wayland/client/linux-drm-syncobj-v1.h>
 
-UNIX_ERROR_BEHAVIOUR(wl_display_dispatch_timeout, negative_one)
+UNIX_FUNCTION(wl_display_dispatch_timeout, UnixErrorBehavior::negative_one)
 
 // -----------------------------------------------------------------------------
 

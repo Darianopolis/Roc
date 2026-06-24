@@ -3,94 +3,102 @@
 
 // File IO
 
-UNIX_ERROR_BEHAVIOUR(open,  negative_one)
-UNIX_ERROR_BEHAVIOUR(close, negative_one)
-UNIX_ERROR_BEHAVIOUR(read,  negative_one)
-UNIX_ERROR_BEHAVIOUR(write, negative_one)
-UNIX_ERROR_BEHAVIOUR(pipe,  negative_one)
+UNIX_FUNCTION(open,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(close, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(read,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(write, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(pipe,  UnixErrorBehavior::negative_one)
 
-UNIX_ERROR_BEHAVIOUR(freopen, null)
+UNIX_FUNCTION(freopen, UnixErrorBehavior::null)
 
 // Memory
 
-UNIX_ERROR_BEHAVIOUR(memfd_create, negative_one)
+UNIX_FUNCTION(memfd_create, UnixErrorBehavior::negative_one)
 
-UNIX_ERROR_BEHAVIOUR(malloc, null)
+UNIX_FUNCTION(malloc, UnixErrorBehavior::null)
 
-UNIX_ERROR_BEHAVIOUR(mmap,   negative_one)
-UNIX_ERROR_BEHAVIOUR(munmap, negative_one)
+UNIX_FUNCTION(mmap,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(munmap, UnixErrorBehavior::negative_one)
 
-UNIX_ERROR_BEHAVIOUR(ftruncate, negative_one)
-UNIX_ERROR_BEHAVIOUR(fstat,     negative_one)
-UNIX_ERROR_BEHAVIOUR(fcntl,     negative_one)
+UNIX_FUNCTION(ftruncate, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(fstat,     UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(fcntl,     UnixErrorBehavior::negative_one)
 
-UNIX_ERROR_BEHAVIOUR(shm_open, negative_one)
+UNIX_FUNCTION(shm_open, UnixErrorBehavior::negative_one)
 
 // Event / Timers / Polling
 
-UNIX_ERROR_BEHAVIOUR(timerfd_create,  negative_one)
-UNIX_ERROR_BEHAVIOUR(timerfd_settime, negative_one)
-UNIX_ERROR_BEHAVIOUR(epoll_create1,   negative_one)
-UNIX_ERROR_BEHAVIOUR(epoll_wait,      negative_one)
-UNIX_ERROR_BEHAVIOUR(epoll_ctl,       negative_one)
-UNIX_ERROR_BEHAVIOUR(poll,            negative_one)
-UNIX_ERROR_BEHAVIOUR(eventfd,         negative_one)
-UNIX_ERROR_BEHAVIOUR(eventfd_write,   negative_one)
-UNIX_ERROR_BEHAVIOUR(eventfd_read,    negative_one)
-UNIX_ERROR_BEHAVIOUR(signalfd,        negative_one)
+UNIX_FUNCTION(timerfd_create,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(timerfd_settime, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(epoll_create1,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(epoll_wait,      UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(epoll_ctl,       UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(poll,            UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(eventfd,         UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(eventfd_write,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(eventfd_read,    UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(signalfd,        UnixErrorBehavior::negative_one)
 
 // Capabilities
 
-UNIX_ERROR_BEHAVIOUR(cap_get_proc, null)
-UNIX_ERROR_BEHAVIOUR(cap_free,     negative_one)
-UNIX_ERROR_BEHAVIOUR(cap_set_proc, negative_one)
-UNIX_ERROR_BEHAVIOUR(cap_get_flag, negative_one)
-UNIX_ERROR_BEHAVIOUR(cap_set_flag, negative_one)
+UNIX_FUNCTION(cap_get_proc, UnixErrorBehavior::null)
+UNIX_FUNCTION(cap_free,     UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(cap_set_proc, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(cap_get_flag, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(cap_set_flag, UnixErrorBehavior::negative_one)
 
 // DRM
 
-UNIX_ERROR_BEHAVIOUR(drmSyncobjFDToHandle,     negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjHandleToFD,     negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjCreate,         negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjDestroy,        negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjImportSyncFile, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjExportSyncFile, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjTimelineSignal, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjTransfer,       negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjQuery,          negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSyncobjTimelineWait,   negative_one)
+UNIX_FUNCTION(drmIoctl, UnixErrorBehavior::negative_one)
 
-UNIX_ERROR_BEHAVIOUR(drmGetDeviceFromDevId, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmIoctl,              negative_one)
-UNIX_ERROR_BEHAVIOUR(drmGetMagic,           negative_one)
-UNIX_ERROR_BEHAVIOUR(drmAuthMagic,          negative_one)
-UNIX_ERROR_BEHAVIOUR(drmSetClientCap,       negative_one)
-UNIX_ERROR_BEHAVIOUR(drmGetCap,             negative_one)
+UNIX_FUNCTION(drmSyncobjFDToHandle,     UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjHandleToFD,     UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjCreate,         UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjDestroy,        UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjImportSyncFile, UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjExportSyncFile, UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjTransfer,       UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjQuery,          UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjTimelineSignal, UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmSyncobjTimelineWait,   UnixErrorBehavior::negative_errno)
 
-UNIX_ERROR_BEHAVIOUR(drmModeGetResources,        null)
-UNIX_ERROR_BEHAVIOUR(drmModeGetPlaneResources,   null)
-UNIX_ERROR_BEHAVIOUR(drmModeObjectGetProperties, null)
-UNIX_ERROR_BEHAVIOUR(drmPrimeFDToHandle,         negative_one)
-UNIX_ERROR_BEHAVIOUR(drmModeAddFB2WithModifiers, negative_one)
-UNIX_ERROR_BEHAVIOUR(drmModeAtomicCommit,        negative_errno)
-UNIX_ERROR_BEHAVIOUR(drmModeAtomicAddProperty,   negative_errno)
+UNIX_FUNCTION(drmGetDevices2,        UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(drmGetDeviceFromDevId, UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(drmGetMagic,           UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(drmAuthMagic,          UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(drmSetClientCap,       UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmGetCap,             UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmHandleEvent,        UnixErrorBehavior::negative_one)
+
+UNIX_FUNCTION(drmModeGetResources,        UnixErrorBehavior::null)
+UNIX_FUNCTION(drmModeGetPlaneResources,   UnixErrorBehavior::null)
+UNIX_FUNCTION(drmModeGetProperty,         UnixErrorBehavior::null)
+UNIX_FUNCTION(drmModeGetPropertyBlob,     UnixErrorBehavior::null)
+UNIX_FUNCTION(drmModeObjectGetProperties, UnixErrorBehavior::null)
+UNIX_FUNCTION(drmPrimeFDToHandle,         UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmCloseBufferHandle,       UnixFunction<drmIoctl>::behavior)
+UNIX_FUNCTION(drmModeAddFB2WithModifiers, UnixErrorBehavior::negative_errno /* DRM_IOCTL (negative_errno and sets errno) */)
+UNIX_FUNCTION(drmModeCloseFB,             UnixErrorBehavior::negative_errno /* DRM_IOCTL */)
+UNIX_FUNCTION(drmModeAtomicAlloc,         UnixErrorBehavior::null)
+UNIX_FUNCTION(drmModeAtomicCommit,        UnixErrorBehavior::negative /* negative_one or DRM_IOCTL */)
+UNIX_FUNCTION(drmModeAtomicAddProperty,   UnixErrorBehavior::negative_errno)
 
 // udev
 
-UNIX_ERROR_BEHAVIOUR(udev_new, null)
+UNIX_FUNCTION(udev_new, UnixErrorBehavior::null)
 
 // evdev
 
-UNIX_ERROR_BEHAVIOUR(libevdev_new_from_fd, negative_errno)
-UNIX_ERROR_BEHAVIOUR(libevdev_next_event,  negative_errno)
+UNIX_FUNCTION(libevdev_new_from_fd, UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(libevdev_next_event,  UnixErrorBehavior::negative_errno)
 
 // libseat
 
-UNIX_ERROR_BEHAVIOUR(libseat_open_seat, null)
-UNIX_ERROR_BEHAVIOUR(libseat_get_fd,    negative_one)
-UNIX_ERROR_BEHAVIOUR(libseat_dispatch,  negative_one)
+UNIX_FUNCTION(libseat_open_seat, UnixErrorBehavior::null)
+UNIX_FUNCTION(libseat_get_fd,    UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(libseat_dispatch,  UnixErrorBehavior::negative_one)
 
 // libinput
 
-UNIX_ERROR_BEHAVIOUR(libinput_dispatch,         negative_errno)
-UNIX_ERROR_BEHAVIOUR(libinput_udev_assign_seat, negative_errno)
+UNIX_FUNCTION(libinput_dispatch,         UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(libinput_udev_assign_seat, UnixErrorBehavior::negative_errno)

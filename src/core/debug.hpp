@@ -48,6 +48,8 @@ struct UnixResult
 
 enum class UnixErrorBehavior
 {
+    non_zero,
+    negative,
     negative_one,
     negative_errno,
     positive_errno,
@@ -56,49 +58,59 @@ enum class UnixErrorBehavior
 };
 
 template<auto Function>
-struct UnixErrorBehaviorHelper { static_assert(false); };
+struct UnixFunction { static_assert(false); };
 
 template<auto Function, unix_error_t... Quiet>
 auto unix_check(auto... args) -> UnixResult<decltype(Function(args...))>
 {
-    static constexpr auto behaviour = UnixErrorBehaviorHelper<Function>::behaviour;
+    static constexpr auto behavior = UnixFunction<Function>::behavior;
 
-    if constexpr (behaviour == UnixErrorBehavior::check_errno) {
+    if constexpr (behavior == UnixErrorBehavior::check_errno) {
         errno = 0;
     }
 
     auto res = Function(args...);
 
     unix_error_t err;
-    if constexpr (behaviour == UnixErrorBehavior::negative_one) {
+    if constexpr (behavior == UnixErrorBehavior::non_zero) {
+        if (res == decltype(res)(0)) [[likely]] return { res };
+        err = errno;
+
+    } else if constexpr (behavior == UnixErrorBehavior::negative) {
+        static_assert(std::is_signed_v<decltype(res)>);
+        if (res >= decltype(res)(0)) [[likely]] return { res };
+        err = errno;
+
+    } else if constexpr (behavior == UnixErrorBehavior::negative_one) {
         if (res != decltype(res)(-1)) [[likely]] return { res };
         err = errno;
 
-    } else if constexpr (behaviour == UnixErrorBehavior::negative_errno) {
-        if (res >= 0) [[likely]] return { res };
+    } else if constexpr (behavior == UnixErrorBehavior::negative_errno) {
+        static_assert(std::is_signed_v<decltype(res)>);
+        if (res >= decltype(res)(0)) [[likely]] return { res };
         err = -res;
 
-    } else if constexpr (behaviour == UnixErrorBehavior::positive_errno) {
-        if (res <= 0) [[likely]] return { res };
+    } else if constexpr (behavior == UnixErrorBehavior::positive_errno) {
+        if (res <= decltype(res)(0)) [[likely]] return { res };
         err = res;
 
-    } else if constexpr (behaviour == UnixErrorBehavior::null) {
-        if (res) [[likely]] return { res };
+    } else if constexpr (behavior == UnixErrorBehavior::null) {
+        if (res != nullptr) [[likely]] return { res };
         err = errno;
 
-    } else if constexpr (behaviour == UnixErrorBehavior::check_errno) {
+    } else if constexpr (behavior == UnixErrorBehavior::check_errno) {
         if (!errno) [[likely]] return { res };
         err = errno;
     }
 
-    if (!(... || (err == Quiet))) log_unix_error(__PRETTY_FUNCTION__, err);
+    if (!(... || (err == Quiet))) log_unix_error(UnixFunction<Function>::function_name, err);
     return { res, err };
 }
 
-#define UNIX_ERROR_BEHAVIOUR(Function, Behaviour) \
-    template<> struct UnixErrorBehaviorHelper<Function> { \
-        static constexpr auto behaviour = UnixErrorBehavior::Behaviour; \
+#define UNIX_FUNCTION(Function, Behavior) \
+    template<> struct UnixFunction<Function> { \
+        static constexpr auto behavior = Behavior; \
+        static constexpr auto function_name = #Function; \
     };
-
 
 #include "debug-checks.inl"

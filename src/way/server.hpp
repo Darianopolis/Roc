@@ -8,7 +8,7 @@
 
 #include <wayland-server-core.h>
 
-UNIX_ERROR_BEHAVIOUR(wl_event_loop_dispatch, negative_one)
+UNIX_FUNCTION(wl_event_loop_dispatch, UnixErrorBehavior::negative_one)
 
 // -----------------------------------------------------------------------------
 
