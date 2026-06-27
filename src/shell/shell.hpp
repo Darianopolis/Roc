@@ -5,6 +5,8 @@
 #include <io/io.hpp>
 
 #include <core/process.hpp>
+#include <core/chrono.hpp>
+#include <core/log.hpp>
 
 struct UiClient;
 
@@ -52,11 +54,21 @@ auto shell_launch(
         auto test = std::filesystem::path(std::string_view(path).substr(offset, sep - offset)) / name;
         if (std::filesystem::exists(test)) {
             // Launch
-            return spawn(path_open(test).get(), args, &shell->env, fds);
+            auto start = std::chrono::steady_clock::now();
+            auto process = spawn(path_open(test).get(), args, &shell->env, fds);
+            auto end = std::chrono::steady_clock::now();
+            if (process) {
+                log_debug("Process {} launched in {}", test, end - start);
+            } else {
+                log_error("Process {} failed to launch", test);
+            }
+            return process;
         }
 
         offset = sep + 1;
     }
+
+    log_error("Failed to find executable {} on PATH", name);
 
     return {};
 }

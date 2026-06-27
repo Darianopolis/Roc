@@ -3,14 +3,22 @@
 
 // File IO
 
-UNIX_FUNCTION(open,  UnixErrorBehavior::negative_one)
-UNIX_FUNCTION(close, UnixErrorBehavior::negative_one)
-UNIX_FUNCTION(read,  UnixErrorBehavior::negative_one)
-UNIX_FUNCTION(write, UnixErrorBehavior::negative_one)
-UNIX_FUNCTION(pipe,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(open,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(close,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(read,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(write,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(pipe,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(dup2,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(fchdir, UnixErrorBehavior::negative_one)
 
 UNIX_FUNCTION(fdopen,  UnixErrorBehavior::null)
 UNIX_FUNCTION(freopen, UnixErrorBehavior::null)
+
+// Process
+
+UNIX_FUNCTION(sigfillset,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(sigprocmask, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(execveat,    UnixErrorBehavior::negative_one)
 
 // Memory
 

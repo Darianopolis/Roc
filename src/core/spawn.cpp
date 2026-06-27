@@ -12,22 +12,27 @@
 struct SpawnActionDup2
 {
     fd_t from, to;
-    void operator()() const { dup2(from, to); }
+    auto operator()() const { return unix_check<dup2>(from, to); }
 };
 
 struct SpawnActionClose
 {
     fd_t fd;
-    void operator()() const { close(fd); }
+    auto operator()() const { return unix_check<close>(fd); }
 };
 
 struct SpawnActionSetFdFlags
 {
     fd_t fd; int flags;
-    void operator()() const { fcntl(fd, F_SETFD, flags); }
+    auto operator()() const { return unix_check<fcntl>(fd, F_SETFD, flags); }
 };
 
 using SpawnAction = std::variant<SpawnActionDup2,  SpawnActionClose, SpawnActionSetFdFlags>;
+
+extern "C"
+{
+    auto spawn_clone3(clone_args* args, size_t size) -> pid_t;
+}
 
 static
 auto spawn(
@@ -38,34 +43,64 @@ auto spawn(
     std::span<const SpawnAction> actions) -> UnixResult<Fd>
 {
     int pidfd = -1;
-    pid_t pid = pid_t(syscall(SYS_clone3, ptr_to(clone_args {
-        .flags       = CLONE_PIDFD | CLONE_CLEAR_SIGHAND,
-        .pidfd       = __u64(&pidfd),
+
+    usz stack_size = 65'536;
+    void* stack = unix_check<mmap>(nullptr, stack_size,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
+        -1, 0).value;
+    defer { unix_check<munmap>(stack, stack_size); };
+
+    // Prepopulate stack with child spawn function
+
+    int error = 0;
+#define SPAWN_TRY(...) if ((error = (__VA_ARGS__).error)) goto spawn_failure
+
+    auto prepare_and_exec = [&] -> int {
+        // Change working directory
+        if (dir != -1) SPAWN_TRY(unix_check<fchdir>(dir));
+
+        // Unblock any signals currently blocked for signalfd handling purposes
+        sigset_t mask;
+        SPAWN_TRY(unix_check<sigfillset>(&mask));
+        SPAWN_TRY(unix_check<sigprocmask>(SIG_UNBLOCK, &mask, nullptr));
+
+        // Apply file descriptor actions
+        for (auto& action : actions) {
+            SPAWN_TRY(std::visit([](auto&& op) { return op(); }, action));
+        }
+
+        SPAWN_TRY(unix_check<execveat>(exec_file, "", argv, env, AT_EMPTY_PATH));
+
+    spawn_failure:
+        return 127;
+    };
+
+    {
+        uint64_t* values = byte_offset_pointer<uint64_t>(stack, stack_size);
+        values[-2] = __u64(&prepare_and_exec);
+        values[-1] = __u64(+[](void* data) -> int {
+            return (*(decltype(prepare_and_exec)*)data)();
+        });
+    }
+
+    pid_t pid = spawn_clone3(ptr_to( clone_args{
+        .flags = CLONE_PIDFD
+               | CLONE_VM
+               | CLONE_VFORK,
+        .pidfd = __u64(&pidfd),
         .exit_signal = SIGCHLD,
-    }), sizeof(clone_args)));
+        .stack = __u64(stack),
+        .stack_size = stack_size - 16,
+    }), sizeof(clone_args));
 
     if (pid < 0) {
         return {{}, errno};
     } else if (pid) {
-        return {Fd(pidfd)};
+        return {Fd(pidfd), error};
     } else {
-        // Change working directory
-        if (dir != -1) fchdir(dir);
-
-        // Unblock any signals currently blocked for signalfd handling purposes
-        sigset_t mask;
-        sigfillset(&mask);
-        sigprocmask(SIG_UNBLOCK, &mask, nullptr);
-
-        // Apply file descriptor actions
-        for (auto& action : actions) {
-            std::visit([](auto&& op) { op(); }, action);
-        }
-
-        execveat(exec_file, "", argv, env, AT_EMPTY_PATH);
-
-        // Exec failed
-        _exit(127);
+        // Child never returns from our `spawn_clone3` wrapper
+        std::unreachable();
     }
 }
 

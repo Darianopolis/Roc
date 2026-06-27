@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.0)
 
-project(Roc)
+project(Roc C CXX ASM)
 
 # ------------------------------------------------------------------------------
 #       Helpers
@@ -137,6 +137,7 @@ target_sources(core PRIVATE
     src/core/stacktrace.cpp
     src/core/process.cpp
     src/core/spawn.cpp
+    src/core/spawn.${CMAKE_SYSTEM_PROCESSOR}.S
     src/core/debug.cpp
     src/core/id.cpp
     src/core/exec.cpp
