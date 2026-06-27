@@ -49,9 +49,14 @@ public:
         , old_head(stack.head)
     {}
 
-    ~ThreadStack()
+    void reset()
     {
         stack.head = old_head;
+    }
+
+    ~ThreadStack()
+    {
+        reset();
     }
 
     DELETE_COPY_MOVE(ThreadStack);

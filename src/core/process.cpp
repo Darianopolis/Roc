@@ -1,5 +1,6 @@
-#include "util.hpp"
-#include "debug.hpp"
+#include "process.hpp"
+
+// -----------------------------------------------------------------------------
 
 auto process_has_cap(cap_value_t cap) -> bool
 {
@@ -21,30 +22,7 @@ void process_drop_cap(cap_value_t cap)
     unix_check<cap_set_proc>(caps);
 }
 
-void spawn_path(std::string_view view_name, std::span<const std::string_view> view_args)
-{
-    std::string name = std::string(view_name);
-
-    std::vector<std::string> string_args;
-    std::vector<char*> args;
-    for (auto& varg : view_args) {
-        string_args.emplace_back(varg);
-    }
-    for (auto& sarg : string_args) {
-        args.emplace_back(sarg.data());
-    }
-    args.emplace_back(nullptr);
-
-    if (fork() == 0) {
-        // Unblock any signals currently blocked for signalfd handling purposes
-        sigset_t mask;
-        sigfillset(&mask);
-        sigprocmask(SIG_UNBLOCK, &mask, nullptr);
-
-        execvp(name.c_str(), args.data());
-        std::terminate();
-    }
-}
+// -----------------------------------------------------------------------------
 
 auto env_get(const char* name) -> std::optional<std::string>
 {

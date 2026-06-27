@@ -3,14 +3,13 @@
 #include "stacktrace.hpp"
 #include "chrono.hpp"
 #include "enum.hpp"
-
-#define VT_COLOR_BEGIN(color) "\u001B[" #color "m"
-#define VT_COLOR_RESET "\u001B[0m"
-#define VT_COLOR(color, text) VT_COLOR_BEGIN(color) text VT_COLOR_RESET
+#include "fd.hpp"
+#include "process.hpp"
 
 struct LogState
 {
-    std::ofstream log_file;
+    std::unique_ptr<FILE, decltype([](FILE* f) { fclose(f); })> log_file;
+
     bool is_stderr_redirected;
 
     StacktraceCache stacktraces;
@@ -29,7 +28,9 @@ void log_set_structured_log(const std::filesystem::path& path)
     auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };
 
-    state.log_file = std::ofstream(path);
+    auto fd = path_open(path, O_RDWR | O_TRUNC | O_APPEND | O_CREAT, 0666);
+    state.log_file.reset(unix_check<fdopen>(fd.get(), "w").value);
+    if (state.log_file) fd.extract();
 }
 
 void log_redirect_stdout(const std::filesystem::path& path)
@@ -56,44 +57,44 @@ void log(LogSemantic semantic, std::string_view message)
     auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };
 
-    const char* format;
+#define LOG(...) std::println(stderr, __VA_ARGS__, FmtTime{timestamp, TimeFormat::time_ms}, message)
+#define LOG_COLOR(color, text) "\u001B[" #color "m" text "\u001B[0m"
+
     if (state.is_stderr_redirected) {
         switch (semantic) {
-            break;case LogSemantic::trace: format = "{} [TRACE] {}\n";
-            break;case LogSemantic::debug: format = "{} [DEBUG] {}\n";
-            break;case LogSemantic::info:  format = "{}  [INFO] {}\n";
-            break;case LogSemantic::warn:  format = "{}  [WARN] {}\n";
-            break;case LogSemantic::error: format = "{} [ERROR] {}\n";
-            break;case LogSemantic::fatal: format = "{} [FATAL] {}\n";
+            break;case LogSemantic::trace: LOG("{} [TRACE] {}");
+            break;case LogSemantic::debug: LOG("{} [DEBUG] {}");
+            break;case LogSemantic::info:  LOG("{}  [INFO] {}");
+            break;case LogSemantic::warn:  LOG("{}  [WARN] {}");
+            break;case LogSemantic::error: LOG("{} [ERROR] {}");
+            break;case LogSemantic::fatal: LOG("{} [FATAL] {}");
         }
     } else {
         switch (semantic) {
-            break;case LogSemantic::trace: format = VT_COLOR(90, "{}") " ["  VT_COLOR(90, "TRACE") "] " VT_COLOR(90, "{}") "\n";
-            break;case LogSemantic::debug: format = VT_COLOR(90, "{}") " ["  VT_COLOR(96, "DEBUG") "] "              "{}"  "\n";
-            break;case LogSemantic::info:  format = VT_COLOR(90, "{}") "  [" VT_COLOR(94,  "INFO") "] "              "{}"  "\n";
-            break;case LogSemantic::warn:  format = VT_COLOR(90, "{}") "  [" VT_COLOR(93,  "WARN") "] "              "{}"  "\n";
-            break;case LogSemantic::error: format = VT_COLOR(90, "{}") " ["  VT_COLOR(91, "ERROR") "] "              "{}"  "\n";
-            break;case LogSemantic::fatal: format = VT_COLOR(90, "{}") " ["  VT_COLOR(91, "FATAL") "] "              "{}"  "\n";
+            break;case LogSemantic::trace: LOG(LOG_COLOR(90, "{}") " ["  LOG_COLOR(90, "TRACE") "] " LOG_COLOR(90, "{}"));
+            break;case LogSemantic::debug: LOG(LOG_COLOR(90, "{}") " ["  LOG_COLOR(96, "DEBUG") "] "               "{}" );
+            break;case LogSemantic::info:  LOG(LOG_COLOR(90, "{}") "  [" LOG_COLOR(94,  "INFO") "] "               "{}" );
+            break;case LogSemantic::warn:  LOG(LOG_COLOR(90, "{}") "  [" LOG_COLOR(93,  "WARN") "] "               "{}" );
+            break;case LogSemantic::error: LOG(LOG_COLOR(90, "{}") " ["  LOG_COLOR(91, "ERROR") "] "               "{}" );
+            break;case LogSemantic::fatal: LOG(LOG_COLOR(90, "{}") " ["  LOG_COLOR(91, "FATAL") "] "               "{}" );
         }
     }
+    fflush(stderr);
 
-    auto time_ms = FmtTime{timestamp, TimeFormat::time_ms};
-    std::cerr << std::vformat(format, std::make_format_args(time_ms, message)) << std::flush;
-
-    if (state.log_file.is_open()) {
+    if (auto* out = state.log_file.get()) {
         auto[stacktrace, new_stacktrace] = state.stacktraces.insert(std::stacktrace::current(1));
         if (new_stacktrace) {
-            state.log_file << std::format("s {}\n", (void*)stacktrace);
+            std::println(out, "s {}", (void*)stacktrace);
             for (auto& entry : *stacktrace) {
                 if (entry.source_file().empty() && entry.description().empty()) continue;
-                state.log_file << std::format("- {} \"{}\" {}\n", entry.source_line(), entry.source_file(), entry.description());
+                std::println(out, "- {} \"{}\" {}", entry.source_line(), entry.source_file(), entry.description());
             }
         }
 
-        state.log_file << std::format("m {} {} {}\n", (void*)stacktrace, FmtTime{timestamp, TimeFormat::iso8601}, semantic);
+        std::println(out, "m {} {} {}", (void*)stacktrace, FmtTime{timestamp, TimeFormat::iso8601}, semantic);
         for (auto line : std::views::split(message, '\n')) {
-            state.log_file << std::format("- {:s}\n", line);
+            std::println(out, "- {:s}", line);
         }
-        state.log_file.flush();
+        fflush(out);
     }
 }

@@ -45,8 +45,8 @@ constexpr auto posix_signal_names = [] {
 static
 void handle_signal(int signal, siginfo_t*, void*)
 {
-    std::cerr << posix_signal_names[signal] << " (" << signal << ")\n";
-    std::cerr << std::stacktrace::current() << '\n';
+    std::println(stderr, "{} ({})", posix_signal_names[signal], signal);
+    std::println(stderr, "{}", std::stacktrace::current());
 }
 
 void debug_handlers()

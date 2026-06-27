@@ -1,11 +1,14 @@
 #pragma once
 
-#include "pch.hpp"
+#include "object.hpp"
+#include "fd.hpp"
+
+// -----------------------------------------------------------------------------
 
 auto process_has_cap( cap_value_t cap) -> bool;
 void process_drop_cap(cap_value_t cap);
 
-void spawn_path(std::string_view name, std::span<const std::string_view> args);
+// -----------------------------------------------------------------------------
 
 auto env_get(const char* name) -> std::optional<std::string>;
 void env_set(const char* name, std::optional<std::string> value);
@@ -20,3 +23,54 @@ auto env_get(const char* name) -> std::optional<T>
         return std::nullopt;
     });
 }
+
+// -----------------------------------------------------------------------------
+
+struct Environment
+{
+    ankerl::unordered_dense::map<std::string, std::string> entries;
+    Fd dir;
+
+    void load(char** env)
+    {
+        for (auto e = env; *e; ++e) {
+            std::string_view entry{ *e };
+            auto sep = entry.find_first_of('=');
+            entries.insert_or_assign(std::string(entry.substr(0, sep)), std::string(entry.substr(sep + 1)));
+        }
+    }
+
+    void set(const std::string& key, std::optional<std::string> value)
+    {
+        if (value) {
+            entries[key] = *value;
+        } else {
+            entries.erase(key);
+        }
+    }
+};
+
+// -----------------------------------------------------------------------------
+
+inline
+auto path_open(const std::filesystem::path& path, int oflags = 0, auto... args) -> Fd
+{
+    return Fd(unix_check<open>(path.c_str(), oflags | O_CLOEXEC, args...).value);
+}
+
+// -----------------------------------------------------------------------------
+
+struct SpawnFdInherit
+{
+    fd_t parent;
+    fd_t child;
+
+    SpawnFdInherit(fd_t fd                ): parent(fd    ), child(fd   ) {}
+    SpawnFdInherit(fd_t parent, fd_t child): parent(parent), child(child) {}
+};
+
+auto spawn(
+    fd_t exe,
+    std::span<const std::string_view> args,
+    const Environment* env = nullptr,
+    std::span<const SpawnFdInherit> fds = {{STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO}}) -> Fd;

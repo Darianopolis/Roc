@@ -9,6 +9,7 @@ UNIX_FUNCTION(read,  UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(write, UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(pipe,  UnixErrorBehavior::negative_one)
 
+UNIX_FUNCTION(fdopen,  UnixErrorBehavior::null)
 UNIX_FUNCTION(freopen, UnixErrorBehavior::null)
 
 // Memory

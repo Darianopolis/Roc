@@ -130,10 +130,10 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
             if (seat_keyboard_get_modifiers(event->keyboard.keyboard).contains(shell->main_mod)) {
                 switch (event->keyboard.key.code) {
                     break;case KEY_N:
-                        spawn_path("systemctl", {{"systemctl", "suspend"}});
+                        shell_launch(shell, "systemctl", {{"systemctl", "suspend"}});
                         return SeatEventFilterResult::capture;
                     break;case KEY_D:
-                        spawn_path("launcher", {{"launcher"}});
+                        shell_launch(shell, "launcher", {{"launcher"}});
                         return SeatEventFilterResult::capture;
                     break;case KEY_ESC:
                         io_stop(shell->io.get());
@@ -155,19 +155,19 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
 
             switch (event->keyboard.key.code) {
                 break;case KEY_PREVIOUSSONG:
-                    spawn_path("playerctl", {{"playerctl", "previous"}});
+                    shell_launch(shell, "playerctl", {{"playerctl", "previous"}});
                     return SeatEventFilterResult::capture;
                 break;case KEY_PLAYPAUSE:
-                    spawn_path("playerctl", {{"playerctl", "play-pause"}});
+                    shell_launch(shell, "playerctl", {{"playerctl", "play-pause"}});
                     return SeatEventFilterResult::capture;
                 break;case KEY_NEXTSONG:
-                    spawn_path("playerctl", {{"playerctl", "next"}});
+                    shell_launch(shell, "playerctl", {{"playerctl", "next"}});
                     return SeatEventFilterResult::capture;
                 break;case KEY_VOLUMEDOWN:
-                    spawn_path("wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}});
+                    shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}});
                     return SeatEventFilterResult::capture;
                 break;case KEY_VOLUMEUP:
-                    spawn_path("wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}});
+                    shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}});
                     return SeatEventFilterResult::capture;
                 break;case KEY_SYSRQ /* PRINT */: {
                     auto* seat = seat_keyboard_get_seat(event->keyboard.keyboard);

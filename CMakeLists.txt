@@ -136,6 +136,7 @@ target_sources(core PRIVATE
     src/core/fd.cpp
     src/core/stacktrace.cpp
     src/core/process.cpp
+    src/core/spawn.cpp
     src/core/debug.cpp
     src/core/id.cpp
     src/core/exec.cpp

@@ -3,7 +3,6 @@
 #include <core/math.hpp>
 #include <core/signal.hpp>
 #include <core/log.hpp>
-#include <core/process.hpp>
 
 #include <wm/wm.hpp>
 
@@ -19,7 +18,6 @@ auto main(int argc, char* argv[]) -> int
         log_set_structured_log(app_share / PROGRAM_NAME ".log");
         log_redirect_stdout(app_share / "stdout.log");
         log_redirect_stderr(app_share / "stderr.log");
-        chdir(home_dir.c_str());
     } else {
         log_set_structured_log(PROGRAM_NAME ".log");
     }
@@ -35,6 +33,13 @@ auto main(int argc, char* argv[]) -> int
 
     auto shell = ref_create<Shell>();
     shell->exec = exec.get();
+
+    // Environment
+
+    shell->env.load(environ);
+    shell->env.set("XDG_CURRENT_DESKTOP", PROGRAM_NAME);
+    shell->env.set("DISPLAY", std::nullopt);
+    shell->env.dir = path_open(home_dir);
 
     // Config
 
@@ -53,13 +58,21 @@ auto main(int argc, char* argv[]) -> int
 
     shell->gpu = gpu_create(exec.get(), {});
     debug_assert(shell->gpu, "Failed to initialize GPU");
+
     shell->wm = wm_create({
         .exec = exec.get(),
         .gpu = shell->gpu.get(),
         .main_mod = shell->main_mod,
     });
+
     shell->io = io_create(shell->wm.get(), exec.get(), shell->gpu.get());
+    auto _ = io_get_signals(shell->io.get()).shutdown.listen([&] {
+        shell.destroy();
+        exec_stop(exec.get());
+    });
+
     shell->way = way_create(shell->wm.get(), exec.get());
+    shell->env.set("WAYLAND_DISPLAY", way_server_get_socket(shell->way.get()));
 
     // Applets
 
@@ -67,33 +80,25 @@ auto main(int argc, char* argv[]) -> int
     shell_init_xwayland(shell.get(), argc, argv);
     shell_init_hotkeys(shell.get());
 
-    // IO
-
-    auto _ = io_get_signals(shell->io.get()).shutdown.listen([&] {
-        shell.destroy();
-        exec_stop(exec.get());
-    });
-
-    // Helpers
-
     if (in_direct_session) {
-        spawn_path("playerctld", {{"playerctld"}});
-        spawn_path("dunst", {{"dunst"}});
-    }
 
-    // Environment
+        // Helpers
 
-    // TODO: Avoid setting these globally
-    env_set("XDG_CURRENT_DESKTOP", PROGRAM_NAME);
-    env_set("WAYLAND_DISPLAY", way_server_get_socket(shell->way.get()));
-    env_set("DISPLAY", shell->xwayland_socket);
-    if (in_direct_session) {
+        shell_launch(shell.get(), "playerctld", {{ "playerctld" }});
+        shell_launch(shell.get(), "dunst",      {{ "dunst"      }});
+
+        // System
+
         log_info("Exporting environment to system...");
-        spawn_path("systemctl", {{
+        std::vector<std::string_view> args {
             "systemctl",
             "--user", "import-environment",
-            "XDG_CURRENT_DESKTOP", "WAYLAND_DISPLAY", "DISPLAY"
-        }});
+            "XDG_CURRENT_DESKTOP", "WAYLAND_DISPLAY"
+        };
+        if (shell->env.entries.contains("DISPLAY")) {
+            args.emplace_back("DISPLAY");
+        }
+        shell_launch(shell.get(), "systemctl", args);
     }
 
     // Run
