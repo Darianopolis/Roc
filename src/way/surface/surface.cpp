@@ -407,6 +407,8 @@ WAY_INTERFACE(wl_surface) = {
 
 WaySurface::~WaySurface()
 {
+    update_map_state(this);
+
     scene.tree->userdata = {};
     debug_assert(std::erase(client->surfaces, this));
 
