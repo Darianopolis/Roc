@@ -103,9 +103,10 @@ UNIX_FUNCTION(libevdev_next_event,  UnixErrorBehavior::negative_errno)
 
 // libseat
 
-UNIX_FUNCTION(libseat_open_seat, UnixErrorBehavior::null)
-UNIX_FUNCTION(libseat_get_fd,    UnixErrorBehavior::negative_one)
-UNIX_FUNCTION(libseat_dispatch,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(libseat_open_seat,      UnixErrorBehavior::null)
+UNIX_FUNCTION(libseat_get_fd,         UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(libseat_dispatch,       UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(libseat_switch_session, UnixErrorBehavior::negative_one)
 
 // libinput
 

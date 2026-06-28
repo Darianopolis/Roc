@@ -98,6 +98,8 @@ struct IoDrm
 {
     fd_t fd;
 
+    Listener<void(bool)> session_listener;
+
     ankerl::unordered_dense::segmented_map<IoDrmPropertyId, IoDrmProperty> properties;
 
     RefVector<IoDrmPlane> planes;

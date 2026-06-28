@@ -2,6 +2,8 @@
 
 #include "io.hpp"
 
+#include <core/timer.hpp>
+
 void io_udev_init(  IoContext*);
 void io_udev_deinit(IoContext*);
 
@@ -45,6 +47,8 @@ struct IoContext
     std::vector<IoOutputBase*> outputs;
 
     struct udev* udev;
+
+    Ref<Timer> timer;
 
     Ref<IoSession>  session;
     Ref<IoLibinput> libinput; // input_device

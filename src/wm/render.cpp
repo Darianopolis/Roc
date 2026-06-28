@@ -154,7 +154,9 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     }
 
     bool committed = try_commit(output, output->primary_image.get());
-    debug_assert(committed, "Failed to commit to output!");
+    if (!committed) {
+        log_error("Failed to commit an anything to output, session was probably suspended");
+    }
 
-    return true;
+    return committed;
 }

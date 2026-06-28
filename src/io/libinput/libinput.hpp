@@ -6,6 +6,8 @@ struct IoLibinput
 {
     struct libinput* libinput;
 
+    Listener<void(bool)> session_listener;
+
     RefVector<IoLibinputDevice> input_devices;
 };
 

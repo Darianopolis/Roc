@@ -33,13 +33,22 @@ auto handle_libinput_readable(IoContext* io) -> int
 void io_libinput_init(IoContext* io)
 {
     if (!io->session) {
-        log_warn("Can't start libinput, session backend not started");
         return;
     }
 
     io->libinput = ref_create<IoLibinput>();
     io->libinput->libinput = libinput_udev_create_context(&io_libinput_interface, io, io->udev);
     debug_assert(io->libinput->libinput);
+
+    io->libinput->session_listener = io->session->signals.state.listen([io](bool enabled) {
+        if (enabled) {
+            log_warn("Resuming libinput");
+            libinput_resume(io->libinput->libinput);
+        } else {
+            log_warn("Suspending libinput");
+            libinput_suspend(io->libinput->libinput);
+        }
+    });
 
     debug_assert(unix_check<libinput_udev_assign_seat>(io->libinput->libinput, io_session_get_seat_name(io->session.get())).ok());
 

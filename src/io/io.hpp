@@ -26,3 +26,5 @@ void io_start(IoContext*);
 void io_stop(IoContext*);
 
 void io_output_create(IoContext*);
+
+void io_switch_session(IoContext*, i32 session);

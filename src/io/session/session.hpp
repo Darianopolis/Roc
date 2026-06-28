@@ -12,6 +12,13 @@ struct IoSession
 {
     libseat *seat;
 
+    bool enabled;
+    Ref<void> timeout_arm;
+
+    struct {
+        Signal<void(bool)> state;
+    } signals;
+
     std::vector<IoSeatDevice> devices;
 
     ~IoSession()

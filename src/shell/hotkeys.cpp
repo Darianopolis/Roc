@@ -124,10 +124,23 @@ static
 auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
 {
     switch (event->type) {
-        break;case SeatEventType::keyboard_key:
+        break;case SeatEventType::keyboard_key: {
             if (!event->keyboard.key.pressed) return {};
 
-            if (seat_keyboard_get_modifiers(event->keyboard.keyboard).contains(shell->main_mod)) {
+            auto mods = seat_keyboard_get_modifiers(event->keyboard.keyboard);
+
+            if (mods.contains(SeatModifier::ctrl | SeatModifier::alt)) {
+                switch (event->keyboard.key.code) {
+                    break;case KEY_F1 ... KEY_F12:
+                        if (mods.contains(SeatModifier::ctrl)) {
+                            auto session = 1 + event->keyboard.key.code - KEY_F1;
+                            log_debug("Switching VT to {}", session);
+                            io_switch_session(shell->io.get(), session);
+                        }
+                }
+            }
+
+            if (mods.contains(shell->main_mod)) {
                 switch (event->keyboard.key.code) {
                     break;case KEY_N:
                         shell_launch(shell, "systemctl", {{"systemctl", "suspend"}});
@@ -177,6 +190,7 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                     });
                 }
             }
+        }
         break;default:
             ;
     }

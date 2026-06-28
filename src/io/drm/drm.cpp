@@ -129,8 +129,6 @@ void io_drm_configure_outputs(IoContext* io)
 {
     io->drm->outputs.erase_if([](IoDrmOutput* output) { return !output->connector; });
 
-    io_drm_dump_planes(io);
-
     for (auto* connector : io->drm->connectors) {
         if (std::ranges::any_of(io->drm->outputs,
                 [&](auto* output) {
@@ -150,6 +148,18 @@ void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, v
 
 // -----------------------------------------------------------------------------
 
+static
+void on_session_state(IoContext* io, bool enabled)
+{
+    if (enabled) {
+        log_warn("Resuming DRM session");
+        io_drm_configure_outputs(io);
+    } else {
+        log_warn("Suspending DRM session");
+        io->drm->outputs.clear();
+    }
+}
+
 void io_drm_init(IoContext* io)
 {
     if (!io->session) {
@@ -157,6 +167,10 @@ void io_drm_init(IoContext* io)
     }
 
     io->drm = ref_create<IoDrm>();
+
+    io->drm->session_listener = io->session->signals.state.listen([io](bool enabled) {
+        on_session_state(io, enabled);
+    });
 
     {
         auto* device = io->gpu->drm.device;
@@ -218,10 +232,39 @@ void io_drm_start(IoContext* io)
 
 // -----------------------------------------------------------------------------
 
+// TODO: This is a hack so that we can smuggle a weak pointer in the space of a raw pointer,
+//       unlike Weak<T> itself which also stores a 64 bit offset
+//
+//       We should probably implement some form of this generically in core
+//
+struct alignas(void*) IoDrmWeakOutput
+{
+    Allocation allocation;
+    AllocationVersion version;
+
+    IoDrmWeakOutput() = default;
+
+    IoDrmWeakOutput(IoDrmOutput* output)
+        : allocation(allocation_from(output))
+        , version(allocation_get_version(allocation))
+    {}
+
+    auto get() const -> IoDrmOutput*
+    {
+        if (allocation_get_version(allocation) != version) return nullptr;
+        return static_cast<IoDrmOutput*>(allocation_get_data(allocation));
+    }
+};
+
 static
 void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, void* data)
 {
-    auto* output = static_cast<IoDrmOutput*>(data);
+    auto output = std::bit_cast<IoDrmWeakOutput>(data).get();
+
+    if (!output) {
+        log_warn("DRM : Output was destroyed before page flip processed, discarding...");
+        return;
+    }
 
     output->current_image = output->pending_image;
     output->current_cursor_image = output->pending_cursor_image;
@@ -335,7 +378,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 
     auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
 
-    if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, this).err()) {
+    if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, std::bit_cast<void*>(IoDrmWeakOutput{this})).err()) {
         return false;
     }
 
