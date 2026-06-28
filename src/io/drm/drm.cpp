@@ -322,7 +322,7 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
     // Close GEM handles
     //
     // NOTE: Each PRIME buffer only has a single GEM handle slot that is *NOT* reference counted
-    //       Therefore we must duplicate the handles to avoid double-closing
+    //       Therefore we must deduplicate the handles to avoid double-closing
 
     std::flat_set<u32> unique_handles;
     unique_handles.insert_range(handles | std::views::filter([](u32 v) { return v; }));

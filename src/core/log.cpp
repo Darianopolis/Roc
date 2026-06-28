@@ -52,7 +52,7 @@ void log(LogSemantic semantic, std::string_view message)
     // Strip trailing newlines
     while (message.ends_with('\n')) message.remove_suffix(1);
 
-    auto timestamp = time_current();
+    auto timestamp = std::chrono::system_clock::now();
 
     auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };

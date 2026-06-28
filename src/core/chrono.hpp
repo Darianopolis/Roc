@@ -4,12 +4,6 @@
 #include "debug.hpp"
 #include "util.hpp"
 
-inline
-auto time_current() -> std::chrono::system_clock::time_point
-{
-    return std::chrono::system_clock::now();
-}
-
 using clock_id_t = int;
 
 /*
@@ -127,11 +121,17 @@ struct std::formatter<FmtTime> {
 // -----------------------------------------------------------------------------
 
 template<typename Rep, typename Period>
-struct std::formatter<std::chrono::duration<Rep, Period>> {
+struct FmtDuration
+{
+    std::chrono::duration<Rep, Period> duration;
+};
+
+template<typename Rep, typename Period>
+struct std::formatter<FmtDuration<Rep, Period>> {
     constexpr auto parse(auto& ctx) { return ctx.begin(); }
-    constexpr auto format(std::chrono::duration<Rep, Period> v, auto& ctx) const
+    constexpr auto format(FmtDuration<Rep, Period> v, auto& ctx) const
     {
-        f64 nanos = std::chrono::duration<f64, std::nano>(v).count();
+        f64 nanos = std::chrono::duration<f64, std::nano>(v.duration).count();
 
         auto with_suffix = [&](std::string_view suffix, f64 amount) {
             u32 decimals = amount < 10 ? 2 : (amount < 100 ? 1 : 0);

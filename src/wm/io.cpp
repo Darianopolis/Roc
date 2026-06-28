@@ -192,12 +192,6 @@ void update_leds(WmServer* server, SeatKeyboard* keyboard)
 static
 void handle_key(WmServer* server, Seat* seat, bool quiet, WmInputDeviceEvent channel)
 {
-    // TODO: Hacky fix to remap mouse side buttons
-    // switch (channel.code) {
-    //     break;case BTN_EXTRA: channel.code = KEY_LEFTCTRL;
-    //     break;case BTN_SIDE:  channel.code = KEY_LEFTMETA;
-    // }
-
     auto rebind = server->config.rebinds.find(channel.code);
     if (rebind != server->config.rebinds.end()) {
         channel.code = rebind->second;

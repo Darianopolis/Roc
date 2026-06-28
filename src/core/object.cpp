@@ -3,61 +3,37 @@
 // -----------------------------------------------------------------------------
 
 static
-auto get(auto* field, u32 index) -> decltype(auto)
+auto get(auto&& field, u32 index) -> decltype(auto)
 {
     return field[index];
 }
 
 static
-auto get(auto* field, Allocation alloc) -> decltype(auto)
+auto get(auto&& field, Allocation alloc) -> decltype(auto)
 {
     return get(field, alloc.index);
 }
 
 struct Registry
 {
-    void** data;
-    usz* size;
-    u64* version;
-    u32* ref_count;
-    AllocationFree* free;
-
     std::flat_map<void*, u32, std::greater<void*>> lookup;
 
     std::vector<u32> freelist;
     u32 last_index = 0;
 
-    u64 last_version = 0;
+    AllocationVersion last_version = 0;
 
-    Registry()
-    {
-        data = new void*[allocation_max_count];
-        size = new usz[allocation_max_count];
-        version = new usz[allocation_max_count];
-        ref_count = new u32[allocation_max_count];
-        free = new AllocationFree[allocation_max_count];
-
-        get(data,      0) = nullptr;
-        get(size,      0) = 0;
-        get(version,   0) = 0;
-        get(ref_count, 0) = 0;
-        get(free,      0) = nullptr;
-    }
-
-    ~Registry()
-    {
-        delete[] data;
-        delete[] size;
-        delete[] version;
-        delete[] ref_count;
-        delete[] free;
-    }
+    std::array<            void*, allocation_max_count> data;
+    std::array<              usz, allocation_max_count> size;
+    std::array<AllocationVersion, allocation_max_count> version;
+    std::array<              u32, allocation_max_count> ref_count;
+    std::array<   AllocationFree, allocation_max_count> free;
 };
 
 static
 auto get_registry() -> Registry&
 {
-    static Registry registry;
+    static Registry registry = {};
     return registry;
 }
 

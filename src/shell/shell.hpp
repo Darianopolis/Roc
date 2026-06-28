@@ -58,7 +58,7 @@ auto shell_launch(
             auto process = spawn(path_open(test).get(), args, &shell->env, fds);
             auto end = std::chrono::steady_clock::now();
             if (process) {
-                log_debug("Process {} launched in {}", test, end - start);
+                log_debug("Process {} launched in {}", test, FmtDuration{end - start});
             } else {
                 log_error("Process {} failed to launch", test);
             }

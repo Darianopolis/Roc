@@ -106,7 +106,7 @@ void take_screenshot(Shell* shell, rect2f32 region)
         data.resize(extent.x * extent.y * 4);
         std::memcpy(data.data(), buffer->host_address, data.size());
         auto end = std::chrono::steady_clock::now();
-        log_debug("Screenshot data copied in {}", end - start);
+        log_debug("Screenshot data copied in {}", FmtDuration{end - start});
 
         std::thread{[data = std::move(data), extent, dir = std::move(dir)] {
             auto start = std::chrono::steady_clock::now();
@@ -115,7 +115,7 @@ void take_screenshot(Shell* shell, rect2f32 region)
 
             stbi_write_png(save_path.c_str(), extent.x, extent.y, STBI_rgb_alpha, data.data(), extent.x * 4);
             auto end = std::chrono::steady_clock::now();
-            log_info("Screenshot saved to [{}] in {}", save_path, end - start);
+            log_info("Screenshot saved to [{}] in {}", save_path, FmtDuration{end - start});
         }}.detach();
     });
 }
