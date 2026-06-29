@@ -232,7 +232,7 @@ struct WmWindow
 
     vec2f32 anchor;
     vec2f32 relative;
-    Weak<WmOutput> oneshot_output_constraint;
+    Weak<WmOutput> output_constraint;
 
     vec2f32 extent;
     bool mapped;

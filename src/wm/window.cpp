@@ -134,40 +134,14 @@ void wm_window_post_event(WmWindowEvent* event)
     wm_client_post_event(event->window->client, reinterpret_cast<WmEvent*>(event));
 }
 
-void wm_window_request_reposition(WmWindow* window, rect2f32 frame, vec2f32 gravity)
+static
+void reposition(WmWindow* window)
 {
-    window->relative = 1.f - ((gravity + 1.f) * 0.5f);
-    window->anchor = frame.origin + (frame.extent * window->relative);
+    vec2f32 origin = window->anchor - (window->extent * window->relative);
 
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_request_resize,
-        .window = window,
-        .size = frame.extent,
-    }));
-}
-
-void wm_window_request_close(WmWindow* window)
-{
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_request_close,
-        .window = window,
-    }));
-}
-
-void wm_window_set_size(WmWindow* window, vec2f32 size)
-{
-    window->extent = size;
-
-    vec2f32 origin = window->anchor - (size * window->relative);
-
-    if (window->fullscreen.output) {
-        window->oneshot_output_constraint = nullptr;
-    }
-
-    if (window->oneshot_output_constraint) {
-        aabb2f32 constraint = wm_output_get_workarea(window->oneshot_output_constraint.get());
-        aabb2f32 constrained = aabb_constrain<f32>({origin, size, xywh}, constraint);
-        window->oneshot_output_constraint = nullptr;
+    if (window->output_constraint && !window->fullscreen.output) {
+        aabb2f32 constraint = wm_output_get_workarea(window->output_constraint.get());
+        aabb2f32 constrained = aabb_constrain<f32>({origin, window->extent, xywh}, constraint);
 
         origin = constrained.min;
 
@@ -186,14 +160,45 @@ void wm_window_set_size(WmWindow* window, vec2f32 size)
     }
 
     scene_tree_set_translation(window->root_tree.get(), origin);
+}
 
-    scene_texture_set_dst(window->backdrop.get(), {{}, size, minmax});
+void wm_window_request_reposition(WmWindow* window, rect2f32 frame, vec2f32 gravity)
+{
+    window->relative = 1.f - ((gravity + 1.f) * 0.5f);
+    window->anchor = frame.origin + (frame.extent * window->relative);
 
-    auto bs = window->client->server->config.border.size;
-    scene_texture_set_dst(window->borders[0 /* left   */], {{ -bs.x,     0}, {            0, size.y       }, minmax});
-    scene_texture_set_dst(window->borders[1 /* right  */], {{size.x,     0}, {size.x + bs.x, size.y       }, minmax});
-    scene_texture_set_dst(window->borders[2 /* top    */], {{-bs.x,  -bs.y}, {size.x + bs.x,              }, minmax});
-    scene_texture_set_dst(window->borders[3 /* bottom */], {{-bs.x, size.y}, {size.x + bs.x, size.y + bs.y}, minmax});
+    window->output_constraint = nullptr;
+
+    wm_window_post_event(ptr_to(WmWindowEvent {
+        .type = WmEventType::window_request_resize,
+        .window = window,
+        .size = vec_round(frame.extent),
+    }));
+}
+
+void wm_window_request_close(WmWindow* window)
+{
+    wm_window_post_event(ptr_to(WmWindowEvent {
+        .type = WmEventType::window_request_close,
+        .window = window,
+    }));
+}
+
+void wm_window_set_size(WmWindow* window, vec2f32 size)
+{
+    if (window->extent != size) {
+        window->extent = size;
+
+        scene_texture_set_dst(window->backdrop.get(), {{}, size, minmax});
+
+        auto bs = window->client->server->config.border.size;
+        scene_texture_set_dst(window->borders[0 /* left   */], {{ -bs.x,     0}, {            0, size.y       }, minmax});
+        scene_texture_set_dst(window->borders[1 /* right  */], {{size.x,     0}, {size.x + bs.x, size.y       }, minmax});
+        scene_texture_set_dst(window->borders[2 /* top    */], {{-bs.x,  -bs.y}, {size.x + bs.x,              }, minmax});
+        scene_texture_set_dst(window->borders[3 /* bottom */], {{-bs.x, size.y}, {size.x + bs.x, size.y + bs.y}, minmax});
+    }
+
+    reposition(window);
 }
 
 auto wm_window_get_frame(WmWindow* window) -> rect2f32
@@ -391,8 +396,8 @@ void wm_window_set_fullscreen(WmWindow* window, WmOutput* output)
         for (auto* border : window->borders) {
             scene_tree_place_above(window->root_tree.get(), nullptr, border);
         }
-        window->oneshot_output_constraint = wm_find_output_for(window->client->server, window->fullscreen.restore);
         wm_window_request_reposition(window, window->fullscreen.restore, vec2f32{1, 1});
+        window->output_constraint = wm_find_output_for(window->client->server, window->fullscreen.restore);
     }
 }
 
@@ -433,7 +438,7 @@ auto wm_window_place_auto(WmWindow* window) -> vec2f32
     window->relative = {0.5f, 0.5f};
 
     auto output = wm_find_output_at(server, center_pos).output;
-    window->oneshot_output_constraint = output;
+    window->output_constraint = output;
 
     return wm_output_get_workarea(output).extent;
 }

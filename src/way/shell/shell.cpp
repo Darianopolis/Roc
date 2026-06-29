@@ -229,9 +229,11 @@ void way_toplevel_on_request_resize(WaySurface* surface, vec2f32 size)
     auto* toplevel = surface->toplevel;
 
     if (toplevel->requested_size == size) {
-        if (!toplevel->pending || toplevel->pending >= surface->xdg->acked_serial) {
-            // Size matches and no pending resize configures in flight, acknowledge immediately
-            wm_window_set_size(toplevel->window.get(), size);
+        if (toplevel->pending <= surface->xdg->current.acked_serial) {
+            // Size matches last request and no pending resize configures in flight,
+            // acknowledge immediately with current geometry
+            auto geometry = rect_cast<f32>(surface->xdg->current.geometry);
+            wm_window_set_size(toplevel->window.get(), geometry.extent);
         }
         return;
     }
@@ -309,10 +311,7 @@ void WayToplevel::apply(WayCommitId id)
     if (surface->mapped) {
         auto geometry = rect_cast<f32>(surface->xdg->current.geometry);
         scene_tree_set_translation(surface->scene.tree.get(), -geometry.origin);
-        if (pending <= surface->xdg->current.acked_serial
-                || wm_window_get_frame(window.get()).extent != geometry.extent) {
-            wm_window_set_size(window.get(), geometry.extent);
-        }
+        wm_window_set_size(window.get(), geometry.extent);
 
         if (queued) {
             configure_toplevel(this, vec_cast<u32>(requested_size));
