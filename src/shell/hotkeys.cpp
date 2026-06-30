@@ -148,6 +148,9 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                     break;case KEY_D:
                         shell_launch(shell, "launcher", {{"launcher"}});
                         return SeatEventFilterResult::capture;
+                    break;case KEY_X:
+                        shell_launch(shell, "tray", {{"tray"}});
+                        return SeatEventFilterResult::capture;
                     break;case KEY_ESC:
                         io_stop(shell->io.get());
                         return SeatEventFilterResult::capture;

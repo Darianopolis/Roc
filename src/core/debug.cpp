@@ -47,6 +47,7 @@ void handle_signal(int signal, siginfo_t*, void*)
 {
     std::println(stderr, "{} ({})", posix_signal_names[signal], signal);
     std::println(stderr, "{}", std::stacktrace::current());
+    fflush(stderr);
 }
 
 void debug_handlers()
