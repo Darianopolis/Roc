@@ -395,6 +395,9 @@ WAY_INTERFACE(xdg_toplevel) = {
 
 WayToplevel::~WayToplevel()
 {
+    while (!children.empty()) {
+        set_parent(children.front(), parent);
+    }
     set_parent(this, nullptr);
     if (surface) {
         surface->toplevel = nullptr;

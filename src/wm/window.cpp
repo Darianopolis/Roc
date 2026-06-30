@@ -44,9 +44,8 @@ WmWindow::~WmWindow()
         .window = this,
     }));
 
-    for (auto* l = children.next; l != &children; l = l->next) {
-        auto* child = LINK_GET(WmWindow, link, l);
-        set_parent_impl(child, parent);
+    while (children.is_linked()) {
+        set_parent_impl(LINK_GET(WmWindow, link, children.next), parent);
     }
 
     link.unlink();

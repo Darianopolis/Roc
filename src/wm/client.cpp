@@ -23,6 +23,10 @@ auto wm_connect(WmServer* server) -> Ref<WmClient>
 
 WmClient::~WmClient()
 {
+    for (auto* window : server->windows) {
+        debug_assert(window->client != this);
+    }
+
     std::erase(server->clients, this);
 }
 
