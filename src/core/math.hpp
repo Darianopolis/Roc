@@ -215,24 +215,6 @@ auto aabb_constrain(Aabb<T> aabb, const Aabb<T>& bounds) -> Rect<T>
     return aabb;
 }
 
-template<typename T>
-constexpr
-auto aabb_subtract(const Aabb<T>& minuend, const Aabb<T>& subtrahend, Aabb<T>* out) -> u32
-{
-    Aabb<T> intersection;
-    if (aabb_intersects(minuend, subtrahend, &intersection)) {
-        u32 count = 0;
-        if (minuend.min.x != intersection.min.x) /* left   */ out[count++] = {{     minuend.min.x, intersection.min.y}, {intersection.min.x, intersection.max.y}, minmax};
-        if (minuend.max.x != intersection.max.x) /* right  */ out[count++] = {{intersection.max.x, intersection.min.y}, {     minuend.max.x, intersection.max.y}, minmax};
-        if (minuend.min.y != intersection.min.y) /* top    */ out[count++] = {{     minuend.min},                       {     minuend.max.x, intersection.min.y}, minmax};
-        if (minuend.max.y != intersection.max.y) /* bottom */ out[count++] = {{     minuend.min.x, intersection.max.y}, {     minuend.max                      }, minmax};
-        return count;
-    } else {
-        *out = minuend;
-        return 1;
-    }
-}
-
 // -----------------------------------------------------------------------------
 
 template<typename To, typename From>

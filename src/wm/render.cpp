@@ -5,7 +5,7 @@
 #define WM_NOISY_COMPOSITING 0
 
 static
-bool try_commit(WmOutput* output, GpuImage* primary)
+bool try_commit(WmOutput* output, GpuImage* primary, bool use_cursor_plane)
 {
     auto* server = output->server;
 
@@ -17,7 +17,7 @@ bool try_commit(WmOutput* output, GpuImage* primary)
     return output->interface.commit(output->userdata, {
         .primary { .image = primary },
         .cursor {
-            .image = rect_intersects<f32>(pointer_region, output->viewport) && server->cursor_image_valid
+            .image = rect_intersects<f32>(pointer_region, output->viewport) && use_cursor_plane
                 ? server->cursor_image.get()
                 : nullptr,
             .position = vec_cast<i32>(pointer_region.origin - output->viewport.origin),
@@ -90,7 +90,7 @@ bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
     // TODO: We need to QFOT the image back to foreign in this case
     //       We should delay QFOT from foreign to avoid needing to do this on what should be the fast-path
 
-    bool committed = try_commit(output, image);
+    bool committed = try_commit(output, image, true);
 
 #if WM_NOISY_COMPOSITING
     if (!committed) {
@@ -125,12 +125,14 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     output->needs_redraw = false;
     output->bump_frame_id = true;
 
-    if (server->cursor_image_valid && try_direct_scanout(output, formats)) {
+    auto use_cursor_plane = server->cursor_image_valid && !server->debug.show_damage;
+
+    if (use_cursor_plane && try_direct_scanout(output, formats)) {
         return true;
     }
 
-    if (output->primary_version != server->scene_primary_tree->version || !server->cursor_image_valid) {
-        output->primary_version = server->cursor_image_valid ? server->scene_primary_tree->version : 0;
+    if (output->primary_version != server->scene_primary_tree->version || !use_cursor_plane) {
+        output->primary_version = use_cursor_plane ? server->scene_primary_tree->version : 0;
 
         auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
         auto usage = GpuImageUsage::render;
@@ -145,15 +147,20 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
             }}))
         });
 
+        Flags<SceneRenderOption> flags = {};
+        if (server->debug.show_damage) flags |= SceneRenderOption::show_damage;
         scene_render(wm_get_scene_renderer(server),
-            server->cursor_image_valid
+            use_cursor_plane
                 ? server->scene_primary_tree.get()
                 : server->scene_root.get(),
             output->primary_image.get(),
-            wm_output_get_viewport(output));
+            wm_output_get_viewport(output),
+            &output->damage,
+            flags);
+        output->damage.clear();
     }
 
-    bool committed = try_commit(output, output->primary_image.get());
+    bool committed = try_commit(output, output->primary_image.get(), use_cursor_plane);
     if (!committed) {
         log_error("Failed to commit an anything to output, session was probably suspended");
     }

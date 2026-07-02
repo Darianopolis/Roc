@@ -304,6 +304,24 @@ void handle_damage(WmServer* server, vec2f32 offset, const SceneDamage& damage)
 
         for (auto* output : server->io.outputs) {
             if (rect_intersects(region, output->viewport)) {
+                if (server->debug.show_damage) {
+                    region2f32 damage_in = damage.region;
+                    for (auto& band : damage_in.bands) {
+                        band.min += offset.y;
+                        band.max += offset.y;
+                    }
+                    for (auto& section : damage_in.sections) {
+                        section.min += offset.x;
+                        section.max += offset.x;
+                    }
+
+                    region2f32 damage_out;
+                    region_op(damage_out, output->damage, damage_in, RegionOp::merge);
+                    output->damage = std::move(damage_out);
+
+                    // log_trace("damage sections {} bands {}", output->damage.sections.size(), output->damage.bands.size());
+                }
+
                 output->needs_redraw = true;
                 output->interface.request_frame(output->userdata);
             }

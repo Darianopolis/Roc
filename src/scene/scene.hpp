@@ -18,7 +18,13 @@ struct SceneRenderer;
 
 auto scene_renderer_create(Gpu*) -> Ref<SceneRenderer>;
 
-void scene_render(SceneRenderer*, SceneNode*, GpuImage* target, rect2f32 viewport);
+enum class SceneRenderOption : u32
+{
+    show_damage = 1 << 0,
+};
+
+void scene_render(SceneRenderer*, SceneNode*, GpuImage* target, rect2f32 viewport,
+                  const region2f32* damage = nullptr, Flags<SceneRenderOption> options = {});
 
 // -----------------------------------------------------------------------------
 

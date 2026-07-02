@@ -33,6 +33,14 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                     break;case KEY_S:
                         wm_focus(server, nullptr);
                         return SeatEventFilterResult::capture;
+                    break;case KEY_K:
+                        server->debug.show_damage = !server->debug.show_damage;
+                        for (auto* output : server->io.outputs) {
+                            output->damage.clear();
+                            output->needs_redraw = true;
+                            output->interface.request_frame(output->userdata);
+                        }
+                        return SeatEventFilterResult::capture;
                     break;case KEY_F: {
                         auto window = wm_find_window_for(server, seat_keyboard_get_focus(event->keyboard.keyboard));
                         if (!window && !server->windows.empty()) {

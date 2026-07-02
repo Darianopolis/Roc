@@ -60,7 +60,8 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
     return renderer;
 }
 
-void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, rect2f32 viewport)
+void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, rect2f32 viewport,
+                  const region2f32* damage, Flags<SceneRenderOption> options)
 {
     std::vector<SceneQuad> quads;
 
@@ -113,6 +114,23 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
             [&](SceneInputRegion*) {}
         });
     }(node, {}, 1.f);
+
+    if (damage && options.contains(SceneRenderOption::show_damage)) {
+        auto step = std::max(0.f, 1.f / damage->sections.size());
+        usz i = 0;
+        for (auto& band : damage->bands) {
+            for (auto& section : std::span(damage->sections).subspan(band.start, band.count)) {
+                auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.5f};
+                auto rgb = color_hsv_to_rgb(hsv);
+                quads.emplace_back(SceneQuad {
+                    .dst = {{section.min, band.min}, {section.max, band.max}, minmax},
+                    .texture = {renderer->white.get(), renderer->nearest.get()},
+                    .src = {{}, {1, 1}, xywh},
+                    .tint = vec_cast<u8>(rgb * 255.f),
+                });
+            }
+        }
+    }
 
     auto gpu_rects = gpu_buffer_create(renderer->gpu, quads.size() * sizeof(SceneQuad), {});
     std::memcpy(gpu_rects->host_address, quads.data(), gpu_rects->size);

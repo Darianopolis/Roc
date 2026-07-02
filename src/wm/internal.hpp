@@ -56,6 +56,8 @@ struct WmOutput
     vec2u32 pixel_size;
     rect2f32 viewport;
 
+    region2f32 damage;
+
     Ref<GpuImage> primary_image;
     u64           primary_version = 0;
 
@@ -86,6 +88,10 @@ struct WmServer
 
     ExecContext* exec;
     Gpu*         gpu;
+
+    struct {
+        bool show_damage = false;
+    } debug;
 
     Ref<SeatManager> seat_manager;
 
