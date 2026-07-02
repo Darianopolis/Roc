@@ -175,7 +175,7 @@ void wm_cursor_init(WmServer* server)
     }
 
     server->cursor_damage_listener = seat_pointer_get_tree(seat_get_pointer(wm_get_seat(server)))->signals.damage.listen(
-        [server](SceneDamage damage) {
+        [server](vec2f32 offset, const SceneDamage& damage) {
             exec_enqueue(server->exec, [server = Weak(server)] {
                 if (!server) return;
                 wm_cursor_visual_update(server.get());

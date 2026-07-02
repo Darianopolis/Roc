@@ -289,7 +289,7 @@ void handle_input_region_damage(WmServer* server)
 // -----------------------------------------------------------------------------
 
 static
-void handle_damage(WmServer* server, const SceneDamage& damage)
+void handle_damage(WmServer* server, vec2f32 offset, const SceneDamage& damage)
 {
     if (damage.types.contains(SceneDamageType::input)) {
         exec_enqueue(server->exec, [server = Weak(server)] {
@@ -299,7 +299,9 @@ void handle_damage(WmServer* server, const SceneDamage& damage)
     }
 
     if (damage.types.contains(SceneDamageType::visual)) {
-        rect2f32 region = damage.region;
+        rect2f32 region = damage.region.bounds();
+        region.origin += offset;
+
         for (auto* output : server->io.outputs) {
             if (rect_intersects(region, output->viewport)) {
                 output->needs_redraw = true;
@@ -311,7 +313,7 @@ void handle_damage(WmServer* server, const SceneDamage& damage)
 
 void wm_init_io(WmServer* server)
 {
-    server->scene_damage_listener = wm_get_scene(server)->signals.damage.listen([server](SceneDamage damage) {
-        handle_damage(server, damage);
+    server->scene_damage_listener = wm_get_scene(server)->signals.damage.listen([server](vec2f32 offset, const SceneDamage& damage) {
+        handle_damage(server, offset, damage);
     });
 }

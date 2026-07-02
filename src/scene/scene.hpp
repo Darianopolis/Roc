@@ -30,11 +30,11 @@ enum class SceneDamageType : u32
 
 struct SceneDamage
 {
-    aabb2f32               region;
+    region2f32             region;
     Flags<SceneDamageType> types;
 };
 
-using SceneDamageCallback = void(SceneDamage);
+using SceneDamageCallback = void(vec2f32 offset, const SceneDamage&);
 
 enum class SceneNodeType
 {

@@ -7,15 +7,19 @@ SceneInputRegion::~SceneInputRegion()
     scene_node_unparent(this);
 }
 
-auto scene_node_get_damage(SceneInputRegion* input_region) -> SceneDamage
+void scene_node_get_damage(SceneInputRegion* input_region, vec2f32 offset, SceneDamage& damage)
 {
-    return {input_region->clip, SceneDamageType::input};
+    damage.types |= SceneDamageType::input;
+}
+
+void scene_node_subtract_cover(SceneInputRegion* input_region, vec2f32 offset, SceneDamage& damage)
+{
 }
 
 static
 void damage(SceneInputRegion* input_region)
 {
-    scene_node_post_damage(input_region, scene_node_get_damage(input_region));
+    scene_node_post_damage(input_region, {}, {{}, SceneDamageType::input});
 }
 
 auto scene_input_region_create() -> Ref<SceneInputRegion>

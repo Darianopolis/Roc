@@ -17,15 +17,27 @@ SceneTexture::~SceneTexture()
     scene_node_unparent(this);
 }
 
-auto scene_node_get_damage(SceneTexture* texture) -> SceneDamage
+void scene_node_get_damage(SceneTexture* texture, vec2f32 offset, SceneDamage& damage)
 {
-    return {texture->dst, SceneDamageType::visual};
+    rect2f32 dst = texture->dst;
+    dst.origin += offset;
+    damage.region.add(dst);
+    damage.types |= SceneDamageType::visual;
+}
+
+void scene_node_subtract_cover(SceneTexture* texture, vec2f32 offset, SceneDamage& damage)
+{
+    if (texture->image || texture->tint.w != 255) return;
+
+    rect2f32 dst = texture->dst;
+    dst.origin += offset;
+    damage.region.subtract(dst);
 }
 
 static
-void damage(SceneTexture* texture)
+void damage(SceneTexture* texture, rect2f32 dst)
 {
-    scene_node_post_damage(texture, scene_node_get_damage(texture));
+    scene_node_post_damage(texture, {}, {{dst}, SceneDamageType::visual});
 }
 
 void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, GpuBlendMode blend)
@@ -47,7 +59,7 @@ void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler*
     texture->blend = blend;
 
     if (changed) {
-        damage(texture);
+        damage(texture, texture->dst);
     }
 }
 
@@ -58,7 +70,7 @@ void scene_texture_set_tint(SceneTexture* texture, vec4u8 tint)
     NODE_LOG("scene.texture{{{}}}.set_tint{}", (void*)texture, tint);
 
     texture->tint = tint;
-    damage(texture);
+    damage(texture, texture->dst);
 }
 
 void scene_texture_set_src(SceneTexture* texture, aabb2f32 source)
@@ -68,7 +80,7 @@ void scene_texture_set_src(SceneTexture* texture, aabb2f32 source)
     NODE_LOG("scene.texture{{{}}}.set_src{}", (void*)texture, source);
 
     texture->src = source;
-    damage(texture);
+    damage(texture, texture->dst);
 }
 
 void scene_texture_set_dst(SceneTexture* texture, rect2f32 dst)
@@ -77,9 +89,9 @@ void scene_texture_set_dst(SceneTexture* texture, rect2f32 dst)
 
     NODE_LOG("scene.texture{{{}}}.set_dst{}", (void*)texture, dst);
 
-    damage(texture);
+    damage(texture, texture->dst);
     texture->dst = dst;
-    damage(texture);
+    damage(texture, texture->dst);
 }
 
 void scene_texture_damage(SceneTexture* texture, aabb2i32 region)
@@ -94,5 +106,5 @@ void scene_texture_damage(SceneTexture* texture, aabb2i32 region)
     transformed.min = transformed.min * pixels_to_layout + texture->dst.origin;
     transformed.max = transformed.max * pixels_to_layout + texture->dst.origin;
 
-    scene_node_post_damage(texture, {transformed, SceneDamageType::visual});
+    damage(texture, transformed);
 }

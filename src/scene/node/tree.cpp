@@ -11,31 +11,28 @@ SceneTree::~SceneTree()
     }
 }
 
-auto scene_node_get_damage(SceneTree* tree) -> SceneDamage
+void scene_node_get_damage(SceneTree* tree, vec2f32 offset, SceneDamage& damage)
 {
-    if (tree->children.empty() || !tree->enabled) return {};
-
-    aabb2f32 region = {{INFINITY, INFINITY}, {-INFINITY, -INFINITY}, minmax};
-    Flags<SceneDamageType> types = {};
-
+    if (!tree->enabled) return;
     for (auto* child : tree->children) {
-        auto damage = scene_node_get_damage(child);
-        if (damage.types.empty()) continue;
-
-        damage.region.min += child->translation;
-        damage.region.max += child->translation;
-        region = aabb_outer(region, damage.region);
-
-        types |= damage.types;
+        scene_node_get_damage(child, offset + child->translation, damage);
     }
-    return {region, types};
+}
+
+void scene_node_subtract_cover(SceneTree* tree, vec2f32 offset, SceneDamage& damage)
+{
+    if (!tree->enabled) return;
+    for (auto* child : tree->children) {
+        scene_node_subtract_cover(child, offset + child->translation, damage);
+    }
 }
 
 static
 void damage(SceneTree* tree)
 {
-    auto damage = scene_node_get_damage(tree);
-    if (damage.types) scene_node_post_damage(tree, damage);
+    SceneDamage damage = {};
+    scene_node_get_damage(tree, {}, damage);
+    if (damage.types) scene_node_post_damage(tree, {}, damage);
 }
 
 auto scene_tree_create() -> Ref<SceneTree>

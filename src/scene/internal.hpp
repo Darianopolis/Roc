@@ -16,16 +16,28 @@ struct SceneRenderer
     Ref<GpuBuffer> indices;
 };
 
-auto scene_node_get_damage(SceneInputRegion*) -> SceneDamage;
-auto scene_node_get_damage(SceneTree*       ) -> SceneDamage;
-auto scene_node_get_damage(SceneTexture*    ) -> SceneDamage;
+void scene_node_get_damage(SceneInputRegion*, vec2f32 offset, SceneDamage&);
+void scene_node_get_damage(SceneTree*,        vec2f32 offset, SceneDamage&);
+void scene_node_get_damage(SceneTexture*,     vec2f32 offset, SceneDamage&);
 
 inline
-auto scene_node_get_damage(SceneNode* node) -> SceneDamage
+void scene_node_get_damage(SceneNode* node, vec2f32 offset, SceneDamage& damage)
 {
-    return scene_visit(node, [](auto* node) {
-        return scene_node_get_damage(node);
+    scene_visit(node, [&](auto* node) {
+        scene_node_get_damage(node, offset, damage);
     });
 }
 
-void scene_node_post_damage(SceneNode*, SceneDamage);
+void scene_node_subtract_cover(SceneInputRegion*, vec2f32 offset, SceneDamage&);
+void scene_node_subtract_cover(SceneTree*,        vec2f32 offset, SceneDamage&);
+void scene_node_subtract_cover(SceneTexture*,     vec2f32 offset, SceneDamage&);
+
+inline
+void scene_node_subtract_cover(SceneNode* node, vec2f32 offset, SceneDamage& damage)
+{
+    scene_visit(node, [&](auto* node) {
+        scene_node_subtract_cover(node, offset, damage);
+    });
+}
+
+void scene_node_post_damage(SceneNode*, vec2f32 offset, SceneDamage);

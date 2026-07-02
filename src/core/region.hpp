@@ -60,9 +60,22 @@ struct Region
         return aabbs.empty();
     }
 
-    void add(Aabb<T> aabb)
+    void add(Aabb<T> addition)
     {
-        aabbs.emplace_back(aabb);
+        if (addition.max.x - addition.min.x <= 0) return;
+        if (addition.max.y - addition.min.y <= 0) return;
+        for (Aabb<T>& aabb : aabbs) {
+            if (aabb.min.x == addition.min.x && aabb.max.x == addition.max.x) {
+                aabb.min.y = std::min(aabb.min.y, addition.min.y);
+                aabb.max.y = std::max(aabb.max.y, addition.max.y);
+                return;
+            } else if (aabb.min.y == addition.min.y && aabb.max.y == addition.max.y) {
+                aabb.min.x = std::min(aabb.min.x, addition.min.x);
+                aabb.max.x = std::max(aabb.max.x, addition.max.x);
+                return;
+            }
+        }
+        aabbs.emplace_back(addition);
     }
 
     void subtract(Aabb<T> subtrahend)
@@ -71,7 +84,6 @@ struct Region
         usz inplace = 0;
 
         for (usz i = 0; i < prev_size; ++i) {
-
             std::array<Aabb<T>, 4> split;
             u32 count = aabb_subtract(aabbs[i], subtrahend, split.data());
 
@@ -89,10 +101,10 @@ struct Region
         // Clean if hole left in list
         if (inplace < prev_size) {
             usz extra = aabbs.size() - prev_size;
-            usz to_delete = prev_size - inplace;
-            usz to_move = std::min(to_delete, extra);
-            std::copy(aabbs.end() - to_move, aabbs.end(), aabbs.begin() + inplace);
-            aabbs.erase(aabbs.begin() + inplace + extra);
+            if (extra) {
+                memmove(aabbs.data() + inplace, aabbs.data() + prev_size, extra * sizeof(Aabb<T>));
+            }
+            aabbs.erase(aabbs.begin() + inplace + extra, aabbs.end());
         }
     }
 
@@ -136,6 +148,15 @@ struct Region
         }
 
         return closest;
+    }
+
+    auto bounds() const -> Aabb<T>
+    {
+        Aabb<T> bounds = Aabb<T>::empty();
+        for (auto& aabb : aabbs) {
+            bounds = aabb_outer(bounds, aabb);
+        }
+        return bounds;
     }
 };
 
