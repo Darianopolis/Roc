@@ -372,8 +372,8 @@ void commit(wl_client* client, wl_resource* resource)
     }
 
     if (!pending->set.contains(WaySurfaceStateComponent::buffer)) {
-        debug_assert(!pending->buffer_damage,  "TODO: wl_surface::damage_buffer without attached buffer");
-        debug_assert(!pending->surface.damage, "TODO: wl_surface::damage without attached buffer");
+        if (pending->buffer_damage)  log_error("TODO: wl_surface::damage_buffer without attached buffer");
+        if (pending->surface.damage) log_error("TODO: wl_surface::damage without attached buffer");
     }
 
     // Attempt to flush any state immediately

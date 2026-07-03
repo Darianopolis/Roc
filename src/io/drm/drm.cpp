@@ -338,7 +338,6 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
 auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 {
     debug_assert(commit_available);
-    commit_available = false;
 
     auto req = unix_check<drmModeAtomicAlloc>().value;
     defer { drmModeAtomicFree(req); };
@@ -385,5 +384,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
     pending_image = commit.primary.image;
     pending_cursor_image = commit.cursor.image;
     last_commit_time = std::chrono::steady_clock::now();
+    commit_available = false;
+
     return true;
 }

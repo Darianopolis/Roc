@@ -17,7 +17,7 @@ bool try_commit(WmOutput* output, GpuImage* primary, bool use_cursor_plane)
     return output->interface.commit(output->userdata, {
         .primary { .image = primary },
         .cursor {
-            .image = rect_intersects<f32>(pointer_region, output->viewport) && use_cursor_plane
+            .image = !aabb_is_empty<f32>(pointer_region) && rect_intersects<f32>(pointer_region, output->viewport) && use_cursor_plane
                 ? server->cursor_image.get()
                 : nullptr,
             .position = vec_cast<i32>(pointer_region.origin - output->viewport.origin),
@@ -155,19 +155,17 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     auto use_cursor_plane = server->cursor_image_valid && !server->debug.disable_cursor_plane;
 
     auto composited_cursor_bounds = use_cursor_plane ? aabb_make_empty<f32>() : get_cursor_bounds(server);
+    composited_cursor_bounds = aabb_inner<f32>(composited_cursor_bounds, output->viewport);
     if (output->last_cursor_bounds != composited_cursor_bounds || (!use_cursor_plane && output->cursor_damaged)) {
-        auto cursor_damage = Region<f32>{output->last_cursor_bounds};
-        cursor_damage = region_op(cursor_damage, Region<f32>(composited_cursor_bounds), RegionOp::merge);
-        cursor_damage = region_op(cursor_damage, Region<f32>(output->viewport), RegionOp::intersect);
+        auto cursor_damage = region_op(Region<f32>{output->last_cursor_bounds}, Region<f32>(composited_cursor_bounds), RegionOp::merge);
         output->primary_damage = region_op( output->primary_damage, cursor_damage, RegionOp::merge);
         output->last_cursor_bounds = composited_cursor_bounds;
     }
 
     // Try direct scanout
 
-    if ((use_cursor_plane || aabb_is_empty(composited_cursor_bounds))
-            && try_direct_scanout(output, formats, use_cursor_plane)) {
-        return true;
+    if (use_cursor_plane || aabb_is_empty(composited_cursor_bounds)) {
+        if (try_direct_scanout(output, formats, use_cursor_plane)) return true;
     }
 
     // Update primary surface
