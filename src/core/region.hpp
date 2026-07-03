@@ -79,7 +79,7 @@ struct Region
     constexpr
     auto bounds() const noexcept -> Aabb<T>
     {
-        auto bounds = Aabb<T>::empty();
+        auto bounds = aabb_make_empty<T>();
         if (empty()) return bounds;
         bounds.min.y = bands.front().min;
         bounds.max.y = bands.back().max;
@@ -111,6 +111,19 @@ struct Region
             if (needle.min.y < band.min || needle.max.y >= band.max) continue;
             for (auto& section : std::span(sections).subspan(band.start, band.count)) {
                 if (needle.min.x >= section.min && needle.max.x < section.max) return true;
+            }
+        }
+        return false;
+    }
+
+    template<typename T2>
+    constexpr
+    auto intersects(Aabb<T2> needle) const -> bool
+    {
+        for (auto& band : bands) {
+            if (needle.min.y >= band.max || needle.max.y <= band.min) continue;
+            for (auto& section : std::span(sections).subspan(band.start, band.count)) {
+                if (needle.min.x < section.max && needle.max.x > section.min) return true;
             }
         }
         return false;
@@ -261,7 +274,11 @@ void region_op(Region<T, CO>& out, const Region<T, CA>& region_a, const Region<T
         });
 }
 
-// -----------------------------------------------------------------------------
-
-using region2i32 = Region<i32>;
-using region2f32 = Region<f32>;
+template<typename T, template<typename C> typename CA, template<typename C> typename CB>
+constexpr
+auto region_op(const Region<T, CA>& region_a, const Region<T, CB>& region_b, RegionOp op) -> Region<T>
+{
+    Region<T> out;
+    region_op(out, region_a, region_b, op);
+    return out;
+}

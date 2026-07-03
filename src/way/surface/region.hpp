@@ -11,7 +11,7 @@ struct WayRegion
 {
     WayResource resource;
 
-    region2f32 region;
+    Region<f32> region;
 };
 
 // -----------------------------------------------------------------------------

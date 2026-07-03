@@ -56,10 +56,11 @@ struct WmOutput
     vec2u32 pixel_size;
     rect2f32 viewport;
 
-    region2f32 damage;
+    Region<f32> primary_damage;
+    aabb2f32   last_cursor_bounds;
+    bool       cursor_damaged;
 
     Ref<GpuImage> primary_image;
-    u64           primary_version = 0;
 
     // TODO: Partial redraws
     bool needs_redraw = false;
@@ -91,6 +92,7 @@ struct WmServer
 
     struct {
         bool show_damage = false;
+        bool disable_cursor_plane = false;
     } debug;
 
     Ref<SeatManager> seat_manager;
@@ -98,6 +100,7 @@ struct WmServer
     Ref<SceneRenderer>               scene_renderer;
     Ref<SceneTree>                   scene_root;
     Listener<SceneDamageCallback>    scene_damage_listener;
+    Listener<SceneDamageCallback>    scene_primary_damage_listener;
     EnumMap<WmLayer, Ref<SceneTree>> scene_layers;
     // The primary tree includes everything that should always be composited onto a "primary" KMS plane
     // This allows us to track damage for "primary" and "cursor" planes independently, while sharing the same scene root
@@ -108,7 +111,7 @@ struct WmServer
     Ref<GpuImage>                 cursor_image;
     rect2f32                      cursor_image_bounds;
     bool                          cursor_image_valid;
-    u64                           cursor_version = 0;
+    bool                          cursor_needs_redraw;
     Listener<SceneDamageCallback> cursor_damage_listener;
 
     SeatModifier main_mod;
@@ -201,6 +204,7 @@ void wm_interaction_set_mode(WmServer*, WmInteractionMode);
 
 void wm_cursor_visual_update(WmServer*);
 void wm_cursor_init(WmServer*);
+void wm_prepare_cursor_image(WmServer*);
 
 // -----------------------------------------------------------------------------
 
@@ -276,7 +280,7 @@ struct WmPointerConstraint
 
     WmPointerConstraintType type;
 
-    region2f32 region;
+    Region<f32> region;
 
     ~WmPointerConstraint();
 };

@@ -162,8 +162,6 @@ using  WmCursorVisual = std::variant<WmCursorUnset, Weak<SceneNode>, std::string
 
 void wm_set_cursor(WmClient*, WmCursorVisual visual);
 
-void wm_prepare_cursor_image(WmServer*);
-
 // -----------------------------------------------------------------------------
 
 void wm_begin_selection(WmServer*, SeatPointer*, std::move_only_function<void(rect2f32)>);
@@ -222,8 +220,8 @@ enum class WmPointerConstraintType
     confined
 };
 
-auto wm_constrain_pointer(WmWindow*, SceneInputRegion*, region2f32, WmPointerConstraintType) -> Ref<WmPointerConstraint>;
-void wm_pointer_constraint_set_region(WmPointerConstraint*, region2f32);
+auto wm_constrain_pointer(WmWindow*, SceneInputRegion*, Region<f32>, WmPointerConstraintType) -> Ref<WmPointerConstraint>;
+void wm_pointer_constraint_set_region(WmPointerConstraint*, Region<f32>);
 
 // -----------------------------------------------------------------------------
 

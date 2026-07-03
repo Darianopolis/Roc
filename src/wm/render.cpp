@@ -48,7 +48,7 @@ auto get_topmost_texture(SceneTree* tree, rect2f32 viewport) -> SceneTexture*
 }
 
 static
-bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
+bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats, bool use_cursor_plane)
 {
     auto* server = output->server;
 
@@ -90,7 +90,7 @@ bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
     // TODO: We need to QFOT the image back to foreign in this case
     //       We should delay QFOT from foreign to avoid needing to do this on what should be the fast-path
 
-    bool committed = try_commit(output, image, true);
+    bool committed = try_commit(output, image, use_cursor_plane);
 
 #if WM_NOISY_COMPOSITING
     if (!committed) {
@@ -99,6 +99,30 @@ bool try_direct_scanout(WmOutput* output, const GpuFormatSet* formats)
 #endif
 
     return committed;
+}
+
+static
+auto get_cursor_bounds(WmServer* server) -> aabb2f32
+{
+    aabb2f32 new_cursor_region = aabb_make_empty<f32>();
+    [&](this auto&& visit, SceneNode* node, vec2f32 translation) -> void {
+        scene_visit(node, OverloadSet {
+            [&](SceneTexture* texture) {
+                auto dst = texture->dst;
+                dst.origin += translation;
+                new_cursor_region = aabb_outer<f32>(new_cursor_region, dst);
+            },
+            [&](SceneTree* tree) {
+                if (!tree->enabled) return;
+                translation += tree->translation;
+                for (auto* child : tree->children) {
+                    visit(child, translation);
+                }
+            },
+            [&](SceneInputRegion*) {}
+        });
+    }(wm_get_layer(server, WmLayer::cursor), {});
+    return new_cursor_region;
 }
 
 auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
@@ -120,20 +144,35 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
 
     if (!output->needs_redraw) return false;
 
-    wm_prepare_cursor_image(server);
-
     output->needs_redraw = false;
     output->bump_frame_id = true;
 
-    auto use_cursor_plane = server->cursor_image_valid && !server->debug.show_damage;
+    defer { output->primary_damage.clear(); };
 
-    if (use_cursor_plane && try_direct_scanout(output, formats)) {
+    // Cursor
+
+    wm_prepare_cursor_image(server);
+    auto use_cursor_plane = server->cursor_image_valid && !server->debug.disable_cursor_plane;
+
+    auto composited_cursor_bounds = use_cursor_plane ? aabb_make_empty<f32>() : get_cursor_bounds(server);
+    if (output->last_cursor_bounds != composited_cursor_bounds || (!use_cursor_plane && output->cursor_damaged)) {
+        auto cursor_damage = Region<f32>{output->last_cursor_bounds};
+        cursor_damage = region_op(cursor_damage, Region<f32>(composited_cursor_bounds), RegionOp::merge);
+        cursor_damage = region_op(cursor_damage, Region<f32>(output->viewport), RegionOp::intersect);
+        output->primary_damage = region_op( output->primary_damage, cursor_damage, RegionOp::merge);
+        output->last_cursor_bounds = composited_cursor_bounds;
+    }
+
+    // Try direct scanout
+
+    if ((use_cursor_plane || aabb_is_empty(composited_cursor_bounds))
+            && try_direct_scanout(output, formats, use_cursor_plane)) {
         return true;
     }
 
-    if (output->primary_version != server->scene_primary_tree->version || !use_cursor_plane) {
-        output->primary_version = use_cursor_plane ? server->scene_primary_tree->version : 0;
+    // Update primary surface
 
+    if (!output->primary_damage.empty()) {
         auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
         auto usage = GpuImageUsage::render;
 
@@ -149,16 +188,18 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
 
         Flags<SceneRenderOption> flags = {};
         if (server->debug.show_damage) flags |= SceneRenderOption::show_damage;
-        scene_render(wm_get_scene_renderer(server),
-            use_cursor_plane
+        scene_render(wm_get_scene_renderer(server), {
+            .options = flags,
+            .root = use_cursor_plane
                 ? server->scene_primary_tree.get()
                 : server->scene_root.get(),
-            output->primary_image.get(),
-            wm_output_get_viewport(output),
-            &output->damage,
-            flags);
-        output->damage.clear();
+            .target = output->primary_image.get(),
+            .viewport = wm_output_get_viewport(output),
+            .damage = &output->primary_damage,
+        });
     }
+
+    // Commit composited result
 
     bool committed = try_commit(output, output->primary_image.get(), use_cursor_plane);
     if (!committed) {

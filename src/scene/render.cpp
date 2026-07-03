@@ -60,13 +60,12 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
     return renderer;
 }
 
-void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, rect2f32 viewport,
-                  const region2f32* damage, Flags<SceneRenderOption> options)
+void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
     std::vector<SceneQuad> quads;
 
     ankerl::unordered_dense::set<void*> reads;
-    ankerl::unordered_dense::set<void*> writes{target};
+    ankerl::unordered_dense::set<void*> writes{info.target};
 
     auto draw_texture = [&](SceneTexture* texture, vec2f32 translation, f32 opacity) {
         aabb2f32 src = texture->src;
@@ -74,7 +73,7 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
 
         dst.origin += translation;
 
-        if (!rect_intersects(viewport, dst)) {
+        if (!aabb_intersects<f32>(info.viewport, dst)) {
             return;
         }
 
@@ -113,13 +112,13 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
             },
             [&](SceneInputRegion*) {}
         });
-    }(node, {}, 1.f);
+    }(info.root, {}, 1.f);
 
-    if (damage && options.contains(SceneRenderOption::show_damage)) {
-        auto step = std::max(0.f, 1.f / damage->sections.size());
+    if (info.damage && info.options.contains(SceneRenderOption::show_damage)) {
+        auto step = std::max(0.f, 1.f / info.damage->sections.size());
         usz i = 0;
-        for (auto& band : damage->bands) {
-            for (auto& section : std::span(damage->sections).subspan(band.start, band.count)) {
+        for (auto& band : info.damage->bands) {
+            for (auto& section : std::span(info.damage->sections).subspan(band.start, band.count)) {
                 auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.5f};
                 auto rgb = color_hsv_to_rgb(hsv);
                 quads.emplace_back(SceneQuad {
@@ -138,19 +137,19 @@ void scene_render(SceneRenderer* renderer, SceneNode* node, GpuImage* target, re
 
     // Record
 
-    auto draw_scale = 2.f / viewport.extent;
-    auto draw_offset = -viewport.origin * draw_scale - 1.f;
+    auto draw_scale = 2.f / info.viewport.extent;
+    auto draw_offset = -info.viewport.origin * draw_scale - 1.f;
 
     gpu_render(renderer->gpu, {
-        .target = target,
+        .target = info.target,
         .clear_color = {{0,0,0,0}},
         .reads = &reads,
         .writes = &writes,
     }, [&](GpuRenderPass* pass) {
-        gpu_set_viewports(pass, {{{{}, vec_cast<f32>(target->base()->extent), xywh}}});
-        gpu_set_scissors( pass, {{{{}, vec_cast<i32>(target->base()->extent), xywh}}});
+        gpu_set_viewports(pass, {{{{}, vec_cast<f32>(info.target->base()->extent), xywh}}});
+        gpu_set_scissors( pass, {{{{}, vec_cast<i32>(info.target->base()->extent), xywh}}});
 
-        gpu_bind_pipeline(pass, get_pipeline(renderer, target->base()->format));
+        gpu_bind_pipeline(pass, get_pipeline(renderer, info.target->base()->format));
         gpu_bind_index_buffer(pass, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
 
         gpu_push_constants(pass, 0, view_bytes(SceneRenderInput {

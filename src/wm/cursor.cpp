@@ -87,13 +87,13 @@ void wm_prepare_cursor_image(WmServer* server)
     auto* pointer = seat_get_pointer(wm_get_seat(server));
     auto* pointer_tree = seat_pointer_get_tree(pointer);
 
-    if (server->cursor_version == pointer_tree->version) return;
+    if (!server->cursor_needs_redraw) return;
 
 #if WM_NOISY_CURSOR_IMAGE
     log_warn("Updating cursor image");
 #endif
 
-    server->cursor_version = pointer_tree->version;
+    server->cursor_needs_redraw = false;
 
     {
         aabb2f32 bounds{{INFINITY, INFINITY}, {-INFINITY, -INFINITY}, minmax};
@@ -146,8 +146,11 @@ void wm_prepare_cursor_image(WmServer* server)
         }, [](GpuRenderPass*) {});
         server->cursor_image_bounds = {seat_pointer_get_position(pointer), {}, xywh};
     } else {
-        scene_render(server->scene_renderer.get(), pointer_tree, server->cursor_image.get(),
-            {server->cursor_image_bounds.origin, vec_cast<f32>(extent), xywh});
+        scene_render(server->scene_renderer.get(), {
+            .root = pointer_tree,
+            .target = server->cursor_image.get(),
+            .viewport = {server->cursor_image_bounds.origin, vec_cast<f32>(extent), xywh},
+        });
     }
 }
 
@@ -176,12 +179,17 @@ void wm_cursor_init(WmServer* server)
 
     server->cursor_damage_listener = seat_pointer_get_tree(seat_get_pointer(wm_get_seat(server)))->signals.damage.listen(
         [server](vec2f32 offset, const SceneDamage& damage) {
+            for (auto* output : server->io.outputs) {
+                output->cursor_damaged = true;
+            }
+            server->cursor_needs_redraw = true;
             exec_enqueue(server->exec, [server = Weak(server)] {
                 if (!server) return;
                 wm_cursor_visual_update(server.get());
             });
         });
 
+    server->cursor_needs_redraw = true;
     wm_cursor_visual_update(server);
 }
 

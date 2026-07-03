@@ -64,7 +64,11 @@ void renderdoc_capture(Shell* shell)
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
             .usage = GpuImageUsage::render
         });
-        scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), texture.get(), viewport);
+        scene_render(wm_get_scene_renderer(wm), {
+            .root = wm_get_scene(wm),
+            .target = texture.get(),
+            .viewport = viewport,
+        });
         gpu_flush(gpu);
     }
     gpu->renderdoc->EndFrameCapture(nullptr, nullptr);
@@ -95,7 +99,11 @@ void take_screenshot(Shell* shell, rect2f32 region)
 
     auto buffer = gpu_buffer_create(gpu, extent.x * extent.y * 4, GpuBufferFlag::host);
 
-    scene_render(wm_get_scene_renderer(wm), wm_get_scene(wm), texture.get(), region);
+    scene_render(wm_get_scene_renderer(wm), {
+        .root = wm_get_scene(wm),
+        .target = texture.get(),
+        .viewport = region,
+    });
     gpu_copy_image_to_buffer(buffer.get(), texture.get());
 
     gpu_wait(gpu_flush(gpu), [buffer, extent, dir = shell->app_share](u64) {
@@ -191,6 +199,7 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                         if (!shell) return;
                         take_screenshot(shell.get(), region);
                     });
+                    return SeatEventFilterResult::capture;
                 }
             }
         }

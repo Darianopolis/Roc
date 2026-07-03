@@ -128,6 +128,40 @@ struct std::formatter<Aabb<T>> {
 
 // -----------------------------------------------------------------------------
 
+template<typename T>
+consteval
+auto aabb_make_empty() -> Aabb<T>
+{
+    if constexpr (std::numeric_limits<T>::has_infinity) {
+        auto inf = std::numeric_limits<T>::infinity();
+        return {{inf, inf}, {-inf, -inf}, minmax};
+    } else {
+        auto min = std::numeric_limits<T>::lowest();
+        auto max = std::numeric_limits<T>::max();
+        return {{max, max}, {min, min}, minmax};
+    }
+}
+
+template<typename T>
+consteval
+auto aabb_make_infinite() -> Aabb<T>
+{
+    if constexpr (std::numeric_limits<T>::has_infinity) {
+        auto inf = std::numeric_limits<T>::infinity();
+        return {{-inf, -inf}, {inf, inf}, minmax};
+    } else {
+        auto min = std::numeric_limits<T>::lowest();
+        auto max = std::numeric_limits<T>::max();
+        return {{min, min}, {max, max}, minmax};
+    }
+}
+
+template<typename T>
+auto aabb_is_empty(const Aabb<T>& aabb) -> bool
+{
+    return aabb.min.x >= aabb.max.x || aabb.min.y >= aabb.max.y;
+}
+
 template<typename To, typename From>
 constexpr
 auto aabb_cast(const Rect<From>& from) -> Aabb<To>
@@ -304,5 +338,5 @@ auto pixel_round(Rect<In> rect, Rect<In>* remainder = nullptr) -> Rect<Out>
             xywh,
         };
     }
-    return { origin, extent, xywh };
+    return rect_cast<Out>(Rect<In>{ origin, extent, xywh });
 }

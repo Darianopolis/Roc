@@ -53,7 +53,7 @@ void constrain_pointer(
         surface->scene.input_region.get(),
         region
             ? region->region
-            : region2f32{way_infinite_aabb},
+            : Region<f32>{aabb_make_infinite<f32>()},
         type);
 
     way_surface_addon_register(surface, constraint.get());

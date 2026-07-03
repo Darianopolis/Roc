@@ -204,7 +204,7 @@ void set_input_region(wl_client* client, wl_resource* resource, wl_resource* reg
     pending->set |= WaySurfaceStateComponent::input_region;
     pending->surface.input_region = region
         ? way_get_userdata<WayRegion>(region)->region
-        : region2f32{way_infinite_aabb};
+        : Region<f32>{aabb_make_infinite<f32>()};
 }
 
 WaySurfaceState::~WaySurfaceState()

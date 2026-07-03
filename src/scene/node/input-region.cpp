@@ -30,7 +30,7 @@ auto scene_input_region_create() -> Ref<SceneInputRegion>
     return region;
 }
 
-void scene_input_region_set_region(SceneInputRegion* input_region, region2f32 region)
+void scene_input_region_set_region(SceneInputRegion* input_region, Region<f32> region)
 {
     if (input_region->region == region) return;
 

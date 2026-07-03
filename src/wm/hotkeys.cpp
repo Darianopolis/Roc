@@ -36,7 +36,14 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                     break;case KEY_K:
                         server->debug.show_damage = !server->debug.show_damage;
                         for (auto* output : server->io.outputs) {
-                            output->damage.clear();
+                            output->needs_redraw = true;
+                            output->primary_damage = Region<f32>{output->viewport};
+                            output->interface.request_frame(output->userdata);
+                        }
+                        return SeatEventFilterResult::capture;
+                    break;case KEY_L:
+                        server->debug.disable_cursor_plane = !server->debug.disable_cursor_plane;
+                        for (auto* output : server->io.outputs) {
                             output->needs_redraw = true;
                             output->interface.request_frame(output->userdata);
                         }

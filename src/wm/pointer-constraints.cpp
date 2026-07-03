@@ -12,7 +12,7 @@ void wm_pointer_constraints_init(WmServer* server)
     });
 }
 
-auto wm_constrain_pointer(WmWindow* window, SceneInputRegion* input_region, region2f32 region, WmPointerConstraintType type) -> Ref<WmPointerConstraint>
+auto wm_constrain_pointer(WmWindow* window, SceneInputRegion* input_region, Region<f32> region, WmPointerConstraintType type) -> Ref<WmPointerConstraint>
 {
     auto constraint = ref_create<WmPointerConstraint>();
     constraint->server = window->client->server;
@@ -23,13 +23,13 @@ auto wm_constrain_pointer(WmWindow* window, SceneInputRegion* input_region, regi
     auto* server = window->client->server;
     server->pointer_constraints.insert(server->pointer_constraints.begin(), constraint.get());
 
-    wm_pointer_constraint_set_region(constraint.get(), region);
+    wm_pointer_constraint_set_region(constraint.get(), std::move(region));
     return constraint;
 }
 
-void wm_pointer_constraint_set_region(WmPointerConstraint* constraint, region2f32 region)
+void wm_pointer_constraint_set_region(WmPointerConstraint* constraint, Region<f32> region)
 {
-    constraint->region = region;
+    constraint->region = std::move(region);
 }
 
 WmPointerConstraint::~WmPointerConstraint()

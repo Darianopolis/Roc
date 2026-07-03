@@ -151,19 +151,6 @@ struct Aabb
     {}
 
     constexpr auto operator==(const Aabb<T>& other) const -> bool = default;
-
-    static
-    auto empty() -> Aabb
-    {
-        if constexpr (std::numeric_limits<T>::has_infinity) {
-            auto inf = std::numeric_limits<T>::infinity();
-            return {{inf, inf}, {-inf, -inf}, minmax};
-        } else {
-            auto min = std::numeric_limits<T>::lowest();
-            auto max = std::numeric_limits<T>::max();
-            return {{max, max}, {min, min}, minmax};
-        }
-    }
 };
 
 using aabb2i32 = Aabb<i32>;

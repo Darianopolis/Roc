@@ -58,8 +58,6 @@ enum class WaySurfaceStateComponent : u32
 struct WayPositioner;
 struct WayBuffer;
 
-static constexpr aabb2f32 way_infinite_aabb = {{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, minmax};
-
 struct WaySurfaceState
 {
     Flags<WaySurfaceStateComponent> set;
@@ -68,8 +66,8 @@ struct WaySurfaceState
     struct {
         WayResourceList frame_callbacks;
         vec2i32         offset;
-        region2f32      opaque_region;
-        region2f32      input_region = {way_infinite_aabb};
+        Region<f32>     opaque_region;
+        Region<f32>     input_region = {aabb_make_infinite<f32>()};
         WayDamageRegion damage;
     } surface;
 

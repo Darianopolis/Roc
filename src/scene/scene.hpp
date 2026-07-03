@@ -23,8 +23,16 @@ enum class SceneRenderOption : u32
     show_damage = 1 << 0,
 };
 
-void scene_render(SceneRenderer*, SceneNode*, GpuImage* target, rect2f32 viewport,
-                  const region2f32* damage = nullptr, Flags<SceneRenderOption> options = {});
+struct SceneRenderInfo
+{
+    Flags<SceneRenderOption> options;
+    SceneNode* root;
+    GpuImage* target;
+    rect2f32 viewport;
+    const Region<f32>* damage;
+};
+
+void scene_render(SceneRenderer*, const SceneRenderInfo&);
 
 // -----------------------------------------------------------------------------
 
@@ -36,7 +44,7 @@ enum class SceneDamageType : u32
 
 struct SceneDamage
 {
-    region2f32             region;
+    Region<f32>            region;
     Flags<SceneDamageType> types;
 };
 
@@ -54,8 +62,6 @@ struct SceneNode
     SceneNodeType type;
     SceneTree*    parent;
     vec2f32       translation;
-
-    u64 version = 1;
 
     struct {
         Signal<SceneDamageCallback> damage;
@@ -100,14 +106,14 @@ auto scene_tree_get_position(   SceneTree*) -> vec2f32;
 
 struct SceneInputRegion : SceneNode
 {
-    region2f32 region = {{{-INFINITY, -INFINITY}, {INFINITY, INFINITY}, minmax}};
+    Region<f32> region = {aabb_make_infinite<f32>()};
     rect2f32   clip;
 
     ~SceneInputRegion();
 };
 
 auto scene_input_region_create() -> Ref<SceneInputRegion>;
-void scene_input_region_set_region(SceneInputRegion*, region2f32);
+void scene_input_region_set_region(SceneInputRegion*, Region<f32>);
 void scene_input_region_set_clip(SceneInputRegion*, rect2f32);
 auto scene_find_input_region_at(SceneTree*, vec2f32 pos) -> SceneInputRegion*;
 

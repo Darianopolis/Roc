@@ -299,29 +299,11 @@ void handle_damage(WmServer* server, vec2f32 offset, const SceneDamage& damage)
     }
 
     if (damage.types.contains(SceneDamageType::visual)) {
-        rect2f32 region = damage.region.bounds();
-        region.origin += offset;
-
         for (auto* output : server->io.outputs) {
-            if (rect_intersects(region, output->viewport)) {
-                if (server->debug.show_damage) {
-                    region2f32 damage_in = damage.region;
-                    for (auto& band : damage_in.bands) {
-                        band.min += offset.y;
-                        band.max += offset.y;
-                    }
-                    for (auto& section : damage_in.sections) {
-                        section.min += offset.x;
-                        section.max += offset.x;
-                    }
+            rect2f32 viewport = output->viewport;
+            viewport.origin -= offset;
 
-                    region2f32 damage_out;
-                    region_op(damage_out, output->damage, damage_in, RegionOp::merge);
-                    output->damage = std::move(damage_out);
-
-                    // log_trace("damage sections {} bands {}", output->damage.sections.size(), output->damage.bands.size());
-                }
-
+            if (damage.region.intersects<f32>(viewport)) {
                 output->needs_redraw = true;
                 output->interface.request_frame(output->userdata);
             }
@@ -329,9 +311,44 @@ void handle_damage(WmServer* server, vec2f32 offset, const SceneDamage& damage)
     }
 }
 
+static
+void handle_primary_damage(WmServer* server, vec2f32 offset, const SceneDamage& damage)
+{
+    if (!damage.types.contains(SceneDamageType::visual)) return;
+
+    for (auto* output : server->io.outputs) {
+        rect2f32 viewport = output->viewport;
+        viewport.origin -= offset;
+
+        if (damage.region.intersects<f32>(viewport)) {
+            auto damage_in = damage.region;
+            for (auto& band : damage_in.bands) {
+                band.min += offset.y;
+                band.max += offset.y;
+            }
+            for (auto& section : damage_in.sections) {
+                section.min += offset.x;
+                section.max += offset.x;
+            }
+
+            damage_in = region_op(damage_in, Region<f32>{output->viewport}, RegionOp::intersect);
+            output->primary_damage = region_op(output->primary_damage, damage_in, RegionOp::merge);
+
+            output->needs_redraw = true;
+            output->interface.request_frame(output->userdata);
+        }
+    }
+}
+
 void wm_init_io(WmServer* server)
 {
-    server->scene_damage_listener = wm_get_scene(server)->signals.damage.listen([server](vec2f32 offset, const SceneDamage& damage) {
-        handle_damage(server, offset, damage);
-    });
+    server->scene_damage_listener = wm_get_scene(server)->signals.damage.listen(
+        [server](vec2f32 offset, const SceneDamage& damage) {
+            handle_damage(server, offset, damage);
+        });
+
+    server->scene_primary_damage_listener = server->scene_primary_tree->signals.damage.listen(
+        [server](vec2f32 offset, const SceneDamage& damage) {
+            handle_primary_damage(server, offset, damage);
+        });
 }
