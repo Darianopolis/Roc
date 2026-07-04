@@ -26,18 +26,13 @@ struct RegionBand
     auto operator==(const RegionBand&) const noexcept -> bool = default;
 };
 
-enum class RegionOp
-{
-    merge,
-    subtract,
-    intersect,
-};
-
-template<typename T, template<typename C> typename Container = std::vector>
+template<typename T, typename S = std::vector<RegionSection<T>>, typename B = std::vector<RegionBand<T>>>
 struct Region
 {
-    Container<RegionSection<T>> sections;
-    Container<RegionBand<T>>    bands;
+    using scalar_type = T;
+
+    S sections;
+    B bands;
 
     // Invariants
     //  - Bands are never empty                             Band::count > 0
@@ -52,9 +47,9 @@ struct Region
     constexpr
     Region(Aabb<T> aabb)
     {
-        if (aabb.min.x < aabb.max.x && aabb.min.y < aabb.max.y) {
-            sections.emplace_back(aabb.min.x, aabb.max.x);
-            bands.emplace_back(aabb.min.y, aabb.max.y, 0, 1);
+        if (!aabb_is_empty(aabb)) {
+            sections = {{aabb.min.x, aabb.max.x}};
+            bands = {{aabb.min.y, aabb.max.y, 0, 1}};
         }
     }
 
@@ -152,57 +147,45 @@ struct Region
 
         return closest;
     }
-
-    // Convenience
-
-    constexpr
-    void add(Aabb<T> addition)
-    {
-        Region<T> out;
-
-        RegionSection<T> section{addition.min.x, addition.max.x};
-        RegionBand<T> band{addition.min.y, addition.max.y, 0, 1};
-        Region<T, std::span> temp;
-        temp.sections = std::span(&section, 1);
-        temp.bands = std::span(&band, 1);
-
-        region_op(out, *this, temp, RegionOp::merge);
-        *this = std::move(out);
-    }
-
-    constexpr
-    void subtract(Aabb<T> addition)
-    {
-        Region<T> out;
-
-        RegionSection<T> section{addition.min.x, addition.max.x};
-        RegionBand<T> band{addition.min.y, addition.max.y, 0, 1};
-        Region<T, std::span> temp;
-        temp.sections = std::span(&section, 1);
-        temp.bands = std::span(&band, 1);
-
-        region_op(out, *this, temp, RegionOp::subtract);
-        *this = std::move(out);
-    }
 };
 
-template<typename T, template<typename C> typename CO, template<typename C> typename CA, template<typename C> typename CB>
+template<typename T>
+using RegionSingle = Region<T, std::optional<RegionSection<T>>, std::optional<RegionBand<T>>>;
+
+using RegionOpUnion     = decltype([](bool a, bool b) constexpr { return a ||  b; });
+using RegionOpSubtract  = decltype([](bool a, bool b) constexpr { return a && !b; });
+using RegionOpIntersect = decltype([](bool a, bool b) constexpr { return a &&  b; });
+
+template<typename Op, typename RO, typename RA, typename RB>
+    requires std::same_as<typename RO::scalar_type, typename RA::scalar_type>
+          && std::same_as<typename RA::scalar_type, typename RB::scalar_type>
 constexpr
-void region_op(Region<T, CO>& out, const Region<T, CA>& region_a, const Region<T, CB>& region_b, RegionOp op)
+void region_op(RO& out, const RA& region_a, const RB& region_b, const Op& op = Op{})
 {
-    if constexpr (std::same_as<Region<T, CO>, Region<T, CA>>) debug_assert(&out != &region_a);
-    if constexpr (std::same_as<Region<T, CO>, Region<T, CB>>) debug_assert(&out != &region_b);
+    using T = RO::scalar_type;
+
+    bool in_place = false;
+    if constexpr (std::same_as<std::remove_cvref_t<RO>, std::remove_cvref_t<RA>>) in_place |= &out == &region_a;
+    if constexpr (std::same_as<std::remove_cvref_t<RO>, std::remove_cvref_t<RB>>) in_place |= &out == &region_b;
+    if (in_place) {
+        RO tmp = {};
+        region_op<Op>(tmp, region_a, region_b);
+        out = std::move(tmp);
+        return;
+    }
 
     out.bands.clear();
     out.sections.clear();
 
     static constexpr auto for_each_subrange = [](const auto& as, const auto& bs, auto&& f) {
-        if (as.empty() && bs.empty()) return;
+        bool no_as = as.begin() == as.end();
+        bool no_bs = bs.begin() == bs.end();
+        if (no_as && no_bs) return;
 
         auto a = as.begin();
         auto b = bs.begin();
 
-        T cur = as.empty() ? b->min : (bs.empty() ? a->min : std::min(a->min, b->min));
+        T cur = no_as ? b->min : (no_bs ? a->min : std::min(a->min, b->min));
 
         for (;;) {
             T a_next = cur;
@@ -236,13 +219,7 @@ void region_op(Region<T, CO>& out, const Region<T, CA>& region_a, const Region<T
                 band_a ? std::span(region_a.sections).subspan(band_a->start, band_a->count) : std::span<RegionSection<T>>(),
                 band_b ? std::span(region_b.sections).subspan(band_b->start, band_b->count) : std::span<RegionSection<T>>(),
                 [&](T begin, T end, const RegionSection<T>* sec_a, const RegionSection<T>* sec_b) {
-                    bool include = false;
-                    switch (op) {
-                        break;case RegionOp::merge:     include = sec_a ||  sec_b;
-                        break;case RegionOp::subtract:  include = sec_a && !sec_b;
-                        break;case RegionOp::intersect: include = sec_a &&  sec_b;
-                    }
-                    if (!include) return;
+                    if (!op(sec_a, sec_b)) return;
 
                     if (old_section_offset == out.sections.size() || out.sections.back().max != begin) {
                         // Append
@@ -274,11 +251,12 @@ void region_op(Region<T, CO>& out, const Region<T, CA>& region_a, const Region<T
         });
 }
 
-template<typename T, template<typename C> typename CA, template<typename C> typename CB>
+template<typename Op, typename RA, typename RB>
+    requires std::same_as<typename RA::scalar_type, typename RB::scalar_type>
 constexpr
-auto region_op(const Region<T, CA>& region_a, const Region<T, CB>& region_b, RegionOp op) -> Region<T>
+auto region_op(const RA& region_a, const RB& region_b, const Op& op = Op{}) -> Region<typename RA::scalar_type>
 {
-    Region<T> out;
-    region_op(out, region_a, region_b, op);
+    Region<typename RA::scalar_type> out = {};
+    region_op<Op>(out, region_a, region_b, op);
     return out;
 }

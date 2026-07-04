@@ -17,7 +17,7 @@ bool try_commit(WmOutput* output, GpuImage* primary, bool use_cursor_plane)
     return output->interface.commit(output->userdata, {
         .primary { .image = primary },
         .cursor {
-            .image = !aabb_is_empty<f32>(pointer_region) && rect_intersects<f32>(pointer_region, output->viewport) && use_cursor_plane
+            .image = use_cursor_plane && !aabb_is_empty<f32>(pointer_region) && rect_intersects<f32>(pointer_region, output->viewport)
                 ? server->cursor_image.get()
                 : nullptr,
             .position = vec_cast<i32>(pointer_region.origin - output->viewport.origin),
@@ -147,8 +147,6 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     output->needs_redraw = false;
     output->bump_frame_id = true;
 
-    defer { output->primary_damage.clear(); };
-
     // Cursor
 
     wm_prepare_cursor_image(server);
@@ -157,15 +155,20 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     auto composited_cursor_bounds = use_cursor_plane ? aabb_make_empty<f32>() : get_cursor_bounds(server);
     composited_cursor_bounds = aabb_inner<f32>(composited_cursor_bounds, output->viewport);
     if (output->last_cursor_bounds != composited_cursor_bounds || (!use_cursor_plane && output->cursor_damaged)) {
-        auto cursor_damage = region_op(Region<f32>{output->last_cursor_bounds}, Region<f32>(composited_cursor_bounds), RegionOp::merge);
-        output->primary_damage = region_op( output->primary_damage, cursor_damage, RegionOp::merge);
+        auto cursor_damage = region_op<RegionOpUnion>(RegionSingle<f32>(output->last_cursor_bounds),
+                                                      RegionSingle<f32>(composited_cursor_bounds));
+        region_op<RegionOpUnion>(output->primary_damage, output->primary_damage, cursor_damage);
         output->last_cursor_bounds = composited_cursor_bounds;
     }
 
     // Try direct scanout
 
     if (use_cursor_plane || aabb_is_empty(composited_cursor_bounds)) {
-        if (try_direct_scanout(output, formats, use_cursor_plane)) return true;
+        if (try_direct_scanout(output, formats, use_cursor_plane)) {
+            // Set infinite damage to avoid accumulating damage cruft
+            output->primary_damage = aabb_make_infinite<f32>();
+            return true;
+        }
     }
 
     // Update primary surface
@@ -195,6 +198,7 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
             .viewport = wm_output_get_viewport(output),
             .damage = &output->primary_damage,
         });
+        output->primary_damage.clear();
     }
 
     // Commit composited result

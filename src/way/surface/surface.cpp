@@ -7,10 +7,12 @@
 WAY_INTERFACE(wl_region) = {
     .destroy = way_simple_destroy,
     .add = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
-        way_get_userdata<WayRegion>(resource)->region.add({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh});
+        auto region = way_get_userdata<WayRegion>(resource);
+        region_op<RegionOpUnion>(region->region, region->region, RegionSingle<f32>({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh}));
     },
     .subtract = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
-        way_get_userdata<WayRegion>(resource)->region.subtract({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh});
+        auto region = way_get_userdata<WayRegion>(resource);
+        region_op<RegionOpSubtract>(region->region, region->region, RegionSingle<f32>({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh}));
     }
 };
 

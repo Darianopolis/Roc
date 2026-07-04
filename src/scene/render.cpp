@@ -122,7 +122,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
                 auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.5f};
                 auto rgb = color_hsv_to_rgb(hsv);
                 quads.emplace_back(SceneQuad {
-                    .dst = {{section.min, band.min}, {section.max, band.max}, minmax},
+                    .dst = aabb_inner<f32>({{section.min, band.min}, {section.max, band.max}, minmax}, info.viewport),
                     .texture = {renderer->white.get(), renderer->nearest.get()},
                     .src = {{}, {1, 1}, xywh},
                     .tint = vec_cast<u8>(rgb * 255.f),

@@ -52,6 +52,7 @@ void reflow_outputs(WmServer* server, bool any_changed = false)
             }
         }));
         for (auto* output : server->io.outputs) {
+            output->primary_damage = aabb_make_infinite<f32>();
             output->interface.request_frame(output->userdata);
         }
     }
@@ -63,6 +64,8 @@ auto wm_output_create(WmServer* server, void* userdata, WmOutputInterface interf
     output->server = server;
     output->userdata = userdata;
     output->interface = interface;
+
+    output->primary_damage = aabb_make_infinite<f32>();
 
     server->io.outputs.emplace_back(output.get());
     wm_broadcast_event(server, ptr_to(WmEvent {
@@ -331,8 +334,8 @@ void handle_primary_damage(WmServer* server, vec2f32 offset, const SceneDamage& 
                 section.max += offset.x;
             }
 
-            damage_in = region_op(damage_in, Region<f32>{output->viewport}, RegionOp::intersect);
-            output->primary_damage = region_op(output->primary_damage, damage_in, RegionOp::merge);
+            region_op<RegionOpIntersect>(damage_in, damage_in, RegionSingle<f32>(output->viewport));
+            region_op<RegionOpUnion>(output->primary_damage, output->primary_damage, damage_in);
 
             output->needs_redraw = true;
             output->interface.request_frame(output->userdata);

@@ -21,7 +21,7 @@ void scene_node_get_damage(SceneTexture* texture, vec2f32 offset, SceneDamage& d
 {
     rect2f32 dst = texture->dst;
     dst.origin += offset;
-    damage.region.add(dst);
+    region_op<RegionOpUnion>(damage.region, damage.region, RegionSingle<f32>(dst));
     damage.types |= SceneDamageType::visual;
 }
 
@@ -31,7 +31,7 @@ void scene_node_subtract_cover(SceneTexture* texture, vec2f32 offset, SceneDamag
 
     rect2f32 dst = texture->dst;
     dst.origin += offset;
-    damage.region.subtract(dst);
+    region_op<RegionOpSubtract>(damage.region, damage.region, RegionSingle<f32>(dst));
 }
 
 static
