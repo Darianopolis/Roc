@@ -19,6 +19,8 @@ struct WayClient
 
     std::vector<WaySurface*> surfaces;
     std::vector<WayClientSeat*> seats;
+
+    WayResourceList outputs;
 };
 
 void way_on_client_create(wl_listener*, void* data);

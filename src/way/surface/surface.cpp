@@ -212,6 +212,16 @@ WaySurfaceState::~WaySurfaceState()
     // TODO: Empty callbacks
 }
 
+void way_surface_enter_output(WaySurface* surface, wl_resource* output)
+{
+    debug_assert(surface->mapped);
+    for (auto* current : surface->outputs) {
+        if (current == output) return;
+    }
+    surface->outputs.emplace_back(output);
+    way_send<wl_surface_send_enter>(surface->resource, output);
+}
+
 static
 void surface_set_mapped(WaySurface* surface, bool mapped)
 {
@@ -221,6 +231,17 @@ void surface_set_mapped(WaySurface* surface, bool mapped)
     log_info("Surface {} was {}", (void*)surface, mapped ? "mapped" : "unmapped");
 
     scene_tree_set_enabled(surface->scene.tree.get(), mapped);
+
+    if (mapped) {
+        for (auto* output : surface->client->outputs) {
+            way_surface_enter_output(surface, output);
+        }
+    } else {
+        for (auto* output : surface->outputs) {
+            way_send<wl_surface_send_leave>(surface->resource, output);
+        }
+        surface->outputs.clear();
+    }
 
     if (surface->role == WaySurfaceRole::xdg_toplevel) {
         way_toplevel_on_map_change(surface, mapped);

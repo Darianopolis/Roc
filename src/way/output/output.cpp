@@ -1,6 +1,9 @@
 #include "output.hpp"
 
 #include "../server.hpp"
+#include "../client.hpp"
+
+#include "../surface/surface.hpp"
 
 #include <wayland-server-protocol.h>
 
@@ -49,5 +52,13 @@ WAY_BIND_GLOBAL(wl_output, bind)
 
     if (bind.version >= WL_OUTPUT_DONE_SINCE_VERSION) {
         way_send<wl_output_send_done>(resource);
+    }
+
+    auto* client = way_client_from(bind.client);
+    client->outputs.emplace_back(resource);
+    for (auto* surface : client->surfaces) {
+        if (surface->mapped) {
+            way_surface_enter_output(surface, resource);
+        }
     }
 }

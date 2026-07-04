@@ -91,6 +91,8 @@ struct WaySurface
 
     Weak<WaySurface> parent;
 
+    WayResourceList outputs;
+
     // core
     WayResource resource;
     WaySurfaceRole role = WaySurfaceRole::none;
@@ -136,6 +138,8 @@ void way_surface_try_flush(WaySurface*);
 void way_surface_addon_register(WaySurface*, WaySurfaceAddon*);
 
 void way_surface_on_frame(WaySurface*, WmOutput*, u64 frame_id);
+
+void way_surface_enter_output(WaySurface*, wl_resource* output);
 
 void way_viewport_apply(WaySurface*, WaySurfaceState& from);
 
