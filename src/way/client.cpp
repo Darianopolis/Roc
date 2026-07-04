@@ -66,6 +66,12 @@ auto way_client_is_behind(WayClient* client) -> bool
 
 void way_client_queue_flush(WayClient* client)
 {
-    // TODO: Queue to run later
-    wl_client_flush(client->wl_client);
+    if (client->flush_queued) return;
+
+    client->flush_queued = true;
+    exec_enqueue(client->server->exec, [client = Weak(client)] {
+        if (!client) return;
+        client->flush_queued = false;
+        wl_client_flush(client->wl_client);
+    });
 }

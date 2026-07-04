@@ -21,6 +21,8 @@ struct WayClient
     std::vector<WayClientSeat*> seats;
 
     WayResourceList outputs;
+
+    bool flush_queued;
 };
 
 void way_on_client_create(wl_listener*, void* data);

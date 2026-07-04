@@ -40,10 +40,7 @@ auto way_create(WmServer* wm, ExecContext* exec) -> Ref<WayServer>
     server->userdata_id = uid_allocate();
     server->timer = timer_create(exec);
 
-    auto prev_debug = env_get("WAYLAND_DEBUG");
-    env_set("WAYLAND_DEBUG", env_get("ROC_WAYLAND_DEBUG"));
     server->wl_display = wl_display_create();
-    env_set("WAYLAND_DEBUG", prev_debug);
 
     wl_display_set_default_max_buffer_size(server->wl_display, 4096);
 

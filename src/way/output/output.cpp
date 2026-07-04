@@ -28,9 +28,9 @@ WAY_BIND_GLOBAL(wl_output, bind)
     way_send<wl_output_send_geometry>(resource,
         0, 0,
         size.x, size.y,
-        WL_OUTPUT_SUBPIXEL_HORIZONTAL_RGB,
-        "unknown",
-        "unknown",
+        WL_OUTPUT_SUBPIXEL_UNKNOWN,
+        "Unknown",
+        "Unknown",
         WL_OUTPUT_TRANSFORM_NORMAL);
 
     way_send<wl_output_send_mode>(resource,
@@ -47,7 +47,7 @@ WAY_BIND_GLOBAL(wl_output, bind)
     }
 
     if (bind.version >= WL_OUTPUT_DESCRIPTION_SINCE_VERSION) {
-        way_send<wl_output_send_description>(resource, "unknown");
+        way_send<wl_output_send_description>(resource, PROGRAM_NAME " output 1");
     }
 
     if (bind.version >= WL_OUTPUT_DONE_SINCE_VERSION) {

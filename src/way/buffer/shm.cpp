@@ -2,6 +2,28 @@
 
 #include "../surface/surface.hpp"
 
+inline
+auto from_drm(GpuDrmFormat drm) -> wl_shm_format
+{
+    switch (drm) {
+        break;case DRM_FORMAT_XRGB8888: return WL_SHM_FORMAT_XRGB8888;
+        break;case DRM_FORMAT_ARGB8888: return WL_SHM_FORMAT_ARGB8888;
+        break;default:                  return wl_shm_format(drm);
+    }
+}
+
+inline
+auto to_drm(wl_shm_format shm) -> GpuDrmFormat
+{
+    switch (shm) {
+        break;case WL_SHM_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;
+        break;case WL_SHM_FORMAT_ARGB8888: return DRM_FORMAT_ARGB8888;
+        break;default:                     return GpuDrmFormat(shm);
+    }
+}
+
+// -----------------------------------------------------------------------------
+
 static
 void pool_unmap(WayShmPool* pool)
 {
@@ -41,33 +63,18 @@ WAY_INTERFACE(wl_shm) = {
     .release = way_simple_destroy,
 };
 
+// -----------------------------------------------------------------------------
+
 WAY_BIND_GLOBAL(wl_shm, bind)
 {
     auto resource = way_resource_create_unsafe(wl_shm, bind.client, bind.version, bind.id, bind.server);
 
-    way_send<wl_shm_send_format>(resource, WL_SHM_FORMAT_ARGB8888);
-    way_send<wl_shm_send_format>(resource, WL_SHM_FORMAT_XRGB8888);
-}
-
-// -----------------------------------------------------------------------------
-
-inline
-auto from_drm(GpuDrmFormat drm) -> wl_shm_format
-{
-    switch (drm) {
-        break;case DRM_FORMAT_XRGB8888: return WL_SHM_FORMAT_XRGB8888;
-        break;case DRM_FORMAT_ARGB8888: return WL_SHM_FORMAT_ARGB8888;
-        break;default:                  return wl_shm_format(drm);
-    }
-}
-
-inline
-auto to_drm(wl_shm_format shm) -> GpuDrmFormat
-{
-    switch (shm) {
-        break;case WL_SHM_FORMAT_XRGB8888: return DRM_FORMAT_XRGB8888;
-        break;case WL_SHM_FORMAT_ARGB8888: return DRM_FORMAT_ARGB8888;
-        break;default:                     return GpuDrmFormat(shm);
+    for (auto format : gpu_get_formats()) {
+        auto props = gpu_get_format_properties(bind.server->gpu, format,
+            GpuImageUsage::texture | GpuImageUsage::transfer_src | GpuImageUsage::transfer_dst);
+        if (props->for_mod(DRM_FORMAT_MOD_LINEAR)) {
+            way_send<wl_shm_send_format>(resource, from_drm(format->drm));
+        }
     }
 }
 

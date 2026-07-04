@@ -31,7 +31,7 @@ void wm_init_seat(WmServer* server)
         .layer = wm_get_layer(server, WmLayer::cursor),
     });
 
-    auto seat = seat_create(wm_get_seat_manager(server), "seat-0", keyboard.get(), pointer.get());
+    auto seat = seat_create(wm_get_seat_manager(server), "seat0", keyboard.get(), pointer.get());
     server->seats.emplace_back(seat.get());
 
     // Pointer
