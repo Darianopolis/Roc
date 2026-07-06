@@ -26,6 +26,7 @@ struct Shell
     RefVector<void> apps;
 
     Environment env;
+    Fd dev_null;
 
     ~Shell()
     {
@@ -42,9 +43,16 @@ auto shell_launch(
     Shell* shell,
     std::string_view name,
     std::span<const std::string_view> args,
-    std::span<const SpawnFdInherit> fds = {}) -> Fd
+    std::span<const SpawnFdInherit> _fds = {}) -> Fd
 {
     auto& path = shell->env.entries.at("PATH");
+
+    std::vector<SpawnFdInherit> fds{_fds.begin(), _fds.end()};
+    for (fd_t std_fd : {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO}) {
+        if (!std::ranges::contains(fds, std_fd, &SpawnFdInherit::child)) {
+            fds.emplace_back(shell->dev_null.get(), std_fd);
+        }
+    }
 
     usz offset = 0;
     for (;;) {

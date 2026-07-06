@@ -35,6 +35,8 @@ auto main(int argc, char* argv[]) -> int
     auto shell = ref_create<Shell>();
     shell->exec = exec.get();
 
+    shell->dev_null = path_open("/dev/null", O_RDWR);
+
     // Environment
 
     shell->env.load(environ);
