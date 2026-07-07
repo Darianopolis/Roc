@@ -421,23 +421,29 @@ auto wm_window_place_auto(WmWindow* window) -> vec2f32
 {
     auto* server = window->client->server;
 
-    vec2f32 center_pos;
+    vec2f32 anchor_pos;
 
     if (window->parent) {
         // Child, position at center of parent.
         auto parent_bounds = wm_window_get_frame(window->parent);
-        center_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
+        anchor_pos = parent_bounds.origin + (parent_bounds.extent) / 2.f;
     } else {
         // Non-child, spawn under mouse
         auto* seat = wm_get_seat(server);
-        center_pos = seat_pointer_get_position(seat_get_pointer(seat));
+        anchor_pos = seat_pointer_get_position(seat_get_pointer(seat));
     }
 
-    window->anchor = center_pos;
-    window->relative = {0.5f, 0.5f};
+    window->anchor = anchor_pos;
 
-    auto output = wm_find_output_at(server, center_pos).output;
-    window->output_constraint = output;
+    if (auto output = wm_find_output_at(server, anchor_pos).output) {
+        window->output_constraint = output;
+        window->relative = {0.5f, 0.5f};
 
-    return wm_output_get_workarea(output).extent;
+        return wm_output_get_workarea(output).extent;
+    } else {
+        if (!window->parent) window->anchor = {};
+        window->relative = {0.f, 0.f};
+
+        return {};
+    }
 }
