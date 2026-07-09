@@ -151,15 +151,6 @@ struct IoWaylandOutput : IoOutputBase
         };
     }
 
-    struct ReleaseSlot
-    {
-        Ref<GpuImage>   image;
-        Ref<GpuSyncobj> syncobj;
-        u64             point;
-    };
-
-    std::vector<ReleaseSlot> release_slots;
-
     virtual auto commit(const WmOutputCommitInfo&) -> bool final override;
 
     ~IoWaylandOutput();

@@ -26,7 +26,11 @@ UNIX_FUNCTION(memfd_create, UnixErrorBehavior::negative_one)
 
 UNIX_FUNCTION(malloc, UnixErrorBehavior::null)
 
-UNIX_FUNCTION(mmap,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(mmap, ([]<auto Function>(auto... args) -> UnixResult<decltype(Function(args...))> {
+    auto res = Function(args...);
+    if (res == MAP_FAILED) return { nullptr, errno };
+    return { res, 0 };
+}))
 UNIX_FUNCTION(munmap, UnixErrorBehavior::negative_one)
 
 UNIX_FUNCTION(ftruncate, UnixErrorBehavior::negative_one)

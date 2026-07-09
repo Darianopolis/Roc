@@ -46,15 +46,22 @@ struct UnixResult
     auto err() const noexcept -> bool { return  error; }
 };
 
-enum class UnixErrorBehavior
+#define UNIX_ERROR_BEHAVIOR_SIMPLE(ErrorExpr, ...) \
+    []<auto Function>(auto... args) -> UnixResult<decltype(Function(args...))> { \
+        __VA_ARGS__; \
+        auto res = Function(args...); \
+        return { res, ErrorExpr }; \
+    }
+
+namespace UnixErrorBehavior
 {
-    non_zero,
-    negative,
-    negative_one,
-    negative_errno,
-    positive_errno,
-    check_errno,
-    null,
+    static constexpr auto negative_errno = UNIX_ERROR_BEHAVIOR_SIMPLE(  res  < decltype(res)( 0) ? unix_error_t(-res) : 0);
+    static constexpr auto positive_errno = UNIX_ERROR_BEHAVIOR_SIMPLE(  res  > decltype(res)( 0) ? unix_error_t( res) : 0);
+    static constexpr auto negative       = UNIX_ERROR_BEHAVIOR_SIMPLE(  res  < decltype(res)( 0) ? errno              : 0);
+    static constexpr auto negative_one   = UNIX_ERROR_BEHAVIOR_SIMPLE(  res == decltype(res)(-1) ? errno              : 0);
+    static constexpr auto null           = UNIX_ERROR_BEHAVIOR_SIMPLE( !res                      ? errno              : 0);
+    static constexpr auto non_zero       = UNIX_ERROR_BEHAVIOR_SIMPLE(  res                      ? errno              : 0);
+    static constexpr auto check_errno    = UNIX_ERROR_BEHAVIOR_SIMPLE(errno, errno = 0);
 };
 
 template<auto Function>
@@ -63,48 +70,10 @@ struct UnixFunction { static_assert(false); };
 template<auto Function, unix_error_t... Quiet>
 auto unix_check(auto... args) -> UnixResult<decltype(Function(args...))>
 {
-    static constexpr auto behavior = UnixFunction<Function>::behavior;
-
-    if constexpr (behavior == UnixErrorBehavior::check_errno) {
-        errno = 0;
-    }
-
-    auto res = Function(args...);
-
-    unix_error_t err;
-    if constexpr (behavior == UnixErrorBehavior::non_zero) {
-        if (res == decltype(res)(0)) [[likely]] return { res };
-        err = errno;
-
-    } else if constexpr (behavior == UnixErrorBehavior::negative) {
-        static_assert(std::is_signed_v<decltype(res)>);
-        if (res >= decltype(res)(0)) [[likely]] return { res };
-        err = errno;
-
-    } else if constexpr (behavior == UnixErrorBehavior::negative_one) {
-        if (res != decltype(res)(-1)) [[likely]] return { res };
-        err = errno;
-
-    } else if constexpr (behavior == UnixErrorBehavior::negative_errno) {
-        static_assert(std::is_signed_v<decltype(res)>);
-        if (res >= decltype(res)(0)) [[likely]] return { res };
-        err = -res;
-
-    } else if constexpr (behavior == UnixErrorBehavior::positive_errno) {
-        if (res <= decltype(res)(0)) [[likely]] return { res };
-        err = res;
-
-    } else if constexpr (behavior == UnixErrorBehavior::null) {
-        if (res != nullptr) [[likely]] return { res };
-        err = errno;
-
-    } else if constexpr (behavior == UnixErrorBehavior::check_errno) {
-        if (!errno) [[likely]] return { res };
-        err = errno;
-    }
-
-    if (!(... || (err == Quiet))) log_unix_error(UnixFunction<Function>::function_name, err);
-    return { res, err };
+    auto res = UnixFunction<Function>::behavior.template operator()<Function>(args...);
+    if (res.ok()) return res;
+    if (!(... || (res.error == Quiet))) log_unix_error(UnixFunction<Function>::function_name, res.error);
+    return res;
 }
 
 #define UNIX_FUNCTION(Function, Behavior) \
