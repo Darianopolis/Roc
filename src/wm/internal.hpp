@@ -31,6 +31,15 @@ struct WmConfig
         } padding;
     } workarea;
 
+    struct {
+        struct {
+            f32  offset     = 2.f;
+            f32  rate       = 0.05f;
+            f32  multiplier = 0.3f;
+            bool enabled    = true;
+        } accel;
+    } pointer;
+
     ankerl::unordered_dense::map<u32, u32> rebinds {
         {BTN_EXTRA, KEY_LEFTCTRL},
         {BTN_SIDE,  KEY_LEFTMETA},

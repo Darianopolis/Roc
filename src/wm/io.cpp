@@ -218,11 +218,10 @@ void handle_key(WmServer* server, Seat* seat, bool quiet, WmInputDeviceEvent cha
 }
 
 static
-auto apply_accel(vec2f32 delta) -> vec2f32
+auto apply_accel(WmServer* server, vec2f32 delta) -> vec2f32
 {
-    static constexpr f32 offset     = 2.f;
-    static constexpr f32 rate       = 0.05f;
-    static constexpr f32 multiplier = 0.3f;
+    auto& c = server->config.pointer.accel;
+    if (!c.enabled) return delta;
 
     // Apply a linear mouse acceleration curve
     //
@@ -236,7 +235,7 @@ auto apply_accel(vec2f32 delta) -> vec2f32
     //  ^-- Offset
 
     f32 speed = vec_distance(delta, {});
-    f32 sens = multiplier * (1 + (std::max(speed, offset) - offset) * rate);
+    f32 sens = c.multiplier * (1 + (std::max(speed, c.offset) - c.offset) * c.rate);
 
     return delta * sens;
 }
@@ -244,7 +243,7 @@ auto apply_accel(vec2f32 delta) -> vec2f32
 static
 void handle_motion(WmServer* server, SeatPointer* pointer, vec2f32 rel_unaccel)
 {
-    auto rel_accel = apply_accel(rel_unaccel);
+    auto rel_accel = apply_accel(server, rel_unaccel);
     auto position = wm_pointer_constraint_apply(server, seat_pointer_get_position(pointer), rel_accel);
     position = wm_find_output_at(server, position).position;
     seat_pointer_move(pointer, position, rel_accel, rel_unaccel);

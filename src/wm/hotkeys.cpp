@@ -41,6 +41,9 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                             output->interface.request_frame(output->userdata);
                         }
                         return SeatEventFilterResult::capture;
+                    break;case KEY_A:
+                        server->config.pointer.accel.enabled = !server->config.pointer.accel.enabled;
+                        return SeatEventFilterResult::capture;
                     break;case KEY_L:
                         server->debug.disable_cursor_plane = !server->debug.disable_cursor_plane;
                         for (auto* output : server->io.outputs) {
