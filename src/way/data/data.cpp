@@ -319,18 +319,6 @@ void way_data_offer_selection(WayClientSeat* client_seat)
 // -----------------------------------------------------------------------------
 
 static
-auto get_client_seat(WayClient* client, Seat* seat) -> WayClientSeat*
-{
-    // TODO: Deduplicate this
-    for (auto* client_seat : client->seats) {
-        if (client_seat->seat->seat == seat) {
-            return client_seat;
-        }
-    }
-    return nullptr;
-}
-
-static
 auto to_fixed(vec2f32 v) -> Vec<2, wl_fixed_t>
 {
     return {wl_fixed_from_double(v.x), wl_fixed_from_double(v.y)};
@@ -343,11 +331,9 @@ auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
 }
 
 static
-void drag_leave(WayClient* client, SeatDataEvent* event)
+void drag_leave(WayClientSeat* client_seat, SeatDataEvent* event)
 {
     log_trace("drag_leave");
-
-    auto* client_seat = get_client_seat(client, event->seat);
 
     for (auto* wl_data_device : client_seat->data_devices) {
         way_send<wl_data_device_send_leave>(wl_data_device);
@@ -357,16 +343,14 @@ void drag_leave(WayClient* client, SeatDataEvent* event)
 }
 
 static
-void drag_enter(WayClient* client, SeatDataEvent* event)
+void drag_enter(WayClientSeat* client_seat, SeatDataEvent* event)
 {
     log_trace("drag_enter");
 
     auto* pointer = seat_get_pointer(event->seat);
 
-    auto* client_seat = get_client_seat(client, event->seat);
-
-    auto serial = way_next_serial(client->server);
-    auto* surface = way_find_surface_for_focus(client, event->drag.focus);
+    auto serial = way_next_serial(client_seat->client->server);
+    auto* surface = way_find_surface_for_focus(client_seat->client, event->drag.focus);
     auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
 
     for (auto* wl_data_device : client_seat->data_devices) {
@@ -381,16 +365,15 @@ void drag_enter(WayClient* client, SeatDataEvent* event)
 }
 
 static
-void drag_motion(WayClient* client, SeatDataEvent* event)
+void drag_motion(WayClientSeat* client_seat, SeatDataEvent* event)
 {
     // log_trace("drag_motion");
 
     auto* pointer = seat_get_pointer(event->seat);
 
-    auto* client_seat = get_client_seat(client, event->seat);
-    auto elapsed = way_get_elapsed(client->server);
+    auto elapsed = way_get_elapsed(client_seat->client->server);
     u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-    auto* surface = way_find_surface_for_focus(client, event->drag.focus);
+    auto* surface = way_find_surface_for_focus(client_seat->client, event->drag.focus);
     auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
 
     for (auto* wl_data_device : client_seat->data_devices) {
@@ -399,11 +382,9 @@ void drag_motion(WayClient* client, SeatDataEvent* event)
 }
 
 static
-void drag_drop(WayClient* client, SeatDataEvent* event)
+void drag_drop(WayClientSeat* client_seat, SeatDataEvent* event)
 {
     log_trace("drag_drop");
-
-    auto* client_seat = get_client_seat(client, event->seat);
 
     for (auto& offer : client_seat->drag_offers) {
         if (!offer) continue;
@@ -417,20 +398,20 @@ void drag_drop(WayClient* client, SeatDataEvent* event)
     client_seat->drag_offers.clear();
 }
 
-void way_handle_data_event(WayClient* client, SeatDataEvent* event)
+void way_handle_data_event(WayClientSeat* client_seat, SeatDataEvent* event)
 {
     switch (event->type) {
         break;case SeatEventType::selection:
-            way_data_offer_selection(get_client_seat(client, event->seat));
+            way_data_offer_selection(client_seat);
 
         break;case SeatEventType::drag_enter:
-            drag_enter(client, event);
+            drag_enter(client_seat, event);
         break;case SeatEventType::drag_leave:
-            drag_leave(client, event);
+            drag_leave(client_seat, event);
         break;case SeatEventType::drag_motion:
-            drag_motion(client, event);
+            drag_motion(client_seat, event);
         break;case SeatEventType::drag_drop:
-            drag_drop(client, event);
+            drag_drop(client_seat, event);
 
         break;default:
             debug_unreachable();

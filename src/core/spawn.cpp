@@ -77,7 +77,7 @@ auto spawn(
     };
 
     {
-        uint64_t* values = byte_offset_pointer<uint64_t>(stack, stack_size);
+        u64* values = byte_offset_pointer<u64>(stack, stack_size);
         values[-2] = __u64(&prepare_and_exec);
         values[-1] = __u64(+[](void* data) -> int {
             return (*(decltype(prepare_and_exec)*)data)();

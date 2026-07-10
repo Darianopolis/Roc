@@ -119,6 +119,8 @@ void way_seat_handle_event(WayClient* client, SeatEvent* event)
               case SeatEventType::drag_leave:
               case SeatEventType::drag_motion:
               case SeatEventType::drag_drop:
-            way_handle_data_event(client, &event->data);
+            if (auto client_seat = find_client_seat(client, event->data.seat)) {
+                way_handle_data_event(client_seat, &event->data);
+            }
     }
 }

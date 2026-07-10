@@ -45,7 +45,7 @@ struct WayDataOffer
 
 void way_data_offer_selection(WayClientSeat*);
 
-void way_handle_data_event(WayClient*, SeatDataEvent*);
+void way_handle_data_event(WayClientSeat*, SeatDataEvent*);
 
 // -----------------------------------------------------------------------------
 

@@ -222,7 +222,7 @@ auto apply_accel(vec2f32 delta) -> vec2f32
 {
     static constexpr f32 offset     = 2.f;
     static constexpr f32 rate       = 0.05f;
-    static constexpr f32 multiplier = 0.3;
+    static constexpr f32 multiplier = 0.3f;
 
     // Apply a linear mouse acceleration curve
     //
