@@ -142,6 +142,7 @@ IoWayland::~IoWayland()
     IO_WL_DESTROY(wp_cursor_shape_manager_v1);
 
     IO_WL_DESTROY(zxdg_decoration_manager_v1);
+    IO_WL_DESTROY(wl_subcompositor);
     IO_WL_DESTROY(wl_compositor);
     IO_WL_DESTROY(xdg_wm_base);
     IO_WL_DESTROY(wl_seat);

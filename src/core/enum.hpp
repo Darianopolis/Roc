@@ -44,7 +44,8 @@ template<typename E>
 constexpr
 auto enum_values() -> std::span<const E>
 {
-    return {};
+    static constexpr E e {};
+    return {&e, 1};
 }
 
 template<typename E>

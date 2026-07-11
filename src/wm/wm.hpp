@@ -74,6 +74,11 @@ auto wm_output_get_workarea(WmOutput*) -> rect2f32;
 
 // -----------------------------------------------------------------------------
 
+void wm_toast(WmServer*, std::string_view message,
+              std::chrono::steady_clock::time_point expiration = std::chrono::steady_clock::now() + 1s);
+
+// -----------------------------------------------------------------------------
+
 struct WmInputDevice;
 struct WmInputDeviceInterface
 {

@@ -35,17 +35,23 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         return SeatEventFilterResult::capture;
                     break;case KEY_K:
                         server->debug.show_damage = !server->debug.show_damage;
+                        wm_toast(server, std::format("Show scene damage: {}", server->debug.show_damage ? "Enabled" : "Disabled"));
                         for (auto* output : server->io.outputs) {
                             output->needs_redraw = true;
                             output->primary_damage = Region<f32>{output->viewport};
                             output->interface.request_frame(output->userdata);
                         }
                         return SeatEventFilterResult::capture;
-                    break;case KEY_A:
-                        server->config.pointer.accel.enabled = !server->config.pointer.accel.enabled;
+                    break;case KEY_A: {
+                        server->config.pointer.accel.state = WmPointerAccelState((u32(server->config.pointer.accel.state) + 1)
+                                                                                 % u32(enum_values<WmPointerAccelState>().size()));
+                        auto name = enum_name(server->config.pointer.accel.state);
+                        wm_toast(server, std::format("Pointer acceleration: {}{}", char(std::toupper(name[0])), name.substr(1)));
                         return SeatEventFilterResult::capture;
+                    }
                     break;case KEY_L:
                         server->debug.disable_cursor_plane = !server->debug.disable_cursor_plane;
+                        wm_toast(server, std::format("Cursor plane: {}", server->debug.disable_cursor_plane ? "Disabled" : "Enabled"));
                         for (auto* output : server->io.outputs) {
                             output->needs_redraw = true;
                             output->interface.request_frame(output->userdata);

@@ -221,7 +221,7 @@ static
 auto apply_accel(WmServer* server, vec2f32 delta) -> vec2f32
 {
     auto& c = server->config.pointer.accel;
-    if (!c.enabled) return delta;
+    if (c.state == WmPointerAccelState::disabled) return delta;
 
     // Apply a linear mouse acceleration curve
     //
@@ -246,6 +246,7 @@ void handle_motion(WmServer* server, SeatPointer* pointer, vec2f32 rel_unaccel)
     auto rel_accel = apply_accel(server, rel_unaccel);
     auto position = wm_pointer_constraint_apply(server, seat_pointer_get_position(pointer), rel_accel);
     position = wm_find_output_at(server, position).position;
+    if (server->config.pointer.accel.state == WmPointerAccelState::forced) rel_unaccel = rel_accel;
     seat_pointer_move(pointer, position, rel_accel, rel_unaccel);
 }
 

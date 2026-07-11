@@ -35,6 +35,14 @@ void damage(SceneTree* tree)
     if (damage.types) scene_node_post_damage(tree, {}, damage);
 }
 
+static
+void damage(SceneTree* tree, SceneNode* child)
+{
+    SceneDamage damage = {};
+    scene_node_get_damage(child, child->translation, damage);
+    if (damage.types) scene_node_post_damage(tree, {}, damage);
+}
+
 auto scene_tree_create() -> Ref<SceneTree>
 {
     auto tree = ref_create<SceneTree>();
@@ -91,18 +99,18 @@ placed:
         node->parent = tree;
     }
 
-    // TODO: We only need to damage regions that were visually affected by the rotate
-    damage(tree);
 }
 
 void scene_tree_place_below(SceneTree* tree, SceneNode* reference, SceneNode* to_place)
 {
     tree_place(tree, reference, to_place, false);
+    damage(tree, to_place);
 }
 
 void scene_tree_place_above(SceneTree* tree, SceneNode* reference, SceneNode* to_place)
 {
     tree_place(tree, reference, to_place, true);
+    damage(tree, to_place);
 }
 
 void scene_tree_replace(SceneTree* tree, std::span<SceneNode* const> new_children)
@@ -115,6 +123,7 @@ void scene_tree_replace(SceneTree* tree, std::span<SceneNode* const> new_childre
     for (auto* new_child : new_children) {
         scene_tree_place_above(tree, nullptr, new_child);
     }
+    damage(tree);
 }
 
 void scene_tree_clear(SceneTree* tree)

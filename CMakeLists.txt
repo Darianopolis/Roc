@@ -84,6 +84,7 @@ pkg_check_modules(libinput       REQUIRED IMPORTED_TARGET libinput)
 pkg_check_modules(xcursor        REQUIRED IMPORTED_TARGET xcursor)
 pkg_check_modules(libudev        REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(libcap         REQUIRED IMPORTED_TARGET libcap)
+pkg_check_modules(freetype       REQUIRED IMPORTED_TARGET freetype2)
 
 # ------------------------------------------------------------------------------
 #       Git Dependencies
@@ -155,6 +156,7 @@ target_link_libraries(core PUBLIC
     PkgConfig::libudev
     PkgConfig::libseat
     PkgConfig::libcap
+    PkgConfig::freetype
 
     vendor::stb-image
     vendor::renderdoc-api
@@ -220,6 +222,17 @@ target_sources(seat PRIVATE
 target_link_libraries(seat PUBLIC core scene)
 
 # ------------------------------------------------------------------------------
+#       UI
+# ------------------------------------------------------------------------------
+
+init_library(ui)
+target_sources(ui PRIVATE
+    src/ui/font.cpp
+    src/ui/string.cpp
+    )
+target_link_libraries(ui PUBLIC core scene seat)
+
+# ------------------------------------------------------------------------------
 #       Window Manager
 # ------------------------------------------------------------------------------
 
@@ -232,6 +245,7 @@ target_sources(wm PRIVATE
     src/wm/seat.cpp
     src/wm/cursor.cpp
     src/wm/window.cpp
+    src/wm/toast.cpp
     src/wm/movesize.cpp
     src/wm/hotkeys.cpp
     src/wm/zone.cpp
@@ -312,4 +326,4 @@ target_sources(${PROGRAM_NAME} PRIVATE
     src/shell/hotkeys.cpp
     src/shell/background.cpp
     )
-target_link_libraries(${PROGRAM_NAME} PUBLIC wm io way)
+target_link_libraries(${PROGRAM_NAME} PUBLIC wm io way ui)
