@@ -178,7 +178,7 @@ public:
     }
 
     RefVector(RefVector&& other)
-        : values(std::move(other))
+        : values(std::move(other.values))
     {
         other.values.clear();
     }

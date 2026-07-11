@@ -122,8 +122,12 @@ def generate_formats(build_dir):
 
         # DRM
 
-        out += f'        .name = "{drm}",\n'
-        out += f"        .drm = fourcc_code('{drm[0]}', '{drm[1]}', '{drm[2]}', '{drm[3]}'),\n"
+        if len(drm):
+            out += f'        .name = "{drm}",\n'
+            out += f"        .drm = fourcc_code('{drm[0]}', '{drm[1]}', '{drm[2]}', '{drm[3]}'),\n"
+        else:
+            out += f'        .name = "{vk}",\n'
+            out += f"        .drm = DRM_FORMAT_INVALID,\n"
 
         # Vulkan
 
@@ -162,6 +166,8 @@ def generate_formats(build_dir):
     out += "{\n"
     out += "    switch (drm_format) {\n"
     for i, (drm, vk, flags) in enumerate(formats):
+        if not len(drm):
+            continue
         out += f"        break;case fourcc_code('{drm[0]}', '{drm[1]}', '{drm[2]}', '{drm[3]}'): return {{{i}}};\n"
     out += "    }\n"
     out += "    return {};\n"

@@ -11,14 +11,15 @@ The following packages must be discoverable by PkgConfig:
 
 - libevdev
 - libdrm
-- libseat
-- wayland-server
-- wayland-client
-- xkbcommon
-- libinput
-- xcursor
 - libudev
 - libcap
+- libseat
+- libinput
+- freetype2
+- xkbcommon
+- xcursor
+- wayland-server
+- wayland-client
 
 The following executables must be available on the environment path:
 

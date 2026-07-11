@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "debug.hpp"
+#include "math.hpp"
 
 constexpr
 auto color_from_hex(std::string_view str) -> vec4u8
@@ -34,6 +35,8 @@ auto color_from_hex(std::string_view str) -> vec4u8
     return color;
 }
 
+// -----------------------------------------------------------------------------
+
 constexpr
 auto color_hsv_to_rgb(vec4f32 hsv) -> vec4f32
 {
@@ -58,4 +61,74 @@ auto color_hsv_to_rgb(vec4f32 hsv) -> vec4f32
     else               { r = c;   g = 0.f; b = x;   }
 
     return { r + m, g + m, b + m, hsv.w };
+}
+
+// -----------------------------------------------------------------------------
+
+template <typename T>
+    requires std::is_unsigned_v<T>
+constexpr
+auto pack_unorm(vec4f32 value) -> Vec<4, T>
+{
+    return vec_cast<u8>(vec_clamp(value, {}, {1.f, 1.f, 1.f, 1.f}) * f32(std::numeric_limits<T>::max()));
+}
+
+template <typename T>
+    requires std::is_unsigned_v<T>
+constexpr
+auto unpack_unorm(Vec<4, T> packed) -> vec4f32
+{
+    return vec_cast<f32>(packed) / f32(std::numeric_limits<T>::max());
+}
+
+// -----------------------------------------------------------------------------
+
+template <typename Fn>
+constexpr
+auto srgb_apply(const vec4f32& v, Fn&& fn) -> vec4f32
+{
+    return vec4f32{ fn(v.x), fn(v.y), fn(v.z), v.w };
+}
+
+constexpr
+auto srgb_eotf_scalar(f32 c) -> f32
+{
+    if (c <= 0.04045f) return c / 12.92f;
+    return std::pow((c + 0.055f) / 1.055f, 2.4f);
+}
+
+constexpr
+auto srgb_oetf_scalar(f32 c) -> f32
+{
+    if (c <= 0.0031308f) return c * 12.92f;
+    return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
+}
+
+constexpr
+auto srgb_eotf(const vec4f32& electrical) -> vec4f32
+{
+    return srgb_apply(electrical, srgb_eotf_scalar);
+}
+
+constexpr
+auto srgb_oetf(const vec4f32& optical) -> vec4f32
+{
+    return srgb_apply(optical, srgb_oetf_scalar);
+}
+
+// -----------------------------------------------------------------------------
+
+constexpr
+auto premultiply(vec4f32 value) -> vec4f32
+{
+    value.x *= value.w;
+    value.y *= value.w;
+    value.z *= value.w;
+    return value;
+}
+
+constexpr
+auto blend_linear_premultiplied(vec4f32 dst, vec4f32 src) -> vec4f32
+{
+    return src + dst * (1.f - src.w);
 }

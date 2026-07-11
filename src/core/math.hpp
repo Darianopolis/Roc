@@ -13,6 +13,11 @@ template<typename T> constexpr auto operator-(Vec<2, T> a, Vec<2, T> b) -> Vec<2
 template<typename T> constexpr auto operator*(Vec<2, T> a, Vec<2, T> b) -> Vec<2, T> { return {a.x * b.x, a.y * b.y}; }
 template<typename T> constexpr auto operator/(Vec<2, T> a, Vec<2, T> b) -> Vec<2, T> { return {a.x / b.x, a.y / b.y}; }
 
+template<typename T> constexpr auto operator+(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}; }
+template<typename T> constexpr auto operator-(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}; }
+template<typename T> constexpr auto operator*(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w}; }
+template<typename T> constexpr auto operator/(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return {a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w}; }
+
 // -----------------------------------------------------------------------------
 
 template<typename T> constexpr auto operator+(Vec<2, T> a, T b) -> Vec<2, T> { return {a.x + b, a.y + b}; }
@@ -47,9 +52,19 @@ template<typename T> constexpr auto vec_round(Vec<2, T> v) -> Vec<2, T> { return
 template<typename T> constexpr auto vec_min(Vec<2, T> a, Vec<2, T> b) -> Vec<2, T> { return { std::min(a.x, b.x), std::min(a.y, b.y) }; }
 template<typename T> constexpr auto vec_max(Vec<2, T> a, Vec<2, T> b) -> Vec<2, T> { return { std::max(a.x, b.x), std::max(a.y, b.y) }; }
 
+template<typename T> constexpr auto vec_min(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return { std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z), std::min(a.w, b.w) }; }
+template<typename T> constexpr auto vec_max(Vec<4, T> a, Vec<4, T> b) -> Vec<4, T> { return { std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z), std::max(a.w, b.w) }; }
+
 template<typename T>
 constexpr
 auto vec_clamp(Vec<2, T> value, Vec<2, T> min, Vec<2, T> max) -> Vec<2, T>
+{
+    return vec_max(vec_min(value, max), min);
+}
+
+template<typename T>
+constexpr
+auto vec_clamp(Vec<4, T> value, Vec<4, T> min, Vec<4, T> max) -> Vec<4, T>
 {
     return vec_max(vec_min(value, max), min);
 }

@@ -4,9 +4,19 @@
 
 #include <core/types.hpp>
 #include <core/color.hpp>
+#include <core/timer.hpp>
 
 #include <scene/scene.hpp>
 #include <way/way.hpp>
+
+#include <ui/ui.hpp>
+
+enum class WmPointerAccelState
+{
+    disabled,
+    enabled,
+    forced,
+};
 
 struct WmConfig
 {
@@ -33,10 +43,10 @@ struct WmConfig
 
     struct {
         struct {
-            f32  offset     = 2.f;
-            f32  rate       = 0.05f;
-            f32  multiplier = 0.3f;
-            bool enabled    = true;
+            f32 offset     = 2.f;
+            f32 rate       = 0.05f;
+            f32 multiplier = 0.3f;
+            WmPointerAccelState state = WmPointerAccelState::enabled;
         } accel;
     } pointer;
 
@@ -92,6 +102,12 @@ struct WmInputDevice
     ~WmInputDevice();
 };
 
+struct WmToast
+{
+    UiString string;
+    std::chrono::steady_clock::time_point expiration;
+};
+
 struct WmServer
 {
     WmConfig config;
@@ -114,6 +130,10 @@ struct WmServer
     // The primary tree includes everything that should always be composited onto a "primary" KMS plane
     // This allows us to track damage for "primary" and "cursor" planes independently, while sharing the same scene root
     Ref<SceneTree>                   scene_primary_tree;
+
+    Ref<Timer>           toast_timer;
+    Ref<UiFont>          toast_font;
+    std::vector<WmToast> toasts;
 
     Ref<GpuImagePool> image_pool;
 
