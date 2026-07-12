@@ -144,7 +144,10 @@ target_sources(core PRIVATE
     src/core/exec.cpp
     src/core/timer.cpp
     )
-target_include_directories(core PUBLIC src)
+target_include_directories(core PUBLIC
+    src
+    ${BUILD_DIR}/math
+    )
 target_link_libraries(core PUBLIC
     PkgConfig::wayland-server
     PkgConfig::wayland-client

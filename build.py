@@ -12,6 +12,7 @@ import scripts.deps as deps
 import scripts.wayland as wayland
 import scripts.shaders as shaders
 import scripts.formats as formats
+import scripts.math as math_gen
 
 # -----------------------------------------------------------------------------
 #       Build Flags
@@ -39,6 +40,10 @@ vendor_dir = ensure_dir(build_dir / "vendor")
 # -----------------------------------------------------------------------------
 
 dep_dirs = deps.fetch_deps(vendor_dir, cwd / "build.json", args.update)
+
+# -----------------------------------------------------------------------------
+
+math_gen.generate_math(build_dir=build_dir)
 
 # -----------------------------------------------------------------------------
 

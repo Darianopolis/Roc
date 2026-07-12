@@ -31,58 +31,7 @@ using f64 = double;
 template<u8 L, typename T>
 struct Vec;
 
-#define VEC_CONSTRUCTORS 0
-
-template<typename T>
-struct Vec<2, T>
-{
-    T x, y;
-
-#if VEC_CONSTRUCTORS
-    constexpr Vec() = default;
-    constexpr Vec(T x, T y): x(x), y(y) {}
-#endif
-
-    constexpr auto operator<=>(const Vec&) const -> std::strong_ordering = default;
-
-    constexpr auto operator[](usz i) const -> T  { return i == 1 ? y : x; }
-    constexpr auto operator[](usz i)       -> T& { return i == 1 ? y : x; }
-
-    constexpr decltype(auto) operator+=(T s) { x += s; y += s; return *this; }
-    constexpr decltype(auto) operator-=(T s) { x -= s; y -= s; return *this; }
-    constexpr decltype(auto) operator*=(T s) { x *= s; y *= s; return *this; }
-    constexpr decltype(auto) operator/=(T s) { x /= s; y /= s; return *this; }
-
-    constexpr decltype(auto) operator+=(Vec b) { x += b.x; y += b.y; return *this; }
-    constexpr decltype(auto) operator-=(Vec b) { x -= b.x; y -= b.y; return *this; }
-    constexpr decltype(auto) operator*=(Vec b) { x *= b.x; y *= b.y; return *this; }
-    constexpr decltype(auto) operator/=(Vec b) { x /= b.x; y /= b.y; return *this; }
-};
-
-template<typename T>
-struct Vec<4, T>
-{
-    T x, y, z, w;
-
-#if VEC_CONSTRUCTORS
-    constexpr Vec() = default;
-    constexpr Vec(T x, T y, T z, T w): x(x), y(y), z(z), w(w) {}
-#endif
-
-    constexpr auto operator<=>(const Vec&) const -> std::strong_ordering = default;
-
-    constexpr decltype(auto) operator*=(T s) { x *= s; y *= s; z *= s; w *= s; return *this; }
-};
-
-using vec2u32 = Vec<2, u32>;
-using vec2i32 = Vec<2, i32>;
-using vec2f32 = Vec<2, f32>;
-using vec2f64 = Vec<2, f64>;
-
-using vec3f32 = Vec<3, f32>;
-
-using vec4f32 = Vec<4, f32>;
-using vec4u8  = Vec<4,  u8>;
+#include "vec-defs.inl"
 
 // -----------------------------------------------------------------------------
 
