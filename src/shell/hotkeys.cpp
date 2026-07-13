@@ -62,7 +62,7 @@ void renderdoc_capture(Shell* shell)
         auto texture = gpu_image_create(gpu, {
             .extent = vec_cast<u32>(viewport.extent),
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            .usage = GpuImageUsage::render
+            .usage = GpuImageUsage::render | GpuImageUsage::storage,
         });
         scene_render(wm_get_scene_renderer(wm), {
             .root = wm_get_scene(wm),

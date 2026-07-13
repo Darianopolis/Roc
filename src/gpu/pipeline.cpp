@@ -14,6 +14,39 @@ struct GpuPipeline
     }
 };
 
+auto gpu_pipeline_create_compute(Gpu* gpu, const GpuShaderStageInfo& shader_info) -> Ref<GpuPipeline>
+{
+    auto pipeline = ref_create<GpuPipeline>();
+    pipeline->gpu = gpu;
+
+    gpu_check(gpu->vk.CreateComputePipelines(gpu->device, nullptr, 1, ptr_to(VkComputePipelineCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = ptr_to(VkShaderModuleCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .codeSize = shader_info.code.size_bytes(),
+                .pCode = shader_info.code.data(),
+            }),
+            .stage = shader_info.stage,
+            .pName = shader_info.entry,
+        },
+        .layout = gpu->pipeline_layout,
+    }), nullptr, &pipeline->pipeline));
+
+    return pipeline;
+}
+
+void gpu_dispatch(Gpu* gpu, GpuPipeline* pipeline, vec3u32 extent, std::span<const byte> data)
+{
+    auto cmd = gpu_get_commands(gpu)->buffer;
+
+    gpu->vk.CmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
+    gpu->vk.CmdPushConstants(cmd, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, 0, data.size(), data.data());
+    gpu->vk.CmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
+    gpu->vk.CmdDispatch(cmd, extent.x, extent.y, extent.z);
+}
+
 auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) -> Ref<GpuPipeline>
 {
     ThreadStack stack;
@@ -33,7 +66,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = &modules[i],
             .stage = info.shaders[i].stage,
-            .pName=  info.shaders[i].entry,
+            .pName = info.shaders[i].entry,
         };
     }
 

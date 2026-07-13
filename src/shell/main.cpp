@@ -62,6 +62,18 @@ auto main(int argc, char* argv[]) -> int
     shell->gpu = gpu_create(exec.get(), {});
     debug_assert(shell->gpu, "Failed to initialize GPU");
 
+    for (auto format : gpu_get_formats()) {
+        auto info = gpu_get_format_properties(shell->gpu.get(), format, GpuImageUsage::texture);
+        if (format->vk_srgb != VK_FORMAT_UNDEFINED) {
+            if (info->opt_props) {
+                DRM_FORMAT_RGB888;
+                log_warn(" - Format {} {}:{} supports mutable sRGB: {}", format->name, format->vk, format->vk_flags, info->opt_props->has_mutable_srgb);
+            } else {
+                log_warn(" - Format {} {}:{} does not support optimal layout (modifiers: {})", format->name, format->vk, format->vk_flags, info->mods.size());
+            }
+        }
+    }
+
     shell->wm = wm_create({
         .exec = exec.get(),
         .gpu = shell->gpu.get(),

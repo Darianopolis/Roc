@@ -5,8 +5,6 @@
 #include <core/id.hpp>
 #include <gpu/gpu.hpp>
 
-#include "shader/render.h"
-
 // -----------------------------------------------------------------------------
 
 struct SceneNode;
@@ -21,6 +19,7 @@ auto scene_renderer_create(Gpu*) -> Ref<SceneRenderer>;
 enum class SceneRenderOption : u32
 {
     show_damage = 1 << 0,
+    use_compute = 1 << 1,
 };
 
 struct SceneRenderInfo

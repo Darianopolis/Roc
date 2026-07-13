@@ -14,7 +14,16 @@ struct SceneRenderer
     Ref<GpuImage> white;
     Ref<GpuSampler> nearest;
     Ref<GpuBuffer> indices;
+
+    struct {
+        Ref<GpuPipeline> pipeline;
+    } compute;
 };
+
+void scene_renderer_init_compute(SceneRenderer*);
+void scene_render_compute(SceneRenderer*, const SceneRenderInfo&);
+
+// -----------------------------------------------------------------------------
 
 void scene_node_get_damage(SceneInputRegion*, vec2f32 offset, SceneDamage&);
 void scene_node_get_damage(SceneTree*,        vec2f32 offset, SceneDamage&);

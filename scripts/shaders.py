@@ -7,6 +7,8 @@ def build_shaders(cwd, build_dir):
     shaders = [
         ("src/scene/shader/render.frag.glsl", "scene_render_frag", "frag"),
         ("src/scene/shader/render.vert.glsl", "scene_render_vert", "vert"),
+
+        ("src/scene/shader/render.comp.glsl", "scene_render_comp", "comp"),
     ]
 
     shader_gen_dir         = ensure_dir(build_dir / "shaders")

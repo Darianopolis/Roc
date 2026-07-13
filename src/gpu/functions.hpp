@@ -88,6 +88,7 @@
     DO(CreateGraphicsPipelines) \
     DO(DestroyPipeline) \
     DO(CmdBindPipeline) \
+    DO(CreateComputePipelines) \
 
 #define GPU_DECLARE_FUNCTION(funcName, ...) PFN_vk##funcName funcName;
 

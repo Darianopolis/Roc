@@ -471,6 +471,10 @@ struct GpuGraphicsPipelineCreateInfo
 
 auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuPipeline>;
 
+auto gpu_pipeline_create_compute(Gpu*, const GpuShaderStageInfo&) -> Ref<GpuPipeline>;
+
+void gpu_dispatch(Gpu*, GpuPipeline*, vec3u32, std::span<const byte> push_data);
+
 // -----------------------------------------------------------------------------
 
 enum class GpuDepthEnable

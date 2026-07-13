@@ -5,7 +5,7 @@ sizes = [2, 3, 4]
 unary_ops = ["-"]
 binary_ops = ["*", "/", "+", "-"]
 variables = ["x", "y", "z", "w"]
-unary_std_ops = ["abs", "floor", "round"]
+unary_std_ops = ["abs", "floor", "ceil", "round"]
 binary_std_ops = ["min", "max", "copysign"]
 
 def generate_math(build_dir):

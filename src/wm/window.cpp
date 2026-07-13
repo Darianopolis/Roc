@@ -138,6 +138,8 @@ void reposition(WmWindow* window)
 {
     vec2f32 origin = window->anchor - (window->extent * window->relative);
 
+    origin = vec_round(origin);
+
     if (window->output_constraint && !window->fullscreen.output) {
         aabb2f32 constraint = wm_output_get_workarea(window->output_constraint.get());
         aabb2f32 constrained = aabb_constrain<f32>({origin, window->extent, xywh}, constraint);
@@ -163,6 +165,9 @@ void reposition(WmWindow* window)
 
 void wm_window_request_reposition(WmWindow* window, rect2f32 frame, vec2f32 gravity)
 {
+    frame.origin = vec_round(frame.origin);
+    frame.extent = vec_round(frame.extent);
+
     window->relative = 1.f - ((gravity + 1.f) * 0.5f);
     window->anchor = frame.origin + (frame.extent * window->relative);
 
@@ -433,7 +438,7 @@ auto wm_window_place_auto(WmWindow* window) -> vec2f32
         anchor_pos = seat_pointer_get_position(seat_get_pointer(seat));
     }
 
-    window->anchor = anchor_pos;
+    window->anchor = vec_round(anchor_pos);
 
     if (auto output = wm_find_output_at(server, anchor_pos).output) {
         window->output_constraint = output;

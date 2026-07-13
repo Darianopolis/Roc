@@ -72,7 +72,7 @@ WAY_BIND_GLOBAL(wl_shm, bind)
     for (auto format : gpu_get_formats()) {
         auto props = gpu_get_format_properties(bind.server->gpu, format,
             GpuImageUsage::texture | GpuImageUsage::transfer_src | GpuImageUsage::transfer_dst);
-        if (props->for_mod(DRM_FORMAT_MOD_LINEAR)) {
+        if (props->opt_props) {
             way_send<wl_shm_send_format>(resource, from_drm(format->drm));
         }
     }

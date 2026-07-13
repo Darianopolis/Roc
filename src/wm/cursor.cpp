@@ -130,7 +130,7 @@ void wm_prepare_cursor_image(WmServer* server)
     server->cursor_image = server->image_pool->acquire(GpuImageCreateInfo {
         .extent = extent,
         .format = format,
-        .usage = GpuImageUsage::render,
+        .usage = GpuImageUsage::render | GpuImageUsage::storage,
         .flags = GpuImageFlag::host,
         .modifiers = &modifiers,
     });
@@ -146,11 +146,14 @@ void wm_prepare_cursor_image(WmServer* server)
         }, [](GpuRenderPass*) {});
         server->cursor_image_bounds = {seat_pointer_get_position(pointer), {}, xywh};
     } else {
+        // log_error("RENDERING CURSOR");
         scene_render(server->scene_renderer.get(), {
+            // .options = SceneRenderOption::use_compute,
             .root = pointer_tree,
             .target = server->cursor_image.get(),
             .viewport = {server->cursor_image_bounds.origin, vec_cast<f32>(extent), xywh},
         });
+        // log_error("RENDERING CURSOR DONE");
     }
 }
 

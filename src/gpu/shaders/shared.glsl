@@ -58,6 +58,13 @@ vec4f32 gpu_image_sample(GpuImageHandle h, vec2f32 uv)
         gpu_heap_sampler[nonuniformEXT(u32(h.smp))]), uv);
 }
 
+vec4f32 gpu_image_sample_grad(GpuImageHandle h, vec2f32 p, vec2f32 dpdx, vec2f32 dpdy)
+{
+    return textureGrad(sampler2D(
+        gpu_heap_texture[nonuniformEXT(u32(h.img))],
+        gpu_heap_sampler[nonuniformEXT(u32(h.smp))]), p, dpdx, dpdy);
+}
+
 vec4f32 gpu_image_sample_lod(GpuImageHandle h, vec2f32 uv, i32 lod)
 {
     return textureLod(sampler2D(
@@ -70,9 +77,34 @@ vec4f32 gpu_image_load(GpuImageHandle h, vec2i32 idx)
     return imageLoad(gpu_heap_storage[nonuniformEXT(u32(h.img))], idx);
 }
 
+void gpu_image_store(GpuImageHandle h, vec2i32 idx, vec4f32 color)
+{
+    imageStore(gpu_heap_storage[nonuniformEXT(u32(h.img))], idx, color);
+}
+
 // -----------------------------------------------------------------------------
 
 vec4f32 unpack_unorm4u8(vec4u8 v) { return vec4f32(v) / 255.0; }
+
+// -----------------------------------------------------------------------------
+
+vec3f32 srgb_oetf(vec3 linear)
+{
+    bvec3 cutoff = lessThan(linear, vec3(0.0031308));
+    vec3 higher = vec3(1.055) * pow(linear, vec3(1.0 / 2.4)) - vec3(0.055);
+    vec3 lower = linear * vec3(12.92);
+
+    return mix(higher, lower, cutoff);
+}
+
+vec3f32 srgb_eotf(vec3 compressed)
+{
+    bvec3 cutoff = lessThan(compressed, vec3(0.04045));
+    vec3 higher = pow((compressed + vec3(0.055)) / vec3(1.055), vec3(2.4));
+    vec3 lower = compressed / vec3(12.92);
+
+    return mix(higher, lower, cutoff);
+}
 
 // -----------------------------------------------------------------------------
 

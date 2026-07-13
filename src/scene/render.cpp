@@ -3,9 +3,12 @@
 #include <core/math.hpp>
 #include <core/color.hpp>
 #include <core/log.hpp>
+#include <core/chrono.hpp>
 
 #include "scene_render_vert.hpp"
 #include "scene_render_frag.hpp"
+
+#include "shader/render.h"
 
 auto get_pipeline(SceneRenderer* renderer, GpuFormat format) -> GpuPipeline*
 {
@@ -57,11 +60,18 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
         .min = VK_FILTER_NEAREST,
     });
 
+    scene_renderer_init_compute(renderer.get());
+
     return renderer;
 }
 
 void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
+    if (info.options.contains(SceneRenderOption::use_compute)) {
+        scene_render_compute(renderer, info);
+        return;
+    }
+
     std::vector<SceneQuad> quads;
 
     ankerl::unordered_dense::set<void*> reads;

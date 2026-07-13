@@ -201,6 +201,7 @@ target_link_libraries(gpu PUBLIC core generated::shaders)
 init_library(scene)
 target_sources(scene PRIVATE
     src/scene/render.cpp
+    src/scene/compute.cpp
     src/scene/node/node.cpp
     src/scene/node/texture.cpp
     src/scene/node/tree.cpp
