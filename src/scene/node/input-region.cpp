@@ -19,6 +19,7 @@ void scene_node_subtract_cover(SceneInputRegion* input_region, vec2f32 offset, S
 static
 void damage(SceneInputRegion* input_region)
 {
+    if (!scene_node_has_any_damage_listeners(input_region)) return;
     scene_node_post_damage(input_region, {}, {{}, SceneDamageType::input});
 }
 

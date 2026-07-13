@@ -17,10 +17,6 @@ void begin_interaction(WmServer* server, SeatPointer* pointer, WmInteractionMode
     if (!window) return;
     auto frame = wm_window_get_frame(window);
 
-    if (mode == WmInteractionMode::size && !wm_window_is_resizable(window)) {
-        mode = WmInteractionMode::move;
-    }
-
     server->movesize.window = window;
     server->movesize.frame = frame;
     server->movesize.grab = pos;
@@ -44,8 +40,11 @@ void begin_interaction(WmServer* server, SeatPointer* pointer, WmInteractionMode
 
     wm_interaction_set_mode(server, mode);
 
-    if (server->mode == WmInteractionMode::move && !wm_window_is_movable(window)) {
-        end_interaction(server);
+    switch (server->mode) {
+        break;case WmInteractionMode::move: if (!wm_window_is_movable(window))   end_interaction(server);
+        break;case WmInteractionMode::size: if (!wm_window_is_resizable(window)) end_interaction(server);
+        break;default:
+            ;
     }
 }
 

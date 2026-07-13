@@ -33,7 +33,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = &modules[i],
             .stage = info.shaders[i].stage,
-            .pName=  info.shaders[i].entry,
+            .pName = info.shaders[i].entry,
         };
     }
 

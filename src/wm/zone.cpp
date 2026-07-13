@@ -88,12 +88,6 @@ void zone_update_regions(WmServer* server)
 }
 
 static
-auto is_interactable(WmWindow* window) -> bool
-{
-    return true;
-}
-
-static
 void toggle_selecting(WmServer* server)
 {
     server->zone.selecting = !server->zone.selecting;
@@ -105,7 +99,7 @@ static
 void begin_zone(WmServer* server, SeatPointer* pointer)
 {
     auto window = wm_find_window_at(server, seat_pointer_get_position(pointer));
-    if (!window || !is_interactable(window)) return;
+    if (!window || !wm_window_is_resizable(window)) return;
 
     server->zone.pointer = pointer;
     server->zone.window = window;

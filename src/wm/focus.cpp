@@ -147,6 +147,11 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
             }
         break;case SeatEventType::pointer_button:
             if (server->mode == WmInteractionMode::focus_cycle && event->pointer.button.pressed) {
+                if (server->focus.cycled && !rect_contains(wm_window_get_frame(server->focus.cycled.get()),
+                                                           seat_pointer_get_position(event->pointer.pointer))) {
+                    server->focus.cycled = nullptr;
+                }
+                focus_cycle_end(server);
                 return SeatEventFilterResult::capture;
             }
         break;default:

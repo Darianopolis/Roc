@@ -30,6 +30,7 @@ void scene_node_subtract_cover(SceneTree* tree, vec2f32 offset, SceneDamage& dam
 static
 void damage(SceneTree* tree)
 {
+    if (!scene_node_has_any_damage_listeners(tree)) return;
     SceneDamage damage = {};
     scene_node_get_damage(tree, {}, damage);
     if (damage.types) scene_node_post_damage(tree, {}, damage);
@@ -38,6 +39,7 @@ void damage(SceneTree* tree)
 static
 void damage(SceneTree* tree, SceneNode* child)
 {
+    if (!scene_node_has_any_damage_listeners(tree)) return;
     SceneDamage damage = {};
     scene_node_get_damage(child, child->translation, damage);
     if (damage.types) scene_node_post_damage(tree, {}, damage);

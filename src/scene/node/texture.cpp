@@ -37,6 +37,7 @@ void scene_node_subtract_cover(SceneTexture* texture, vec2f32 offset, SceneDamag
 static
 void damage(SceneTexture* texture, rect2f32 dst)
 {
+    if (!scene_node_has_any_damage_listeners(texture)) return;
     scene_node_post_damage(texture, {}, {{dst}, SceneDamageType::visual});
 }
 
