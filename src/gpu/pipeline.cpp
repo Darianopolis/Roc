@@ -7,6 +7,7 @@ struct GpuPipeline
     Gpu* gpu;
 
     VkPipeline pipeline;
+    VkPipelineBindPoint bind_point;
 
     ~GpuPipeline()
     {
@@ -20,6 +21,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
 
     auto pipeline = ref_create<GpuPipeline>();
     pipeline->gpu = gpu;
+    pipeline->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     auto shaders = stack.allocate<VkPipelineShaderStageCreateInfo>(info.shaders.size());
     auto modules = stack.allocate<VkShaderModuleCreateInfo>(info.shaders.size());
@@ -109,24 +111,22 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
 
 // -----------------------------------------------------------------------------
 
-struct GpuRenderPass
+void gpu_push_constants(GpuCommands* cmd, u32 offset, std::span<const byte> data)
 {
-    Gpu* gpu;
-    VkCommandBuffer cmd;
-};
-
-void gpu_push_constants(GpuRenderPass* pass, u32 offset, std::span<const byte> data)
-{
-    auto[gpu, cmd] = *pass;
-
+    auto* gpu = cmd->gpu;
     debug_assert(offset + data.size() <= gpu_push_constant_size, "{} > {}", offset + data.size(), gpu_push_constant_size);
-    gpu->vk.CmdPushConstants(cmd, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size(), data.data());
+    gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size(), data.data());
 }
 
-void gpu_set_scissors(GpuRenderPass* pass, std::span<const rect2i32> scissors)
+void gpu_bind_pipeline(GpuCommands* cmd, GpuPipeline* pipeline)
 {
-    auto[gpu, cmd] = *pass;
+    cmd->gpu->vk.CmdBindPipeline(cmd->buffer, pipeline->bind_point, pipeline->pipeline);
+}
 
+// -----------------------------------------------------------------------------
+
+void gpu_set_scissors(GpuCommands* cmd, std::span<const rect2i32> scissors)
+{
     ThreadStack stack;
 
     auto* vk_scissors = stack.allocate<VkRect2D>(scissors.size());
@@ -139,12 +139,11 @@ void gpu_set_scissors(GpuRenderPass* pass, std::span<const rect2i32> scissors)
             .extent{ u32(r.extent.x), u32(r.extent.y) },
         };
     }
-    gpu->vk.CmdSetScissorWithCount(cmd, u32(scissors.size()), vk_scissors);
+    cmd->gpu->vk.CmdSetScissorWithCount(cmd->buffer, u32(scissors.size()), vk_scissors);
 }
 
-void gpu_set_viewports(GpuRenderPass* pass, std::span<const rect2f32> viewports)
+void gpu_set_viewports(GpuCommands* cmd, std::span<const rect2f32> viewports)
 {
-    auto[gpu, cmd] = *pass;
     ThreadStack stack;
 
     auto* vk_viewports = stack.allocate<VkViewport>(viewports.size());
@@ -158,41 +157,24 @@ void gpu_set_viewports(GpuRenderPass* pass, std::span<const rect2f32> viewports)
             .maxDepth = 1.f
         };
     }
-    gpu->vk.CmdSetViewportWithCount(cmd, u32(viewports.size()), vk_viewports);
+    cmd->gpu->vk.CmdSetViewportWithCount(cmd->buffer, u32(viewports.size()), vk_viewports);
 }
 
-void gpu_bind_pipeline(GpuRenderPass* pass, GpuPipeline* pipeline)
+void gpu_bind_index_buffer(GpuCommands* cmd, GpuBuffer* buffer, u32 offset, VkIndexType type)
 {
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    cmd->gpu->vk.CmdBindIndexBuffer(cmd->buffer, buffer->buffer, offset, type);
 }
 
-void gpu_bind_index_buffer(GpuRenderPass* pass, GpuBuffer* buffer, u32 offset, VkIndexType type)
+void gpu_draw_indexed(GpuCommands* cmd, const GpuDrawInfo& info)
 {
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdBindIndexBuffer(cmd, buffer->buffer, offset, type);
+    cmd->gpu->vk.CmdDrawIndexed(cmd->buffer, info.index_count, info.instance_count, info.first_index, info.vertex_offset, info.first_instance);
 }
 
-void gpu_draw_indexed(GpuRenderPass* pass, const GpuDrawInfo& info)
+void gpu_begin_rendering(GpuCommands* cmd, const GpuRenderPassInfo& info)
 {
-    auto[gpu, cmd] = *pass;
-
-    gpu->vk.CmdDrawIndexed(cmd, info.index_count, info.instance_count, info.first_index, info.vertex_offset, info.first_instance);
-}
-
-void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(GpuRenderPass*)> fn)
-{
-    auto cmd = gpu_get_commands(gpu)->buffer;
-
-    gpu_use_resources(gpu, *info.reads, *info.writes);
-
-    GpuRenderPass pass{gpu, cmd};
-
     auto extent = info.target->base()->extent;
 
-    gpu->vk.CmdBeginRendering(cmd, ptr_to(VkRenderingInfo {
+    cmd->gpu->vk.CmdBeginRendering(cmd->buffer, ptr_to(VkRenderingInfo {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea = { {}, {extent.x, extent.y} },
         .layerCount = 1,
@@ -219,20 +201,21 @@ void gpu_render(Gpu* gpu, const GpuRenderPassInfo& info, std::function_ref<void(
                 : VkClearValue {},
         }),
     }));
+}
 
-    gpu->vk.CmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
-
-    fn(&pass);
-
-    gpu->vk.CmdEndRendering(cmd);
+void gpu_end_rendering(GpuCommands* cmd)
+{
+    cmd->gpu->vk.CmdEndRendering(cmd->buffer);
 }
 
 // -----------------------------------------------------------------------------
 
-void gpu_use_resources(Gpu* gpu,
+void gpu_barrier(GpuCommands* cmd,
     const ankerl::unordered_dense::set<void*>& reads,
     const ankerl::unordered_dense::set<void*>& writes)
 {
+    auto* gpu = cmd->gpu;
+
     bool need_barrier =
             std::ranges::any_of(gpu->unbarriered_writes, [&](const auto& _pending) {
                 auto pending = _pending.get();
@@ -249,8 +232,7 @@ void gpu_use_resources(Gpu* gpu,
     //       We also need to apply QFOTs for DMABUFs
 
     if (need_barrier) {
-        auto* cmd = gpu_get_commands(gpu)->buffer;
-        gpu->vk.CmdPipelineBarrier2(cmd, ptr_to(VkDependencyInfo {
+        gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
             .pMemoryBarriers = ptr_to(VkMemoryBarrier2 {

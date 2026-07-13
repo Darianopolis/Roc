@@ -29,7 +29,7 @@ GpuCommands::~GpuCommands()
 #endif
 }
 
-auto gpu_get_commands(Gpu* gpu) -> GpuCommands*
+auto gpu_record(Gpu* gpu) -> GpuCommands*
 {
     if (gpu->queue.commands) return gpu->queue.commands.get();
 
@@ -47,6 +47,8 @@ auto gpu_get_commands(Gpu* gpu) -> GpuCommands*
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     })));
 
+    gpu->vk.CmdBindDescriptorSets(commands->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
+
     gpu->queue.commands = std::move(commands);
 
     return gpu->queue.commands.get();
@@ -57,7 +59,7 @@ auto gpu_get_commands(Gpu* gpu) -> GpuCommands*
 void gpu_protect(Gpu* gpu, Ref<void> object)
 {
     if (!object) return;
-    gpu_get_commands(gpu)->objects.emplace_back(std::move(object));
+    gpu_record(gpu)->objects.emplace_back(std::move(object));
 }
 
 // -----------------------------------------------------------------------------

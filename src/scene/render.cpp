@@ -131,7 +131,9 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         }
     }
 
-    auto gpu_rects = gpu_buffer_create(renderer->gpu, quads.size() * sizeof(SceneQuad), {});
+    auto* gpu = renderer->gpu;
+
+    auto gpu_rects = gpu_buffer_create(gpu, quads.size() * sizeof(SceneQuad), {});
     std::memcpy(gpu_rects->host_address, quads.data(), gpu_rects->size);
     reads.emplace(gpu_rects.get());
 
@@ -140,27 +142,30 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
     auto draw_scale = 2.f / info.viewport.extent;
     auto draw_offset = -info.viewport.origin * draw_scale - 1.f;
 
-    gpu_render(renderer->gpu, {
+    auto cmd = gpu_record(gpu);
+    gpu_barrier(cmd, reads, writes);
+
+    gpu_begin_rendering(cmd, {
         .target = info.target,
         .clear_color = {{0,0,0,0}},
-        .reads = &reads,
-        .writes = &writes,
-    }, [&](GpuRenderPass* pass) {
-        gpu_set_viewports(pass, {{{{}, vec_cast<f32>(info.target->base()->extent), xywh}}});
-        gpu_set_scissors( pass, {{{{}, vec_cast<i32>(info.target->base()->extent), xywh}}});
-
-        gpu_bind_pipeline(pass, get_pipeline(renderer, info.target->base()->format));
-        gpu_bind_index_buffer(pass, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
-
-        gpu_push_constants(pass, 0, view_bytes(SceneRenderInput {
-            .quads = gpu_rects->device<SceneQuad>(),
-            .offset = draw_offset,
-            .scale = draw_scale,
-        }));
-
-        gpu_draw_indexed(pass, {
-            .index_count = 6,
-            .instance_count = u32(quads.size()),
-        });
     });
+
+    gpu_set_viewports(cmd, {{{{}, vec_cast<f32>(info.target->base()->extent), xywh}}});
+    gpu_set_scissors( cmd, {{{{}, vec_cast<i32>(info.target->base()->extent), xywh}}});
+
+    gpu_bind_pipeline(cmd, get_pipeline(renderer, info.target->base()->format));
+    gpu_bind_index_buffer(cmd, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
+
+    gpu_push_constants(cmd, 0, view_bytes(SceneRenderInput {
+        .quads = gpu_rects->device<SceneQuad>(),
+        .offset = draw_offset,
+        .scale = draw_scale,
+    }));
+
+    gpu_draw_indexed(cmd, {
+        .index_count = 6,
+        .instance_count = u32(quads.size()),
+    });
+
+    gpu_end_rendering(cmd);
 }

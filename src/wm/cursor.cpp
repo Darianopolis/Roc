@@ -138,12 +138,13 @@ void wm_prepare_cursor_image(WmServer* server)
     server->cursor_image_valid = true;
 
     if (server->cursor_image_bounds.origin == vec2f32{INFINITY, INFINITY}) {
-        gpu_render(server->gpu, GpuRenderPassInfo {
+        auto cmd = gpu_record(server->gpu);
+        gpu_barrier(cmd, {server->cursor_image.get()}, {server->cursor_image.get()});
+        gpu_begin_rendering(cmd, GpuRenderPassInfo {
             .target = server->cursor_image.get(),
             .clear_color = vec4f32{0.f, 0.f, 0.f, 0.f},
-            .reads = ptr_to(ankerl::unordered_dense::set<void*>{server->cursor_image.get()}),
-            .writes = ptr_to(ankerl::unordered_dense::set<void*>{server->cursor_image.get()}),
-        }, [](GpuRenderPass*) {});
+        });
+        gpu_end_rendering(cmd);
         server->cursor_image_bounds = {seat_pointer_get_position(pointer), {}, xywh};
     } else {
         scene_render(server->scene_renderer.get(), {

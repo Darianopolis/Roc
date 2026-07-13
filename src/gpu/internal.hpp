@@ -88,12 +88,7 @@ struct GpuCommands
 };
 
 void gpu_queue_init(Gpu*);
-auto gpu_get_commands(Gpu*) -> GpuCommands*;
-
 void gpu_protect(Gpu*, Ref<void>);
-void gpu_use_resources(Gpu*,
-    const ankerl::unordered_dense::set<void*>& reads,
-    const ankerl::unordered_dense::set<void*>& writes);
 
 // -----------------------------------------------------------------------------
 

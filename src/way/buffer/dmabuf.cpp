@@ -367,7 +367,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
     }
 
     auto* gpu = server->gpu;
-    auto cmd = gpu_get_commands(gpu);
+    auto cmd = gpu_record(gpu);
     gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .imageMemoryBarrierCount = 1,
@@ -390,7 +390,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
         if (!buffer) return;
 
         auto* gpu = buffer->server->gpu;
-        auto cmd = gpu_get_commands(gpu);
+        auto cmd = gpu_record(gpu);
 
         // The following barrier will handle any further accesses for this image
         gpu->unbarriered_reads.erase(buffer->image.get());

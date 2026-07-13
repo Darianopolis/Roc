@@ -312,10 +312,6 @@ void gpu_wait(GpuSyncpoint sync, Fn&& fn)
 
 // -----------------------------------------------------------------------------
 
-auto gpu_flush(Gpu*) -> GpuSyncpoint;
-
-// -----------------------------------------------------------------------------
-
 struct GpuBuffer
 {
     Gpu* gpu;
@@ -473,6 +469,18 @@ auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuP
 
 // -----------------------------------------------------------------------------
 
+auto gpu_record(Gpu*) -> GpuCommands*;
+auto gpu_flush( Gpu*) -> GpuSyncpoint;
+
+void gpu_barrier(GpuCommands*,
+    const ankerl::unordered_dense::set<void*>& reads,
+    const ankerl::unordered_dense::set<void*>& writes);
+
+void gpu_push_constants(GpuCommands*, u32 offset, std::span<const byte> data);
+void gpu_bind_pipeline( GpuCommands*, GpuPipeline*);
+
+// -----------------------------------------------------------------------------
+
 enum class GpuDepthEnable
 {
     test  = 1 << 0,
@@ -488,24 +496,19 @@ struct GpuDrawInfo
     u32 first_instance;
 };
 
-struct GpuRenderPass;
-
-void gpu_push_constants(   GpuRenderPass*, u32 offset, std::span<const byte> data);
-void gpu_set_scissors(     GpuRenderPass*, std::span<const rect2i32> scissors);
-void gpu_set_viewports(    GpuRenderPass*, std::span<const rect2f32> viewports);
-void gpu_bind_index_buffer(GpuRenderPass*, GpuBuffer*, u32 offset, VkIndexType);
-void gpu_bind_pipeline(    GpuRenderPass*, GpuPipeline*);
-void gpu_draw_indexed(     GpuRenderPass*, const GpuDrawInfo&);
+void gpu_set_scissors(     GpuCommands*, std::span<const rect2i32> scissors);
+void gpu_set_viewports(    GpuCommands*, std::span<const rect2f32> viewports);
+void gpu_bind_index_buffer(GpuCommands*, GpuBuffer*, u32 offset, VkIndexType);
+void gpu_draw_indexed(     GpuCommands*, const GpuDrawInfo&);
 
 struct GpuRenderPassInfo
 {
     GpuImage* target;
     std::optional<vec4f32> clear_color;
-    const ankerl::unordered_dense::set<void*>* reads;
-    const ankerl::unordered_dense::set<void*>* writes;
 };
 
-void gpu_render(Gpu*, const GpuRenderPassInfo&, std::function_ref<void(GpuRenderPass*)>);
+void gpu_begin_rendering(GpuCommands*, const GpuRenderPassInfo&);
+void gpu_end_rendering(  GpuCommands*);
 
 // -----------------------------------------------------------------------------
 
