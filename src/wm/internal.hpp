@@ -118,6 +118,7 @@ struct WmServer
     struct {
         bool show_damage = false;
         bool disable_cursor_plane = false;
+        bool use_compute = true;
     } debug;
 
     Ref<SeatManager> seat_manager;

@@ -114,7 +114,7 @@ auto gpu_allocate_image_descriptor(Gpu* gpu, VkImageView view, VkDescriptorType 
         VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = gpu->set,
-            .dstBinding = 0,
+            .dstBinding = type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ? 1u : 0u,
             .dstArrayElement = id.value,
             .descriptorCount = 1,
             .descriptorType = type,

@@ -42,6 +42,15 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                             output->interface.request_frame(output->userdata);
                         }
                         return SeatEventFilterResult::capture;
+                    break;case KEY_C:
+                        server->debug.use_compute = !server->debug.use_compute;
+                        wm_toast(server, std::format("Use compute: {}", server->debug.use_compute ? "Enabled" : "Disabled"));
+                        for (auto* output : server->io.outputs) {
+                            output->needs_redraw = true;
+                            output->primary_damage = Region<f32>{output->viewport};
+                            output->interface.request_frame(output->userdata);
+                        }
+                        return SeatEventFilterResult::capture;
                     break;case KEY_A: {
                         server->config.pointer.accel.state = WmPointerAccelState((u32(server->config.pointer.accel.state) + 1)
                                                                                  % u32(enum_values<WmPointerAccelState>().size()));

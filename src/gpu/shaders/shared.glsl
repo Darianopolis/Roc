@@ -25,12 +25,16 @@
 struct rect2f32 { vec2f32 origin; vec2f32 extent; };
 struct rect2i32 { vec2i32 origin; vec2i32 extent; };
 
+struct aabb2f32 { vec2f32 min; vec2f32 max; };
+
 // -----------------------------------------------------------------------------
 
-#define GPU_CONST_PTR(T) T##_Ptr
+#define GPU_CONST_PTR(T) T##_ConstPtr
+#define GPU_PTR(T)       T##_Ptr
 
-#define GPU_CONST_PTR_DECLARE(T) \
-    layout(buffer_reference, scalar) readonly buffer GPU_CONST_PTR(T) { T data[]; }
+#define GPU_PTR_ENABLE_FOR(T) \
+    layout(buffer_reference, scalar) readonly buffer T##_ConstPtr { T data[]; }; \
+    layout(buffer_reference, scalar)          buffer T##_Ptr      { T data[]; };
 
 // -----------------------------------------------------------------------------
 
@@ -85,6 +89,11 @@ vec2i32 gpu_image_dimensions(GpuStorageImageHandle h)
 vec4f32 gpu_image_load(GpuStorageImageHandle h, vec2i32 idx)
 {
     return imageLoad(gpu_heap_storage[nonuniformEXT(u32(h.img))], idx);
+}
+
+void gpu_image_store(GpuStorageImageHandle h, vec2i32 idx, vec4f32 color)
+{
+    imageStore(gpu_heap_storage[nonuniformEXT(u32(h.img))], idx, color);
 }
 
 // -----------------------------------------------------------------------------

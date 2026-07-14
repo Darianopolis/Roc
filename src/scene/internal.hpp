@@ -14,6 +14,8 @@ struct SceneRenderer
     Ref<GpuImage> white;
     Ref<GpuSampler> nearest;
     Ref<GpuBuffer> indices;
+    Ref<GpuPipeline> compute;
+    Ref<GpuPipeline> bin;
 };
 
 inline

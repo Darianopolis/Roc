@@ -123,9 +123,16 @@ auto create_image_view(GpuImageBase* image, bool srgb) -> VkImageView
 {
     auto* gpu = image->gpu;
 
+    auto vk_usage = gpu_image_usage_to_vulkan(image->usage);
+    if (srgb) vk_usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
+
     VkImageView view;
     gpu_check(gpu->vk.CreateImageView(gpu->device, ptr_to(VkImageViewCreateInfo {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = ptr_to(VkImageViewUsageCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
+            .usage = vk_usage,
+        }),
         .image = image->image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = srgb ? image->format->vk_srgb : image->format->vk,
@@ -222,6 +229,7 @@ auto image_create_info(
         format_list.pNext = info.pNext;
         info.pNext = &format_list;
         info.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+        info.flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
     }
 
     if (tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {

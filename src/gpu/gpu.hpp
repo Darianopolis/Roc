@@ -474,10 +474,16 @@ struct GpuGraphicsPipelineCreateInfo
 
 auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuPipeline>;
 
+auto gpu_pipeline_create_compute(Gpu*, const GpuShaderStageInfo&) -> Ref<GpuPipeline>;
+
+void gpu_dispatch(GpuCommands*, vec3u32 extent);
+
 // -----------------------------------------------------------------------------
 
 auto gpu_record(Gpu*) -> GpuCommands*;
 auto gpu_flush( Gpu*) -> GpuSyncpoint;
+
+void gpu_protect(GpuCommands*, Ref<void>);
 
 void gpu_barrier(GpuCommands*,
     std::span<GpuResource* const> reads,

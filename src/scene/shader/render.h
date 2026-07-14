@@ -16,13 +16,53 @@ struct SceneQuad
     u32 flags;
 };
 
-GPU_CONST_PTR_DECLARE(SceneQuad);
+GPU_PTR_ENABLE_FOR(SceneQuad);
 
 struct SceneRenderInput
 {
     GPU_CONST_PTR(SceneQuad) quads;
     vec2f32 offset;
     vec2f32 scale;
+};
+
+// -----------------------------------------------------------------------------
+
+#define SCENE_BIN_SIZE 16
+#define SCENE_QUADS_PER_BIN 15
+
+#define SCENE_BIN_DISPATCH_SIZE 8
+#define SCENE_COMPUTE_DISPATCH_SIZE 8
+
+struct SceneRenderBin
+{
+    u32 quads[SCENE_QUADS_PER_BIN];
+    u32 next_bin;
+};
+
+GPU_PTR_ENABLE_FOR(SceneRenderBin);
+GPU_PTR_ENABLE_FOR(aabb2f32);
+GPU_PTR_ENABLE_FOR(u8);
+
+struct SceneRenderBinInput
+{
+    GPU_CONST_PTR(aabb2f32) quad_bounds;
+    GPU_CONST_PTR(u8) quad_opaque_flags;
+    u32 quad_count;
+    GPU_PTR(SceneRenderBin) bins;
+    u32 bin_count;
+    u32 row_stride;
+    vec2u32 extent;
+};
+
+struct SceneRenderComputeInput
+{
+    GPU_CONST_PTR(aabb2f32) quad_bounds;
+    GPU_CONST_PTR(SceneQuad) quads;
+    u32 quad_count;
+    GPU_CONST_PTR(SceneRenderBin) bins;
+    u32 row_stride;
+    GpuStorageImageHandle target;
+    vec2u32 extent;
 };
 
 #endif // SCENE_RENDER_H

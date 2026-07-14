@@ -48,6 +48,7 @@ auto gpu_record(Gpu* gpu) -> GpuCommands*
     })));
 
     gpu->vk.CmdBindDescriptorSets(commands->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
+    gpu->vk.CmdBindDescriptorSets(commands->buffer, VK_PIPELINE_BIND_POINT_COMPUTE,  gpu->pipeline_layout, 0, 1, &gpu->set, 0, nullptr);
 
     gpu->queue.commands = std::move(commands);
 

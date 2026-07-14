@@ -483,6 +483,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
                     .shaderInt8 = true,
                     .descriptorIndexing = true,
                     .shaderSampledImageArrayNonUniformIndexing = true,
+                    .shaderStorageImageArrayNonUniformIndexing = true,
                     .descriptorBindingSampledImageUpdateAfterBind = true,
                     .descriptorBindingStorageImageUpdateAfterBind = true,
                     .descriptorBindingUpdateUnusedWhilePending = true,

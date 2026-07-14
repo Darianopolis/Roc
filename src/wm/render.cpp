@@ -175,7 +175,7 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
 
     if (!output->primary_damage.empty()) {
         auto format = gpu_format_from_drm(DRM_FORMAT_ABGR8888);
-        auto usage = GpuImageUsage::render;
+        auto usage = GpuImageUsage::render | GpuImageUsage::storage;
 
         output->primary_image = server->image_pool->acquire({
             .extent = vec_cast<u32>(output->viewport.extent),
@@ -188,6 +188,7 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
         });
 
         Flags<SceneRenderOption> flags = {};
+        if (server->debug.use_compute) flags |= SceneRenderOption::use_compute;
         if (server->debug.show_damage) flags |= SceneRenderOption::show_damage;
         scene_render(wm_get_scene_renderer(server), {
             .options = flags,
