@@ -171,12 +171,18 @@ auto gpu_get_format_properties(Gpu*, GpuFormat, Flags<GpuImageUsage>) -> const G
 
 auto gpu_get_modifier_name(GpuDrmModifier) -> std::string;
 
+
 // -----------------------------------------------------------------------------
 
 enum class GpuFeature : u32
 {
     validation = 1 << 0,
     timelines  = 1 << 1,
+};
+
+struct GpuResource
+{
+    virtual ~GpuResource() = default;
 };
 
 struct Gpu
@@ -196,8 +202,8 @@ struct Gpu
     VkPhysicalDevice physical_device;
     VkDevice device;
 
-    ankerl::unordered_dense::set<Weak<void>> unbarriered_reads;
-    ankerl::unordered_dense::set<Weak<void>> unbarriered_writes;
+    ankerl::unordered_dense::set<Weak<GpuResource>> unbarriered_reads;
+    ankerl::unordered_dense::set<Weak<GpuResource>> unbarriered_writes;
 
     struct {
         drmDevice* device;
@@ -312,7 +318,7 @@ void gpu_wait(GpuSyncpoint sync, Fn&& fn)
 
 // -----------------------------------------------------------------------------
 
-struct GpuBuffer
+struct GpuBuffer : GpuResource
 {
     Gpu* gpu;
 
@@ -358,10 +364,8 @@ enum class GpuImageUsage : u32
 
 struct GpuImageBase;
 
-struct GpuImage
+struct GpuImage : GpuResource
 {
-    virtual ~GpuImage() = default;
-
     virtual auto base() -> GpuImageBase* = 0;
 };
 
@@ -374,9 +378,12 @@ struct GpuImageBase : GpuImage
 
     VkImage     image;
     VkImageView view;
+    VkImageView srgb_view;
     vec2u32     extent;
 
-    GpuDescriptorId id;
+    GpuDescriptorId sampled_id;
+    GpuDescriptorId srgb_id;
+    GpuDescriptorId storage_id;
 
     Flags<GpuImageUsage> usage;
 
@@ -420,7 +427,7 @@ auto gpu_image_compute_linear_offset(GpuFormat, vec2u32 position, u32 row_stride
 
 // -----------------------------------------------------------------------------
 
-struct GpuSampler
+struct GpuSampler : GpuResource
 {
     Gpu* gpu;
 
@@ -473,8 +480,8 @@ auto gpu_record(Gpu*) -> GpuCommands*;
 auto gpu_flush( Gpu*) -> GpuSyncpoint;
 
 void gpu_barrier(GpuCommands*,
-    const ankerl::unordered_dense::set<void*>& reads,
-    const ankerl::unordered_dense::set<void*>& writes);
+    std::span<GpuResource* const> reads,
+    std::span<GpuResource* const> writes);
 
 void gpu_push_constants(GpuCommands*, u32 offset, std::span<const byte> data);
 void gpu_bind_pipeline( GpuCommands*, GpuPipeline*);
@@ -537,16 +544,27 @@ auto gpu_image_export(GpuImage*) -> GpuDmaParams;
 
 // -----------------------------------------------------------------------------
 
-struct GpuImageHandle
+struct GpuSampledImageHandle
 {
     GpuDescriptorId image;
     GpuDescriptorId sampler;
 
-    GpuImageHandle() = default;
+    GpuSampledImageHandle() = default;
 
-    GpuImageHandle(GpuImage* image, GpuSampler* sampler)
-        : image  (image->base()->id)
+    GpuSampledImageHandle(GpuImage* image, GpuSampler* sampler)
+        : image  (image->base()->sampled_id)
         , sampler(sampler ? sampler->id : GpuDescriptorId{})
+    {}
+};
+
+struct GpuStorageImageHandle
+{
+    GpuDescriptorId image;
+
+    GpuStorageImageHandle() = default;
+
+    GpuStorageImageHandle(GpuImage* image)
+        : image(image->base()->storage_id)
     {}
 };
 

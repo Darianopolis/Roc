@@ -414,7 +414,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
             })
         }));
 
-        gpu_protect(gpu, buffer->image);
+        gpu_protect(cmd, buffer->image);
 
         gpu_wait(gpu_flush(gpu), [buffer, release_point = std::move(release_point)](u64) mutable {
             if (!buffer) return;
@@ -423,7 +423,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
         });
     });
 
-    gpu_protect(gpu, lease);
+    gpu_protect(cmd, lease);
 
     return lease;
 }

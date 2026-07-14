@@ -106,76 +106,47 @@ void GpuDescriptorIdAllocator::free(GpuDescriptorId id)
 
 // -----------------------------------------------------------------------------
 
-void gpu_allocate_image_descriptor(GpuImageBase* image)
+auto gpu_allocate_image_descriptor(Gpu* gpu, VkImageView view, VkDescriptorType type) -> GpuDescriptorId
 {
-    auto* gpu = image->gpu;
-    auto& vk = gpu->vk;
-
     auto id = gpu->image_descriptor_allocator.allocate();
 
-    image->id = id;
+    gpu->vk.UpdateDescriptorSets(gpu->device, 1, std::array {
+        VkWriteDescriptorSet {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = gpu->set,
+            .dstBinding = 0,
+            .dstArrayElement = id.value,
+            .descriptorCount = 1,
+            .descriptorType = type,
+            .pImageInfo = ptr_to(VkDescriptorImageInfo {
+                .imageView = view,
+                .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            }),
+        },
+    }.data(), 0, nullptr);
 
-    auto usage = gpu_image_usage_to_vulkan(image->usage);
-
-    if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
-        vk.UpdateDescriptorSets(gpu->device, 1, std::array {
-            VkWriteDescriptorSet {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = gpu->set,
-                .dstBinding = 0,
-                .dstArrayElement = id.value,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view,
-                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-                }),
-            },
-        }.data(), 0, nullptr);
-    }
-
-    if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
-        vk.UpdateDescriptorSets(gpu->device, 1, std::array {
-            VkWriteDescriptorSet {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = gpu->set,
-                .dstBinding = 1,
-                .dstArrayElement = id.value,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                    .imageView = image->view,
-                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-                }),
-            },
-        }.data(), 0, nullptr);
-    }
+    return id;
 }
 
 // -----------------------------------------------------------------------------
 
-void gpu_allocate_sampler_descriptor(GpuSampler* sampler)
+auto gpu_allocate_sampler_descriptor(Gpu* gpu, VkSampler sampler) -> GpuDescriptorId
 {
-    auto* gpu = sampler->gpu;
-    auto& vk = gpu->vk;
-
     auto id = gpu->sampler_descriptor_allocator.allocate();
 
-    sampler->id = id;
-
-    log_debug("Sampler allocated ID: {}", sampler->id.value);
-
-    vk.UpdateDescriptorSets(gpu->device, 1, std::array {
+    gpu->vk.UpdateDescriptorSets(gpu->device, 1, std::array {
         VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = gpu->set,
             .dstBinding = 2,
-            .dstArrayElement = sampler->id.value,
+            .dstArrayElement = id.value,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
             .pImageInfo = ptr_to(VkDescriptorImageInfo {
-                .sampler = sampler->sampler,
+                .sampler = sampler,
             }),
         },
     }.data(), 0, nullptr);
+
+    return id;
 }

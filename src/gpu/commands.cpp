@@ -56,10 +56,9 @@ auto gpu_record(Gpu* gpu) -> GpuCommands*
 
 // -----------------------------------------------------------------------------
 
-void gpu_protect(Gpu* gpu, Ref<void> object)
+void gpu_protect(GpuCommands* cmd, Ref<void> object)
 {
-    if (!object) return;
-    gpu_record(gpu)->objects.emplace_back(std::move(object));
+    cmd->objects.emplace_back(std::move(object));
 }
 
 // -----------------------------------------------------------------------------

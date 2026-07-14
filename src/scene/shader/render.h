@@ -9,7 +9,7 @@ struct SceneQuad
 {
     rect2f32 dst;
 
-    GpuImageHandle texture;
+    GpuSampledImageHandle texture;
     rect2f32 src;
 
     vec4u8 tint;

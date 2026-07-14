@@ -139,7 +139,7 @@ void wm_prepare_cursor_image(WmServer* server)
 
     if (server->cursor_image_bounds.origin == vec2f32{INFINITY, INFINITY}) {
         auto cmd = gpu_record(server->gpu);
-        gpu_barrier(cmd, {server->cursor_image.get()}, {server->cursor_image.get()});
+        gpu_barrier(cmd, {{server->cursor_image.get()}}, {{server->cursor_image.get()}});
         gpu_begin_rendering(cmd, GpuRenderPassInfo {
             .target = server->cursor_image.get(),
             .clear_color = vec4f32{0.f, 0.f, 0.f, 0.f},

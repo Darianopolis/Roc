@@ -64,8 +64,8 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
     std::vector<SceneQuad> quads;
 
-    ankerl::unordered_dense::set<void*> reads;
-    ankerl::unordered_dense::set<void*> writes{info.target};
+    std::flat_set<GpuResource*> reads;
+    std::flat_set<GpuResource*> writes{info.target};
 
     auto draw_texture = [&](SceneTexture* texture, vec2f32 translation, f32 opacity) {
         aabb2f32 src = texture->src;

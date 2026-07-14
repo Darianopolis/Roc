@@ -183,6 +183,7 @@ target_sources(gpu PRIVATE
     src/gpu/gpu.cpp
     src/gpu/functions.cpp
     src/gpu/buffer.cpp
+    src/gpu/sampler.cpp
     src/gpu/image.cpp
     src/gpu/descriptors.cpp
     src/gpu/formats.cpp

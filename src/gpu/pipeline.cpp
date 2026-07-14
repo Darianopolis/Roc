@@ -211,17 +211,31 @@ void gpu_end_rendering(GpuCommands* cmd)
 // -----------------------------------------------------------------------------
 
 void gpu_barrier(GpuCommands* cmd,
-    const ankerl::unordered_dense::set<void*>& reads,
-    const ankerl::unordered_dense::set<void*>& writes)
+    std::span<GpuResource* const> _reads,
+    std::span<GpuResource* const> _writes)
 {
     auto* gpu = cmd->gpu;
+
+    auto to_set = [](std::span<GpuResource* const> resources) {
+        ankerl::unordered_dense::set<GpuResource*> out;
+        out.reserve(resources.size());
+        for (auto& res : resources) {
+            if (auto* image = dynamic_cast<GpuImage*>(res)) {
+                out.insert(image->base());
+            }
+        }
+        return out;
+    };
+
+    auto reads = to_set(_reads);
+    auto writes = to_set(_writes);
 
     bool need_barrier =
             std::ranges::any_of(gpu->unbarriered_writes, [&](const auto& _pending) {
                 auto pending = _pending.get();
                 return pending && (reads.contains(pending) /* RAW */ || writes.contains(pending) /* WAW */);
             })
-         || std::ranges::any_of(writes, [&](void* write) {
+         || std::ranges::any_of(writes, [&](GpuResource* write) {
                 return gpu->unbarriered_reads.contains(Weak(write)) /* WAR */;
             });
 
@@ -250,6 +264,6 @@ void gpu_barrier(GpuCommands* cmd,
     gpu->unbarriered_reads.insert( reads.begin(),  reads.end());
     gpu->unbarriered_writes.insert(writes.begin(), writes.end());
 
-    for (auto& read  : reads)  gpu_protect(gpu, read);
-    for (auto& write : writes) gpu_protect(gpu, write);
+    for (auto& read  : _reads)  gpu_protect(cmd, read);
+    for (auto& write : _writes) gpu_protect(cmd, write);
 }

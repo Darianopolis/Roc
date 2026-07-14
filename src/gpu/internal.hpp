@@ -37,6 +37,7 @@ auto gpu_vulkan_make_chain(std::span<void* const> structures) -> void*
 {
     VkBaseInStructure* last = nullptr;
     for (auto* s : structures) {
+        if (!s) continue;
         auto* vk_base = static_cast<VkBaseInStructure*>(s);
         vk_base->pNext = last;
         last = vk_base;
@@ -47,25 +48,18 @@ auto gpu_vulkan_make_chain(std::span<void* const> structures) -> void*
 
 // -----------------------------------------------------------------------------
 
-auto gpu_find_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags required, VkMemoryPropertyFlags disallowed = {}) -> u32;
-
+auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage>) -> VkImageUsageFlags;
 auto gpu_get_required_format_features(GpuFormat, Flags<GpuImageUsage>) -> VkFormatFeatureFlags;
 
-// -----------------------------------------------------------------------------
-
-auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage>) -> VkImageUsageFlags;
-
-void gpu_image_init(GpuImageBase*);
-
-auto gpu_image_create_dmabuf(Gpu*, const GpuImageCreateInfo&) -> Ref<GpuImage>;
+auto gpu_find_memory_type_index(Gpu*, u32 type_filter, VkMemoryPropertyFlags required, VkMemoryPropertyFlags disallowed = {}) -> u32;
 
 // -----------------------------------------------------------------------------
 
 static constexpr u32 gpu_push_constant_size = 128;
 
 void gpu_init_descriptors(Gpu*);
-void gpu_allocate_image_descriptor(GpuImageBase*);
-void gpu_allocate_sampler_descriptor(GpuSampler*);
+auto gpu_allocate_image_descriptor(Gpu*, VkImageView, VkDescriptorType) -> GpuDescriptorId;
+auto gpu_allocate_sampler_descriptor(Gpu*, VkSampler) -> GpuDescriptorId;
 
 // -----------------------------------------------------------------------------
 
@@ -88,7 +82,7 @@ struct GpuCommands
 };
 
 void gpu_queue_init(Gpu*);
-void gpu_protect(Gpu*, Ref<void>);
+void gpu_protect(GpuCommands*, Ref<void>);
 
 // -----------------------------------------------------------------------------
 
