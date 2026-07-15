@@ -15,17 +15,17 @@ const vec2f32 positions[] = {
 
 void main()
 {
-    SceneQuad quad = pc.quads.data[gl_InstanceIndex];
+    GPU_CONST_PTR(SceneQuad) quad = pc.quads[gl_InstanceIndex];
 
     vec2f32 local_pos = positions[gl_VertexIndex];
-    if ((quad.flags & SCENE_DRAW_FLAG_OPAQUE) == 0) {
+    if ((quad._.flags & SCENE_DRAW_FLAG_OPAQUE) == 0) {
         // Flip non-opaque geometry winding order so that they don't update the stencil mask
         local_pos.x = 1 - local_pos.x;
     }
 
-    vec2f32 pixel_pos = fma(local_pos, quad.dst.extent, quad.dst.origin);
+    vec2f32 pixel_pos = fma(local_pos, quad._.dst.extent, quad._.dst.origin);
     gl_Position = vec4f32(fma(pixel_pos, pc.scale, pc.offset), 0, 1);
 
-    out_uv = fma(local_pos, quad.src.extent, quad.src.origin);
+    out_uv = fma(local_pos, quad._.src.extent, quad._.src.origin);
     out_quad = gl_InstanceIndex;
 }

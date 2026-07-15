@@ -1,7 +1,7 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-#include "render.h"
+#include "common.glsl"
 
 layout(push_constant, scalar) uniform PushConstants { SceneRenderComputeInput pc; };
 
@@ -10,8 +10,9 @@ void main()
 {
     if (gl_GlobalInvocationID.x >= pc.extent.x || gl_GlobalInvocationID.y >= pc.extent.y) return;
 
-    u32 bin_index = (gl_GlobalInvocationID.y / SCENE_BIN_SIZE) * pc.row_stride + (gl_GlobalInvocationID.x / SCENE_BIN_SIZE) + 1;
-    SceneRenderBin bin = pc.bins.data[bin_index];
+    GPU_CONST_PTR(SceneRenderBin) bin = pc.bins[  (gl_GlobalInvocationID.y / SCENE_BIN_SIZE) * pc.row_stride
+                                                + (gl_GlobalInvocationID.x / SCENE_BIN_SIZE)
+                                                + 1];
 
     vec4f32 color = vec4f32(0, 0, 0, 0);
 
@@ -19,27 +20,17 @@ void main()
 
     u32 slot = 0;
     while (true) {
-        u32 quad_id = bin.quads[slot];
+        u32 quad_id = bin._.quads[slot];
         if (quad_id == 0) break;
 
-        aabb2f32 bounds = pc.quad_bounds.data[quad_id];
+        aabb2f32 bounds = pc.quad_bounds[quad_id]._;
         if (       pos.x >= bounds.min.x && pos.x < bounds.max.x
                 && pos.y >= bounds.min.y && pos.y < bounds.max.y) {
-            SceneQuad quad = pc.quads.data[quad_id];
+            GPU_CONST_PTR(SceneQuad) quad = pc.quads[quad_id];
 
-            // Sample
-            vec2f32 uv = (pos + vec2f32(0.5) - quad.dst.origin) / quad.dst.extent;
-            uv = uv * quad.src.extent + quad.src.origin;
-            vec4f32 sampled = gpu_image_sample(quad.texture, uv);
-
-            // Tint
-            vec4f32 tint = unpack_unorm4u8(quad.tint);
-            sampled *= tint;
-
-            // Premultiply
-            if ((quad.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) == 0) {
-                sampled.rgb *= sampled.a;
-            }
+            vec2f32 uv = (pos + vec2f32(0.5) - quad._.dst.origin) / quad._.dst.extent;
+                    uv = fma(uv, quad._.src.extent, quad._.src.origin);
+            vec4f32 sampled = quad_sample(quad, uv);
 
             // Blend
             vec4f32 src = color;
@@ -52,9 +43,9 @@ void main()
 
         slot += 1;
         if (slot == SCENE_QUADS_PER_BIN) {
-            if (bin.next_bin != 0) {
+            if (bin._.next_bin != 0) {
                 slot = 0;
-                bin = pc.bins.data[bin.next_bin];
+                bin = pc.bins[bin._.next_bin];
             } else {
                 break;
             }

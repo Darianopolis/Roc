@@ -17,7 +17,7 @@ struct SceneQuad
     u32 flags;
 };
 
-GPU_PTR_ENABLE_FOR(SceneQuad);
+GPU_PTR_ENABLE_FOR(SceneQuad, 4);
 
 struct SceneRenderInput
 {
@@ -42,9 +42,7 @@ struct SceneRenderBin
     u32 next_bin;
 };
 
-GPU_PTR_ENABLE_FOR(SceneRenderBin);
-GPU_PTR_ENABLE_FOR(aabb2f32);
-GPU_PTR_ENABLE_FOR(u8);
+GPU_PTR_ENABLE_FOR(SceneRenderBin, 4);
 
 struct SceneRenderBinInput
 {

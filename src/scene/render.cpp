@@ -139,7 +139,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .flags = flags,
         });
         quad_bounds.emplace_back(pixel_dst);
-        quad_opaque_flags.emplace_back(flags & SCENE_DRAW_FLAG_OPAQUE);
+        quad_opaque_flags.emplace_back((flags & SCENE_DRAW_FLAG_OPAQUE) != 0);
 
         reads.insert(image);
         reads.insert(sampler);

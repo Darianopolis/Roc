@@ -9,6 +9,15 @@
 
 // -----------------------------------------------------------------------------
 
+#define GPU_CONST_PTR(T) T##_ConstPtr
+#define GPU_PTR(T)       T##_Ptr
+
+#define GPU_PTR_ENABLE_FOR(T, Align) \
+    layout(buffer_reference, scalar, buffer_reference_align=Align) readonly buffer T##_ConstPtr { T _; }; \
+    layout(buffer_reference, scalar, buffer_reference_align=Align)          buffer T##_Ptr      { T _; };
+
+// -----------------------------------------------------------------------------
+
 #define u8  uint8_t
 #define u16 uint16_t
 #define u32 uint
@@ -26,15 +35,6 @@ struct rect2f32 { vec2f32 origin; vec2f32 extent; };
 struct rect2i32 { vec2i32 origin; vec2i32 extent; };
 
 struct aabb2f32 { vec2f32 min; vec2f32 max; };
-
-// -----------------------------------------------------------------------------
-
-#define GPU_CONST_PTR(T) T##_ConstPtr
-#define GPU_PTR(T)       T##_Ptr
-
-#define GPU_PTR_ENABLE_FOR(T) \
-    layout(buffer_reference, scalar) readonly buffer T##_ConstPtr { T data[]; }; \
-    layout(buffer_reference, scalar)          buffer T##_Ptr      { T data[]; };
 
 // -----------------------------------------------------------------------------
 
