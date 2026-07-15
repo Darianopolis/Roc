@@ -118,13 +118,18 @@ auto scene_find_input_region_at(SceneTree*, vec2f32 pos) -> SceneInputRegion*;
 
 // -----------------------------------------------------------------------------
 
+enum class SceneTextureFlag : u32
+{
+    premultiplied = 1 << 0,
+};
+
 struct SceneTexture : SceneNode
 {
     Ref<GpuImage>   image;
     Ref<GpuSampler> sampler;
-    GpuBlendMode    blend;
+    Flags<SceneTextureFlag> flags;
 
-    vec4u8   tint;
+    vec4f32  tint;
     aabb2f32 src;
     rect2f32 dst;
 
@@ -132,8 +137,8 @@ struct SceneTexture : SceneNode
 };
 
 auto scene_texture_create() -> Ref<SceneTexture>;
-void scene_texture_set_image(SceneTexture*, GpuImage*, GpuSampler*, GpuBlendMode);
-void scene_texture_set_tint( SceneTexture*, vec4u8   tint);
+void scene_texture_set_image(SceneTexture*, GpuImage*, GpuSampler*, Flags<SceneTextureFlag>);
+void scene_texture_set_tint( SceneTexture*, vec4f32  tint);
 void scene_texture_set_src(  SceneTexture*, aabb2f32 src);
 void scene_texture_set_dst(  SceneTexture*, rect2f32 dst);
 void scene_texture_damage(   SceneTexture*, aabb2i32 damage);

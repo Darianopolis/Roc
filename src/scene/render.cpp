@@ -33,7 +33,7 @@ auto get_pipeline(SceneRenderer* renderer, GpuFormat format) -> GpuPipeline*
             }
         }},
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .blend_mode = GpuBlendMode::premultiplied,
+        .blend_direction = GpuBlendDirection::front_to_back,
     });
 
     renderer->pipelines.emplace(format, pipeline);
@@ -80,6 +80,8 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 
 void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
+    bool use_compute = info.options.contains(SceneRenderOption::use_compute);
+
     auto extent = info.target->base()->extent;
 
     auto pixel_size = vec_cast<f32>(extent) / info.viewport.extent;
@@ -100,6 +102,8 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
     std::flat_set<GpuResource*> reads;
 
     auto collect_texture = [&](SceneTexture* texture, vec2f32 translation, f32 opacity) {
+        if (use_compute && quads.size() >= std::numeric_limits<SCENE_QUAD_INDEX_TYPE>::max()) return;
+
         rect2f32 dst = texture->dst;
         dst.origin += translation;
 
@@ -115,11 +119,11 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         auto sampler = texture->sampler.get() ?: renderer->nearest.get();
 
         u32 flags = 0;
-        if (texture->blend == GpuBlendMode::premultiplied) {
+        if (texture->flags.contains(SceneTextureFlag::premultiplied)) {
             flags |= SCENE_DRAW_FLAG_PREMULTIPLIED;
         }
 
-        vec4f32 tint = unpack_unorm(texture->tint);
+        vec4f32 tint = texture->tint;
         tint *= opacity;
         if (tint.w == 0.f) return;
 
@@ -127,7 +131,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .dst = pixel_dst,
             .texture = {image, sampler},
             .src = texture->src,
-            .tint = pack_unorm<u8>(tint),
+            .tint = pack_unorm<u8>(srgb_oetf(tint)),
             .flags = flags,
         });
         quad_bounds.emplace_back(pixel_dst);
@@ -146,7 +150,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
                 if (!tree->enabled) return;
                 translation += tree->translation;
                 opacity *= tree->opacity;
-                for (auto* child : tree->children) {
+                for (auto* child : tree->children | std::views::reverse) {
                     visit(child, translation, opacity);
                 }
             },
@@ -181,7 +185,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
     auto gpu_quads = gpu_buffer_create(gpu, quads.size() * sizeof(SceneQuad), {});
     std::memcpy(gpu_quads->host_address, quads.data(), gpu_quads->size);
 
-    if (info.options.contains(SceneRenderOption::use_compute)) {
+    if (use_compute) {
         auto gpu_quad_bounds = gpu_buffer_create(gpu, quads.size() * sizeof(aabb2f32), {});
         std::memcpy(gpu_quad_bounds->host_address, quad_bounds.data(), gpu_quad_bounds->size);
 

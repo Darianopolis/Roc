@@ -46,7 +46,7 @@ void update_backgrounds(ShellBackground* bg)
 
             // Create texture node
             bgo.texture = scene_texture_create();
-            scene_texture_set_image(bgo.texture.get(), bg->image.get(), bg->sampler.get(), GpuBlendMode::premultiplied);
+            scene_texture_set_image(bgo.texture.get(), bg->image.get(), bg->sampler.get(), SceneTextureFlag::premultiplied);
             auto src = rect_fit<f32>(image_size, viewport.extent);
             scene_texture_set_src(bgo.texture.get(), {src.origin / image_size, src.extent / image_size, xywh});
             scene_texture_set_dst(bgo.texture.get(), viewport);

@@ -70,10 +70,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
 
     VkPipelineColorBlendAttachmentState blend = {
         .blendEnable = true,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
         .colorBlendOp = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
         .alphaBlendOp = VK_BLEND_OP_ADD,
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT
                         | VK_COLOR_COMPONENT_G_BIT
@@ -81,13 +78,17 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
                         | VK_COLOR_COMPONENT_A_BIT,
     };
 
-    switch (info.blend_mode) {
-        break;case GpuBlendMode::none:
-            blend.blendEnable = false;
-        break;case GpuBlendMode::postmultiplied:
-            blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        break;case GpuBlendMode::premultiplied:
+    switch (info.blend_direction) {
+        break;case GpuBlendDirection::back_to_front:
             blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        break;case GpuBlendDirection::front_to_back:
+            blend.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+            blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+            blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     }
 
     gpu_check(gpu->vk.CreateGraphicsPipelines(gpu->device, nullptr, 1, ptr_to(VkGraphicsPipelineCreateInfo {

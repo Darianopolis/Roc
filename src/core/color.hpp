@@ -83,22 +83,15 @@ auto unpack_unorm(Vec<4, T> packed) -> vec4f32
 
 // -----------------------------------------------------------------------------
 
-template <typename Fn>
 constexpr
-auto srgb_apply(const vec4f32& v, Fn&& fn) -> vec4f32
-{
-    return vec4f32{ fn(v.x), fn(v.y), fn(v.z), v.w };
-}
-
-constexpr
-auto srgb_eotf_scalar(f32 c) -> f32
+auto srgb_eotf(f32 c) -> f32
 {
     if (c <= 0.04045f) return c / 12.92f;
     return std::pow((c + 0.055f) / 1.055f, 2.4f);
 }
 
 constexpr
-auto srgb_oetf_scalar(f32 c) -> f32
+auto srgb_oetf(f32 c) -> f32
 {
     if (c <= 0.0031308f) return c * 12.92f;
     return 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f;
@@ -107,13 +100,23 @@ auto srgb_oetf_scalar(f32 c) -> f32
 constexpr
 auto srgb_eotf(const vec4f32& electrical) -> vec4f32
 {
-    return srgb_apply(electrical, srgb_eotf_scalar);
+    return {
+        srgb_eotf(electrical.x),
+        srgb_eotf(electrical.y),
+        srgb_eotf(electrical.z),
+        electrical.w,
+    };
 }
 
 constexpr
 auto srgb_oetf(const vec4f32& optical) -> vec4f32
 {
-    return srgb_apply(optical, srgb_oetf_scalar);
+    return {
+        srgb_oetf(optical.x),
+        srgb_oetf(optical.y),
+        srgb_oetf(optical.z),
+        optical.w,
+    };
 }
 
 // -----------------------------------------------------------------------------

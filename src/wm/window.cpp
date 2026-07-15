@@ -78,7 +78,7 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
 
     window->backdrop = scene_texture_create();
     scene_tree_place_above(window->root_tree.get(), nullptr, window->backdrop.get());
-    scene_texture_set_tint(window->backdrop.get(), color_from_hex("#000000"));
+    scene_texture_set_tint(window->backdrop.get(), {});
 
     for (usz i = 0; i < 4; ++i) {
         auto border = scene_texture_create();

@@ -79,7 +79,7 @@ auto get_xcursor(SeatCursorManager* manager, const char* semantic) -> SceneNode*
     gpu_copy_memory_to_image(image.get(), as_bytes(cursor->pixels, cursor->width * cursor->height * 4), {{{image->base()->extent}}});
 
     auto visual = scene_texture_create();
-    scene_texture_set_image(visual.get(), image.get(), manager->sampler.get(), GpuBlendMode::premultiplied);
+    scene_texture_set_image(visual.get(), image.get(), manager->sampler.get(), SceneTextureFlag::premultiplied);
     scene_texture_set_dst(visual.get(), {-vec2f32{f32(cursor->xhot), f32(cursor->yhot)}, {f32(cursor->width), f32(cursor->height)}, xywh});
 
     manager->cache.insert({semantic, visual});

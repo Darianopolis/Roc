@@ -14,7 +14,7 @@ auto ui_string(Gpu* gpu, UiFont* font, std::string_view text, const UiGlyphRaste
         if (glyph.image) {
             auto texture = scene_texture_create();
             out.glyphs.emplace_back(texture.get());
-            scene_texture_set_image(texture.get(), glyph.image.get(), nullptr, GpuBlendMode::premultiplied);
+            scene_texture_set_image(texture.get(), glyph.image.get(), nullptr, SceneTextureFlag::premultiplied);
             glyph.rect.origin.x += x;
             out.bounds = aabb_outer<f32>(out.bounds, glyph.rect);
             scene_texture_set_dst(texture.get(), glyph.rect);

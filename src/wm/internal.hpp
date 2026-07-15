@@ -22,16 +22,16 @@ struct WmConfig
 {
     struct {
         vec2f32 size    = vec2f32(2, 2);
-        vec4u8  normal  = color_from_hex("#4C4C4C");
-        vec4u8  focused = color_from_hex("#6666FF");
+        vec4f32 normal  = srgb_eotf(unpack_unorm(color_from_hex("#4C4C4C")));
+        vec4f32 focused = srgb_eotf(unpack_unorm(color_from_hex("#6666FF")));
     } border;
 
     struct {
         vec2u32 count = {6, 2};
         vec2f32 selection_leeway = {0.3f, 0.3f};
         i32     spacing = 8;
-        vec4u8  color_initial  = color_from_hex("#99999999");
-        vec4u8  color_selected = color_from_hex("#6666FF99");
+        vec4f32 color_initial  = srgb_eotf(unpack_unorm(color_from_hex("#99999999")));
+        vec4f32 color_selected = srgb_eotf(unpack_unorm(color_from_hex("#6666FF99")));
     } zone;
 
     struct {

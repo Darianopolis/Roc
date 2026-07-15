@@ -448,11 +448,11 @@ auto gpu_sampler_create(Gpu*, const GpuSamplerCreateInfo&) -> Ref<GpuSampler>;
 
 // -----------------------------------------------------------------------------
 
-enum class GpuBlendMode : u32
+
+enum class GpuBlendDirection : u32
 {
-    none,
-    premultiplied,
-    postmultiplied,
+    back_to_front,
+    front_to_back,
 };
 
 struct GpuShaderStageInfo
@@ -469,7 +469,7 @@ struct GpuGraphicsPipelineCreateInfo
     GpuFormat format;
     std::span<const GpuShaderStageInfo> shaders;
     VkPrimitiveTopology topology;
-    GpuBlendMode blend_mode;
+    GpuBlendDirection blend_direction;
 };
 
 auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuPipeline>;

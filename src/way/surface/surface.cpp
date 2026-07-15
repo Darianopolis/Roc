@@ -295,7 +295,7 @@ void apply(WaySurface* surface, WaySurfaceState& from)
             scene_texture_set_image(surface->scene.texture.get(),
                 to.image.get(),
                 surface->client->server->sampler.get(),
-                GpuBlendMode::premultiplied);
+                SceneTextureFlag::premultiplied);
 
             if (from.buffer_damage) {
                 scene_texture_damage(surface->scene.texture.get(), from.buffer_damage.bounds());
@@ -304,7 +304,7 @@ void apply(WaySurface* surface, WaySurfaceState& from)
             to.set -= WaySurfaceStateComponent::buffer;
             to.buffer = nullptr;
 
-            scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, GpuBlendMode::none);
+            scene_texture_set_image(surface->scene.texture.get(), nullptr, nullptr, {});
         }
     }
 

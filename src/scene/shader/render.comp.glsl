@@ -19,18 +19,22 @@ void main()
 
     u32 slot = 0;
     while (true) {
-        if (bin.quads[slot] == 0) break;
+        u32 quad_id = bin.quads[slot];
+        if (quad_id == 0) break;
 
-        aabb2f32 bounds = pc.quad_bounds.data[bin.quads[slot]];
+        aabb2f32 bounds = pc.quad_bounds.data[quad_id];
         if (       pos.x >= bounds.min.x && pos.x < bounds.max.x
                 && pos.y >= bounds.min.y && pos.y < bounds.max.y) {
-            SceneQuad quad = pc.quads.data[bin.quads[slot]];
+            SceneQuad quad = pc.quads.data[quad_id];
 
-            vec4f32 tint = unpack_unorm4u8(quad.tint);
-
+            // Sample
             vec2f32 uv = (pos + vec2f32(0.5) - quad.dst.origin) / quad.dst.extent;
             uv = uv * quad.src.extent + quad.src.origin;
-            vec4f32 sampled = gpu_image_sample(quad.texture, uv) * tint;
+            vec4f32 sampled = gpu_image_sample(quad.texture, uv);
+
+            // Tint
+            vec4f32 tint = unpack_unorm4u8(quad.tint);
+            sampled *= tint;
 
             // Premultiply
             if ((quad.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) == 0) {

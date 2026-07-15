@@ -28,14 +28,16 @@ struct SceneRenderInput
 // -----------------------------------------------------------------------------
 
 #define SCENE_BIN_SIZE 16
-#define SCENE_QUADS_PER_BIN 15
+
+#define SCENE_QUAD_INDEX_TYPE u16
+#define SCENE_QUADS_PER_BIN 30
 
 #define SCENE_BIN_DISPATCH_SIZE 8
 #define SCENE_COMPUTE_DISPATCH_SIZE 8
 
 struct SceneRenderBin
 {
-    u32 quads[SCENE_QUADS_PER_BIN];
+    SCENE_QUAD_INDEX_TYPE quads[SCENE_QUADS_PER_BIN];
     u32 next_bin;
 };
 

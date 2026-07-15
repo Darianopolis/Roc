@@ -6,8 +6,8 @@ auto scene_texture_create() -> Ref<SceneTexture>
 {
     auto texture = ref_create<SceneTexture>();
     texture->type = SceneNodeType::texture;
-    texture->blend = GpuBlendMode::postmultiplied;
-    texture->tint = {255, 255, 255, 255};
+    texture->flags = {};
+    texture->tint = {1, 1, 1, 1};
     texture->src = {{}, {1, 1}, minmax};
     return texture;
 }
@@ -41,30 +41,30 @@ void damage(SceneTexture* texture, rect2f32 dst)
     scene_node_post_damage(texture, {}, {{dst}, SceneDamageType::visual});
 }
 
-void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, GpuBlendMode blend)
+void scene_texture_set_image(SceneTexture* texture, GpuImage* image, GpuSampler* sampler, Flags<SceneTextureFlag> flags)
 {
     bool changed = bool(texture->image.get())  != bool(image)
                      || texture->sampler.get() !=      sampler
-                     || texture->blend         !=      blend;
+                     || texture->flags         !=      flags;
 
     if (texture->image.get() == image && !changed) return;
 
 #if SCENE_NOISY_NODES
     if (texture->image.get()   != image)   NODE_LOG("scene.texture{{{}}}.set_image({})",   (void*)texture, (void*)image);
     if (texture->sampler.get() != sampler) NODE_LOG("scene.texture{{{}}}.set_sampler({})", (void*)texture, (void*)sampler);
-    if (texture->blend         != blend)   NODE_LOG("scene.texture{{{}}}.set_blend({})",   (void*)texture, blend);
+    if (texture->flags         != flags)   NODE_LOG("scene.texture{{{}}}.set_flags({})",   (void*)texture, flags);
 #endif
 
     texture->image = image;
     texture->sampler = sampler;
-    texture->blend = blend;
+    texture->flags = flags;
 
     if (changed) {
         damage(texture, texture->dst);
     }
 }
 
-void scene_texture_set_tint(SceneTexture* texture, vec4u8 tint)
+void scene_texture_set_tint(SceneTexture* texture, vec4f32 tint)
 {
     if (texture->tint == tint) return;
 
