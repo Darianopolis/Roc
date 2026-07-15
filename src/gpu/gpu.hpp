@@ -64,6 +64,7 @@ struct GpuFormatInfo
     VkFormat vk_srgb;
     Flags<GpuVulkanFormatFlag> vk_flags;
 
+    VkImageAspectFlagBits aspect;
     bool is_ycbcr;
 
     u32 texel_block_size; // bytes
@@ -360,6 +361,7 @@ enum class GpuImageUsage : u32
     texture      = 1 << 2,
     render       = 1 << 3,
     storage      = 1 << 4,
+    stencil      = 1 << 5,
 };
 
 struct GpuImageBase;
@@ -517,6 +519,7 @@ void gpu_draw_indexed(     GpuCommands*, const GpuDrawInfo&);
 struct GpuRenderPassInfo
 {
     GpuImage* target;
+    GpuImage* stencil;
     std::optional<vec4f32> clear_color;
 };
 

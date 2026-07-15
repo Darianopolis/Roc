@@ -127,6 +127,10 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         tint *= opacity;
         if (tint.w == 0.f) return;
 
+        if (!texture->image && tint.w == 1.f) {
+            flags |= SCENE_DRAW_FLAG_OPAQUE;
+        }
+
         quads.emplace_back(SceneQuad {
             .dst = pixel_dst,
             .texture = {image, sampler},
@@ -135,7 +139,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .flags = flags,
         });
         quad_bounds.emplace_back(pixel_dst);
-        quad_opaque_flags.emplace_back(!texture->image && tint.w == 1.f);
+        quad_opaque_flags.emplace_back(flags & SCENE_DRAW_FLAG_OPAQUE);
 
         reads.insert(image);
         reads.insert(sampler);
@@ -253,8 +257,16 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         gpu_barrier(cmd, reads, {{info.target}});
 
+        auto stencil = gpu_image_create(gpu, {
+            .extent = extent,
+            .format = gpu_format_from_vulkan(VK_FORMAT_S8_UINT),
+            .usage = GpuImageUsage::stencil,
+        });
+        gpu_protect(cmd, stencil);
+
         gpu_begin_rendering(cmd, {
             .target = info.target,
+            .stencil = stencil.get(),
             .clear_color = {{0,0,0,0}},
         });
 

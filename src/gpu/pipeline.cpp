@@ -97,6 +97,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
             .colorAttachmentCount = 1,
             .pColorAttachmentFormats = ptr_to(info.format->vk),
+            .stencilAttachmentFormat = VK_FORMAT_S8_UINT,
         }),
         .stageCount = u32(info.shaders.size()),
         .pStages = shaders,
@@ -118,7 +119,24 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
             .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
         }),
-        .pDepthStencilState = nullptr,
+        .pDepthStencilState = ptr_to(VkPipelineDepthStencilStateCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .stencilTestEnable = true,
+            .front = {
+                // Opaque
+                .passOp = VK_STENCIL_OP_REPLACE,
+                .compareOp = VK_COMPARE_OP_NOT_EQUAL,
+                .compareMask = 0xFF,
+                .writeMask = 0xFF,
+                .reference = 1,
+            },
+            .back = {
+                // Non-Opaque
+                .compareOp = VK_COMPARE_OP_NOT_EQUAL,
+                .compareMask = 0xFF,
+                .reference = 1,
+            },
+        }),
         .pColorBlendState = ptr_to(VkPipelineColorBlendStateCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
             .attachmentCount = 1,
@@ -230,6 +248,22 @@ void gpu_begin_rendering(GpuCommands* cmd, const GpuRenderPassInfo& info)
                 }
                 : VkClearValue {},
         }),
+        .pStencilAttachment = info.stencil
+            ? ptr_to(VkRenderingAttachmentInfo {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = info.stencil->base()->view,
+                .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .clearValue = info.clear_color
+                    ? VkClearValue {
+                        .depthStencil = {
+                            .stencil = 0
+                        }
+                    }
+                    : VkClearValue {},
+            })
+            : nullptr,
     }));
 }
 

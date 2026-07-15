@@ -4,6 +4,7 @@
 #include "gpu/shaders/shared.h"
 
 #define SCENE_DRAW_FLAG_PREMULTIPLIED (u32(1) << 0)
+#define SCENE_DRAW_FLAG_OPAQUE        (u32(1) << 1)
 
 struct SceneQuad
 {

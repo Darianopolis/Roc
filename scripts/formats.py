@@ -5,8 +5,8 @@ from .utils import write_file_lazy, ensure_dir
 class VkFlags(Flag):
     ignore_alpha = auto()
 
-def format(drm: str, vk: str, flags: VkFlags = VkFlags(0)):
-    return (drm, vk, flags)
+def format(drm: str, vk: str, flags: VkFlags = VkFlags(0), aspect = "VK_IMAGE_ASPECT_COLOR_BIT"):
+    return (drm, vk, flags, aspect)
 
 formats = [
     format("    ", "VK_FORMAT_UNDEFINED"),
@@ -78,6 +78,8 @@ formats = [
     format("P012", "VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16" ),
     format("P016", "VK_FORMAT_G16_B16R16_2PLANE_420_UNORM"               ),
     format("Q410", "VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16"),
+
+    format("", "VK_FORMAT_S8_UINT", aspect="VK_IMAGE_ASPECT_STENCIL_BIT"),
 ]
 
 def enumerate_vk_formats(path: str):
@@ -117,7 +119,7 @@ def generate_formats(build_dir):
     out +=  "static\n"
     out += f"constexpr std::array<GpuFormatInfo, {len(formats)}> gpu_format_infos =\n"
     out +=  "{\n"
-    for (drm, vk, flags) in formats:
+    for (drm, vk, flags, aspect) in formats:
         out +=  "    GpuFormatInfo {\n"
 
         # DRM
@@ -140,6 +142,7 @@ def generate_formats(build_dir):
 
         entry = format_entries.get(vk)
         if entry:
+            out += f"        .aspect = {aspect},\n"
             if entry.get("chroma", ""):
                 out += "        .is_ycbcr = true,\n"
 
@@ -165,7 +168,7 @@ def generate_formats(build_dir):
     out += "auto gpu_format_from_drm(GpuDrmFormat drm_format) -> GpuFormat\n"
     out += "{\n"
     out += "    switch (drm_format) {\n"
-    for i, (drm, vk, flags) in enumerate(formats):
+    for i, (drm, vk, flags, aspect) in enumerate(formats):
         if not len(drm):
             continue
         out += f"        break;case fourcc_code('{drm[0]}', '{drm[1]}', '{drm[2]}', '{drm[3]}'): return {{{i}}};\n"
@@ -180,7 +183,7 @@ def generate_formats(build_dir):
     out += "{\n"
     out += "    switch (vk_format) {\n"
     from_vulkan = {}
-    for i, (drm, vk, flags) in enumerate(formats):
+    for i, (drm, vk, flags, aspect) in enumerate(formats):
         if vk not in from_vulkan:
             from_vulkan[vk] = []
         from_vulkan[vk].append((i, flags))

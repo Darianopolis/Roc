@@ -11,6 +11,7 @@ auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage> usage) -> VkImageUsageFlags
     if (usage.contains(GpuImageUsage::texture))      vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     if (usage.contains(GpuImageUsage::transfer_src)) vk_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     if (usage.contains(GpuImageUsage::transfer_dst)) vk_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (usage.contains(GpuImageUsage::stencil))      vk_usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     return vk_usage;
 }
 
@@ -19,7 +20,7 @@ auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usa
     VkFormatFeatureFlags features = {};
     if (usage.contains(GpuImageUsage::storage)) features |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
     if (usage.contains(GpuImageUsage::render))  features |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
-                                                            |  VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+                                                         |  VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
     if (usage.contains(GpuImageUsage::texture)) {
         features |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
                  |  VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
@@ -28,6 +29,7 @@ auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usa
     }
     if (usage.contains(GpuImageUsage::transfer_dst)) features |= VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
     if (usage.contains(GpuImageUsage::transfer_src)) features |= VK_FORMAT_FEATURE_TRANSFER_SRC_BIT;
+    if (usage.contains(GpuImageUsage::stencil))      features |= VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
     return features;
 }
 
@@ -141,7 +143,7 @@ auto create_image_view(GpuImageBase* image, bool srgb) -> VkImageView
                 ? VK_COMPONENT_SWIZZLE_ONE
                 : VK_COMPONENT_SWIZZLE_IDENTITY,
         },
-        .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+        .subresourceRange = { image->format->aspect, 0, 1, 0, 1 },
     }), nullptr, &view));
 
     return view;
@@ -153,7 +155,7 @@ void image_init(GpuImageBase* image, const GpuFormatModifierProperties* props)
     auto* gpu = image->gpu;
 
     auto vk_usage = gpu_image_usage_to_vulkan(image->usage);
-    if (vk_usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)) {
+    if (vk_usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
         image->view = create_image_view(image, false);
 
         if (vk_usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
@@ -187,7 +189,7 @@ void image_init(GpuImageBase* image, const GpuFormatModifierProperties* props)
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image->image,
-            .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            .subresourceRange = { image->format->aspect, 0, 1, 0, 1 },
         }),
     }));
 }
@@ -558,7 +560,7 @@ void gpu_copy_image_to_buffer(GpuBuffer* buffer, GpuImage* _image)
 
     gpu->vk.CmdCopyImageToBuffer(cmd->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL, buffer->buffer, 1, ptr_to(VkBufferImageCopy {
         .bufferOffset = 0,
-        .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+        .imageSubresource = { image->format->aspect, 0, 0, 1 },
         .imageOffset = {},
         .imageExtent = { extent.x, extent.y, 1 },
     }));
@@ -576,7 +578,7 @@ void gpu_copy_buffer_to_image(GpuImage* _image, GpuBuffer* buffer, std::span<con
         copies[i] = {
             .bufferOffset = region.buffer_offset,
             .bufferRowLength = region.buffer_row_length,
-            .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .imageSubresource = { image->format->aspect, 0, 0, 1 },
             .imageOffset = { region.image_offset.x, region.image_offset.y },
             .imageExtent = { region.image_extent.x, region.image_extent.y, 1 },
         };

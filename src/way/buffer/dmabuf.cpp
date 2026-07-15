@@ -382,7 +382,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
             .dstQueueFamilyIndex = gpu->queue.family,
             .image = image->base()->image,
-            .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+            .subresourceRange = {image->base()->format->aspect, 0, 1, 0, 1},
         })
     }));
 
@@ -410,7 +410,7 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
                 .dstQueueFamilyIndex = gpu->queue.family,
                 .image = buffer->image->base()->image,
-                .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                .subresourceRange = {buffer->image->base()->format->aspect, 0, 1, 0, 1},
             })
         }));
 
