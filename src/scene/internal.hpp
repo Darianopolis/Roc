@@ -10,10 +10,15 @@ struct SceneRenderer
 {
     Gpu* gpu;
 
-    ankerl::unordered_dense::map<GpuFormat, Ref<GpuPipeline>> pipelines;
     Ref<GpuImage> white;
     Ref<GpuSampler> nearest;
     Ref<GpuBuffer> indices;
+
+    Ref<GpuImagePool> pool;
+
+    Ref<GpuPipeline> render;
+    Ref<GpuPipeline> output;
+
     Ref<GpuPipeline> compute;
     Ref<GpuPipeline> bin;
 };

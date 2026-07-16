@@ -26,9 +26,19 @@ struct SceneRenderInput
     vec2f32 scale;
 };
 
+struct SceneOutputInput
+{
+    GpuStorageImageHandle source;
+    GpuStorageImageHandle target;
+    vec2u32 extent;
+};
+
+#define SCENE_OUTPUT_DISPATCH_SIZE 8
+
 // -----------------------------------------------------------------------------
 
 #define SCENE_BIN_SIZE 16
+#define SCENE_RESERVED_BIN_COUNT 1
 
 #define SCENE_QUAD_INDEX_TYPE u16
 #define SCENE_QUADS_PER_BIN 30

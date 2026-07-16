@@ -10,36 +10,10 @@
 
 #include "scene_render_vert.hpp"
 #include "scene_render_frag.hpp"
+#include "scene_output_comp.hpp"
+
 #include "scene_render_comp.hpp"
 #include "scene_bin_comp.hpp"
-
-auto get_pipeline(SceneRenderer* renderer, GpuFormat format) -> GpuPipeline*
-{
-    auto iter = renderer->pipelines.find(format);
-    if (iter != renderer->pipelines.end()) return iter->second.get();
-
-    auto pipeline = gpu_pipeline_create(renderer->gpu, {
-        .format = format,
-        .shaders = {{
-            {
-                .stage = VK_SHADER_STAGE_VERTEX_BIT,
-                .code  = scene_render_vert,
-                .entry = "main",
-            },
-            {
-                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .code  = scene_render_frag,
-                .entry = "main",
-            }
-        }},
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .blend_direction = GpuBlendDirection::front_to_back,
-    });
-
-    renderer->pipelines.emplace(format, pipeline);
-
-    return pipeline.get();
-}
 
 auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 {
@@ -63,6 +37,32 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
         .min = VK_FILTER_NEAREST,
     });
 
+    renderer->pool = gpu_image_pool_create(renderer->gpu);
+
+    renderer->render = gpu_pipeline_create(renderer->gpu, {
+        .format = gpu_format_from_vulkan(VK_FORMAT_R16G16B16A16_SFLOAT),
+        .shaders = {{
+            {
+                .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                .code  = scene_render_vert,
+                .entry = "main",
+            },
+            {
+                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .code  = scene_render_frag,
+                .entry = "main",
+            }
+        }},
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .blend_direction = GpuBlendDirection::front_to_back,
+    });
+
+    renderer->output = gpu_pipeline_create_compute(gpu, {
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .code = scene_output_comp,
+        .entry = "main",
+    });
+
     renderer->compute = gpu_pipeline_create_compute(gpu, {
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
         .code = scene_render_comp,
@@ -80,6 +80,8 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 
 void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
+    debug_assert(info.target->base()->usage.contains(GpuImageUsage::storage));
+
     bool use_compute = info.options.contains(SceneRenderOption::use_compute);
 
     auto extent = info.target->base()->extent;
@@ -145,6 +147,28 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         reads.insert(sampler);
     };
 
+    if (info.damage && info.options.contains(SceneRenderOption::show_damage)) {
+        auto step = std::max(0.f, 1.f / info.damage->sections.size());
+        usz i = 0;
+        for (auto& band : info.damage->bands) {
+            for (auto& section : std::span(info.damage->sections).subspan(band.start, band.count)) {
+                auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.25f};
+                auto rgb = color_hsv_to_rgb(hsv);
+                auto dst = aabb_inner<f32>({{section.min, band.min}, {section.max, band.max}, minmax}, info.viewport);
+                dst.min = layout_to_pixel(dst.min);
+                dst.max = layout_to_pixel(dst.max);
+                quads.emplace_back(SceneQuad {
+                    .dst = dst,
+                    .texture = {renderer->white.get(), renderer->nearest.get()},
+                    .src = {{}, {1, 1}, xywh},
+                    .tint = pack_unorm<u8>(rgb),
+                });
+                quad_bounds.emplace_back(dst);
+                quad_opaque_flags.emplace_back(0);
+            }
+        }
+    }
+
     [&](this auto&& visit, SceneNode* node, vec2f32 translation, f32 opacity) -> void {
         scene_visit(node, OverloadSet {
             [&](SceneTexture* texture) {
@@ -162,28 +186,6 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         });
     }(info.root, {}, 1.f);
 
-    if (info.damage && info.options.contains(SceneRenderOption::show_damage)) {
-        auto step = std::max(0.f, 1.f / info.damage->sections.size());
-        usz i = 0;
-        for (auto& band : info.damage->bands) {
-            for (auto& section : std::span(info.damage->sections).subspan(band.start, band.count)) {
-                auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.5f};
-                auto rgb = color_hsv_to_rgb(hsv);
-                auto dst = aabb_inner<f32>({{section.min, band.min}, {section.max, band.max}, minmax}, info.viewport);
-                quads.emplace_back(SceneQuad {
-                    .dst = dst,
-                    .texture = {renderer->white.get(), renderer->nearest.get()},
-                    .src = {{}, {1, 1}, xywh},
-                    .tint = vec_cast<u8>(rgb * 255.f),
-                });
-                dst.min = layout_to_pixel(dst.min);
-                dst.max = layout_to_pixel(dst.max);
-                quad_bounds.emplace_back(dst);
-                quad_opaque_flags.emplace_back(0);
-            }
-        }
-    }
-
     auto* gpu = renderer->gpu;
 
     auto gpu_quads = gpu_buffer_create(gpu, quads.size() * sizeof(SceneQuad), {});
@@ -198,10 +200,11 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         auto bins_horizontal = (extent.x + SCENE_BIN_SIZE - 1) / SCENE_BIN_SIZE;
         auto bins_vertical   = (extent.y + SCENE_BIN_SIZE - 1) / SCENE_BIN_SIZE;
-        auto bin_count = bins_horizontal * bins_vertical + 1;
+        auto bin_count = bins_horizontal * bins_vertical + SCENE_RESERVED_BIN_COUNT;
         auto extra_bins_start = bin_count;
         bin_count += (bins_horizontal * bins_vertical) * 3;
         auto gpu_bins = gpu_buffer_create(gpu, bin_count * sizeof(SceneRenderBin), {});
+        // We reserve the first bin for our atomic bump allocator state
         gpu_bins->host<SceneRenderBin>()->next_bin = extra_bins_start;
 
         auto cmd = gpu_record(gpu);
@@ -255,25 +258,32 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         auto cmd = gpu_record(gpu);
         gpu_protect(cmd, gpu_quads);
 
-        gpu_barrier(cmd, reads, {{info.target}});
+        // 2. Accumulate
 
-        auto stencil = gpu_image_create(gpu, {
+        auto stencil = renderer->pool->acquire({
             .extent = extent,
             .format = gpu_format_from_vulkan(VK_FORMAT_S8_UINT),
             .usage = GpuImageUsage::stencil,
         });
-        gpu_protect(cmd, stencil);
+
+        auto blend = renderer->pool->acquire({
+            .extent = extent,
+            .format = gpu_format_from_vulkan(VK_FORMAT_R16G16B16A16_SFLOAT),
+            .usage = GpuImageUsage::render | GpuImageUsage::storage,
+        });
+
+        gpu_barrier(cmd, reads, {{stencil.get(), blend.get()}});
 
         gpu_begin_rendering(cmd, {
-            .target = info.target,
+            .target = blend.get(),
             .stencil = stencil.get(),
             .clear_color = {{0,0,0,0}},
         });
 
-        gpu_set_viewports(cmd, {{{{}, vec_cast<f32>(info.target->base()->extent), xywh}}});
-        gpu_set_scissors( cmd, {{{{}, vec_cast<i32>(info.target->base()->extent), xywh}}});
+        gpu_set_viewports(cmd, {{{{}, vec_cast<f32>(extent), xywh}}});
+        gpu_set_scissors( cmd, {{{{}, vec_cast<i32>(extent), xywh}}});
 
-        gpu_bind_pipeline(cmd, get_pipeline(renderer, info.target->base()->format));
+        gpu_bind_pipeline(cmd, renderer->render.get());
         gpu_bind_index_buffer(cmd, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
 
         gpu_push_constants(cmd, 0, view_bytes(SceneRenderInput {
@@ -288,5 +298,22 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         });
 
         gpu_end_rendering(cmd);
+
+        // 3. Output
+
+        gpu_barrier(cmd, {{blend.get()}}, {{info.target}});
+
+        gpu_bind_pipeline(cmd, renderer->output.get());
+        gpu_push_constants(cmd, 0, view_bytes(SceneOutputInput {
+            .source = blend.get(),
+            .target = info.target,
+            .extent = extent,
+        }));
+
+        gpu_dispatch(cmd, {
+            (extent.x + SCENE_OUTPUT_DISPATCH_SIZE - 1) / SCENE_OUTPUT_DISPATCH_SIZE,
+            (extent.y + SCENE_OUTPUT_DISPATCH_SIZE - 1) / SCENE_OUTPUT_DISPATCH_SIZE,
+            1u
+        });
     }
 }

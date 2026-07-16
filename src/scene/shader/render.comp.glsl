@@ -12,7 +12,7 @@ void main()
 
     GPU_CONST_PTR(SceneRenderBin) bin = pc.bins[  (gl_GlobalInvocationID.y / SCENE_BIN_SIZE) * pc.row_stride
                                                 + (gl_GlobalInvocationID.x / SCENE_BIN_SIZE)
-                                                + 1];
+                                                + SCENE_RESERVED_BIN_COUNT];
 
     vec4f32 color = vec4f32(0, 0, 0, 0);
 
@@ -30,15 +30,12 @@ void main()
 
             vec2f32 uv = (pos + vec2f32(0.5) - quad._.dst.origin) / quad._.dst.extent;
                     uv = fma(uv, quad._.src.extent, quad._.src.origin);
-            vec4f32 sampled = quad_sample(quad, uv);
 
             // Blend
-            vec4f32 src = color;
-            vec4f32 dst = sampled;
-            color = src + dst * (1.f - src.w);
+            color += quad_sample(quad, uv) * (1.f - color.w);
 
             // Early stop
-            if (color.a == 1) break;
+            if (color.a >= 1) break;
         }
 
         slot += 1;
@@ -51,6 +48,8 @@ void main()
             }
         }
     }
+
+    color.rgb = srgb_oetf(color.rgb);
 
     gpu_image_store(pc.target, vec2i32(gl_GlobalInvocationID.xy), color);
 }

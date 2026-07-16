@@ -3,7 +3,7 @@
 vec4f32 quad_sample(GPU_CONST_PTR(SceneQuad) quad, vec2f32 uv)
 {
     // Sample
-    vec4f32 sampled = gpu_image_sample(quad._.texture, uv);
+    vec4f32 sampled = srgb_eotf(gpu_image_sample(quad._.texture, uv));
 
     // Unpremultiply
     if ((quad._.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) != 0 && sampled.a > 0) {
@@ -11,7 +11,7 @@ vec4f32 quad_sample(GPU_CONST_PTR(SceneQuad) quad, vec2f32 uv)
     }
 
     // Tint
-    vec4f32 tint = unpack_unorm4u8(quad._.tint);
+    vec4f32 tint = srgb_eotf(unpack_unorm4u8(quad._.tint));
     sampled *= tint;
 
     // Premultiply

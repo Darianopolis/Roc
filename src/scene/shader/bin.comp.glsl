@@ -11,7 +11,9 @@ void main()
 {
     if (gl_GlobalInvocationID.x >= pc.extent.x || gl_GlobalInvocationID.y >= pc.extent.y) return;
 
-    GPU_PTR(SceneRenderBin) bin = pc.bins[gl_GlobalInvocationID.y * pc.row_stride + gl_GlobalInvocationID.x + 1];
+    GPU_PTR(SceneRenderBin) bin = pc.bins[  gl_GlobalInvocationID.y * pc.row_stride
+                                          + gl_GlobalInvocationID.x
+                                          + SCENE_RESERVED_BIN_COUNT];
 
     aabb2f32 tile;
     tile.min = vec2f32(gl_GlobalInvocationID.xy) * vec2f32(SCENE_BIN_SIZE);

@@ -27,7 +27,7 @@ void scene_node_get_damage(SceneTexture* texture, vec2f32 offset, SceneDamage& d
 
 void scene_node_subtract_cover(SceneTexture* texture, vec2f32 offset, SceneDamage& damage)
 {
-    if (texture->image || texture->tint.w != 255) return;
+    if (texture->image || texture->tint.w < 1.f) return;
 
     rect2f32 dst = texture->dst;
     dst.origin += offset;

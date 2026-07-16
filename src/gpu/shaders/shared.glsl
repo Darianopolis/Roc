@@ -105,22 +105,32 @@ vec4f32 unpack_unorm4u8(vec4u8 v)
 
 // -----------------------------------------------------------------------------
 
-vec3f32 srgb_oetf(vec3 linear)
+vec3f32 srgb_oetf(vec3f32 linear)
 {
-    bvec3 cutoff = lessThan(linear, vec3(0.0031308));
-    vec3 higher = vec3(1.055) * pow(linear, vec3(1.0 / 2.4)) - vec3(0.055);
-    vec3 lower = linear * vec3(12.92);
+    bvec3 cutoff = lessThan(linear, vec3f32(0.0031308));
+    vec3f32 higher = vec3f32(1.055) * pow(linear, vec3f32(1.0 / 2.4)) - vec3f32(0.055);
+    vec3f32 lower = linear * vec3f32(12.92);
 
     return mix(higher, lower, cutoff);
 }
 
-vec3f32 srgb_eotf(vec3 compressed)
+vec4f32 srgb_oetf(vec4f32 linear)
 {
-    bvec3 cutoff = lessThan(compressed, vec3(0.04045));
-    vec3 higher = pow((compressed + vec3(0.055)) / vec3(1.055), vec3(2.4));
-    vec3 lower = compressed / vec3(12.92);
+    return vec4f32(srgb_oetf(linear.rgb), linear.a);
+}
+
+vec3f32 srgb_eotf(vec3f32 compressed)
+{
+    bvec3 cutoff = lessThan(compressed, vec3f32(0.04045));
+    vec3f32 higher = pow((compressed + vec3f32(0.055)) / vec3f32(1.055), vec3f32(2.4));
+    vec3f32 lower = compressed / vec3f32(12.92);
 
     return mix(higher, lower, cutoff);
+}
+
+vec4f32 srgb_eotf(vec4f32 compressed)
+{
+    return vec4f32(srgb_eotf(compressed.rgb), compressed.a);
 }
 
 // -----------------------------------------------------------------------------

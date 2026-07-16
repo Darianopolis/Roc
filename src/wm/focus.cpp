@@ -205,8 +205,9 @@ void wm_arrange_windows(WmServer* server)
     auto place_windows = [&](this auto&& place_windows, Link<WmWindow>& windows) -> void {
         auto place = [&](WmWindow* window) {
             bool faded = server->mode == WmInteractionMode::focus_cycle && !highlighted.contains(window);
-            f32 opacity = faded ? 0.1f : 1.f;
+            f32 opacity = faded ? 0.33f : 1.f;
             scene_tree_set_opacity(window->root_tree.get(), opacity);
+            scene_texture_set_tint(window->backdrop.get(), faded ? vec4f32{} : vec4f32{0, 0, 0, 1});
 
             order.emplace_back(window->root_tree.get());
             place_windows(window->children);

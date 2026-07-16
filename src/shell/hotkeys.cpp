@@ -62,7 +62,7 @@ void renderdoc_capture(Shell* shell)
         auto texture = gpu_image_create(gpu, {
             .extent = vec_cast<u32>(viewport.extent),
             .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            .usage = GpuImageUsage::render
+            .usage = GpuImageUsage::storage,
         });
         scene_render(wm_get_scene_renderer(wm), {
             .root = wm_get_scene(wm),
@@ -94,7 +94,7 @@ void take_screenshot(Shell* shell, rect2f32 region)
     auto texture = gpu_image_create(gpu, {
         .extent = extent,
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = GpuImageUsage::render
+        .usage = GpuImageUsage::storage
     });
 
     auto buffer = gpu_buffer_create(gpu, extent.x * extent.y * 4, GpuBufferFlag::host);
