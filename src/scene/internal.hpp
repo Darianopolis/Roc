@@ -16,11 +16,11 @@ struct SceneRenderer
 
     Ref<GpuImagePool> pool;
 
-    Ref<GpuPipeline> render;
-    Ref<GpuPipeline> output;
+    Ref<GpuPipeline> raster_blend;
+    Ref<GpuPipeline> raster_output;
 
-    Ref<GpuPipeline> compute;
-    Ref<GpuPipeline> bin;
+    Ref<GpuPipeline> compute_bin;
+    Ref<GpuPipeline> compute_pixel;
 };
 
 inline

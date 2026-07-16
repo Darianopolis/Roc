@@ -8,12 +8,12 @@
 
 #include "shader/render.h"
 
-#include "scene_render_vert.hpp"
-#include "scene_render_frag.hpp"
-#include "scene_output_comp.hpp"
+#include "scene_raster_fragment.hpp"
+#include "scene_raster_vertex.hpp"
+#include "scene_raster_output.hpp"
 
-#include "scene_render_comp.hpp"
-#include "scene_bin_comp.hpp"
+#include "scene_compute_bin.hpp"
+#include "scene_compute_pixel.hpp"
 
 auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 {
@@ -39,17 +39,17 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 
     renderer->pool = gpu_image_pool_create(renderer->gpu);
 
-    renderer->render = gpu_pipeline_create(renderer->gpu, {
+    renderer->raster_blend = gpu_pipeline_create(renderer->gpu, {
         .format = gpu_format_from_vulkan(VK_FORMAT_R16G16B16A16_SFLOAT),
         .shaders = {{
             {
                 .stage = VK_SHADER_STAGE_VERTEX_BIT,
-                .code  = scene_render_vert,
+                .code  = scene_raster_vertex,
                 .entry = "main",
             },
             {
                 .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-                .code  = scene_render_frag,
+                .code  = scene_raster_fragment,
                 .entry = "main",
             }
         }},
@@ -57,21 +57,21 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
         .blend_direction = GpuBlendDirection::front_to_back,
     });
 
-    renderer->output = gpu_pipeline_create_compute(gpu, {
+    renderer->raster_output = gpu_pipeline_create_compute(gpu, {
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .code = scene_output_comp,
+        .code = scene_raster_output,
         .entry = "main",
     });
 
-    renderer->compute = gpu_pipeline_create_compute(gpu, {
+    renderer->compute_bin = gpu_pipeline_create_compute(gpu, {
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .code = scene_render_comp,
+        .code = scene_compute_bin,
         .entry = "main",
     });
 
-    renderer->bin = gpu_pipeline_create_compute(gpu, {
+    renderer->compute_pixel = gpu_pipeline_create_compute(gpu, {
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .code = scene_bin_comp,
+        .code = scene_compute_pixel,
         .entry = "main",
     });
 
@@ -203,9 +203,9 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         auto bin_count = bins_horizontal * bins_vertical + SCENE_RESERVED_BIN_COUNT;
         auto extra_bins_start = bin_count;
         bin_count += (bins_horizontal * bins_vertical) * 3;
-        auto gpu_bins = gpu_buffer_create(gpu, bin_count * sizeof(SceneRenderBin), {});
+        auto gpu_bins = gpu_buffer_create(gpu, bin_count * sizeof(SceneComputeBin), {});
         // We reserve the first bin for our atomic bump allocator state
-        gpu_bins->host<SceneRenderBin>()->next_bin = extra_bins_start;
+        gpu_bins->host<SceneComputeBin>()->next_bin = extra_bins_start;
 
         auto cmd = gpu_record(gpu);
         gpu_protect(cmd, gpu_quads);
@@ -217,20 +217,20 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         gpu_barrier(cmd, reads, {{gpu_bins.get()}});
 
-        gpu_bind_pipeline(cmd, renderer->bin.get());
-        gpu_push_constants(cmd, 0, view_bytes(SceneRenderBinInput {
+        gpu_bind_pipeline(cmd, renderer->compute_bin.get());
+        gpu_push_constants(cmd, 0, view_bytes(SceneComputeBinPassInput {
             .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
             .quad_opaque_flags = gpu_quad_opaque_flags->device<u8>(),
             .quad_count = u32(quads.size()),
-            .bins = gpu_bins->device<SceneRenderBin>(),
+            .bins = gpu_bins->device<SceneComputeBin>(),
             .bin_count = bin_count,
             .row_stride = bins_horizontal,
             .extent = {bins_horizontal, bins_vertical},
         }));
 
         gpu_dispatch(cmd, {
-            (bins_horizontal + SCENE_BIN_DISPATCH_SIZE - 1) / SCENE_BIN_DISPATCH_SIZE,
-            (bins_vertical   + SCENE_BIN_DISPATCH_SIZE - 1) / SCENE_BIN_DISPATCH_SIZE,
+            (bins_horizontal + SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE,
+            (bins_vertical   + SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE,
             1u
         });
 
@@ -238,20 +238,20 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         gpu_barrier(cmd, {{gpu_bins.get()}}, {{info.target}});
 
-        gpu_bind_pipeline(cmd, renderer->compute.get());
-        gpu_push_constants(cmd, 0, view_bytes(SceneRenderComputeInput {
+        gpu_bind_pipeline(cmd, renderer->compute_pixel.get());
+        gpu_push_constants(cmd, 0, view_bytes(SceneComputePixelPassInput {
             .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
             .quads = gpu_quads->device<SceneQuad>(),
             .quad_count = u32(quads.size()),
-            .bins = gpu_bins->device<SceneRenderBin>(),
+            .bins = gpu_bins->device<SceneComputeBin>(),
             .row_stride = bins_horizontal,
             .target = info.target,
             .extent = extent,
         }));
 
         gpu_dispatch(cmd, {
-            (extent.x + SCENE_COMPUTE_DISPATCH_SIZE - 1) / SCENE_COMPUTE_DISPATCH_SIZE,
-            (extent.y + SCENE_COMPUTE_DISPATCH_SIZE - 1) / SCENE_COMPUTE_DISPATCH_SIZE,
+            (extent.x + SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE,
+            (extent.y + SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE,
             1u
         });
     } else {
@@ -283,10 +283,10 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         gpu_set_viewports(cmd, {{{{}, vec_cast<f32>(extent), xywh}}});
         gpu_set_scissors( cmd, {{{{}, vec_cast<i32>(extent), xywh}}});
 
-        gpu_bind_pipeline(cmd, renderer->render.get());
+        gpu_bind_pipeline(cmd, renderer->raster_blend.get());
         gpu_bind_index_buffer(cmd, renderer->indices.get(), 0, VK_INDEX_TYPE_UINT32);
 
-        gpu_push_constants(cmd, 0, view_bytes(SceneRenderInput {
+        gpu_push_constants(cmd, 0, view_bytes(SceneRasterBlendPassInput {
             .quads = gpu_quads->device<SceneQuad>() + 1,
             .offset = -vec2f32(1.f, 1.f),
             .scale = 2.f / vec_cast<f32>(extent),
@@ -303,16 +303,16 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         gpu_barrier(cmd, {{blend.get()}}, {{info.target}});
 
-        gpu_bind_pipeline(cmd, renderer->output.get());
-        gpu_push_constants(cmd, 0, view_bytes(SceneOutputInput {
+        gpu_bind_pipeline(cmd, renderer->raster_output.get());
+        gpu_push_constants(cmd, 0, view_bytes(SceneRasterOutputPassInput {
             .source = blend.get(),
             .target = info.target,
             .extent = extent,
         }));
 
         gpu_dispatch(cmd, {
-            (extent.x + SCENE_OUTPUT_DISPATCH_SIZE - 1) / SCENE_OUTPUT_DISPATCH_SIZE,
-            (extent.y + SCENE_OUTPUT_DISPATCH_SIZE - 1) / SCENE_OUTPUT_DISPATCH_SIZE,
+            (extent.x + SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1) / SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE,
+            (extent.y + SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1) / SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE,
             1u
         });
     }

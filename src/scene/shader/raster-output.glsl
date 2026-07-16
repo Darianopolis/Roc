@@ -1,11 +1,12 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-#include "common.glsl"
+#include "render.glsl"
 
-layout(push_constant, scalar) uniform PushConstants { SceneOutputInput pc; };
+layout(push_constant, scalar) uniform PushConstants { SceneRasterOutputPassInput pc; };
 
-layout(local_size_x = SCENE_OUTPUT_DISPATCH_SIZE, local_size_y = SCENE_OUTPUT_DISPATCH_SIZE, local_size_z = 1) in;
+layout(local_size_x = SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE,
+       local_size_y = SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE, local_size_z = 1) in;
 void main()
 {
     if (gl_GlobalInvocationID.x >= pc.extent.x || gl_GlobalInvocationID.y >= pc.extent.y) return;

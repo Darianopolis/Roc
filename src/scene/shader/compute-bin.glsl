@@ -4,16 +4,17 @@
 
 #include "render.h"
 
-layout(push_constant, scalar) uniform PushConstants { SceneRenderBinInput pc; };
+layout(push_constant, scalar) uniform PushConstants { SceneComputeBinPassInput pc; };
 
-layout(local_size_x = SCENE_BIN_DISPATCH_SIZE, local_size_y = SCENE_BIN_DISPATCH_SIZE, local_size_z = 1) in;
+layout(local_size_x = SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE,
+       local_size_y = SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE, local_size_z = 1) in;
 void main()
 {
     if (gl_GlobalInvocationID.x >= pc.extent.x || gl_GlobalInvocationID.y >= pc.extent.y) return;
 
-    GPU_PTR(SceneRenderBin) bin = pc.bins[  gl_GlobalInvocationID.y * pc.row_stride
-                                          + gl_GlobalInvocationID.x
-                                          + SCENE_RESERVED_BIN_COUNT];
+    GPU_PTR(SceneComputeBin) bin = pc.bins[  gl_GlobalInvocationID.y * pc.row_stride
+                                           + gl_GlobalInvocationID.x
+                                           + SCENE_RESERVED_BIN_COUNT];
 
     aabb2f32 tile;
     tile.min = vec2f32(gl_GlobalInvocationID.xy) * vec2f32(SCENE_BIN_SIZE);

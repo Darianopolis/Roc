@@ -1,18 +1,19 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-#include "common.glsl"
+#include "render.glsl"
 
-layout(push_constant, scalar) uniform PushConstants { SceneRenderComputeInput pc; };
+layout(push_constant, scalar) uniform PushConstants { SceneComputePixelPassInput pc; };
 
-layout(local_size_x = SCENE_COMPUTE_DISPATCH_SIZE, local_size_y = SCENE_COMPUTE_DISPATCH_SIZE, local_size_z = 1) in;
+layout(local_size_x = SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE,
+       local_size_y = SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE, local_size_z = 1) in;
 void main()
 {
     if (gl_GlobalInvocationID.x >= pc.extent.x || gl_GlobalInvocationID.y >= pc.extent.y) return;
 
-    GPU_CONST_PTR(SceneRenderBin) bin = pc.bins[  (gl_GlobalInvocationID.y / SCENE_BIN_SIZE) * pc.row_stride
-                                                + (gl_GlobalInvocationID.x / SCENE_BIN_SIZE)
-                                                + SCENE_RESERVED_BIN_COUNT];
+    GPU_CONST_PTR(SceneComputeBin) bin = pc.bins[  (gl_GlobalInvocationID.y / SCENE_BIN_SIZE) * pc.row_stride
+                                                 + (gl_GlobalInvocationID.x / SCENE_BIN_SIZE)
+                                                 + SCENE_RESERVED_BIN_COUNT];
 
     vec4f32 color = vec4f32(0, 0, 0, 0);
 

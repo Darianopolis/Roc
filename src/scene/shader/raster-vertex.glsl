@@ -3,7 +3,7 @@
 
 #include "render.h"
 
-layout(push_constant, scalar) uniform PushConstants { SceneRenderInput pc; };
+layout(push_constant, scalar) uniform PushConstants { SceneRasterBlendPassInput pc; };
 
 layout(location = 0)      out vec2f32 out_uv;
 layout(location = 1) flat out     u32 out_quad;

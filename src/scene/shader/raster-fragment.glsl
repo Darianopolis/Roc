@@ -1,9 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-#include "common.glsl"
+#include "render.glsl"
 
-layout(push_constant, scalar) uniform PushConstants { SceneRenderInput pc; };
+layout(push_constant, scalar) uniform PushConstants { SceneRasterBlendPassInput pc; };
 
 layout(location = 0)      in vec2f32 in_uv;
 layout(location = 1) flat in     u32 in_quad;
