@@ -72,6 +72,19 @@ struct Region
     }
 
     constexpr
+    auto aabbs() const noexcept
+    {
+        return bands
+            | std::views::transform([&](const auto& band) {
+                return std::span(sections).subspan(band.start, band.count)
+                    | std::views::transform([&](const auto& section) {
+                        return aabb2f32{{section.min, band.min}, {section.max, band.max}, minmax};
+                    });
+            })
+            | std::views::join;
+    }
+
+    constexpr
     auto bounds() const noexcept -> Aabb<T>
     {
         auto bounds = aabb_make_empty<T>();

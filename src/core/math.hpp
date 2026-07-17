@@ -8,6 +8,13 @@
 
 // -----------------------------------------------------------------------------
 
+template<typename T> auto vec_join(Vec<2, T> xy, T z) -> Vec<3, T> { return {xy.x, xy.y, z}; }
+template<typename T> auto vec_join(Vec<3, T> xyz, T w) -> Vec<4, T> { return {xyz.x, xyz.y, xyz.z, w}; }
+
+template<typename T> auto vec_xyz(Vec<4, T> v) -> Vec<3, T> { return {v.x, v.y, v.z}; }
+
+// -----------------------------------------------------------------------------
+
 template<typename T>
 struct std::formatter<Rect<T>> {
     constexpr auto parse(auto& ctx) { return ctx.begin(); }

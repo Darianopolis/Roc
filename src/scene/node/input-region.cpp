@@ -35,15 +35,7 @@ void scene_input_region_set_region(SceneInputRegion* input_region, Region<f32> r
 {
     if (input_region->region == region) return;
 
-    NODE_LOG("scene.input_region{{{}}}.set_region([{}])", (void*)input_region,
-        region.bands
-            | std::views::transform([&](const auto& band) {
-                return std::span(region.sections).subspan(band.start, band.count)
-                    | std::views::transform([&](const auto& section) {
-                        return aabb2f32{{section.min, band.min}, {section.max, band.max}, minmax};
-                    });
-            })
-            | std::views::join);
+    NODE_LOG("scene.input_region{{{}}}.set_region([{}])", (void*)input_region, region.aabbs());
 
     input_region->region = std::move(region);
 

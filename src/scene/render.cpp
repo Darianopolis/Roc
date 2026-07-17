@@ -15,6 +15,8 @@
 #include "scene_compute_bin.hpp"
 #include "scene_compute_pixel.hpp"
 
+static constexpr auto scene_blend_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+
 auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
 {
     auto renderer = ref_create<SceneRenderer>();
@@ -40,7 +42,7 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
     renderer->pool = gpu_image_pool_create(renderer->gpu);
 
     renderer->raster_blend = gpu_pipeline_create(renderer->gpu, {
-        .format = gpu_format_from_vulkan(VK_FORMAT_R16G16B16A16_SFLOAT),
+        .format = gpu_format_from_vulkan(scene_blend_format),
         .shaders = {{
             {
                 .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -113,6 +115,10 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             return;
         }
 
+        vec4f32 tint = texture->tint;
+        tint *= opacity;
+        if (tint.w == 0.f) return;
+
         aabb2f32 pixel_dst = dst;
         pixel_dst.min = layout_to_pixel(pixel_dst.min);
         pixel_dst.max = layout_to_pixel(pixel_dst.max);
@@ -121,13 +127,10 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         auto sampler = texture->sampler.get() ?: renderer->nearest.get();
 
         u32 flags = 0;
+
         if (texture->flags.contains(SceneTextureFlag::premultiplied)) {
             flags |= SCENE_DRAW_FLAG_PREMULTIPLIED;
         }
-
-        vec4f32 tint = texture->tint;
-        tint *= opacity;
-        if (tint.w == 0.f) return;
 
         if (!texture->image && tint.w == 1.f) {
             flags |= SCENE_DRAW_FLAG_OPAQUE;
@@ -188,32 +191,34 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     auto* gpu = renderer->gpu;
 
-    auto gpu_quads = gpu_buffer_create(gpu, quads.size() * sizeof(SceneQuad), {});
-    std::memcpy(gpu_quads->host_address, quads.data(), gpu_quads->size);
+    auto cmd = gpu_record(gpu);
+
+    auto copy_to_gpu = [&]<typename T>(const std::vector<T>& elements) {
+        auto buffer = gpu_buffer_create(gpu, elements.size() * sizeof(T), {});
+        std::memcpy(buffer->host_address, elements.data(), buffer->size);
+        gpu_protect(cmd, buffer);
+        return buffer;
+    };
+
+    auto gpu_quads = copy_to_gpu(quads);
 
     if (use_compute) {
-        auto gpu_quad_bounds = gpu_buffer_create(gpu, quads.size() * sizeof(aabb2f32), {});
-        std::memcpy(gpu_quad_bounds->host_address, quad_bounds.data(), gpu_quad_bounds->size);
-
-        auto gpu_quad_opaque_flags = gpu_buffer_create(gpu, quads.size() * sizeof(u8), {});
-        std::memcpy(gpu_quad_opaque_flags->host_address, quad_opaque_flags.data(), gpu_quad_opaque_flags->size);
-
-        auto bins_horizontal = (extent.x + SCENE_BIN_SIZE - 1) / SCENE_BIN_SIZE;
-        auto bins_vertical   = (extent.y + SCENE_BIN_SIZE - 1) / SCENE_BIN_SIZE;
-        auto bin_count = bins_horizontal * bins_vertical + SCENE_RESERVED_BIN_COUNT;
-        auto extra_bins_start = bin_count;
-        bin_count += (bins_horizontal * bins_vertical) * 3;
-        auto gpu_bins = gpu_buffer_create(gpu, bin_count * sizeof(SceneComputeBin), {});
-        // We reserve the first bin for our atomic bump allocator state
-        gpu_bins->host<SceneComputeBin>()->next_bin = extra_bins_start;
-
-        auto cmd = gpu_record(gpu);
-        gpu_protect(cmd, gpu_quads);
-        gpu_protect(cmd, gpu_quad_bounds);
-        gpu_protect(cmd, gpu_bins);
-        gpu_protect(cmd, gpu_quad_opaque_flags);
+        auto gpu_quad_bounds = copy_to_gpu(quad_bounds);
+        auto gpu_quad_opaque_flags = copy_to_gpu(quad_opaque_flags);
 
         // 2. Bin
+
+        static constexpr auto extra_bin_layers = 3;
+
+        auto bin_counts = (extent + u32(SCENE_BIN_SIZE - 1)) / u32(SCENE_BIN_SIZE);
+        auto bin_count = bin_counts.x * bin_counts.y + SCENE_RESERVED_BIN_COUNT;
+        auto extra_bins_start = bin_count;
+        bin_count += (bin_counts.x * bin_counts.y) * extra_bin_layers;
+
+        auto gpu_bins = gpu_buffer_create(gpu, bin_count * sizeof(SceneComputeBin), {});
+        gpu_protect(cmd, gpu_bins);
+        // We reserve the first bin for our atomic bump allocator state
+        gpu_bins->host<SceneComputeBin>()->next_bin = extra_bins_start;
 
         gpu_barrier(cmd, reads, {{gpu_bins.get()}});
 
@@ -224,15 +229,12 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .quad_count = u32(quads.size()),
             .bins = gpu_bins->device<SceneComputeBin>(),
             .bin_count = bin_count,
-            .row_stride = bins_horizontal,
-            .extent = {bins_horizontal, bins_vertical},
+            .row_stride = bin_counts.x,
+            .extent = {bin_counts.x, bin_counts.y},
         }));
 
-        gpu_dispatch(cmd, {
-            (bins_horizontal + SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE,
-            (bins_vertical   + SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE,
-            1u
-        });
+        gpu_dispatch(cmd, vec_join((bin_counts + u32(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1))
+                                               / u32(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE), 1u));
 
         // 3. Draw
 
@@ -244,20 +246,14 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .quads = gpu_quads->device<SceneQuad>(),
             .quad_count = u32(quads.size()),
             .bins = gpu_bins->device<SceneComputeBin>(),
-            .row_stride = bins_horizontal,
+            .row_stride = bin_counts.x,
             .target = info.target,
             .extent = extent,
         }));
 
-        gpu_dispatch(cmd, {
-            (extent.x + SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE,
-            (extent.y + SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1) / SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE,
-            1u
-        });
+        gpu_dispatch(cmd, vec_join((extent + u32(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1))
+                                           / u32(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE), 1u));
     } else {
-        auto cmd = gpu_record(gpu);
-        gpu_protect(cmd, gpu_quads);
-
         // 2. Accumulate
 
         auto stencil = renderer->pool->acquire({
@@ -268,7 +264,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         auto blend = renderer->pool->acquire({
             .extent = extent,
-            .format = gpu_format_from_vulkan(VK_FORMAT_R16G16B16A16_SFLOAT),
+            .format = gpu_format_from_vulkan(scene_blend_format),
             .usage = GpuImageUsage::render | GpuImageUsage::storage,
         });
 
@@ -310,10 +306,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .extent = extent,
         }));
 
-        gpu_dispatch(cmd, {
-            (extent.x + SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1) / SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE,
-            (extent.y + SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1) / SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE,
-            1u
-        });
+        gpu_dispatch(cmd, vec_join((extent + u32(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1))
+                                           / u32(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE), 1u));
     }
 }
