@@ -15,7 +15,7 @@ void registry_global(void* data, wl_registry*, u32 name, const char* interface, 
             return false;
         }
 
-        u32 bound_version = std::min(version, u32(wl_interface->version));
+        u32 bound_version = std::min(version, num_cast<u32>(wl_interface->version));
 
         debug_assert(!(wl->*member), "Interface <{}> already bound", interface);
         wl->*member = static_cast<std::remove_cvref_t<decltype(wl->*member)>>(

@@ -7,7 +7,7 @@ auto get_keymap_file(xkb_keymap* keymap) -> WayKeymap
 {
     auto string = xkb_keymap_get_as_string(keymap, XKB_KEYMAP_FORMAT_TEXT_V1);
     defer { free(string); };
-    u32 size = strlen(string) + 1;
+    u32 size = num_cast<u32>(strlen(string)) + 1;
 
     auto fd = Fd(unix_check<memfd_create>(PROGRAM_NAME "-keymap", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
     unix_check<ftruncate>(fd.get(), size);
@@ -69,7 +69,7 @@ void way_seat_on_keyboard_leave(WayClientSeat* client_seat, SeatEvent* event)
         way_send<wl_keyboard_send_leave>(keyboard, serial.value, surface->resource);
 
         // Modifiers are tracked independently of keyboard enter/leave events
-        way_send<wl_keyboard_send_modifiers>(keyboard, serial.value, 0, 0, 0, 0);
+        way_send<wl_keyboard_send_modifiers>(keyboard, serial.value, 0u, 0u, 0u, 0u);
     }
 }
 
@@ -128,12 +128,12 @@ void way_seat_on_key(WayClientSeat* client_seat, SeatEvent* event)
 
     auto serial = way_next_serial(server);
     auto elapsed = way_get_elapsed(server);
-    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     auto key = event->keyboard.key;
     auto state = key.pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED;
 
     for (auto* resource : client_seat->keyboards) {
-        way_send<wl_keyboard_send_key>(resource, serial.value, time_ms, key.code, state);
+        way_send<wl_keyboard_send_key>(resource, serial.value, num_cast<u32>(time_ms), key.code, state);
     }
 }
 

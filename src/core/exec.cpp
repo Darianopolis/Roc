@@ -40,7 +40,7 @@ auto exec_create() -> Ref<ExecContext>
 
     exec->epoll_fd = Fd(unix_check<epoll_create1>(EPOLL_CLOEXEC).value);
 
-    exec->task_fd = Fd(unix_check<eventfd>(0, EFD_CLOEXEC | EFD_NONBLOCK).value);
+    exec->task_fd = Fd(unix_check<eventfd>(0u, EFD_CLOEXEC | EFD_NONBLOCK).value);
     fd_listen(exec.get(), exec->task_fd.get(), FdEventBit::readable,
         [exec = exec.get()](fd_t, Flags<FdEventBit>) {
             handle_task_eventfd(exec);
@@ -103,7 +103,7 @@ void exec_run(ExecContext* exec)
         if (!exec->tasks_available) {
             timeout = -1;
         }
-        auto[count, error] = unix_check<epoll_wait, EAGAIN, EINTR>(exec->epoll_fd.get(), events.data(), events.size(), timeout);
+        auto[count, error] = unix_check<epoll_wait, EAGAIN, EINTR>(exec->epoll_fd.get(), events.data(), num_cast<i32>(events.size()), timeout);
         if (error) {
             if (error == EAGAIN || error == EINTR) {
                 if (!exec->tasks_available) continue;
@@ -118,9 +118,9 @@ void exec_run(ExecContext* exec)
         // Flush fd events
 
         if (count > 0) {
-            for (i32 i = 0; i < count; ++i) {
+            for (usz i = 0; i < num_cast<usz>(count); ++i) {
                 auto fd = events[i].data.fd;
-                Ref listener = exec->listeners[fd];
+                Ref listener = exec->listeners[fd_to_index(fd)];
                 if (!listener) continue;
 
                 auto event_bits = from_epoll_events(events[i].events);
@@ -170,9 +170,9 @@ void fd_listen(
     debug_assert(fd_is_valid(fd));
 
     debug_assert(events);
-    debug_assert(!exec->listeners[fd]);
+    debug_assert(!exec->listeners[fd_to_index(fd)]);
 
-    exec->listeners[fd] = listener;
+    exec->listeners[fd_to_index(fd)] = listener;
 
     unix_check<epoll_ctl>(exec->epoll_fd.get(), EPOLL_CTL_ADD, fd, ptr_to(epoll_event {
         .events = to_epoll_events(events),
@@ -186,12 +186,12 @@ void fd_unlisten(ExecContext* exec, fd_t fd)
 {
     debug_assert(fd_is_valid(fd));
 
-    if (!exec->listeners[fd]) {
+    if (!exec->listeners[fd_to_index(fd)]) {
         log_warn("fd does not have registered listener");
     }
 
     auto res = unix_check<epoll_ctl>(exec->epoll_fd.get(), EPOLL_CTL_DEL, fd, nullptr);
     debug_assert(res.ok());
 
-    exec->listeners[fd] = nullptr;
+    exec->listeners[fd_to_index(fd)] = nullptr;
 }

@@ -81,7 +81,7 @@ void toplevel_configure(void* udata, xdg_toplevel* toplevel, i32 width, i32 heig
 {
     auto output = static_cast<IoWaylandOutput*>(udata);
 
-    output->configure.size = (width && height) ? vec2u32{u32(width), u32(height)} : vec2u32{1920, 1080};
+    output->configure.size = (width && height) ? vec2u32{num_cast<u32>(width), num_cast<u32>(height)} : vec2u32{1920, 1080};
 }
 
 static
@@ -216,15 +216,15 @@ auto get_image_proxy(IoContext* io, GpuImageBase* image) -> wl_buffer*
     auto format = image->format;
 
     auto dma_params = gpu_image_export(image);
-    u32 mod_hi = dma_params.modifier >> 32;
-    u32 mod_lo = dma_params.modifier & ~0u;
+    u32 mod_hi = num_cast<u32>(dma_params.modifier >> 32);
+    u32 mod_lo = num_cast<u32>(dma_params.modifier & ~0u);
 
     auto buffer_params = zwp_linux_dmabuf_v1_create_params(wl->zwp_linux_dmabuf_v1);
     for (u32 plane_idx = 0; plane_idx < dma_params.planes.count; ++plane_idx) {
         auto& plane = dma_params.planes[plane_idx];
         zwp_linux_buffer_params_v1_add(buffer_params, plane.fd.get(), plane_idx, plane.offset, plane.stride, mod_hi, mod_lo);
     }
-    auto buffer = zwp_linux_buffer_params_v1_create_immed(buffer_params, size.x, size.y, format->drm, 0);
+    auto buffer = zwp_linux_buffer_params_v1_create_immed(buffer_params, num_cast<i32>(size.x), num_cast<i32>(size.y), format->drm, 0);
     zwp_linux_buffer_params_v1_destroy(buffer_params);
 
     return wl->buffer_cache.insert(image, buffer);
@@ -274,8 +274,8 @@ void IoWaylandSurface::attach(IoContext* io, GpuImage* image, GpuSyncpoint ready
     wl_surface_attach(wl_surface, wl_buffer, 0, 0);
     wl_surface_damage_buffer(wl_surface, 0, 0, INT32_MAX, INT32_MAX);
 
-    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, ready.value    >> 32, ready.value    & ~0u);
-    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, release->point >> 32, release->point & ~0u);
+    wp_linux_drm_syncobj_surface_v1_set_acquire_point(wp_linux_drm_syncobj_surface_v1, acquire_proxy, num_cast<u32>(ready.value    >> 32), num_cast<u32>(ready.value    & ~0u));
+    wp_linux_drm_syncobj_surface_v1_set_release_point(wp_linux_drm_syncobj_surface_v1, release_proxy, num_cast<u32>(release->point >> 32), num_cast<u32>(release->point & ~0u));
 }
 
 IoWaylandSurface::~IoWaylandSurface()
@@ -304,7 +304,7 @@ auto IoWaylandOutput::commit(const WmOutputCommitInfo& commit) -> bool
 
     primary.attach(io, commit.primary.image, commit.ready);
 
-    xdg_surface_set_window_geometry(xdg_surface, 0, 0, size.x, size.y);
+    xdg_surface_set_window_geometry(xdg_surface, 0, 0, num_cast<i32>(size.x), num_cast<i32>(size.y));
 
     if (commit.cursor.image) {
         cursor.attach(io, commit.cursor.image, commit.ready);

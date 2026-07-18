@@ -114,7 +114,7 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 
     switch (event->type) {
         break;case SeatEventType::pointer_scroll: {
-            if (!event->pointer.scroll.delta.y) return {};
+            if (event->pointer.scroll.delta.y == 0) return {};
 
             auto seat = seat_pointer_get_seat(event->pointer.pointer);
             auto mods = seat_get_modifiers(seat);

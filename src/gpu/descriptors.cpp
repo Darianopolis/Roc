@@ -79,7 +79,7 @@ void gpu_init_descriptors(Gpu* gpu)
 
 GpuDescriptorIdAllocator::GpuDescriptorIdAllocator(u32 count)
     : last_id(0)
-    , max_id(count)
+    , max_id(num_cast<GpuDescriptorId::underlying_type>(count - 1))
 {
     debug_assert(count <= std::numeric_limits<GpuDescriptorId::underlying_type>::max());
 }

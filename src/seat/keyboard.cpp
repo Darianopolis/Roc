@@ -173,7 +173,7 @@ auto seat_keyboard_get_sym(SeatKeyboard* keyboard, SeatInputCode code) -> xkb_ke
 auto seat_keyboard_get_utf8(SeatKeyboard* keyboard, SeatInputCode code) -> std::string
 {
     std::string utf8;
-    utf8.resize(xkb_state_key_get_utf8(keyboard->state, evdev_to_xkb(code), nullptr, 0));
+    utf8.resize(num_cast<usz>(xkb_state_key_get_utf8(keyboard->state, evdev_to_xkb(code), nullptr, 0)));
     xkb_state_key_get_utf8(keyboard->state, evdev_to_xkb(code), utf8.data(), utf8.size() + 1);
     return utf8;
 }

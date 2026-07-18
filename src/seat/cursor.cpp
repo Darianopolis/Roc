@@ -80,7 +80,7 @@ auto get_xcursor(SeatCursorManager* manager, const char* semantic) -> SceneNode*
 
     auto visual = scene_texture_create();
     scene_texture_set_image(visual.get(), image.get(), manager->sampler.get(), SceneTextureFlag::premultiplied);
-    scene_texture_set_dst(visual.get(), {-vec2f32{f32(cursor->xhot), f32(cursor->yhot)}, {f32(cursor->width), f32(cursor->height)}, xywh});
+    scene_texture_set_dst(visual.get(), {-vec2f32{num_cast<f32>(cursor->xhot), num_cast<f32>(cursor->yhot)}, {num_cast<f32>(cursor->width), num_cast<f32>(cursor->height)}, xywh});
 
     manager->cache.insert({semantic, visual});
 

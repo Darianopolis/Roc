@@ -20,7 +20,7 @@ void io_input_device_post(IoInputDeviceBase* device, bool quiet, std::span<const
     for (auto channel : channels) {
         switch (channel.type) {
             break;case EV_KEY:
-                if (channel.value ? !device->pressed.insert(channel.code).second : !device->pressed.erase(channel.code)) {
+                if (channel.value != 0 ? !device->pressed.insert(channel.code).second : !device->pressed.erase(channel.code)) {
                     goto skip;
                 }
             break;case EV_REL:

@@ -44,7 +44,7 @@ struct WayServer
 
     struct {
         Fd  format_table;
-        usz format_table_size;
+        u32 format_table_size;
         std::vector<u16> tranche_formats;
     } dmabuf;
 

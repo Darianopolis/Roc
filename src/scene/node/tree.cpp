@@ -87,8 +87,8 @@ void tree_place(SceneTree* tree, SceneNode* sibling, SceneNode* node, bool above
         if (above) tree->children.insert(sib + 1, node);
         else       tree->children.insert(sib,     node);
     } else if (cur != sib) {
-        if (cur > sib) std::rotate(sib + i32(above), cur, cur + 1);
-        else           std::rotate(cur, cur + 1, sib + i32(above));
+        if (cur > sib) std::rotate(sib + num_cast<i32>(above), cur, cur + 1);
+        else           std::rotate(cur, cur + 1, sib + num_cast<i32>(above));
     }
 
 placed:

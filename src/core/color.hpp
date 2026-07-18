@@ -11,7 +11,7 @@ auto color_from_hex(std::string_view str) -> vec4u8
     if (str.starts_with("#")) str.remove_prefix(1);
 
     static constexpr
-    auto hex_to_value = [](char digit) -> u8 {
+    auto hex_to_value = [](char digit) {
         switch (digit) {
             break;case 'a' ... 'f': return 10 + digit - 'a';
             break;case 'A' ... 'F': return 10 + digit - 'A';
@@ -21,8 +21,8 @@ auto color_from_hex(std::string_view str) -> vec4u8
         }
     };
 
-    auto hex_pair_to_value = [&](u32 i) -> u8 {
-        return hex_to_value(str[i]) * 16 + hex_to_value(str[i + 1]);
+    auto hex_pair_to_value = [&](usz i) -> u8 {
+        return num_cast<u8>(hex_to_value(str[i]) * 16 + hex_to_value(str[i + 1]));
     };
 
     debug_assert(str.size() >= 6);
@@ -70,7 +70,7 @@ template <typename T>
 constexpr
 auto pack_unorm(vec4f32 value) -> Vec<4, T>
 {
-    return vec_cast<u8>(vec_clamp(value, {}, {1.f, 1.f, 1.f, 1.f}) * f32(std::numeric_limits<T>::max()));
+    return vec_cast<u8>(vec_clamp(value, {}, {1.f, 1.f, 1.f, 1.f}) * num_cast<f32>(std::numeric_limits<T>::max()));
 }
 
 template <typename T>
@@ -78,7 +78,7 @@ template <typename T>
 constexpr
 auto unpack_unorm(Vec<4, T> packed) -> vec4f32
 {
-    return vec_cast<f32>(packed) / f32(std::numeric_limits<T>::max());
+    return vec_cast<f32>(packed) / num_cast<f32>(std::numeric_limits<T>::max());
 }
 
 // -----------------------------------------------------------------------------

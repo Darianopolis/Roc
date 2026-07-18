@@ -45,7 +45,7 @@ constexpr auto posix_signal_names = [] {
 static
 void handle_signal(int signal, siginfo_t*, void*)
 {
-    std::println(stderr, "{} ({})", posix_signal_names[signal], signal);
+    std::println(stderr, "{} ({})", posix_signal_names[num_cast<usz>(signal)], signal);
     std::println(stderr, "{}", std::stacktrace::current());
     fflush(stderr);
 }

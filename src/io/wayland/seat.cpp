@@ -133,7 +133,7 @@ static
 void pointer_axis_value120(void* udata, wl_pointer*, u32 axis, i32 value120)
 {
     auto* ptr = static_cast<IoContext*>(udata)->wayland->pointer.get();
-    f32 value = value120 / 120.f;
+    f32 value = num_cast<f32>(value120) / 120.f;
     switch (axis) {
         break;case WL_POINTER_AXIS_HORIZONTAL_SCROLL: io_input_device_post(ptr, false, {{{EV_REL, REL_HWHEEL, value}}});
         break;case WL_POINTER_AXIS_VERTICAL_SCROLL:   io_input_device_post(ptr, false, {{{EV_REL, REL_WHEEL,  value}}});

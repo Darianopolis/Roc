@@ -35,7 +35,7 @@ void send_event(IoEvdevDevice* device, const input_event& event, bool quiet)
     switch (event.type) {
         break;case EV_KEY:
               case EV_REL:
-            io_input_device_post(device, false, {{{event.type, event.code, f64(event.value)}}});
+            io_input_device_post(device, false, {{{event.type, event.code, num_cast<f64>(event.value)}}});
         break;case EV_ABS: {
             auto* info = libevdev_get_abs_info(device->evdev, event.code);
             f64 range = info->maximum - info->minimum;

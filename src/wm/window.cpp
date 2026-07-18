@@ -153,7 +153,7 @@ void reposition(WmWindow* window)
 
         // Update anchor and relative based on what edges are constrained
 
-        window->relative.x = (0.5f * (f32(constrained_right) - f32(constrained_left))) + 0.5f;
+        window->relative.x = (0.5f * (num_cast<f32>(constrained_right) - num_cast<f32>(constrained_left))) + 0.5f;
         window->relative.y = (constrained_bottom && !constrained_top) ? 1 : 0;
 
         rect2f32 rect = constrained;

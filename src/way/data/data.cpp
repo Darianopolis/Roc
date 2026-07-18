@@ -372,12 +372,12 @@ void drag_motion(WayClientSeat* client_seat, SeatDataEvent* event)
     auto* pointer = seat_get_pointer(event->seat);
 
     auto elapsed = way_get_elapsed(client_seat->client->server);
-    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     auto* surface = way_find_surface_for_focus(client_seat->client, event->drag.focus);
     auto pos = to_fixed(to_surface_pos(surface, seat_pointer_get_position(pointer)));
 
     for (auto* wl_data_device : client_seat->data_devices) {
-        way_send<wl_data_device_send_motion>(wl_data_device, time_ms, pos.x, pos.y);
+        way_send<wl_data_device_send_motion>(wl_data_device, num_cast<u32>(time_ms), pos.x, pos.y);
     }
 }
 

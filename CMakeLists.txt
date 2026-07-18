@@ -23,6 +23,7 @@ function(init_target target_name)
         -Wextra
         -Werror
         -Wimplicit-fallthrough
+        -Wconversion
 
         -Wno-missing-field-initializers
         -Wno-unknown-pragmas

@@ -13,7 +13,7 @@ auto parse_plane_formats(IoContext* io, IoDrmPlane* plane) -> GpuFormatSet
 {
     auto drm = io->drm->fd;
 
-    auto blob_id = plane->get("IN_FORMATS");
+    auto blob_id = num_cast<u32>(plane->get("IN_FORMATS"));
     if (!blob_id) {
         log_error("Plane has no IN_FORMATS property");
         return {};
@@ -33,7 +33,7 @@ auto parse_plane_formats(IoContext* io, IoDrmPlane* plane) -> GpuFormatSet
     for (auto mod : std::span(modifiers, header->count_modifiers)) {
         u32 index = mod.offset;
         while (mod.formats) {
-            auto bit_idx = std::countr_zero(mod.formats);
+            auto bit_idx = num_cast<u32>(std::countr_zero(mod.formats));
             index += bit_idx;
 
             auto format = gpu_format_from_drm(formats[index]);
@@ -199,17 +199,17 @@ void io_drm_init(IoContext* io)
     unix_check<drmAuthMagic>(drm, magic);
 
     log_debug("Setting universal planes capability");
-    unix_check<drmSetClientCap>(drm, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+    unix_check<drmSetClientCap>(drm, literal_cast<u64>(DRM_CLIENT_CAP_UNIVERSAL_PLANES), 1u);
     log_debug("Setting atomic capability");
-    unix_check<drmSetClientCap>(drm, DRM_CLIENT_CAP_ATOMIC, 1);
+    unix_check<drmSetClientCap>(drm, literal_cast<u64>(DRM_CLIENT_CAP_ATOMIC), 1u);
 
     u64 cap = 0;
 
     log_debug("Checking for framebuffer modifier support");
-    debug_assert(unix_check<drmGetCap>(drm, DRM_CAP_ADDFB2_MODIFIERS, &cap).ok() && cap);
+    debug_assert(unix_check<drmGetCap>(drm, literal_cast<u64>(DRM_CAP_ADDFB2_MODIFIERS), &cap).ok() && cap);
 
     log_debug("Checking for monotonic timestamp support");
-    debug_assert(unix_check<drmGetCap>(drm, DRM_CAP_TIMESTAMP_MONOTONIC, &cap).ok() && cap);
+    debug_assert(unix_check<drmGetCap>(drm, literal_cast<u64>(DRM_CAP_TIMESTAMP_MONOTONIC), &cap).ok() && cap);
 }
 
 void io_drm_deinit(IoContext* io)
@@ -316,7 +316,7 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
     unix_check<drmModeAddFB2WithModifiers>(io->drm->fd,
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
-        &framebuffer, DRM_MODE_FB_MODIFIERS);
+        &framebuffer, literal_cast<u32>(DRM_MODE_FB_MODIFIERS));
     log_warn("KMS :   framebuffer: {}", framebuffer);
 
     // Close GEM handles
@@ -345,7 +345,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
     auto in_fence = gpu_syncobj_export_syncfile(commit.ready.syncobj, commit.ready.value);
 
     primary_plane->set(req, "FB_ID", get_image_framebuffer(io, commit.primary.image->base()));
-    primary_plane->set(req, "IN_FENCE_FD", in_fence.get());
+    primary_plane->set(req, "IN_FENCE_FD", num_cast<u64>(in_fence.get()));
     primary_plane->set(req, "SRC_X", 0);
     primary_plane->set(req, "SRC_Y", 0);
     primary_plane->set(req, "SRC_W", commit.primary.image->base()->extent.x << 16);
@@ -358,13 +358,13 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 
     if (commit.cursor.image) {
         cursor_plane->set(req, "FB_ID", get_image_framebuffer(io, commit.cursor.image->base()));
-        cursor_plane->set(req, "IN_FENCE_FD", in_fence.get());
+        cursor_plane->set(req, "IN_FENCE_FD", num_cast<u64>(in_fence.get()));
         cursor_plane->set(req, "SRC_X", 0);
         cursor_plane->set(req, "SRC_Y", 0);
         cursor_plane->set(req, "SRC_W", commit.cursor.image->base()->extent.x << 16);
         cursor_plane->set(req, "SRC_H", commit.cursor.image->base()->extent.y << 16);
-        cursor_plane->set(req, "CRTC_X", commit.cursor.position.x);
-        cursor_plane->set(req, "CRTC_Y", commit.cursor.position.y);
+        cursor_plane->set(req, "CRTC_X", num_cast<u64>(commit.cursor.position.x));
+        cursor_plane->set(req, "CRTC_Y", num_cast<u64>(commit.cursor.position.y));
         cursor_plane->set(req, "CRTC_W", commit.cursor.image->base()->extent.x);
         cursor_plane->set(req, "CRTC_H", commit.cursor.image->base()->extent.y);
         cursor_plane->set(req, "CRTC_ID", crtc->id);
@@ -375,7 +375,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
 
     crtc->set(req, "VRR_ENABLED", connector->get("vrr_capable"));
 
-    auto flags = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
+    auto flags = literal_cast<u32>(DRM_MODE_ATOMIC_NONBLOCK) | literal_cast<u32>(DRM_MODE_PAGE_FLIP_EVENT);
 
     if (unix_check<drmModeAtomicCommit>(io->drm->fd, req, flags, std::bit_cast<void*>(IoDrmWeakOutput{this})).err()) {
         return false;

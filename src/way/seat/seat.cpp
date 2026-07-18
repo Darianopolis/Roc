@@ -68,7 +68,7 @@ WAY_BIND_GLOBAL(wl_seat, bind)
 
     auto* resource = way_resource_create_refcounted(wl_seat, bind.client, bind.version, bind.id, client_seat.get());
 
-    way_send<wl_seat_send_capabilities>(resource, WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_POINTER);
+    way_send<wl_seat_send_capabilities>(resource, literal_cast<u32>(WL_SEAT_CAPABILITY_KEYBOARD) | literal_cast<u32>(WL_SEAT_CAPABILITY_POINTER));
 
     if (bind.version >= WL_SEAT_NAME_SINCE_VERSION) {
         way_send<wl_seat_send_name>(resource, seat_get_name(seat->seat));

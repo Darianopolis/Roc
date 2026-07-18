@@ -15,7 +15,7 @@ void set_cursor(wl_client* wl_client, wl_resource* resource, u32 serial, wl_reso
     auto* client_seat = way_get_userdata<WayClientSeat>(resource);
     auto* cursor_surface = wl_surface ? way_get_userdata<WaySurface>(wl_surface) : nullptr;
 
-    way_set_cursor(client_seat, cursor_surface, {f32(-hot_x), f32(-hot_y)});
+    way_set_cursor(client_seat, cursor_surface, {num_cast<f32>(-hot_x), num_cast<f32>(-hot_y)});
 }
 
 WAY_INTERFACE(wl_pointer) = {
@@ -86,14 +86,14 @@ void way_seat_on_motion(WayClientSeat* client_seat, SeatEvent* event)
     if (!surface) return;
 
     auto elapsed = way_get_elapsed(server);
-    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
     auto pos = to_fixed(event->pointer.position);
 
     {
-        u64 time_us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-        u32 time_us_hi = time_us >> 32;
-        u32 time_us_lo = time_us & ~0u;
+        u64 time_us = num_cast<u32>(std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count());
+        u32 time_us_hi = num_cast<u32>(time_us >> 32);
+        u32 time_us_lo = num_cast<u32>(time_us & ~0u);
 
         if (way_client_is_behind(client_seat->client)) {
             log_warn("Client is running behind, skipping pointer motion: {}", time_us);
@@ -110,7 +110,7 @@ void way_seat_on_motion(WayClientSeat* client_seat, SeatEvent* event)
     }
 
     for (auto* resource : client_seat->pointers) {
-        way_send<wl_pointer_send_motion>(resource, time_ms, pos.x, pos.y);
+        way_send<wl_pointer_send_motion>(resource, num_cast<u32>(time_ms), pos.x, pos.y);
         pointer_frame(server, resource);
     }
 }
@@ -130,12 +130,12 @@ void way_seat_on_button(WayClientSeat* client_seat, SeatEvent* event)
 
     auto serial = way_next_serial(server);
     auto elapsed = way_get_elapsed(server);
-    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     auto button = event->pointer.button;
     auto state = button.pressed ? WL_POINTER_BUTTON_STATE_PRESSED : WL_POINTER_BUTTON_STATE_RELEASED;
 
     for (auto* resource : client_seat->pointers) {
-        way_send<wl_pointer_send_button>(resource, serial.value, time_ms, button.code, state);
+        way_send<wl_pointer_send_button>(resource, serial.value, num_cast<u32>(time_ms), button.code, state);
         pointer_frame(server, resource);
     }
 
@@ -154,7 +154,7 @@ void way_seat_on_scroll(WayClientSeat* client_seat, SeatEvent* event)
     auto* server = seat->server;
 
     auto elapsed = way_get_elapsed(server);
-    u64 time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
     auto delta = event->pointer.scroll.delta;
 
     static constexpr f32 axis_pixel_rate = 15.f;
@@ -166,17 +166,17 @@ void way_seat_on_scroll(WayClientSeat* client_seat, SeatEvent* event)
             way_send<wl_pointer_send_axis_source>(resource, WL_POINTER_AXIS_SOURCE_WHEEL);
         }
 
-        if (delta.x) way_send<wl_pointer_send_axis>(resource, time_ms, WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(delta.x * axis_pixel_rate));
-        if (delta.y) way_send<wl_pointer_send_axis>(resource, time_ms, WL_POINTER_AXIS_VERTICAL_SCROLL,   wl_fixed_from_double(delta.y * axis_pixel_rate));
+        if (delta.x != 0.f) way_send<wl_pointer_send_axis>(resource, num_cast<u32>(time_ms), WL_POINTER_AXIS_HORIZONTAL_SCROLL, wl_fixed_from_double(delta.x * axis_pixel_rate));
+        if (delta.y != 0.f) way_send<wl_pointer_send_axis>(resource, num_cast<u32>(time_ms), WL_POINTER_AXIS_VERTICAL_SCROLL,   wl_fixed_from_double(delta.y * axis_pixel_rate));
 
         if (version >= WL_POINTER_AXIS_VALUE120_SINCE_VERSION) {
-            if (delta.x) way_send<wl_pointer_send_axis_value120>(resource, WL_POINTER_AXIS_HORIZONTAL_SCROLL, i32(delta.x * 120));
-            if (delta.y) way_send<wl_pointer_send_axis_value120>(resource, WL_POINTER_AXIS_VERTICAL_SCROLL,   i32(delta.y * 120));
+            if (delta.x != 0.f) way_send<wl_pointer_send_axis_value120>(resource, WL_POINTER_AXIS_HORIZONTAL_SCROLL, num_cast<i32>(delta.x * 120));
+            if (delta.y != 0.f) way_send<wl_pointer_send_axis_value120>(resource, WL_POINTER_AXIS_VERTICAL_SCROLL,   num_cast<i32>(delta.y * 120));
 
         } else if (version >= WL_POINTER_AXIS_DISCRETE_SINCE_VERSION) {
             // TODO: Accumulate fractional values
-            if (delta.x) way_send<wl_pointer_send_axis_discrete>(resource, WL_POINTER_AXIS_HORIZONTAL_SCROLL, i32(delta.x));
-            if (delta.y) way_send<wl_pointer_send_axis_discrete>(resource, WL_POINTER_AXIS_VERTICAL_SCROLL,   i32(delta.y));
+            if (delta.x != 0.f) way_send<wl_pointer_send_axis_discrete>(resource, WL_POINTER_AXIS_HORIZONTAL_SCROLL, num_cast<i32>(delta.x));
+            if (delta.y != 0.f) way_send<wl_pointer_send_axis_discrete>(resource, WL_POINTER_AXIS_VERTICAL_SCROLL,   num_cast<i32>(delta.y));
         }
 
         pointer_frame(server, resource);

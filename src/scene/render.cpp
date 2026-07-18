@@ -151,11 +151,12 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
     };
 
     if (info.damage && info.options.contains(SceneRenderOption::show_damage)) {
-        auto step = std::max(0.f, 1.f / info.damage->sections.size());
-        usz i = 0;
+        auto step = std::max(0.f, 1.f / num_cast<f32>(info.damage->sections.size()));
+        f32 hue = 0;
         for (auto& band : info.damage->bands) {
             for (auto& section : std::span(info.damage->sections).subspan(band.start, band.count)) {
-                auto hsv = vec4f32{step * i++, 1.f, 1.f, 0.25f};
+                auto hsv = vec4f32{hue, 1.f, 1.f, 0.25f};
+                hue += step;
                 auto rgb = color_hsv_to_rgb(hsv);
                 auto dst = aabb_inner<f32>({{section.min, band.min}, {section.max, band.max}, minmax}, info.viewport);
                 dst.min = layout_to_pixel(dst.min);
@@ -210,7 +211,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         static constexpr auto extra_bin_layers = 3;
 
-        auto bin_counts = (extent + u32(SCENE_BIN_SIZE - 1)) / u32(SCENE_BIN_SIZE);
+        auto bin_counts = (extent + literal_cast<u32>(SCENE_BIN_SIZE - 1)) / literal_cast<u32>(SCENE_BIN_SIZE);
         auto bin_count = bin_counts.x * bin_counts.y + SCENE_RESERVED_BIN_COUNT;
         auto extra_bins_start = bin_count;
         bin_count += (bin_counts.x * bin_counts.y) * extra_bin_layers;
@@ -226,15 +227,15 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         gpu_push_constants(cmd, 0, view_bytes(SceneComputeBinPassInput {
             .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
             .quad_opaque_flags = gpu_quad_opaque_flags->device<u8>(),
-            .quad_count = u32(quads.size()),
+            .quad_count = num_cast<u32>(quads.size()),
             .bins = gpu_bins->device<SceneComputeBin>(),
             .bin_count = bin_count,
             .row_stride = bin_counts.x,
             .extent = {bin_counts.x, bin_counts.y},
         }));
 
-        gpu_dispatch(cmd, vec_join((bin_counts + u32(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1))
-                                               / u32(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE), 1u));
+        gpu_dispatch(cmd, vec_join((bin_counts + literal_cast<u32>(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE - 1))
+                                               / literal_cast<u32>(SCENE_COMPUTE_BIN_PASS_LOCAL_SIZE), 1u));
 
         // 3. Draw
 
@@ -244,15 +245,15 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         gpu_push_constants(cmd, 0, view_bytes(SceneComputePixelPassInput {
             .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
             .quads = gpu_quads->device<SceneQuad>(),
-            .quad_count = u32(quads.size()),
+            .quad_count = num_cast<u32>(quads.size()),
             .bins = gpu_bins->device<SceneComputeBin>(),
             .row_stride = bin_counts.x,
             .target = info.target,
             .extent = extent,
         }));
 
-        gpu_dispatch(cmd, vec_join((extent + u32(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1))
-                                           / u32(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE), 1u));
+        gpu_dispatch(cmd, vec_join((extent + literal_cast<u32>(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE - 1))
+                                           / literal_cast<u32>(SCENE_COMPUTE_PIXEL_PASS_LOCAL_SIZE), 1u));
     } else {
         // 2. Accumulate
 
@@ -290,7 +291,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
         gpu_draw_indexed(cmd, {
             .index_count = 6,
-            .instance_count = u32(quads.size() - 1),
+            .instance_count = num_cast<u32>(quads.size() - 1),
         });
 
         gpu_end_rendering(cmd);
@@ -306,7 +307,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
             .extent = extent,
         }));
 
-        gpu_dispatch(cmd, vec_join((extent + u32(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1))
-                                           / u32(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE), 1u));
+        gpu_dispatch(cmd, vec_join((extent + literal_cast<u32>(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE - 1))
+                                           / literal_cast<u32>(SCENE_RASTER_OUTPUT_PASS_LOCAL_SIZE), 1u));
     }
 }

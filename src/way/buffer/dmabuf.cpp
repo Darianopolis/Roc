@@ -51,7 +51,7 @@ void way_dmabuf_init(WayServer* server)
 
     // Copy to shared memory
 
-    usz size = entries.size() * sizeof(TrancheEntry);
+    u32 size = num_cast<u32>(entries.size() * sizeof(TrancheEntry));
 
     auto fd = Fd(unix_check<memfd_create>(PROGRAM_NAME "-formats", MFD_ALLOW_SEALING | MFD_CLOEXEC).value);
     unix_check<ftruncate>(fd.get(), size);
@@ -90,7 +90,7 @@ void send_feedback(WayServer* server, wl_resource* resource)
     way_send<zwp_linux_dmabuf_feedback_v1_send_format_table>(resource, feedback.format_table.get(), feedback.format_table_size);
 
     way_send<zwp_linux_dmabuf_feedback_v1_send_tranche_target_device>(resource, &dev_id);
-    way_send<zwp_linux_dmabuf_feedback_v1_send_tranche_flags>(  resource, 0);
+    way_send<zwp_linux_dmabuf_feedback_v1_send_tranche_flags>(  resource, 0u);
     way_send<zwp_linux_dmabuf_feedback_v1_send_tranche_formats>(resource, ptr_to(way_from_span<u16>(feedback.tranche_formats)));
     way_send<zwp_linux_dmabuf_feedback_v1_send_tranche_done>(   resource);
 
@@ -124,7 +124,9 @@ WAY_INTERFACE(zwp_linux_dmabuf_v1) = {
 
 WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
 {
-    auto resource = way_resource_create_unsafe(zwp_linux_dmabuf_v1, bind.client, bind.version, bind.id, bind.server);
+    // auto resource = way_resource_create_unsafe(zwp_linux_dmabuf_v1, bind.client, bind.version, bind.id, bind.server);
+    auto resource = way_resource_create(bind.client, &zwp_linux_dmabuf_v1_interface, bind.version,
+                    bind.id, &way_zwp_linux_dmabuf_v1_impl, bind.server, false);
 
     if (bind.version >= ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION) {
         return;
@@ -133,8 +135,8 @@ WAY_BIND_GLOBAL(zwp_linux_dmabuf_v1, bind)
     // Deprecated method of exposing formats, only use with legacy clients
 
     auto send_modifier = [&](u32 format, u64 modifier) {
-        u32 modifier_hi =  modifier >> 32;
-        u32 modifier_lo = modifier & 0xFFFF'FFFF;
+        u32 modifier_hi = num_cast<u32>(modifier >> 32);
+        u32 modifier_lo = num_cast<u32>(modifier & 0xFFFF'FFFF);
         way_send<zwp_linux_dmabuf_v1_send_modifier>(resource, format, modifier_hi, modifier_lo);
     };
 
@@ -184,7 +186,7 @@ void params_add(wl_client* client, wl_resource* resource, fd_t _fd, u32 plane_id
         return;
     }
 
-    auto drm_modifier = u64(modifier_hi) << 32 | modifier_lo;
+    auto drm_modifier = num_cast<u64>(modifier_hi) << 32 | modifier_lo;
 
     if (!params->planes_set) {
         params->params.modifier = drm_modifier;
@@ -256,7 +258,7 @@ auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuF
         return nullptr;
     }
 
-    params.planes.count = std::popcount(dma_params->planes_set);
+    params.planes.count = num_cast<u32>(std::popcount(dma_params->planes_set));
 
     auto buffer = ref_create<WayDmaBuffer>();
     buffer->server = server;
@@ -287,7 +289,7 @@ void create_buffer(wl_client* client, wl_resource* _params, i32 width, i32 heigh
 {
     auto* params = way_get_userdata<WayDmaParams>(_params);
 
-    auto buffer = create_buffer(params, 0, {u32(width), u32(height)}, gpu_format_from_drm(format), zwp_linux_buffer_params_v1_flags(flags));
+    auto buffer = create_buffer(params, 0, {num_cast<u32>(width), num_cast<u32>(height)}, gpu_format_from_drm(format), zwp_linux_buffer_params_v1_flags(flags));
     if (buffer) {
         way_send<zwp_linux_buffer_params_v1_send_created>(_params, buffer->_resource);
     } else {
@@ -299,7 +301,7 @@ static
 void create_buffer_immed(wl_client* client, wl_resource* _params, u32 buffer_id, i32 width, i32 height, u32 format, u32 flags)
 {
     auto* params = way_get_userdata<WayDmaParams>(_params);
-    create_buffer(params, buffer_id, {u32(width), u32(height)}, gpu_format_from_drm(format), zwp_linux_buffer_params_v1_flags(flags));
+    create_buffer(params, buffer_id, {num_cast<u32>(width), num_cast<u32>(height)}, gpu_format_from_drm(format), zwp_linux_buffer_params_v1_flags(flags));
 }
 
 WAY_INTERFACE(zwp_linux_buffer_params_v1) = {
@@ -315,9 +317,9 @@ WayDmaBuffer::~WayDmaBuffer()
 {
     if (params) {
         for (auto[i, plane] : params->planes | std::views::enumerate) {
-            if (plane_waits_pending[i]) {
+            if (plane_waits_pending[num_cast<u32>(i)]) {
                 fd_unlisten(server->exec, plane.fd.get());
-                plane_waits_pending[i] = false;
+                plane_waits_pending[num_cast<u32>(i)] = false;
             }
         }
     }
@@ -338,12 +340,12 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
 
         bool all_ready = true;
         for (auto[i, plane] : std::span(params->planes).subspan(0, params->disjoint ? std::dynamic_extent : 1) | std::views::enumerate) {
-            if (plane_waits_pending[i]) {
+            if (plane_waits_pending[num_cast<u32>(i)]) {
                 all_ready = false;
                 continue;
             }
 
-            auto res = unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1, 0).value;
+            auto res = unix_check<poll>(ptr_to(pollfd { .fd = plane.fd.get(), .events = POLLIN }), 1u, 0).value;
             if (res <= 0) {
                 all_ready = false;
 
@@ -351,11 +353,11 @@ auto WayDmaBuffer::do_acquire(WaySurface* surface, WayDamageRegion, Flags<WayBuf
                 log_warn("plane[{}] ({}) not ready yet, waiting...", i, plane.fd.get());
 #endif
 
-                plane_waits_pending[i] = true;
+                plane_waits_pending[num_cast<u32>(i)] = true;
                 fd_listen(server->exec, plane.fd.get(), FdEventBit::readable,
                     [surface = Weak(surface), buffer = Weak(this), i](fd_t, Flags<FdEventBit>) {
                         if (!buffer || !surface) return;
-                        buffer->plane_waits_pending[i] = false;
+                        buffer->plane_waits_pending[num_cast<u32>(i)] = false;
                         way_surface_try_flush(surface.get());
                     }, FdListenFlag::oneshot);
             }

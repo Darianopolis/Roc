@@ -12,7 +12,7 @@ struct ThreadStackStorage
     byte* start;
     byte* end;
 
-    static constexpr usz size = usz(1) * 1024 * 1024;
+    static constexpr usz size = literal_cast<usz>(1) * 1024 * 1024;
 
     ThreadStackStorage()
         : head(static_cast<byte*>(unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value))
@@ -27,7 +27,7 @@ struct ThreadStackStorage
 
     auto remaining_bytes() const -> usz
     {
-        return usz(end - head);
+        return num_cast<usz>(end - head);
     }
 };
 

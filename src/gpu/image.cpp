@@ -15,21 +15,21 @@ auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage> usage) -> VkImageUsageFlags
     return vk_usage;
 }
 
-auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usage) -> VkFormatFeatureFlags
+auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usage) -> VkFormatFeatureFlags2
 {
     VkFormatFeatureFlags features = {};
-    if (usage.contains(GpuImageUsage::storage)) features |= VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
-    if (usage.contains(GpuImageUsage::render))  features |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
-                                                         |  VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+    if (usage.contains(GpuImageUsage::storage)) features |= VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT;
+    if (usage.contains(GpuImageUsage::render))  features |= VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT
+                                                         |  VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BLEND_BIT;
     if (usage.contains(GpuImageUsage::texture)) {
-        features |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
-                 |  VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-        if (format->is_ycbcr) features |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT
-                                       |  VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT;
+        features |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT
+                 |  VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+        if (format->is_ycbcr) features |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT
+                                       |  VK_FORMAT_FEATURE_2_MIDPOINT_CHROMA_SAMPLES_BIT;
     }
-    if (usage.contains(GpuImageUsage::transfer_dst)) features |= VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
-    if (usage.contains(GpuImageUsage::transfer_src)) features |= VK_FORMAT_FEATURE_TRANSFER_SRC_BIT;
-    if (usage.contains(GpuImageUsage::stencil))      features |= VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    if (usage.contains(GpuImageUsage::transfer_dst)) features |= VK_FORMAT_FEATURE_2_TRANSFER_DST_BIT;
+    if (usage.contains(GpuImageUsage::transfer_src)) features |= VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT;
+    if (usage.contains(GpuImageUsage::stencil))      features |= VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT;
     return features;
 }
 
@@ -126,7 +126,7 @@ auto create_image_view(GpuImageBase* image, bool srgb) -> VkImageView
     auto* gpu = image->gpu;
 
     auto vk_usage = gpu_image_usage_to_vulkan(image->usage);
-    if (srgb) vk_usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
+    if (srgb) vk_usage &= ~VkImageUsageFlags(VK_IMAGE_USAGE_STORAGE_BIT);
 
     VkImageView view;
     gpu_check(gpu->vk.CreateImageView(gpu->device, ptr_to(VkImageViewCreateInfo {
@@ -298,7 +298,7 @@ auto gpu_image_create_dmabuf(Gpu* gpu, const GpuImageCreateInfo& info) -> Ref<Gp
             VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
             ptr_to(VkImageDrmFormatModifierListCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
-                .drmFormatModifierCount = u32(info.modifiers->size()),
+                .drmFormatModifierCount = num_cast<u32>(info.modifiers->size()),
                 .pDrmFormatModifiers = std::span(*info.modifiers).data(),
             })),
         nullptr, &image->image));
@@ -399,7 +399,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
             ptr_to(VkImageDrmFormatModifierExplicitCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT,
                 .drmFormatModifier = params.modifier,
-                .drmFormatModifierPlaneCount = u32(params.planes.count),
+                .drmFormatModifierPlaneCount = num_cast<u32>(params.planes.count),
                 .pPlaneLayouts = plane_layouts,
             })),
         nullptr, &image->image));
@@ -514,8 +514,8 @@ auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
             ptr_to(VkImageSubresource{gpu_plane_to_aspect(i), 0, 0}),
             &layout);
 
-        params.planes[i].offset = layout.offset;
-        params.planes[i].stride = layout.rowPitch;
+        params.planes[i].offset = num_cast<u32>(layout.offset);
+        params.planes[i].stride = num_cast<u32>(layout.rowPitch);
     }
 
     // Export file descriptors
@@ -587,7 +587,7 @@ void gpu_copy_buffer_to_image(GpuImage* _image, GpuBuffer* buffer, std::span<con
     auto cmd = gpu_record(gpu);
     gpu_barrier(cmd, {{buffer}}, {{_image}});
 
-    gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL, regions.size(), copies);
+    gpu->vk.CmdCopyBufferToImage(cmd->buffer, buffer->buffer, image->image, VK_IMAGE_LAYOUT_GENERAL, num_cast<u32>(regions.size()), copies);
 }
 
 void gpu_copy_memory_to_image(GpuImage* image, std::span<const byte> data, std::span<const GpuBufferImageCopy> regions)

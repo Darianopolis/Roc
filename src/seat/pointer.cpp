@@ -110,8 +110,8 @@ void seat_pointer_button(SeatPointer* pointer, SeatInputCode code, bool pressed,
 void seat_pointer_move(SeatPointer* pointer, vec2f32 position, vec2f32 rel_accel, vec2f32 rel_unaccel)
 {
     bool send_event = pointer->tree->translation != position
-                   || rel_accel.x   || rel_accel.y
-                   || rel_unaccel.x || rel_unaccel.y;
+                   || rel_accel
+                   || rel_unaccel;
 
     scene_tree_set_translation(pointer->visual_root.get(), position);
 

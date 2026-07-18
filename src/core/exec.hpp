@@ -51,7 +51,7 @@ void exec_enqueue(ExecContext* exec, Lambda&& task)
     if (std::this_thread::get_id() == exec->os_thread) {
         exec->tasks_available++;
     } else {
-        unix_check<eventfd_write>(exec->task_fd.get(), 1);
+        unix_check<eventfd_write>(exec->task_fd.get(), 1u);
     }
 }
 
@@ -65,7 +65,7 @@ void exec_enqueue_and_wait(ExecContext* exec, Lambda&& task)
         std::scoped_lock _{exec->queue_mutex};
         // We can avoid moving `task` entirely since its lifetime is guaranteed
         exec->queue.emplace_back([&task] { task(); }, &done);
-        unix_check<eventfd_write>(exec->task_fd.get(), 1);
+        unix_check<eventfd_write>(exec->task_fd.get(), 1u);
     }
     done.wait(false);
 }

@@ -34,11 +34,11 @@ void set_source(wl_client* client, wl_resource* resource, wl_fixed_t x, wl_fixed
 {
     auto* surface = way_get_userdata<WaySurface>(resource);
 
-    rect2f32 src {
-        {f32(wl_fixed_to_double(x)),     f32(wl_fixed_to_double(y))},
-        {f32(wl_fixed_to_double(width)), f32(wl_fixed_to_double(height))},
+    auto src = rect_cast<f32>(rect2f64{
+        {wl_fixed_to_double(x),     wl_fixed_to_double(y)},
+        {wl_fixed_to_double(width), wl_fixed_to_double(height)},
         xywh,
-    };
+    });
 
     surface->pending->buffer_source = src;
     surface->pending->set |= WaySurfaceStateComponent::buffer_source;

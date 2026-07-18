@@ -136,6 +136,6 @@ void io_libinput_handle_event(IoContext* io, libinput_event* event)
         break;case LIBINPUT_EVENT_POINTER_AXIS:   /* ignored */
         break;case LIBINPUT_EVENT_POINTER_SCROLL_WHEEL: handle_pointer_scroll_wheel(device, libinput_event_get_pointer_event(event));
         break;default:
-            log_warn("unhandled libinput event: {} ({})", type, u32(type));
+            log_warn("unhandled libinput event: {} ({})", type, num_cast<u32>(type));
     }
 }

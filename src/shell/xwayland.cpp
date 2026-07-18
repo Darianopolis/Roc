@@ -6,7 +6,7 @@
 void shell_init_xwayland(Shell* shell, int argc, char* argv[])
 {
     std::vector<std::string> args;
-    args.append_range(std::span(argv, argc));
+    args.append_range(std::span(argv, num_cast<usz>(argc)));
 
     if (auto iter = std::ranges::find(args, std::string("--xwayland")); iter != args.end()) {
         auto socket = ++iter;

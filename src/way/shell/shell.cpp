@@ -220,7 +220,7 @@ void configure_toplevel(WayToplevel* toplevel, vec2u32 extent)
     }
 
     way_send<xdg_toplevel_send_configure>(toplevel->resource,
-        extent.x, extent.y,
+        num_cast<i32>(extent.x), num_cast<i32>(extent.y),
         ptr_to(way_from_span<const xdg_toplevel_state>(states)));
 }
 

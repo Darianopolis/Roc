@@ -24,8 +24,8 @@ void begin_interaction(WmServer* server, SeatPointer* pointer, WmInteractionMode
     auto dirs = (vec_cast<i32>(pos - frame.origin) * 3 / vec_cast<i32>(frame.extent)) - 1;
 
     server->movesize.relative = {
-        f32(dirs.x || !dirs.y),
-        f32(dirs.y || !dirs.x),
+        num_cast<f32>(dirs.x || !dirs.y),
+        num_cast<f32>(dirs.y || !dirs.x),
     };
 
     if (mode == WmInteractionMode::move && dirs.y < 0) {

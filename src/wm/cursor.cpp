@@ -121,7 +121,7 @@ void wm_prepare_cursor_image(WmServer* server)
         server->cursor_image_bounds = bounds;
     }
 
-    if (server->cursor_image_bounds.extent.x > extent.x || server->cursor_image_bounds.extent.y > extent.y) {
+    if (server->cursor_image_bounds.extent.x > num_cast<f32>(extent.x) || server->cursor_image_bounds.extent.y > num_cast<f32>(extent.y)) {
         log_warn("Cursor tree bounds {} are greater than cursor plane max extent {} - falling back to composition", server->cursor_image_bounds, extent);
         server->cursor_image_valid = false;
         return;

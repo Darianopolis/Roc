@@ -3,7 +3,7 @@
 #include "client.hpp"
 #include "server.hpp"
 
-auto way_resource_create(wl_client* client, const wl_interface* interface, i32 version, i32 id, const void* impl, WayUserdata data, bool refcount) -> wl_resource*
+auto way_resource_create(wl_client* client, const wl_interface* interface, i32 version, u32 id, const void* impl, WayUserdata data, bool refcount) -> wl_resource*
 {
     debug_assert(data.data || !refcount);
 
@@ -31,7 +31,7 @@ void way_simple_destroy(wl_client* client, wl_resource* resource)
     wl_resource_destroy(resource);
 }
 
-auto way_bind_data_from(wl_client* client, void* data, u32 version, u32 id) -> WayBindGlobalData
+auto way_bind_data_from(wl_client* client, void* data, i32 version, u32 id) -> WayBindGlobalData
 {
     return {way_client_from(client)->server, client, data, version, id};
 }

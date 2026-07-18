@@ -135,7 +135,7 @@ auto generate_fd_actions(std::span<const SpawnFdInherit> remaps, fd_t free_slot)
             free_slot_used = true;
         }
 
-        for (int i = elements.size() - 1; i --> 0;) {
+        for (usz i = elements.size() - 1; i --> 0;) {
             ops.push_back(SpawnActionDup2{elements[i], elements[i + 1]});
         }
 

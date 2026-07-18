@@ -9,7 +9,7 @@ auto ui_string(Gpu* gpu, UiFont* font, std::string_view text, const UiGlyphRaste
 
     f32 x = 0;
     for (char c : text) {
-        auto glyph_id = ui_font_get_glyph_index(font, c);
+        auto glyph_id = ui_font_get_glyph_index(font, num_cast<c32>(c));
         auto glyph = ui_rasterize_glyph(gpu, font, glyph_id, info);
         if (glyph.image) {
             auto texture = scene_texture_create();

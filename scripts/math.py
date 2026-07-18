@@ -41,6 +41,9 @@ def generate_math(build_dir):
             op_string = "; ".join([f"{v} {op}= v.{v}" for v in members])
             defs_out += f"    constexpr decltype(auto) operator{op}=(Vec v) {{ {op_string}; return *this; }}\n"
 
+        op_string = " || ".join([f"bool({v})" for v in members])
+        defs_out += f"    constexpr explicit operator bool() const noexcept {{ return {op_string}; }}\n"
+
         defs_out += "};\n"
 
         # aliases

@@ -34,7 +34,7 @@ WAY_BIND_GLOBAL(wl_output, bind)
         WL_OUTPUT_TRANSFORM_NORMAL);
 
     way_send<wl_output_send_mode>(resource,
-        WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED,
+        literal_cast<u32>(WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED),
         size.x, size.y,
         0);
 

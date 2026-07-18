@@ -23,11 +23,11 @@ void io_drm_enumerate_static_objects(IoContext* io)
     defer { drmModeFreeResources(resources); };
 
     for (int i = 0; i < resources->count_crtcs; ++i) {
-        io->drm->crtcs.emplace_back(create_drm_object<IoDrmCrtc>(io, resources->crtcs[i], i));
+        io->drm->crtcs.emplace_back(create_drm_object<IoDrmCrtc>(io, resources->crtcs[i], num_cast<u32>(i)));
     }
 
     for (int i = 0; i < resources->count_encoders; ++i) {
-        io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i], i));
+        io->drm->encoders.emplace_back(create_drm_object<IoDrmEncoder>(io, resources->encoders[i], num_cast<u32>(i)));
     }
 
     auto planes = unix_check<drmModeGetPlaneResources>(io->drm->fd).value;

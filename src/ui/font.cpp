@@ -33,7 +33,7 @@ auto ui_font_load(const char* path, f32 size) -> Ref<UiFont>
 
     ft_check(FT_Init_FreeType(&font->ft));
     ft_check(FT_New_Face(font->ft, path, 0, &font->face));
-    ft_check(FT_Set_Pixel_Sizes(font->face, 0, size));
+    ft_check(FT_Set_Pixel_Sizes(font->face, 0, num_cast<u32>(size)));
 
     return font;
 }
@@ -47,7 +47,7 @@ auto ui_font_get_glyph_metrics(UiFont* font, u32 glyph_index) -> UiGlyphMetrics
 {
     ft_check(FT_Load_Glyph(font->face, glyph_index, FT_LOAD_NO_BITMAP));
     return {
-        .advance = font->face->glyph->advance.x / 64.f,
+        .advance = num_cast<f32>(font->face->glyph->advance.x) / 64.f,
     };
 }
 
@@ -59,20 +59,22 @@ auto composite_glyphs(Gpu* gpu, std::span<const std::pair<FT_BitmapGlyph, vec4f3
     aabb2i32 bounds = aabb_make_empty<i32>();
 
     for (auto&[glyph, _] : glyphs) {
-        bounds = aabb_outer<i32>(bounds, {{glyph->left, -glyph->top}, {i32(glyph->bitmap.width), i32(glyph->bitmap.rows)}, xywh});
+        bounds = aabb_outer<i32>(bounds, {{glyph->left, -glyph->top}, {num_cast<i32>(glyph->bitmap.width), num_cast<i32>(glyph->bitmap.rows)}, xywh});
     }
 
     auto rect = rect_cast<i32>(bounds);
 
     std::vector<vec4u8> pixels;
-    pixels.resize(rect.extent.x * rect.extent.y);
+    pixels.resize(num_cast<u32>(rect.extent.x * rect.extent.y));
 
     for (auto[glyph, color] : glyphs) {
-        for (u32 y = 0; y < glyph->bitmap.rows; ++y) {
-            for (u32 x = 0; x < glyph->bitmap.width; ++x) {
-                f32 alpha = glyph->bitmap.buffer[y * glyph->bitmap.width + x] / 255.f;
-                vec4u8& pixel = pixels[(y - glyph->top  - rect.origin.y) * rect.extent.x
-                                     + (x + glyph->left - rect.origin.x)];
+        i32 width  = num_cast<i32>(glyph->bitmap.width);
+        i32 height = num_cast<i32>(glyph->bitmap.rows);
+        for (i32 y = 0; y < height; ++y) {
+            for (i32 x = 0; x < width; ++x) {
+                f32 alpha = glyph->bitmap.buffer[y * width + x] / 255.f;
+                vec4u8& pixel = pixels[num_cast<usz>((y - glyph->top  - rect.origin.y) * rect.extent.x
+                                                   + (x + glyph->left - rect.origin.x))];
 
                 auto dst = srgb_eotf(unpack_unorm(pixel));
                 auto src = color;

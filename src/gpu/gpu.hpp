@@ -96,7 +96,7 @@ auto gpu_get_formats()
 {
     return std::views::iota(0)
          | std::views::take(gpu_get_format_infos().size())
-         | std::views::transform([](usz i) { return GpuFormat(i); });
+         | std::views::transform([](u8 i) { return GpuFormat(i); });
 }
 
 auto gpu_format_from_drm(GpuDrmFormat) -> GpuFormat;
@@ -507,7 +507,7 @@ struct GpuDrawInfo
     u32 index_count;
     u32 instance_count;
     u32 first_index;
-    u32 vertex_offset;
+    i32 vertex_offset;
     u32 first_instance;
 };
 

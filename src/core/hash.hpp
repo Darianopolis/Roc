@@ -8,7 +8,7 @@ auto hash_mix(u64 x) -> u64
     // From boost
     // https://github.com/boostorg/container_hash/blob/060d4aea6b5b59d2c9146b7d8e994735b2c0a582/include/boost/container_hash/detail/hash_mix.hpp#L67-L81
 
-    static constexpr u64 m = (u64(0xe9846af) << 32) + 0x9b1a615d;
+    static constexpr u64 m = (literal_cast<u64>(0xe9846af) << 32) + 0x9b1a615d;
 
     x ^= x >> 32;
     x *= m;

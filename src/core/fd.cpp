@@ -48,7 +48,7 @@ void fd_leak_mark_inherited()
     auto& fds = get_registry();
     for (fd_t fd = 0; fd < fd_limit; ++fd) {
         if (fd_exists(fd)) {
-            fds.inherited[fd] = true;
+            fds.inherited[fd_to_index(fd)] = true;
         }
     }
 }
@@ -58,7 +58,7 @@ void fd_leak_check()
     auto& fds = get_registry();
     auto leaked = std::views::iota(fd_t(0))
         | std::views::take(fd_limit)
-        | std::views::filter([&](fd_t fd) { return !fds.inherited[fd] && fd_exists(fd); });
+        | std::views::filter([&](fd_t fd) { return !fds.inherited[fd_to_index(fd)] && fd_exists(fd); });
 
     if (!leaked.empty()) {
         log_error("File Descriptors leaked: {}", leaked);
@@ -70,7 +70,7 @@ auto fd_get_ref_count(fd_t fd) -> u32
     if (!fd_is_valid(fd)) return 0;
 
     auto& fds = get_registry();
-    return fds.ref_counts[fd];
+    return fds.ref_counts[fd_to_index(fd)];
 }
 
 auto fd_ref(fd_t fd) -> fd_t
@@ -78,7 +78,7 @@ auto fd_ref(fd_t fd) -> fd_t
     if (!fd_is_valid(fd)) return -1;
 
     auto& fds = get_registry();
-    fds.ref_counts[fd]++;
+    fds.ref_counts[fd_to_index(fd)]++;
     return fd;
 }
 
@@ -93,7 +93,7 @@ auto fd_unref(fd_t fd) -> fd_t
     if (!fd_is_valid(fd)) return -1;
 
     auto& fds = get_registry();
-    if (!--fds.ref_counts[fd]) {
+    if (!--fds.ref_counts[fd_to_index(fd)]) {
         destroy_fd(fd);
         return -1;
     }
@@ -106,7 +106,7 @@ auto fd_extract(fd_t fd) -> fd_t
     debug_assert(fd_is_valid(fd));
     debug_assert(fd_get_ref_count(fd) == 1);
     auto& fds = get_registry();
-    fds.ref_counts[fd] = 0;
+    fds.ref_counts[fd_to_index(fd)] = 0;
     return fd;
 }
 

@@ -99,7 +99,7 @@ auto gpu_pipeline_create(Gpu* gpu, const GpuGraphicsPipelineCreateInfo& info) ->
             .pColorAttachmentFormats = ptr_to(info.format->vk),
             .stencilAttachmentFormat = VK_FORMAT_S8_UINT,
         }),
-        .stageCount = u32(info.shaders.size()),
+        .stageCount = num_cast<u32>(info.shaders.size()),
         .pStages = shaders,
         .pVertexInputState = ptr_to(VkPipelineVertexInputStateCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -163,7 +163,7 @@ void gpu_push_constants(GpuCommands* cmd, u32 offset, std::span<const byte> data
 {
     auto* gpu = cmd->gpu;
     debug_assert(offset + data.size() <= gpu_push_constant_size, "{} > {}", offset + data.size(), gpu_push_constant_size);
-    gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, data.size(), data.data());
+    gpu->vk.CmdPushConstants(cmd->buffer, gpu->pipeline_layout, VK_SHADER_STAGE_ALL, offset, num_cast<u32>(data.size()), data.data());
 }
 
 void gpu_bind_pipeline(GpuCommands* cmd, GpuPipeline* pipeline)
@@ -183,11 +183,11 @@ void gpu_set_scissors(GpuCommands* cmd, std::span<const rect2i32> scissors)
         if (r.extent.x < 0) { r.origin.x -= (r.extent.x *= -1); }
         if (r.extent.y < 0) { r.origin.y -= (r.extent.y *= -1); }
         vk_scissors[i] = VkRect2D {
-            .offset{     r.origin.x,      r.origin.y  },
-            .extent{ u32(r.extent.x), u32(r.extent.y) },
+            .offset{               r.origin.x,                r.origin.y  },
+            .extent{ num_cast<u32>(r.extent.x), num_cast<u32>(r.extent.y) },
         };
     }
-    cmd->gpu->vk.CmdSetScissorWithCount(cmd->buffer, u32(scissors.size()), vk_scissors);
+    cmd->gpu->vk.CmdSetScissorWithCount(cmd->buffer, num_cast<u32>(scissors.size()), vk_scissors);
 }
 
 void gpu_set_viewports(GpuCommands* cmd, std::span<const rect2f32> viewports)
@@ -205,7 +205,7 @@ void gpu_set_viewports(GpuCommands* cmd, std::span<const rect2f32> viewports)
             .maxDepth = 1.f
         };
     }
-    cmd->gpu->vk.CmdSetViewportWithCount(cmd->buffer, u32(viewports.size()), vk_viewports);
+    cmd->gpu->vk.CmdSetViewportWithCount(cmd->buffer, num_cast<u32>(viewports.size()), vk_viewports);
 }
 
 void gpu_bind_index_buffer(GpuCommands* cmd, GpuBuffer* buffer, u32 offset, VkIndexType type)

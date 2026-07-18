@@ -6,6 +6,16 @@ static_assert(std::endian::native == std::endian::little);
 
 // -----------------------------------------------------------------------------
 
+using namespace std::literals;
+
+// -----------------------------------------------------------------------------
+
+template<typename To, typename From> constexpr auto num_cast(From f) -> To { return To(f); }
+
+template<typename To, typename From> consteval auto literal_cast(From f) -> To { return To(f); }
+
+// -----------------------------------------------------------------------------
+
 using u64 = uint64_t;
 using u32 = uint32_t;
 using u16 = uint16_t;

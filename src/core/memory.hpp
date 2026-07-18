@@ -42,12 +42,12 @@ struct std::formatter<FmtBytes> {
             return std::format_to(ctx.out(), "{:.{}f}{}", amount, decimals, suffix);
         };
 
-        if (bytes >= (1ul << 60)) return with_suffix("EiB", f64(bytes) / (1ul << 60));
-        if (bytes >= (1ul << 50)) return with_suffix("PiB", f64(bytes) / (1ul << 50));
-        if (bytes >= (1ul << 40)) return with_suffix("TiB", f64(bytes) / (1ul << 40));
-        if (bytes >= (1ul << 30)) return with_suffix("GiB", f64(bytes) / (1ul << 30));
-        if (bytes >= (1ul << 20)) return with_suffix("MiB", f64(bytes) / (1ul << 20));
-        if (bytes >= (1ul << 10)) return with_suffix("KiB", f64(bytes) / (1ul << 10));
+        if (bytes >= (1ul << 60)) return with_suffix("EiB", num_cast<f64>(bytes) / (1ul << 60));
+        if (bytes >= (1ul << 50)) return with_suffix("PiB", num_cast<f64>(bytes) / (1ul << 50));
+        if (bytes >= (1ul << 40)) return with_suffix("TiB", num_cast<f64>(bytes) / (1ul << 40));
+        if (bytes >= (1ul << 30)) return with_suffix("GiB", num_cast<f64>(bytes) / (1ul << 30));
+        if (bytes >= (1ul << 20)) return with_suffix("MiB", num_cast<f64>(bytes) / (1ul << 20));
+        if (bytes >= (1ul << 10)) return with_suffix("KiB", num_cast<f64>(bytes) / (1ul << 10));
 
         return std::format_to(ctx.out(), "{} byte{}", bytes, bytes == 1 ? "" : "s");
     }
@@ -56,7 +56,7 @@ struct std::formatter<FmtBytes> {
 // -----------------------------------------------------------------------------
 
 template<typename T>
-auto byte_offset_pointer(void* source, isz offset) -> T*
+auto byte_offset_pointer(void* source, auto offset) -> T*
 {
     return reinterpret_cast<T*>(reinterpret_cast<byte*>(source) + offset);
 }
@@ -74,7 +74,7 @@ auto compute_geometric_growth(usz current_size, usz new_min_size) -> usz
 
 template<typename T>
 constexpr
-auto align_up_power2(T v, u64 align) noexcept -> T
+auto align_up_power2(T v, usz align) noexcept -> T
 {
-    return T((u64(v) + (align - 1)) &~ (align - 1));
+    return num_cast<T>((num_cast<usz>(v) + (align - 1)) &~ (align - 1));
 }

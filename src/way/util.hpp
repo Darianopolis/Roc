@@ -383,17 +383,17 @@ struct WayBindGlobalData
     WayServer* server;
     wl_client* client;
     void*      data;
-    u32        version;
+    i32        version;
     u32        id;
 };
 
-auto way_bind_data_from(wl_client* client, void* data, u32 version, u32 id) -> WayBindGlobalData;
+auto way_bind_data_from(wl_client* client, void* data, i32 version, u32 id) -> WayBindGlobalData;
 
 #define WAY_BIND_GLOBAL(Name, Data) \
     static void way_##Name##_bind_global_impl(const WayBindGlobalData& Data); \
            void way_##Name##_bind_global(wl_client* client, void* data, u32 version, u32 id) \
     { \
-        way_##Name##_bind_global_impl(way_bind_data_from(client, data, version, id)); \
+        way_##Name##_bind_global_impl(way_bind_data_from(client, data, num_cast<i32>(version), id)); \
     } \
     static void way_##Name##_bind_global_impl(const WayBindGlobalData& Data)
 
@@ -401,16 +401,16 @@ auto way_bind_data_from(wl_client* client, void* data, u32 version, u32 id) -> W
     extern WAY_INTERFACE(Name) \
     __VA_OPT__(; \
         static_assert(std::same_as<decltype(__VA_ARGS__), int>); \
-        constexpr u32 way_##Name##_version = __VA_ARGS__; \
+        constexpr int way_##Name##_version = __VA_ARGS__; \
         void way_##Name##_bind_global(wl_client* client, void* data, u32 version, u32 id) \
     )
 
 // -----------------------------------------------------------------------------
 
-auto way_resource_create(wl_client* client, const wl_interface* interface, i32         version, i32 id, const void* impl, WayUserdata object, bool refcount) -> wl_resource*;
+auto way_resource_create(wl_client* client, const wl_interface* interface, i32         version, u32 id, const void* impl, WayUserdata object, bool refcount) -> wl_resource*;
 
 inline
-auto way_resource_create(wl_client* client, const wl_interface* interface, wl_resource* parent, i32 id, const void* impl, WayUserdata object, bool refcount) -> wl_resource*
+auto way_resource_create(wl_client* client, const wl_interface* interface, wl_resource* parent, u32 id, const void* impl, WayUserdata object, bool refcount) -> wl_resource*
 {
     return way_resource_create(client, interface, wl_resource_get_version(parent), id, impl, object, refcount);
 }

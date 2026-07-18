@@ -42,7 +42,7 @@ void set_acquire_point(wl_client* client, wl_resource* resource, wl_resource* _t
 
     surface->pending->acquire_point = {
         .syncobj = timeline->syncobj,
-        .value = u64(point_hi) << 32 | point_lo,
+        .value = num_cast<u64>(point_hi) << 32 | point_lo,
     };
 }
 
@@ -54,7 +54,7 @@ void set_release_point(wl_client* client, wl_resource* resource, wl_resource* _t
 
     surface->pending->release_point = {
         .syncobj = timeline->syncobj,
-        .value = u64(point_hi) << 32 | point_lo,
+        .value = num_cast<u64>(point_hi) << 32 | point_lo,
     };
 }
 

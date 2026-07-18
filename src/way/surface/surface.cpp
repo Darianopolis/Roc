@@ -8,11 +8,11 @@ WAY_INTERFACE(wl_region) = {
     .destroy = way_simple_destroy,
     .add = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
         auto region = way_get_userdata<WayRegion>(resource);
-        region_op<RegionOpUnion>(region->region, region->region, RegionSingle<f32>({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh}));
+        region_op<RegionOpUnion>(region->region, region->region, RegionSingle<f32>(rect_cast<f32>(aabb2i32{{x, y}, {w, h}, xywh})));
     },
     .subtract = [](wl_client* client, wl_resource* resource, i32 x, i32 y, i32 w, i32 h) {
         auto region = way_get_userdata<WayRegion>(resource);
-        region_op<RegionOpSubtract>(region->region, region->region, RegionSingle<f32>({{f32(x), f32(y)}, {f32(w), f32(h)}, xywh}));
+        region_op<RegionOpSubtract>(region->region, region->region, RegionSingle<f32>(rect_cast<f32>(aabb2i32{{x, y}, {w, h}, xywh})));
     }
 };
 
@@ -183,7 +183,7 @@ void way_surface_on_frame(WaySurface* surface, WmOutput* output, u64 frame_id)
 
     auto send_frame_callbacks = [&](WayResourceList& list) {
         while (auto callback = list.front()) {
-            way_send<wl_callback_send_done>(callback, ms);
+            way_send<wl_callback_send_done>(callback, num_cast<u32>(ms));
             wl_resource_destroy(callback);
         }
     };

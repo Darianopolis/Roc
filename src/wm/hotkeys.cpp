@@ -52,8 +52,8 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         }
                         return SeatEventFilterResult::capture;
                     break;case KEY_A: {
-                        server->config.pointer.accel.state = WmPointerAccelState((u32(server->config.pointer.accel.state) + 1)
-                                                                                 % u32(enum_values<WmPointerAccelState>().size()));
+                        server->config.pointer.accel.state = WmPointerAccelState((num_cast<u32>(server->config.pointer.accel.state) + 1)
+                                                                                 % num_cast<u32>(enum_values<WmPointerAccelState>().size()));
                         auto name = enum_name(server->config.pointer.accel.state);
                         wm_toast(server, std::format("Pointer acceleration: {}{}", char(std::toupper(name[0])), name.substr(1)));
                         return SeatEventFilterResult::capture;

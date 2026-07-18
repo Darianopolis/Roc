@@ -28,7 +28,7 @@ auto main(int argc, char* argv[]) -> int
         fd_leak_check();
     };
 
-    log_info("{} ({:n:})", PROJECT_NAME, std::span<const char* const>(argv, argc));
+    log_info("{} ({:n:})", PROJECT_NAME, std::span<const char* const>(argv, num_cast<usz>(argc)));
 
     auto exec = exec_create();
 

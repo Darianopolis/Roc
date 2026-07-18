@@ -44,7 +44,7 @@ auto gpu_syncobj_create(Gpu* gpu) -> Ref<GpuSyncobj>
     gpu->stats.active_syncobjs++;
     syncobj->gpu = gpu;
 
-    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0, &syncobj->syncobj);
+    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0u, &syncobj->syncobj);
 
     return syncobj;
 }
@@ -72,7 +72,7 @@ void gpu_syncobj_import_syncfile(GpuSyncobj* syncobj, u64 target_point, fd_t syn
     auto* gpu = syncobj->gpu;
 
     if (sync_fd == -1) {
-        unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &target_point, 1);
+        unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &target_point, 1u);
         return;
     }
 
@@ -80,7 +80,7 @@ void gpu_syncobj_import_syncfile(GpuSyncobj* syncobj, u64 target_point, fd_t syn
     // and then transfer to our target point from that.
 
     unix_check<drmSyncobjImportSyncFile>(gpu->drm.fd, gpu->drm.syncobj, sync_fd);
-    unix_check<drmSyncobjTransfer>(gpu->drm.fd, syncobj->syncobj, target_point, gpu->drm.syncobj, 0, 0);
+    unix_check<drmSyncobjTransfer>(gpu->drm.fd, syncobj->syncobj, target_point, gpu->drm.syncobj, 0u, 0u);
 }
 
 auto gpu_syncobj_export_syncfile(GpuSyncobj* syncobj, u64 source_point) -> Fd
@@ -90,7 +90,7 @@ auto gpu_syncobj_export_syncfile(GpuSyncobj* syncobj, u64 source_point) -> Fd
     // We can't export directly from a timeline syncobj point to a syncfile, so we transfer to a temporary binary syncobj first
     // and then export the syncfile from that.
 
-    unix_check<drmSyncobjTransfer>(gpu->drm.fd, gpu->drm.syncobj, 0, syncobj->syncobj, source_point, 0);
+    unix_check<drmSyncobjTransfer>(gpu->drm.fd, gpu->drm.syncobj, 0u, syncobj->syncobj, source_point, 0u);
     fd_t sync_fd = -1;
     unix_check<drmSyncobjExportSyncFile>(gpu->drm.fd, gpu->drm.syncobj, &sync_fd);
 
@@ -122,7 +122,7 @@ auto gpu_syncobj_get_value(GpuSyncobj* syncobj) -> u64
     auto* gpu = syncobj->gpu;
 
     u64 value = 0;
-    unix_check<drmSyncobjQuery>(gpu->drm.fd, &syncobj->syncobj, &value, 1);
+    unix_check<drmSyncobjQuery>(gpu->drm.fd, &syncobj->syncobj, &value, 1u);
 
     return value;
 }
@@ -194,14 +194,14 @@ void gpu_wait_blocking(GpuSyncpoint syncpoint)
     auto* gpu = syncobj->gpu;
 
     u32 first_signalled;
-    unix_check<drmSyncobjTimelineWait>(gpu->drm.fd, &syncobj->syncobj, &value, 1, INT64_MAX, 0, &first_signalled);
+    unix_check<drmSyncobjTimelineWait>(gpu->drm.fd, &syncobj->syncobj, &value, 1u, INT64_MAX, 0u, &first_signalled);
 }
 
 void gpu_syncobj_signal_value(GpuSyncobj* syncobj, u64 value)
 {
     auto* gpu = syncobj->gpu;
 
-    unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &value, 1);
+    unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &value, 1u);
 }
 
 // -----------------------------------------------------------------------------

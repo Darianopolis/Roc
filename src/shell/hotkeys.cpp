@@ -121,7 +121,7 @@ void take_screenshot(Shell* shell, rect2f32 region)
 
             auto save_path = dir / std::format("screenshot-{}.png", FmtTime{std::chrono::system_clock::now(), TimeFormat::iso8601});
 
-            stbi_write_png(save_path.c_str(), extent.x, extent.y, STBI_rgb_alpha, data.data(), extent.x * 4);
+            stbi_write_png(save_path.c_str(), num_cast<i32>(extent.x), num_cast<i32>(extent.y), STBI_rgb_alpha, data.data(), num_cast<i32>(extent.x * 4));
             auto end = std::chrono::steady_clock::now();
             log_info("Screenshot saved to [{}] in {}", save_path, FmtDuration{end - start});
         }}.detach();
@@ -141,7 +141,7 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                 switch (event->keyboard.key.code) {
                     break;case KEY_F1 ... KEY_F12:
                         if (mods.contains(SeatModifier::ctrl)) {
-                            auto session = 1 + event->keyboard.key.code - KEY_F1;
+                            auto session = 1 + num_cast<i32>(event->keyboard.key.code - KEY_F1);
                             log_debug("Switching VT to {}", session);
                             io_switch_session(shell->io.get(), session);
                         }

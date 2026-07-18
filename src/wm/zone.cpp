@@ -11,11 +11,11 @@ auto get_zone_rect(WmServer* server, rect2i32 workarea, vec2u32 zone) -> rect2i3
     rect2i32 out;
 
     auto get_axis = [&](usz axis) {
-        i32 usable_length = workarea.extent[axis] - (c.zone.spacing * (c.zone.count[axis] - 1));
-        f64 ideal_zone_size = f64(usable_length) / c.zone.count[axis];
-        out.origin[axis] = std::round(ideal_zone_size *  zone[axis]);
-        out.extent[axis] = std::round(ideal_zone_size * (zone[axis] + 1)) - out.origin[axis];
-        out.origin[axis] += workarea.origin[axis] + c.zone.spacing * zone[axis];
+        i32 usable_length = workarea.extent[axis] - (c.zone.spacing * (num_cast<i32>(c.zone.count[axis]) - 1));
+        f64 ideal_zone_size = num_cast<f64>(usable_length) / c.zone.count[axis];
+        out.origin[axis] = num_cast<i32>(std::round(ideal_zone_size *  zone[axis]));
+        out.extent[axis] = num_cast<i32>(std::round(ideal_zone_size * (zone[axis] + 1)) - out.origin[axis]);
+        out.origin[axis] += workarea.origin[axis] + c.zone.spacing * num_cast<i32>(zone[axis]);
     };
     get_axis(0);
     get_axis(1);
@@ -60,7 +60,7 @@ void zone_update_regions(WmServer* server)
     for (u32 zone_x = 0; zone_x < c.zone.count.x; ++zone_x) {
         for (u32 zone_y = 0; zone_y < c.zone.count.y; ++zone_y) {
             rect2i32 rect = get_zone_rect(server, workarea, {zone_x, zone_y});
-            vec2f64 leeway = vec_cast<f64>(c.zone.selection_leeway * f32(std::min(rect.extent.x, rect.extent.y)));
+            vec2f64 leeway = vec_cast<f64>(c.zone.selection_leeway * num_cast<f32>(std::min(rect.extent.x, rect.extent.y)));
             aabb2f64 aabb = aabb_cast<f64>(rect);
             aabb2f64 check_aabb = {
                 aabb.min - leeway,

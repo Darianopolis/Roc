@@ -170,8 +170,8 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
             .pNext = &drm_props,
         }));
 
-        dev_t primary_dev_id = makedev(drm_props.primaryMajor, drm_props.primaryMinor);
-        dev_t render_dev_id  = makedev(drm_props.renderMajor,  drm_props.renderMinor);
+        dev_t primary_dev_id = makedev(num_cast<u32>(drm_props.primaryMajor), num_cast<u32>(drm_props.primaryMinor));
+        dev_t render_dev_id  = makedev(num_cast<u32>(drm_props.renderMajor),  num_cast<u32>(drm_props.renderMinor));
 
         if (!drm_props.hasPrimary && !drm_props.hasRender) {
             log_warn("  device has no primary or render node");
@@ -179,17 +179,17 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
         }
 
         drmDevice* device;
-        unix_check<drmGetDeviceFromDevId>(drm_props.hasRender ? render_dev_id : primary_dev_id, 0, &device);
+        unix_check<drmGetDeviceFromDevId>(drm_props.hasRender ? render_dev_id : primary_dev_id, 0u, &device);
 
         if (!open_drm(gpu, device)) {
             drmFreeDevice(&device);
             return false;
         }
     } else {
-        auto num_devices = unix_check<drmGetDevices2>(0, nullptr, 0).value;
-        std::vector<drmDevice*> devices(num_devices);
-        num_devices = unix_check<drmGetDevices2>(0, devices.data(), devices.size()).value;
-        devices.resize(std::min(devices.size(), usz(num_devices)));
+        auto num_devices = unix_check<drmGetDevices2>(0u, nullptr, 0).value;
+        std::vector<drmDevice*> devices((num_cast<usz>(num_devices)));
+        num_devices = unix_check<drmGetDevices2>(0u, devices.data(), num_cast<i32>(devices.size())).value;
+        devices.resize(std::min(devices.size(), num_cast<usz>(num_devices)));
         defer {
             for (auto& device : devices) if (device) drmFreeDevice(&device);
         };
@@ -392,7 +392,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .apiVersion = VK_API_VERSION_1_4,
         }),
-        .enabledExtensionCount = u32(instance_extensions.size()),
+        .enabledExtensionCount = num_cast<u32>(instance_extensions.size()),
         .ppEnabledExtensionNames = instance_extensions.data(),
     }), nullptr, &gpu->instance));
 
@@ -448,7 +448,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
         for (auto[i, queue_props] : props | std::views::enumerate) {
             VkQueueFlags require_flags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
             if ((queue_props.queueFlags & require_flags) == require_flags) {
-                gpu->queue.family = i;
+                gpu->queue.family = num_cast<u32>(i);
                 found =true;
             }
         }
@@ -526,7 +526,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
                     .pQueuePriorities = ptr_to(1.f),
                 },
             }.data(),
-            .enabledExtensionCount = u32(required_device_extensions.size()),
+            .enabledExtensionCount = num_cast<u32>(required_device_extensions.size()),
             .ppEnabledExtensionNames = required_device_extensions.data(),
         }), nullptr, &gpu->device), VK_ERROR_NOT_PERMITTED);
     };
@@ -558,7 +558,7 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
 
     // Transfer syncobj
 
-    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0, &gpu->drm.syncobj);
+    unix_check<drmSyncobjCreate>(gpu->drm.fd, 0u, &gpu->drm.syncobj);
 
     // VMA allocator
 

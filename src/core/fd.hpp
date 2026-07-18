@@ -10,6 +10,12 @@ static constexpr fd_t fd_limit = 1024;
 
 // -----------------------------------------------------------------------------
 
+inline
+auto fd_to_index(fd_t fd) -> u32
+{
+    return num_cast<u32>(fd);
+}
+
 void fd_leak_mark_inherited();
 void fd_leak_check();
 

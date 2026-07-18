@@ -2,7 +2,7 @@
 
 #include "../surface/surface.hpp"
 
-inline
+static
 auto from_drm(GpuDrmFormat drm) -> wl_shm_format
 {
     switch (drm) {
@@ -12,7 +12,7 @@ auto from_drm(GpuDrmFormat drm) -> wl_shm_format
     }
 }
 
-inline
+static
 auto to_drm(wl_shm_format shm) -> GpuDrmFormat
 {
     switch (shm) {
@@ -22,7 +22,21 @@ auto to_drm(wl_shm_format shm) -> GpuDrmFormat
     }
 }
 
+
 // -----------------------------------------------------------------------------
+
+struct WayShmPool
+{
+    WayServer* server;
+
+    WayResource resource;
+
+    Fd    fd;
+    void* data;
+    usz   size;
+
+    ~WayShmPool();
+};
 
 static
 void pool_unmap(WayShmPool* pool)
@@ -55,7 +69,7 @@ void create_pool(wl_client* client, wl_resource* resource, u32 id, fd_t fd, i32 
     pool->server = way_get_userdata<WayServer>(resource);
     pool->fd = Fd(fd);
     pool->resource = way_resource_create_refcounted(wl_shm_pool, client, resource, id, pool.get());
-    pool_map(pool.get(), size);
+    pool_map(pool.get(), num_cast<usz>(size));
 }
 
 WAY_INTERFACE(wl_shm) = {
@@ -84,8 +98,8 @@ struct WayShmBuffer : WayBuffer
 {
     Ref<WayShmPool> pool;
 
-    i32 offset;
-    i32 stride;
+    u32 offset;
+    u32 stride;
     GpuFormat format;
 
     virtual auto do_acquire(WaySurface*, WayDamageRegion, Flags<WayBufferAcquireFlags>, WayTimelinePoint release_point) -> Ref<GpuImage> final override;
@@ -100,10 +114,10 @@ void create_buffer(wl_client* client, wl_resource* resource, u32 id, i32 offset,
     buffer->_resource = way_resource_create_refcounted(wl_buffer, client, resource, id, static_cast<WayBuffer*>(buffer.get()));
 
     buffer->format = gpu_format_from_drm(to_drm(wl_shm_format(_format)));
-    buffer->extent = {u32(width), u32(height)};
+    buffer->extent = {num_cast<u32>(width), num_cast<u32>(height)};
     buffer->pool = pool;
-    buffer->stride = stride;
-    buffer->offset = offset;
+    buffer->stride = num_cast<u32>(stride);
+    buffer->offset = num_cast<u32>(offset);
 
     if (!buffer->format) {
         way_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT, "Format {} is not supported", wl_shm_format(_format));
@@ -115,7 +129,7 @@ static
 void pool_resize(wl_client* client, wl_resource* resource, i32 size)
 {
     auto* pool = way_get_userdata<WayShmPool>(resource);
-    pool_map(pool, size);
+    pool_map(pool, num_cast<usz>(size));
 }
 
 WAY_INTERFACE(wl_shm_pool) = {
@@ -193,7 +207,7 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
             {{{
                 .image_extent = vec_cast<u32>(rect.extent),
                 .image_offset = rect.origin,
-                .buffer_row_length = u32(stride) / format->texel_block_size,
+                .buffer_row_length = num_cast<u32>(stride) / format->texel_block_size,
             }}});
     }
 #if NOISY_SHM_BUFFER_IMAGES

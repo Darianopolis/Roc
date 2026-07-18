@@ -20,13 +20,13 @@ void reflow_outputs(WmServer* server, bool any_changed = false)
         auto size = output->pixel_size;
         if constexpr (dir == LayoutDir::RightToLeft) {
             if (!std::exchange(first, false)) {
-                x -= f32(size.x);
+                x -= num_cast<f32>(size.x);
             }
         }
         auto last = output->viewport;
         output->viewport = {{x, 0.f}, vec_cast<f32>(size), xywh};
         if constexpr (dir == LayoutDir::LeftToRight) {
-            x += f32(size.x);
+            x += num_cast<f32>(size.x);
         }
 
         if (last != output->viewport) {
@@ -202,12 +202,12 @@ void handle_key(WmServer* server, Seat* seat, bool quiet, WmInputDeviceEvent cha
 
     switch (channel.code) {
         break;case BTN_MOUSE ... BTN_TASK:
-            seat_pointer_button(seat_get_pointer(seat), channel.code, channel.value, quiet);
+            seat_pointer_button(seat_get_pointer(seat), channel.code, channel.value > 0, quiet);
         break;case KEY_ESC        ... KEY_MICMUTE:
               case KEY_OK         ... KEY_LIGHTS_TOGGLE:
               case KEY_ALS_TOGGLE ... KEY_PERFORMANCE: {
             auto keyboard = seat_get_keyboard(seat);
-            auto changed = seat_keyboard_key(keyboard, channel.code, channel.value, quiet);
+            auto changed = seat_keyboard_key(keyboard, channel.code, channel.value > 0, quiet);
             if (changed.contains(XKB_STATE_LEDS)) {
                 update_leds(server, keyboard);
             }
@@ -255,8 +255,8 @@ void wm_input_device_push_events(WmInputDevice* input_device, bool quiet, std::s
     auto* server = input_device->server;
     auto* seat = wm_get_seat(server);
 
-    vec2f32 motion = {};
-    vec2f32 scroll = {};
+    vec2f64 motion = {};
+    vec2f64 scroll = {};
 
     for (auto& channel : events) {
         switch (channel.type) {
@@ -274,8 +274,8 @@ void wm_input_device_push_events(WmInputDevice* input_device, bool quiet, std::s
         }
     }
 
-    if (motion.x || motion.y) handle_motion(server,   seat_get_pointer(seat), motion);
-    if (scroll.x || scroll.y) seat_pointer_scroll(seat_get_pointer(seat), scroll);
+    if (motion) handle_motion(server, seat_get_pointer(seat), vec_cast<f32>(motion));
+    if (scroll) seat_pointer_scroll(  seat_get_pointer(seat), vec_cast<f32>(scroll));
 }
 
 static
