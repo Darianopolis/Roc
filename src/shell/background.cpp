@@ -77,7 +77,7 @@ auto load_background_image(Shell* shell) -> Ref<GpuImage>
     auto image = gpu_image_create(shell->gpu.get(), {
         .extent = {num_cast<u32>(w), num_cast<u32>(h)},
         .format = gpu_format_from_drm(DRM_FORMAT_XBGR8888),
-        .usage = GpuImageUsage::texture | GpuImageUsage::transfer
+        .usage = GpuImageUsage::sampled | GpuImageUsage::transfer
     });
     gpu_copy_memory_to_image(image.get(), as_bytes(data, num_cast<usz>(w * h * 4)), {{{image->base()->extent}}});
     return image;

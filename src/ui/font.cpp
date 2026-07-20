@@ -90,7 +90,7 @@ auto composite_glyphs(Gpu* gpu, std::span<const std::pair<FT_BitmapGlyph, vec4f3
         composite.image = gpu_image_create(gpu, {
             .extent = vec_cast<u32>(rect.extent),
             .format = gpu_format_from_vulkan(VK_FORMAT_R8G8B8A8_SRGB),
-            .usage = GpuImageUsage::texture | GpuImageUsage::transfer_dst,
+            .usage = GpuImageUsage::sampled | GpuImageUsage::transfer_dst,
         });
         gpu_copy_memory_to_image(composite.image.get(), as_bytes(pixels), {{
             {

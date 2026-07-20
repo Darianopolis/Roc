@@ -35,7 +35,6 @@ struct SceneRenderInfo
     GpuImage* target;
     rect2f32 viewport;
     const Region<f32>* damage;
-    SceneRenderMethod method;
 };
 
 void scene_render(SceneRenderer*, const SceneRenderInfo&);

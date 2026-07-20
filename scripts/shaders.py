@@ -5,15 +5,8 @@ from .utils import write_file_lazy, ensure_dir
 
 def build_shaders(cwd, build_dir):
     shaders = [
-        ("src/scene/shader/raster-fragment.glsl", "scene_raster_fragment", "frag"),
-        ("src/scene/shader/raster-vertex.glsl",   "scene_raster_vertex",   "vert"),
-        ("src/scene/shader/raster-output.glsl",   "scene_raster_output",   "comp"),
-
-        ("src/scene/shader/compute-bin.glsl",   "scene_compute_bin",   "comp"),
-        ("src/scene/shader/compute-pixel.glsl", "scene_compute_pixel", "comp"),
-
-        ("src/scene/shader/compute2-bin.glsl",   "scene_compute2_bin",   "comp"),
-        ("src/scene/shader/compute2-pixel.glsl", "scene_compute2_pixel", "comp"),
+        ("src/scene/shader/bin.glsl",   "scene_shader_bin",   "comp"),
+        ("src/scene/shader/pixel.glsl", "scene_shader_pixel", "comp"),
     ]
 
     shader_gen_dir         = ensure_dir(build_dir / "shaders")

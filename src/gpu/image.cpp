@@ -7,11 +7,9 @@ auto gpu_image_usage_to_vulkan(Flags<GpuImageUsage> usage) -> VkImageUsageFlags
 {
     VkImageUsageFlags vk_usage = {};
     if (usage.contains(GpuImageUsage::storage))      vk_usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-    if (usage.contains(GpuImageUsage::render))       vk_usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (usage.contains(GpuImageUsage::texture))      vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (usage.contains(GpuImageUsage::sampled))      vk_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     if (usage.contains(GpuImageUsage::transfer_src)) vk_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     if (usage.contains(GpuImageUsage::transfer_dst)) vk_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    if (usage.contains(GpuImageUsage::stencil))      vk_usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     return vk_usage;
 }
 
@@ -19,9 +17,7 @@ auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usa
 {
     VkFormatFeatureFlags features = {};
     if (usage.contains(GpuImageUsage::storage)) features |= VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT;
-    if (usage.contains(GpuImageUsage::render))  features |= VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT
-                                                         |  VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BLEND_BIT;
-    if (usage.contains(GpuImageUsage::texture)) {
+    if (usage.contains(GpuImageUsage::sampled)) {
         features |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT
                  |  VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
         if (format->is_ycbcr) features |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT
@@ -29,7 +25,6 @@ auto gpu_get_required_format_features(GpuFormat format, Flags<GpuImageUsage> usa
     }
     if (usage.contains(GpuImageUsage::transfer_dst)) features |= VK_FORMAT_FEATURE_2_TRANSFER_DST_BIT;
     if (usage.contains(GpuImageUsage::transfer_src)) features |= VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT;
-    if (usage.contains(GpuImageUsage::stencil))      features |= VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT;
     return features;
 }
 

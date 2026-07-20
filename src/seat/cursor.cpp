@@ -74,7 +74,7 @@ auto get_xcursor(SeatCursorManager* manager, const char* semantic) -> SceneNode*
     auto image = gpu_image_create(manager->gpu, {
         .extent = {cursor->width, cursor->height},
         .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = GpuImageUsage::texture | GpuImageUsage::transfer
+        .usage = GpuImageUsage::sampled | GpuImageUsage::transfer
     });
     gpu_copy_memory_to_image(image.get(), as_bytes(cursor->pixels, cursor->width * cursor->height * 4), {{{image->base()->extent}}});
 

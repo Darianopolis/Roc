@@ -33,11 +33,6 @@
     DO(CreateImageView) \
     DO(CmdPipelineBarrier2) \
     DO(BeginCommandBuffer) \
-    DO(CmdBeginRendering) \
-    DO(CmdBindIndexBuffer) \
-    DO(CmdDraw) \
-    DO(CmdDrawIndexed) \
-    DO(CmdEndRendering) \
     DO(EndCommandBuffer) \
     DO(QueueSubmit2) \
     DO(DestroyCommandPool) \
@@ -72,7 +67,6 @@
     DO(UpdateDescriptorSets) \
     DO(CmdBindDescriptorSets) \
     DO(SetDebugUtilsObjectNameEXT) \
-    DO(CmdBlitImage2) \
     DO(GetMemoryFdPropertiesKHR) \
     DO(GetImageMemoryRequirements2) \
     DO(BindImageMemory2) \
@@ -82,10 +76,7 @@
     DO(GetImageSubresourceLayout) \
     DO(GetMemoryFdKHR) \
     DO(CmdDispatch) \
-    DO(CmdSetViewportWithCount) \
-    DO(CmdSetScissorWithCount) \
     DO(GetSemaphoreCounterValue) \
-    DO(CreateGraphicsPipelines) \
     DO(DestroyPipeline) \
     DO(CmdBindPipeline) \
     DO(CreateComputePipelines) \

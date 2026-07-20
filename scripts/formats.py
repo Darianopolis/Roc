@@ -78,8 +78,6 @@ formats = [
     format("P012", "VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16" ),
     format("P016", "VK_FORMAT_G16_B16R16_2PLANE_420_UNORM"               ),
     format("Q410", "VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16"),
-
-    format("", "VK_FORMAT_S8_UINT", aspect="VK_IMAGE_ASPECT_STENCIL_BIT"),
 ]
 
 def enumerate_vk_formats(path: str):

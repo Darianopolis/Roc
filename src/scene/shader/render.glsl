@@ -1,12 +1,12 @@
 #include "render.h"
 
-vec4f32 quad_sample(GPU_CONST_PTR(SceneQuad) quad, vec2f32 uv)
+vec4f32 quad_sample(GPU_CONST_PTR(SceneRenderQuad) quad, vec2f32 uv)
 {
     // Sample
     vec4f32 sampled = srgb_eotf(gpu_image_sample(quad._.texture, uv));
 
     // Unpremultiply
-    if ((quad._.flags & SCENE_DRAW_FLAG_PREMULTIPLIED) != 0 && sampled.a > 0) {
+    if ((quad._.flags & SCENE_RENDER_FLAG_PREMULTIPLIED) != 0 && sampled.a > 0) {
         sampled.rgb /= sampled.a;
     }
 

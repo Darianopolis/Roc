@@ -43,16 +43,6 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                             output->interface.request_frame(output->userdata);
                         }
                         return SeatEventFilterResult::capture;
-                    break;case KEY_C:
-                        server->debug.render_method = SceneRenderMethod((num_cast<u32>(server->debug.render_method) + 1)
-                                                                       % num_cast<u32>(enum_values<SceneRenderMethod>().size()));
-                        wm_toast(server, std::format("Render method: {}", server->debug.render_method));
-                        for (auto* output : server->io.outputs) {
-                            output->needs_redraw = true;
-                            output->primary_damage = Region<f32>{output->viewport};
-                            output->interface.request_frame(output->userdata);
-                        }
-                        return SeatEventFilterResult::capture;
                     break;case KEY_A: {
                         server->config.pointer.accel.state = WmPointerAccelState((num_cast<u32>(server->config.pointer.accel.state) + 1)
                                                                                 % num_cast<u32>(enum_values<WmPointerAccelState>().size()));

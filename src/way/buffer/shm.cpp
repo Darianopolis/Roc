@@ -85,7 +85,7 @@ WAY_BIND_GLOBAL(wl_shm, bind)
 
     for (auto format : gpu_get_formats()) {
         auto props = gpu_get_format_properties(bind.server->gpu, format,
-            GpuImageUsage::texture | GpuImageUsage::transfer_src | GpuImageUsage::transfer_dst);
+            GpuImageUsage::sampled | GpuImageUsage::transfer_src | GpuImageUsage::transfer_dst);
         if (props->for_mod(DRM_FORMAT_MOD_LINEAR)) {
             way_send<wl_shm_send_format>(resource, from_drm(format->drm));
         }
@@ -179,7 +179,7 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
         image = gpu_image_create(server->gpu, {
             .extent = extent,
             .format = format,
-            .usage = GpuImageUsage::transfer_dst | GpuImageUsage::texture,
+            .usage = GpuImageUsage::transfer_dst | GpuImageUsage::sampled,
         });
 
         damage.damage({{}, vec_cast<i32>(extent), minmax});

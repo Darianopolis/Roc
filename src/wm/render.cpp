@@ -197,7 +197,6 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
             .target = output->primary_image.get(),
             .viewport = wm_output_get_viewport(output),
             .damage = &output->primary_damage,
-            .method = server->debug.render_method,
         });
         output->primary_damage.clear();
     }

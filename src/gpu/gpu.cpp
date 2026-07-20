@@ -444,16 +444,24 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
         std::vector<VkQueueFamilyProperties> props;
         gpu_vulkan_enumerate(props, gpu->vk.GetPhysicalDeviceQueueFamilyProperties, gpu->physical_device);
 
-        bool found = false;
-        for (auto[i, queue_props] : props | std::views::enumerate) {
-            VkQueueFlags require_flags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
-            if ((queue_props.queueFlags & require_flags) == require_flags) {
-                gpu->queue.family = num_cast<u32>(i);
-                found =true;
+        auto find_queue = [&](VkQueueFlags required, VkQueueFlags disallowed) -> std::optional<u32> {
+            for (auto[i, queue_props] : props | std::views::enumerate) {
+                if ((queue_props.queueFlags & required) == required && (queue_props.queueFlags & disallowed) == 0) {
+                    return num_cast<u32>(i);
+                }
             }
-        }
+            return std::nullopt;
+        };
 
-        debug_assert(found);
+        if (auto found = find_queue(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT)) {
+            log_info("Using dedicated compute queue family: {}", *found);
+            gpu->queue.family = *found;
+        } else if (auto found = find_queue(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0)) {
+            log_info("Using general queue family: {}", *found);
+            gpu->queue.family = *found;
+        } else {
+            debug_assert_fail("gpu_create", "Failed to find suitable queue");
+        }
     }
 
     // Device creation

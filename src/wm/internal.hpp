@@ -118,7 +118,6 @@ struct WmServer
     struct {
         bool show_damage = false;
         bool disable_cursor_plane = false;
-        SceneRenderMethod render_method = SceneRenderMethod::compute2;
     } debug;
 
     Ref<SeatManager> seat_manager;

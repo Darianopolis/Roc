@@ -12,18 +12,11 @@ struct SceneRenderer
 
     Ref<GpuImage> white;
     Ref<GpuSampler> nearest;
-    Ref<GpuBuffer> indices;
 
     Ref<GpuImagePool> pool;
 
-    Ref<GpuPipeline> raster_blend;
-    Ref<GpuPipeline> raster_output;
-
     Ref<GpuPipeline> compute_bin;
     Ref<GpuPipeline> compute_pixel;
-
-    Ref<GpuPipeline> compute2_bin;
-    Ref<GpuPipeline> compute2_pixel;
 };
 
 inline

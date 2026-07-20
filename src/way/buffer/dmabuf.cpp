@@ -18,7 +18,7 @@ auto get_formats(WayServer* server)
 
     return gpu_get_formats()
         | std::views::transform([server](auto format) -> std::pair<GpuFormat, std::span<const GpuDrmModifier>> {
-            auto props = gpu_get_format_properties(server->gpu, format, GpuImageUsage::texture | GpuImageUsage::transfer_src);
+            auto props = gpu_get_format_properties(server->gpu, format, GpuImageUsage::sampled | GpuImageUsage::transfer_src);
             return { format, props->mods };
         });
 }
@@ -276,7 +276,7 @@ auto create_buffer(WayDmaParams* dma_params, u32 buffer_id, vec2u32 extent, GpuF
         buffer->extent, format->name, gpu_get_modifier_name(params.modifier));
 #endif
 
-    buffer->image = gpu_image_import(server->gpu, params, GpuImageUsage::texture);
+    buffer->image = gpu_image_import(server->gpu, params, GpuImageUsage::sampled);
 
     dma_params->params = {};
     dma_params->planes_set = {};

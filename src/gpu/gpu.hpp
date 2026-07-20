@@ -358,10 +358,8 @@ enum class GpuImageUsage : u32
     transfer_src = 1 << 0,
     transfer_dst = 1 << 1,
     transfer     = transfer_dst | transfer_src,
-    texture      = 1 << 2,
-    render       = 1 << 3,
-    storage      = 1 << 4,
-    stencil      = 1 << 5,
+    sampled      = 1 << 2,
+    storage      = 1 << 3,
 };
 
 struct GpuImageBase;
@@ -450,13 +448,6 @@ auto gpu_sampler_create(Gpu*, const GpuSamplerCreateInfo&) -> Ref<GpuSampler>;
 
 // -----------------------------------------------------------------------------
 
-
-enum class GpuBlendDirection : u32
-{
-    back_to_front,
-    front_to_back,
-};
-
 struct GpuShaderStageInfo
 {
     VkShaderStageFlagBits stage;
@@ -465,16 +456,6 @@ struct GpuShaderStageInfo
 };
 
 struct GpuPipeline;
-
-struct GpuGraphicsPipelineCreateInfo
-{
-    GpuFormat format;
-    std::span<const GpuShaderStageInfo> shaders;
-    VkPrimitiveTopology topology;
-    GpuBlendDirection blend_direction;
-};
-
-auto gpu_pipeline_create(Gpu*, const GpuGraphicsPipelineCreateInfo&) -> Ref<GpuPipeline>;
 
 auto gpu_pipeline_create_compute(Gpu*, const GpuShaderStageInfo&) -> Ref<GpuPipeline>;
 
@@ -493,38 +474,6 @@ void gpu_barrier(GpuCommands*,
 
 void gpu_push_constants(GpuCommands*, u32 offset, std::span<const byte> data);
 void gpu_bind_pipeline( GpuCommands*, GpuPipeline*);
-
-// -----------------------------------------------------------------------------
-
-enum class GpuDepthEnable
-{
-    test  = 1 << 0,
-    write = 1 << 1,
-};
-
-struct GpuDrawInfo
-{
-    u32 index_count;
-    u32 instance_count;
-    u32 first_index;
-    i32 vertex_offset;
-    u32 first_instance;
-};
-
-void gpu_set_scissors(     GpuCommands*, std::span<const rect2i32> scissors);
-void gpu_set_viewports(    GpuCommands*, std::span<const rect2f32> viewports);
-void gpu_bind_index_buffer(GpuCommands*, GpuBuffer*, u32 offset, VkIndexType);
-void gpu_draw_indexed(     GpuCommands*, const GpuDrawInfo&);
-
-struct GpuRenderPassInfo
-{
-    GpuImage* target;
-    GpuImage* stencil;
-    std::optional<vec4f32> clear_color;
-};
-
-void gpu_begin_rendering(GpuCommands*, const GpuRenderPassInfo&);
-void gpu_end_rendering(  GpuCommands*);
 
 // -----------------------------------------------------------------------------
 
