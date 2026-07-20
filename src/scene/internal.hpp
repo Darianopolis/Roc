@@ -21,6 +21,9 @@ struct SceneRenderer
 
     Ref<GpuPipeline> compute_bin;
     Ref<GpuPipeline> compute_pixel;
+
+    Ref<GpuPipeline> compute2_bin;
+    Ref<GpuPipeline> compute2_pixel;
 };
 
 inline

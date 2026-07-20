@@ -5,7 +5,7 @@ sizes = [2, 3, 4]
 unary_ops = ["-"]
 binary_ops = ["*", "/", "+", "-"]
 variables = ["x", "y", "z", "w"]
-unary_std_ops = ["abs", "floor", "round"]
+unary_std_ops = ["abs", "floor", "ceil", "round"]
 binary_std_ops = ["min", "max", "copysign"]
 
 def generate_math(build_dir):
@@ -67,23 +67,23 @@ def generate_math(build_dir):
         for op in binary_ops:
 
             # vec op vec
-            op_string = ", ".join([f"a.{v} {op} b.{v}" for v in members])
+            op_string = ", ".join([f"T(a.{v} {op} b.{v})" for v in members])
             ops_out += f"{preamble} operator{op}({vec} a, {vec} b) -> {vec} {{ return {{{op_string}}}; }}\n"
 
             # vec op scalar
-            op_string = ", ".join([f"a.{v} {op} b" for v in members])
+            op_string = ", ".join([f"T(a.{v} {op} b)" for v in members])
             ops_out += f"{preamble} operator{op}({vec} a, T b) -> {vec} {{ return {{{op_string}}}; }}\n"
 
             # scalar op vec
-            op_string = ", ".join([f"a {op} b.{v}" for v in members])
+            op_string = ", ".join([f"T(a {op} b.{v})" for v in members])
             ops_out += f"{preamble} operator{op}(T a, {vec} b) -> {vec} {{ return {{{op_string}}}; }}\n"
 
         for op in unary_std_ops:
-            op_string = ", ".join([f"std::{op}(v.{v})" for v in members])
+            op_string = ", ".join([f"T(std::{op}(v.{v}))" for v in members])
             ops_out += f"{preamble} vec_{op}({vec} v) -> {vec} {{ return {{ {op_string} }}; }}\n"
 
         for op in binary_std_ops:
-            op_string = ", ".join([f"std::{op}(a.{v}, b.{v})" for v in members])
+            op_string = ", ".join([f"T(std::{op}(a.{v}, b.{v}))" for v in members])
             ops_out += f"{preamble} vec_{op}({vec} a, {vec} b) -> {vec} {{ return {{ {op_string} }}; }}\n"
 
         # extra

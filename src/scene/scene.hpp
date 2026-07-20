@@ -16,10 +16,16 @@ struct SceneRenderer;
 
 auto scene_renderer_create(Gpu*) -> Ref<SceneRenderer>;
 
+enum class SceneRenderMethod
+{
+    compute2,
+    compute,
+    raster,
+};
+
 enum class SceneRenderOption : u32
 {
     show_damage = 1 << 0,
-    use_compute = 1 << 1,
 };
 
 struct SceneRenderInfo
@@ -29,6 +35,7 @@ struct SceneRenderInfo
     GpuImage* target;
     rect2f32 viewport;
     const Region<f32>* damage;
+    SceneRenderMethod method;
 };
 
 void scene_render(SceneRenderer*, const SceneRenderInfo&);

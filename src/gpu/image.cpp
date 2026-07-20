@@ -162,11 +162,9 @@ void image_init(GpuImageBase* image, const GpuFormatModifierProperties* props)
             image->sampled_id = gpu_allocate_image_descriptor(gpu, image->view, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
         }
 
-        if (props->has_mutable_srgb) {
+        if (props->has_mutable_srgb && (vk_usage & VK_IMAGE_USAGE_SAMPLED_BIT)) {
             image->srgb_view = create_image_view(image, true);
-            if (vk_usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
-                image->srgb_id = gpu_allocate_image_descriptor(gpu, image->srgb_view, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
-            }
+            image->srgb_id = gpu_allocate_image_descriptor(gpu, image->srgb_view, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
         }
 
         if (vk_usage & VK_IMAGE_USAGE_STORAGE_BIT) {

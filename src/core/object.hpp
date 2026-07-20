@@ -7,7 +7,7 @@
 
 // -----------------------------------------------------------------------------
 
-static constexpr u32 allocation_max_count = 65'536;
+static constexpr u32 allocation_max_count = 1 << 20;
 
 using AllocationVersion = u32;
 

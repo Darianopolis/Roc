@@ -15,6 +15,9 @@
 #include "scene_compute_bin.hpp"
 #include "scene_compute_pixel.hpp"
 
+#include "scene_compute2_bin.hpp"
+#include "scene_compute2_pixel.hpp"
+
 static constexpr auto scene_blend_format = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
@@ -77,14 +80,196 @@ auto scene_renderer_create(Gpu* gpu) -> Ref<SceneRenderer>
         .entry = "main",
     });
 
+    renderer->compute2_bin = gpu_pipeline_create_compute(gpu, {
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .code = scene_compute2_bin,
+        .entry = "main",
+    });
+
+    renderer->compute2_pixel = gpu_pipeline_create_compute(gpu, {
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .code = scene_compute2_pixel,
+        .entry = "main",
+    });
+
     return renderer;
+}
+
+static
+void render_compute2(SceneRenderer* renderer, const SceneRenderInfo& info,
+    vec2u32 extent,
+    std::span<const SceneQuad> quads,
+    std::span<const aabb2f32> quad_bounds,
+    std::span<const u8> quad_opaque_flags,
+    std::flat_set<GpuResource*>& reads)
+{
+    // auto start = std::chrono::steady_clock::now();
+
+    usz quad_count = quad_bounds.size();
+
+    auto coarse_bin_counts = (extent + literal_cast<u32>(SCENE_COARSE_BIN_SIZE) - 1u) / literal_cast<u32>(SCENE_COARSE_BIN_SIZE);
+    auto coarse_bin_count = coarse_bin_counts.x * coarse_bin_counts.y + SCENE_RESERVED_COARSE_BIN_COUNT;
+
+    std::vector<u16> coarse_bin_next_slot;
+    std::vector<u32> coarse_bin_remaps;
+    std::vector<SceneComputeBin> coarse_bins;
+    coarse_bin_next_slot.resize(coarse_bin_count);
+    coarse_bins.resize(coarse_bin_count);
+    coarse_bin_remaps.resize(coarse_bin_count);
+    for (u32 i = 0; i < coarse_bin_count; ++i) {
+        coarse_bin_remaps[i] = i;
+    }
+
+    auto allocate_coarse_bin = [&] {
+        u32 index = num_cast<u32>(coarse_bins.size());
+        coarse_bins.emplace_back();
+        return index;
+    };
+
+    for (u32 i = 0; i < quad_count; ++i) {
+        vec2i32 tile_start = vec_cast<i32>(vec_floor(quad_bounds[i].min / literal_cast<f32>(SCENE_COARSE_BIN_SIZE)));
+        vec2i32 tile_end   = vec_cast<i32>(vec_ceil( quad_bounds[i].max / literal_cast<f32>(SCENE_COARSE_BIN_SIZE)));
+        tile_start = vec_max(tile_start, vec2i32{});
+        tile_end   = vec_min(tile_end,   vec_cast<i32>(coarse_bin_counts));
+
+        for (i32 tile_y = tile_start.y; tile_y < tile_end.y; ++tile_y) {
+            u32 tile_row_index = num_cast<u32>(tile_y) * coarse_bin_counts.x + 1;
+            for (i32 tile_x = tile_start.x; tile_x < tile_end.x; ++tile_x) {
+                u32 original_tile = tile_row_index + num_cast<u32>(tile_x);
+
+                usz tile = coarse_bin_remaps[original_tile];
+                if (coarse_bin_next_slot[original_tile] >= SCENE_QUADS_PER_BIN) [[unlikely]] {
+                    u32 new_tile = allocate_coarse_bin();        // Allocate a new bin
+                    coarse_bin_remaps[original_tile] = new_tile; // Point the head of the stack to the new tile
+                    coarse_bin_next_slot[original_tile] = 0;     // Reset the bin slot
+                    coarse_bins[tile].next_bin = new_tile;       // Update the next bin link
+                    tile = new_tile;                             // Update the tile location
+                }
+                coarse_bins[tile].quads[coarse_bin_next_slot[original_tile]++] = num_cast<u16>(i);
+            }
+        }
+    }
+
+    std::vector<SceneComputeCoarseBinInfo> coarse_bin_infos;
+    coarse_bin_infos.resize(coarse_bin_count);
+
+    // auto end = std::chrono::steady_clock::now();
+    // log_warn("Filled {} bins in {} (quads: {})", coarse_bin_count, FmtDuration{end - start}, quad_count);
+    // log_warn("  coarse bins: {}", coarse_bin_counts);
+    // usz coarse_bin_slabs_used = 0;
+    u32 fine_bin_slots = 0;
+    std::flat_map<u32, u32> histogram;
+    {
+        for (u32 tile = 1; tile < coarse_bin_count; ++tile) {
+            // coarse_bin_slabs_used++;
+            u32 depth = coarse_bin_next_slot[tile];
+            u32 next = tile;
+            while ((next = coarse_bins[next].next_bin)) {
+                // coarse_bin_slabs_used++;
+                depth += SCENE_QUADS_PER_BIN;
+            }
+            histogram[depth]++;
+
+            coarse_bin_infos[tile] = {
+                .offset = fine_bin_slots,
+                .depth = num_cast<u16>(depth),
+            };
+            // log_warn("coarse bin {:3}, fine offset: {} (expected: {})", tile, coarse_bin_infos[tile].offset, fine_bin_slots);
+            fine_bin_slots += SCENE_COARSE_FINE_BIN_RATIO * SCENE_COARSE_FINE_BIN_RATIO * depth;
+            // log_warn("coarse bin {:3}, fine offset: {}, depth: {}", tile, coarse_bin_infos[tile].offset, coarse_bin_infos[tile].depth);
+
+        }
+    }
+    // log_warn("  slabs: {}", coarse_bin_slabs_used);
+    // log_warn("  slab depths");
+    // for (auto[depth, count] : histogram) {
+    //     log_warn("    {:3}: {}", depth, count);
+    // }
+    // log_warn("  fine_bin_slots: {} ({})", fine_bin_slots, FmtBytes{fine_bin_slots * sizeof(SCENE_QUAD_INDEX_TYPE)});
+    // usz naive_fine_bin_slots = quad_count * ((extent.x + SCENE_FINE_BIN_SIZE - 1) / SCENE_FINE_BIN_SIZE)
+    //                                       * ((extent.y + SCENE_FINE_BIN_SIZE - 1) / SCENE_FINE_BIN_SIZE);
+    // log_warn("  naive_fine_bin_slots: {} ({})", naive_fine_bin_slots, FmtBytes{naive_fine_bin_slots * sizeof(SCENE_QUAD_INDEX_TYPE)});
+
+#if 1
+    auto* gpu = renderer->gpu;
+
+    auto cmd = gpu_record(gpu);
+
+    auto copy_to_gpu = [&]<typename T>(std::span<const T> elements) {
+        auto buffer = gpu_buffer_create(gpu, elements.size() * sizeof(T), {});
+        std::memcpy(buffer->host_address, elements.data(), buffer->size);
+        gpu_protect(cmd, buffer);
+        return buffer;
+    };
+
+    auto gpu_quad_bounds = copy_to_gpu(quad_bounds);
+    auto gpu_quad_opaque_flags = copy_to_gpu(quad_opaque_flags);
+
+    auto gpu_quads = copy_to_gpu(quads);
+
+    // 2. Bin
+
+    auto gpu_coarse_bins = copy_to_gpu.operator()<SceneComputeBin>(coarse_bins);
+    auto gpu_coarse_bin_infos = copy_to_gpu.operator()<SceneComputeCoarseBinInfo>(coarse_bin_infos);
+
+    auto gpu_fine_bins = gpu_buffer_create(gpu, fine_bin_slots * sizeof(SCENE_QUAD_INDEX_TYPE), {});
+    gpu_protect(cmd, gpu_fine_bins);
+
+    gpu_barrier(cmd, reads, {{gpu_fine_bins.get()}});
+
+    vec2u32 fine_bin_counts = coarse_bin_counts * literal_cast<u32>(SCENE_COARSE_FINE_BIN_RATIO);
+
+    gpu_bind_pipeline(cmd, renderer->compute2_bin.get());
+    gpu_push_constants(cmd, 0, view_bytes(SceneCompute2BinPassInput {
+        .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
+        .quad_opaque_flags = gpu_quad_opaque_flags->device<u8>(),
+        .coarse_bins = gpu_coarse_bins->device<SceneComputeBin>(),
+        .coarse_bin_infos = gpu_coarse_bin_infos->device<SceneComputeCoarseBinInfo>(),
+        .fine_bins = gpu_fine_bins->device<SCENE_QUAD_INDEX_TYPE>(),
+        .coarse_bin_row_stride = coarse_bin_counts.x,
+        .extent = fine_bin_counts,
+    }));
+
+    gpu_dispatch(cmd, vec_join((fine_bin_counts + literal_cast<u32>(SCENE_COMPUTE2_BIN_PASS_LOCAL_SIZE - 1))
+                                                / literal_cast<u32>(SCENE_COMPUTE2_BIN_PASS_LOCAL_SIZE), 1u));
+
+    // 3. Draw
+
+    gpu_barrier(cmd, {{gpu_fine_bins.get()}}, {{info.target}});
+
+    gpu->vk.CmdPipelineBarrier2(cmd->buffer, ptr_to(VkDependencyInfo {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = ptr_to(VkMemoryBarrier2 {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+        }),
+    }));
+
+    gpu_bind_pipeline(cmd, renderer->compute2_pixel.get());
+    gpu_push_constants(cmd, 0, view_bytes(SceneCompute2PixelPassInput {
+        .coarse_bin_infos = gpu_coarse_bin_infos->device<SceneComputeCoarseBinInfo>(),
+        .fine_bins = gpu_fine_bins->device<SCENE_QUAD_INDEX_TYPE>(),
+        .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
+        .quads = gpu_quads->device<SceneQuad>(),
+        .coarse_bin_row_stride = coarse_bin_counts.x,
+        .target = info.target,
+        .extent = extent,
+    }));
+
+    gpu_dispatch(cmd, vec_join((extent + literal_cast<u32>(SCENE_COMPUTE2_PIXEL_PASS_LOCAL_SIZE - 1))
+                                       / literal_cast<u32>(SCENE_COMPUTE2_PIXEL_PASS_LOCAL_SIZE), 1u));
+#endif
 }
 
 void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 {
     debug_assert(info.target->base()->usage.contains(GpuImageUsage::storage));
 
-    bool use_compute = info.options.contains(SceneRenderOption::use_compute);
+    // bool use_compute = info.options.contains(SceneRenderOption::use_compute);
 
     auto extent = info.target->base()->extent;
 
@@ -106,7 +291,8 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
     std::flat_set<GpuResource*> reads;
 
     auto collect_texture = [&](SceneTexture* texture, vec2f32 translation, f32 opacity) {
-        if (use_compute && quads.size() >= std::numeric_limits<SCENE_QUAD_INDEX_TYPE>::max()) return;
+        // if (use_compute && quads.size() >= std::numeric_limits<SCENE_QUAD_INDEX_TYPE>::max()) return;
+        if (quads.size() >= std::numeric_limits<SCENE_QUAD_INDEX_TYPE>::max()) return;
 
         rect2f32 dst = texture->dst;
         dst.origin += translation;
@@ -190,6 +376,11 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         });
     }(info.root, {}, 1.f);
 
+    if (info.method == SceneRenderMethod::compute2) {
+        render_compute2(renderer, info, extent, quads, quad_bounds, quad_opaque_flags, reads);
+        return;
+    }
+
     auto* gpu = renderer->gpu;
 
     auto cmd = gpu_record(gpu);
@@ -203,7 +394,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     auto gpu_quads = copy_to_gpu(quads);
 
-    if (use_compute) {
+    if (info.method == SceneRenderMethod::compute) {
         auto gpu_quad_bounds = copy_to_gpu(quad_bounds);
         auto gpu_quad_opaque_flags = copy_to_gpu(quad_opaque_flags);
 
@@ -245,7 +436,6 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         gpu_push_constants(cmd, 0, view_bytes(SceneComputePixelPassInput {
             .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
             .quads = gpu_quads->device<SceneQuad>(),
-            .quad_count = num_cast<u32>(quads.size()),
             .bins = gpu_bins->device<SceneComputeBin>(),
             .row_stride = bin_counts.x,
             .target = info.target,

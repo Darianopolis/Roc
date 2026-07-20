@@ -69,9 +69,49 @@ struct SceneComputePixelPassInput
 {
     GPU_CONST_PTR(aabb2f32) quad_bounds;
     GPU_CONST_PTR(SceneQuad) quads;
-    u32 quad_count;
     GPU_CONST_PTR(SceneComputeBin) bins;
     u32 row_stride;
+    GpuStorageImageHandle target;
+    vec2u32 extent;
+};
+
+// -----------------------------------------------------------------------------
+
+#define SCENE_COARSE_BIN_SIZE 64
+#define SCENE_FINE_BIN_SIZE 8
+#define SCENE_COARSE_FINE_BIN_RATIO 8
+
+#define SCENE_RESERVED_COARSE_BIN_COUNT 1
+
+#define SCENE_COMPUTE2_BIN_PASS_LOCAL_SIZE 8
+#define SCENE_COMPUTE2_PIXEL_PASS_LOCAL_SIZE 8
+
+struct SceneComputeCoarseBinInfo
+{
+    u32 offset;
+    u16 depth;
+};
+
+GPU_PTR_ENABLE_FOR(SceneComputeCoarseBinInfo, 4);
+
+struct SceneCompute2BinPassInput
+{
+    GPU_CONST_PTR(aabb2f32) quad_bounds;
+    GPU_CONST_PTR(u8) quad_opaque_flags;
+    GPU_CONST_PTR(SceneComputeBin) coarse_bins;
+    GPU_CONST_PTR(SceneComputeCoarseBinInfo) coarse_bin_infos;
+    GPU_PTR(u16) fine_bins;
+    u32 coarse_bin_row_stride;
+    vec2u32 extent;
+};
+
+struct SceneCompute2PixelPassInput
+{
+    GPU_CONST_PTR(SceneComputeCoarseBinInfo) coarse_bin_infos;
+    GPU_CONST_PTR(u16) fine_bins;
+    GPU_CONST_PTR(aabb2f32) quad_bounds;
+    GPU_CONST_PTR(SceneQuad) quads;
+    u32 coarse_bin_row_stride;
     GpuStorageImageHandle target;
     vec2u32 extent;
 };

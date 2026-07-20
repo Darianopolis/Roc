@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
 #include <core/process.hpp>
+#include <core/log.hpp>
 
 static
 auto close_focused(WmServer* server, Seat* seat, SeatFocus* focus) -> SeatEventFilterResult
@@ -43,8 +44,9 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         }
                         return SeatEventFilterResult::capture;
                     break;case KEY_C:
-                        server->debug.use_compute = !server->debug.use_compute;
-                        wm_toast(server, std::format("Use compute: {}", server->debug.use_compute ? "Enabled" : "Disabled"));
+                        server->debug.render_method = SceneRenderMethod((num_cast<u32>(server->debug.render_method) + 1)
+                                                                       % num_cast<u32>(enum_values<SceneRenderMethod>().size()));
+                        wm_toast(server, std::format("Render method: {}", server->debug.render_method));
                         for (auto* output : server->io.outputs) {
                             output->needs_redraw = true;
                             output->primary_damage = Region<f32>{output->viewport};
@@ -53,7 +55,7 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         return SeatEventFilterResult::capture;
                     break;case KEY_A: {
                         server->config.pointer.accel.state = WmPointerAccelState((num_cast<u32>(server->config.pointer.accel.state) + 1)
-                                                                                 % num_cast<u32>(enum_values<WmPointerAccelState>().size()));
+                                                                                % num_cast<u32>(enum_values<WmPointerAccelState>().size()));
                         auto name = enum_name(server->config.pointer.accel.state);
                         wm_toast(server, std::format("Pointer acceleration: {}{}", char(std::toupper(name[0])), name.substr(1)));
                         return SeatEventFilterResult::capture;

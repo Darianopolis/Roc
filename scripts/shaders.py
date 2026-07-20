@@ -11,6 +11,9 @@ def build_shaders(cwd, build_dir):
 
         ("src/scene/shader/compute-bin.glsl",   "scene_compute_bin",   "comp"),
         ("src/scene/shader/compute-pixel.glsl", "scene_compute_pixel", "comp"),
+
+        ("src/scene/shader/compute2-bin.glsl",   "scene_compute2_bin",   "comp"),
+        ("src/scene/shader/compute2-pixel.glsl", "scene_compute2_pixel", "comp"),
     ]
 
     shader_gen_dir         = ensure_dir(build_dir / "shaders")

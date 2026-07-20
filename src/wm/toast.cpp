@@ -17,6 +17,8 @@ void arrange_toasts(WmServer* server)
 
 void wm_toast(WmServer* server, std::string_view message, std::chrono::steady_clock::time_point expiration)
 {
+    log_info("Toast: {}", message);
+
     if (!server->toast_font) {
         server->toast_font = ui_font_load("/usr/share/fonts/noto/NotoSans-Regular.ttf", line_height);
     }

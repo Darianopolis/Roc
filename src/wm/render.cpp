@@ -188,7 +188,6 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
         });
 
         Flags<SceneRenderOption> flags = {};
-        if (server->debug.use_compute) flags |= SceneRenderOption::use_compute;
         if (server->debug.show_damage) flags |= SceneRenderOption::show_damage;
         scene_render(wm_get_scene_renderer(server), {
             .options = flags,
@@ -198,6 +197,7 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
             .target = output->primary_image.get(),
             .viewport = wm_output_get_viewport(output),
             .damage = &output->primary_damage,
+            .method = server->debug.render_method,
         });
         output->primary_damage.clear();
     }
