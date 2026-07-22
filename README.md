@@ -1,13 +1,13 @@
 # Roc
 
-An experiment in writing a simple, independent desktop environment for personal and educational use.
+An experiment in writing a simple, independent desktop compositor.
 
-- Protocol-independent core components
-- Thin Wayland client adapter built on `libwayland`
+- Protocol-independent core
+- Thin Wayland client adapter built on libwayland
 
 ## Dependencies
 
-The following packages must be discoverable by PkgConfig:
+PkgConfig:
 
 - libevdev
 - libdrm
@@ -21,18 +21,13 @@ The following packages must be discoverable by PkgConfig:
 - wayland-server
 - wayland-client
 
-The following executables must be available on the environment path:
+Environment PATH:
 
 - python
 - cmake
 - wayland-scanner
 - gcc/clang (C++26 reflection capable)
 - glslang
-
-The following packages must also be discoverable by CMake:
-
-- ninja
-- mold (optional)
 
 ## Build
 

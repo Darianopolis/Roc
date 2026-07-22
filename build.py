@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import argparse
 import filecmp
+import multiprocessing
 
 from scripts.utils import ensure_dir
 import scripts.deps as deps
@@ -87,11 +88,12 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
 
     configure_ok = True
 
+    use_ninja = shutil.which("ninja") is not None
+
     if ((args.build or args.install) and not cmake_dir.exists()) or args.configure:
         cmd = [
              "cmake", "--fresh",
              "-B", cmake_dir,
-             "-G", "Ninja",
             f"-DBUILD_DIR={build_dir}",
             f"-DVENDOR_DIR={vendor_dir}",
             f"-DPROGRAM_NAME={program_name}",
@@ -101,8 +103,12 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
             f"-DCMAKE_LINKER_TYPE={linker_type}",
             f"-DCMAKE_BUILD_TYPE={build_type}",
         ]
+
         if args.asan:
             cmd += ["-DUSE_ASAN=1"]
+
+        if use_ninja:
+            cmd += ["-G", "Ninja"]
 
         print(cmd)
         res = subprocess.run(cmd)
@@ -113,7 +119,10 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
         shutil.copy2(cmake_dir / "compile_commands.json", build_dir / "compile_commands.json")
 
     if configure_ok and (args.build or args.install):
-        res = subprocess.run(["cmake", "--build", cmake_dir])
+        cmd = ["cmake", "--build", cmake_dir]
+        if not use_ninja:
+            cmd += [f"--parallel={multiprocessing.cpu_count()}"]
+        res = subprocess.run(cmd)
         if res.returncode != 0:
             os._exit(res.returncode)
 
