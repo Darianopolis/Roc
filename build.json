@@ -2,12 +2,12 @@
     "dependencies": {
         "kde-protocols": {
             "branch": "master",
-            "commit": "39de7050bd60f104019193a494d819d5eae6ae9b",
+            "commit": "c421474708c26a409817c255e1c43939351444d8",
             "repo": "https://github.com/KDE/plasma-wayland-protocols.git"
         },
         "renderdoc": {
             "branch": "v1.x",
-            "commit": "20b908968fcc5da0208263a33262501e5891be7c",
+            "commit": "a66becd518cb9ccba5388e2058147ec281cdfcd6",
             "repo": "https://github.com/baldurk/renderdoc.git"
         },
         "stb": {
@@ -17,12 +17,12 @@
         },
         "unordered-dense": {
             "branch": "main",
-            "commit": "7b55cab8418da1603496462ce3ccdb4cb1dc3368",
+            "commit": "e5b9441ecf193f3e1e8f954527fc76edee20d7eb",
             "repo": "https://github.com/martinus/unordered_dense.git"
         },
         "vulkan-headers": {
             "branch": "main",
-            "commit": "0307c70bfbf0646d56a604384b2a91525cefea15",
+            "commit": "e3b1eec08173d6b825cd3ac88c885a63b621504a",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
         }
     }
