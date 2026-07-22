@@ -214,17 +214,10 @@ struct Gpu
         u32 syncobj;
     } drm;
 
-    VmaAllocator vma;
-
     struct {
         u32 active_images;
-        usz active_image_memory;
-
         u32 active_buffers;
-        usz active_buffer_memory;
-
         u32 active_samplers;
-
         u32 active_syncobjs;
     } stats;
 
@@ -324,7 +317,7 @@ struct GpuBuffer : GpuResource
     Gpu* gpu;
 
     VkBuffer buffer;
-    VmaAllocation vma_allocation;
+    VkDeviceMemory memory;
     VkDeviceAddress device_address;
     void* host_address;
     usz size;
@@ -369,6 +362,8 @@ struct GpuImage : GpuResource
     virtual auto base() -> GpuImageBase* = 0;
 };
 
+constexpr static u32 gpu_dma_max_planes = 4;
+
 struct GpuImageBase : GpuImage
 {
     Gpu* gpu;
@@ -386,6 +381,8 @@ struct GpuImageBase : GpuImage
     GpuDescriptorId storage_id;
 
     Flags<GpuImageUsage> usage;
+
+    FixedArray<VkDeviceMemory, gpu_dma_max_planes> memory;
 
     virtual ~GpuImageBase();
 
@@ -476,8 +473,6 @@ void gpu_push_constants(GpuCommands*, u32 offset, std::span<const byte> data);
 void gpu_bind_pipeline( GpuCommands*, GpuPipeline*);
 
 // -----------------------------------------------------------------------------
-
-constexpr static u32 gpu_dma_max_planes = 4;
 
 struct GpuDmaPlane
 {

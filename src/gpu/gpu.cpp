@@ -22,8 +22,6 @@ Gpu::~Gpu()
         debug_assert(stats.active_buffers == 0, "{} unexpected buffers", stats.active_buffers);
         debug_assert(stats.active_samplers == 0, "{} unexpected samplers", stats.active_samplers);
 
-        vmaDestroyAllocator(vma);
-
         for (auto* binary_sema : free_binary_semaphores) {
             vk.DestroySemaphore(device, binary_sema, nullptr);
         }
@@ -567,23 +565,6 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
     // Transfer syncobj
 
     unix_check<drmSyncobjCreate>(gpu->drm.fd, 0u, &gpu->drm.syncobj);
-
-    // VMA allocator
-
-    gpu_check(vmaCreateAllocator(ptr_to(VmaAllocatorCreateInfo {
-        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
-               | VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT
-               | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT
-               | VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT,
-        .physicalDevice = gpu->physical_device,
-        .device = gpu->device,
-        .pVulkanFunctions = ptr_to(VmaVulkanFunctions {
-            .vkGetInstanceProcAddr = gpu->vk.GetInstanceProcAddr,
-            .vkGetDeviceProcAddr = gpu->vk.GetDeviceProcAddr,
-        }),
-        .instance = gpu->instance,
-        .vulkanApiVersion = VK_API_VERSION_1_4,
-    }), &gpu->vma));
 
     // State initialization
 

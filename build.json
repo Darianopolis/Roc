@@ -24,11 +24,6 @@
             "branch": "main",
             "commit": "0307c70bfbf0646d56a604384b2a91525cefea15",
             "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git"
-        },
-        "vulkan-memory-allocator": {
-            "branch": "master",
-            "commit": "3aa921224c154a0d2c43912bc88e1c42ce1f7607",
-            "repo": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"
         }
     }
 }

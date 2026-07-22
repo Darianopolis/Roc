@@ -111,17 +111,6 @@ add_subdirectory(${VENDOR_DIR}/vulkan-headers EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
 
-add_subdirectory(${VENDOR_DIR}/vulkan-memory-allocator EXCLUDE_FROM_ALL)
-
-add_library(vma-object)
-target_generated_source(vma-object PRIVATE vk_mem_alloc.cpp "#define VMA_IMPLEMENTATION" "#include <vk_mem_alloc.h>")
-target_compile_options(vma-object PRIVATE -w)
-target_link_libraries(vma-object PUBLIC GPUOpen::VulkanMemoryAllocator Vulkan::Headers)
-target_compile_definitions(vma-object PUBLIC "VMA_STATIC_VULKAN_FUNCTIONS=0" "VMA_DYNAMIC_VULKAN_FUNCTIONS=1")
-add_library(vendor::vma-object ALIAS vma-object)
-
-# ------------------------------------------------------------------------------
-
 add_library(renderdoc-api INTERFACE)
 target_include_directories(renderdoc-api INTERFACE ${VENDOR_DIR}/renderdoc/renderdoc/api/app)
 add_library(vendor::renderdoc-api ALIAS renderdoc-api)
@@ -164,7 +153,6 @@ target_link_libraries(core PUBLIC
 
     vendor::stb-image
     vendor::renderdoc-api
-    vendor::vma-object
 
     Vulkan::Headers
     unordered_dense::unordered_dense

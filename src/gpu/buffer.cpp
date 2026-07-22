@@ -9,32 +9,38 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
 
     gpu->stats.active_buffers++;
 
-    VmaAllocationInfo alloc_info;
-    gpu_check(vmaCreateBuffer(gpu->vma,
-        ptr_to(VkBufferCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size,
-            .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                   | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-                   | VK_BUFFER_USAGE_TRANSFER_DST_BIT
-                   | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    gpu_check(gpu->vk.CreateBuffer(gpu->device, ptr_to(VkBufferCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+               | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+               | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+               | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    }), nullptr, &buffer->buffer));
+
+    // Allocate memory
+
+    VkMemoryRequirements mem_reqs;
+    gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer->buffer, &mem_reqs);
+
+    auto index = flags.contains(GpuBufferFlag::host)
+        ? gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_CACHED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        : gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = ptr_to(VkMemoryAllocateFlagsInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
         }),
-        flags.contains(GpuBufferFlag::host)
-            ? ptr_to(VmaAllocationCreateInfo {
-                .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-                .requiredFlags = VK_MEMORY_PROPERTY_HOST_CACHED_BIT
-            })
-            : ptr_to(VmaAllocationCreateInfo {
-                .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
-            }),
-        &buffer->buffer, &buffer->vma_allocation, &alloc_info));
+        .allocationSize = mem_reqs.size,
+        .memoryTypeIndex = index.value(),
+    }), nullptr, &buffer->memory));
 
-    gpu->stats.active_buffer_memory += alloc_info.size;
+    gpu->vk.BindBufferMemory(gpu->device, buffer->buffer, buffer->memory, 0);
 
-    buffer->host_address = alloc_info.pMappedData;
+    gpu_check(gpu->vk.MapMemory(gpu->device, buffer->memory, 0, size, {}, &buffer->host_address));
 
     buffer->device_address = gpu->vk.GetBufferDeviceAddress(gpu->device, ptr_to(VkBufferDeviceAddressInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -48,9 +54,6 @@ GpuBuffer::~GpuBuffer()
 {
     gpu->stats.active_buffers--;
 
-    VmaAllocationInfo alloc_info;
-    vmaGetAllocationInfo(gpu->vma, vma_allocation, &alloc_info);
-    gpu->stats.active_buffer_memory -= alloc_info.size;
-
-    vmaDestroyBuffer(gpu->vma, buffer, vma_allocation);
+    gpu->vk.FreeMemory(gpu->device, memory, nullptr);
+    gpu->vk.DestroyBuffer(gpu->device, buffer, nullptr);
 }

@@ -55,7 +55,6 @@
     DO(DestroyImage) \
     DO(CreateImage) \
     DO(GetImageMemoryRequirements) \
-    DO(BindImageMemory) \
     DO(CmdCopyImage2) \
     DO(CmdCopyBufferToImage) \
     DO(CmdCopyImageToBuffer) \
