@@ -12,6 +12,12 @@ Gpu::~Gpu()
     log_info("GPU context destroyed");
 
     if (device) {
+        for (auto[_, memory_cache] : buffer_allocation_cache) {
+            for (auto memory : memory_cache) {
+                vk.FreeMemory(device, memory, nullptr);
+            }
+        }
+
         queue.syncobj.destroy();
         debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
 

@@ -28,15 +28,22 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
         ? gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_CACHED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
         : gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = ptr_to(VkMemoryAllocateFlagsInfo {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
-        }),
-        .allocationSize = mem_reqs.size,
-        .memoryTypeIndex = index.value(),
-    }), nullptr, &buffer->memory));
+    auto cache_size = round_up_power2(mem_reqs.size);
+    auto& cache = gpu->buffer_allocation_cache[cache_size];
+    if (cache.empty()) {
+        gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = ptr_to(VkMemoryAllocateFlagsInfo {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+                .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+            }),
+            .allocationSize = cache_size,
+            .memoryTypeIndex = index.value(),
+        }), nullptr, &buffer->memory));
+    } else {
+        buffer->memory = cache.back();
+        cache.pop_back();
+    }
 
     gpu->vk.BindBufferMemory(gpu->device, buffer->buffer, buffer->memory, 0);
 
@@ -54,6 +61,9 @@ GpuBuffer::~GpuBuffer()
 {
     gpu->stats.active_buffers--;
 
-    gpu->vk.FreeMemory(gpu->device, memory, nullptr);
+    VkMemoryRequirements mem_reqs;
+    gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer, &mem_reqs);
+    auto cache_size = round_up_power2(mem_reqs.size);
+    gpu->buffer_allocation_cache[cache_size].emplace_back(memory);
     gpu->vk.DestroyBuffer(gpu->device, buffer, nullptr);
 }
