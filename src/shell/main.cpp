@@ -19,6 +19,8 @@ auto main(int argc, char* argv[]) -> int
         log_set_structured_log(app_share / PROGRAM_NAME ".log");
         log_redirect_stdout(app_share / "stdout.log");
         log_redirect_stderr(app_share / "stderr.log");
+
+        env_set("XDG_SESSION_TYPE", "wayland");
     } else {
         log_set_structured_log(PROGRAM_NAME ".log");
     }
@@ -98,7 +100,9 @@ auto main(int argc, char* argv[]) -> int
         std::vector<std::string_view> args {
             "systemctl",
             "--user", "import-environment",
-            "XDG_CURRENT_DESKTOP", "WAYLAND_DISPLAY"
+            "XDG_CURRENT_DESKTOP",
+            "XDG_SESSION_TYPE",
+            "WAYLAND_DISPLAY"
         };
         if (shell->env.entries.contains("DISPLAY")) {
             args.emplace_back("DISPLAY");
