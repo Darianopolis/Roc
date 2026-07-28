@@ -315,6 +315,8 @@ target_sources(${LIBNAME} PRIVATE
     src/shell/background.cpp
     src/shell/pipewire.cpp
     src/shell/screencast.cpp
+    src/shell/screenshot.cpp
+    src/shell/renderdoc.cpp
     )
 
 # ------------------------------------------------------------------------------

@@ -130,3 +130,5 @@ void shell_init_background(Shell*);
 void shell_init_hotkeys(Shell*);
 void shell_init_pipewire(Shell*);
 void shell_init_screencast(Shell*);
+void shell_init_screenshot(Shell*);
+void shell_init_renderdoc(Shell*);

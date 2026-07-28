@@ -44,92 +44,6 @@ void print_scene_graph(Shell* shell)
     log_info("Scene graph:\n{}", oss.str());
 }
 
-static
-void renderdoc_capture(Shell* shell)
-{
-    auto* gpu = shell->gpu.get();
-    auto* wm = shell->wm.get();
-
-    if (!gpu->renderdoc) {
-        log_warn("RenderDoc isn't attached, can't capture!");
-        return;
-    }
-
-    static u32 capture = 0;
-    gpu->renderdoc->StartFrameCapture(nullptr, nullptr);
-    gpu->renderdoc->SetCaptureTitle(std::format("Shell capture {}", ++capture).c_str());
-    auto* output = wm_find_output_at(wm, seat_pointer_get_position(seat_get_pointer(wm_get_seat(wm)))).output;
-    if (output) {
-        auto viewport = wm_output_get_viewport(output);
-        auto texture = gpu_image_create(gpu, {
-            .extent = vec_cast<u32>(viewport.extent),
-            .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-            .usage = GpuImageUsage::storage,
-        });
-        scene_render(wm_get_scene_renderer(wm), {
-            .root = wm_get_scene(wm),
-            .target = texture.get(),
-            .viewport = viewport,
-        });
-        gpu_flush(gpu);
-    }
-    gpu->renderdoc->EndFrameCapture(nullptr, nullptr);
-}
-
-static
-void take_screenshot(Shell* shell, rect2f32 region)
-{
-    log_info("Taking screenshot, region: {}", region);
-    region = pixel_round<f32>(region);
-    log_debug("  rounded: {}", region);
-
-    if (region.extent == vec2f32{0,0}) {
-        log_warn("  region is empty, cancelling screenshot...");
-        return;
-    }
-
-    auto* gpu = shell->gpu.get();
-    auto* wm = shell->wm.get();
-
-    auto extent = vec_cast<u32>(region.extent);
-
-    auto texture = gpu_image_create(gpu, {
-        .extent = extent,
-        .format = gpu_format_from_drm(DRM_FORMAT_ABGR8888),
-        .usage = GpuImageUsage::storage
-    });
-
-    auto buffer = gpu_buffer_create(gpu, extent.x * extent.y * 4, GpuBufferFlag::host);
-
-    scene_render(wm_get_scene_renderer(wm), {
-        .root = wm_get_scene(wm),
-        .target = texture.get(),
-        .viewport = region,
-    });
-    gpu_copy_image_to_buffer(buffer.get(), texture.get());
-
-    gpu_wait(gpu_flush(gpu), [buffer, extent, dir = shell->app_share](u64) {
-        log_debug("Screenshot prepared, saving...");
-
-        auto start = std::chrono::steady_clock::now();
-        std::vector<u8> data;
-        data.resize(extent.x * extent.y * 4);
-        std::memcpy(data.data(), buffer->host_address, data.size());
-        auto end = std::chrono::steady_clock::now();
-        log_debug("Screenshot data copied in {}", FmtDuration{end - start});
-
-        std::thread{[data = std::move(data), extent, dir = std::move(dir)] {
-            auto start = std::chrono::steady_clock::now();
-
-            auto save_path = dir / std::format("screenshot-{}.png", FmtTime{std::chrono::system_clock::now(), TimeFormat::iso8601});
-
-            stbi_write_png(save_path.c_str(), num_cast<i32>(extent.x), num_cast<i32>(extent.y), STBI_rgb_alpha, data.data(), num_cast<i32>(extent.x * 4));
-            auto end = std::chrono::steady_clock::now();
-            log_info("Screenshot saved to [{}] in {}", save_path, FmtDuration{end - start});
-        }}.detach();
-    });
-}
-
 struct ShellHotkeys : ShellPlugin
 {
     RefVector<WmHotkey> hotkeys;
@@ -155,7 +69,7 @@ void shell_init_hotkeys(Shell* shell)
         }
     });
 
-    hotkey(KEY_P, shell->main_mod, [shell](auto...) {
+    hotkey(KEY_V, shell->main_mod, [shell](auto...) {
         shell_launch(shell, "systemctl", {{"systemctl", "--user", "restart", "xdg-desktop-portal"}});
         wm_toast(shell->wm.get(), "XDG Desktop Portal : Restarted");
     });
@@ -169,7 +83,6 @@ void shell_init_hotkeys(Shell* shell)
 
     hotkey(KEY_O, shell->main_mod, [shell](auto...) { io_output_create(shell->io.get()); });
     hotkey(KEY_G, shell->main_mod, [shell](auto...) { print_scene_graph(shell); });
-    hotkey(KEY_J, shell->main_mod, [shell](auto...) { renderdoc_capture(shell); });
 
     hotkey(KEY_C, shell->main_mod, [shell](auto...) {
         auto* pw_context = shell_pw_find_plugin(shell);
@@ -183,13 +96,6 @@ void shell_init_hotkeys(Shell* shell)
     hotkey(KEY_NEXTSONG,     {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "next"}}); });
     hotkey(KEY_VOLUMEDOWN,   {}, [shell](auto...) { shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}}); });
     hotkey(KEY_VOLUMEUP,     {}, [shell](auto...) { shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}}); });
-
-    hotkey(KEY_SYSRQ /* Print */, {}, [shell](Seat* seat, SeatFocus*) {
-        wm_begin_selection(shell->wm.get(), seat_get_pointer(seat), [shell = Weak(shell)](rect2f32 region) {
-            if (!shell) return;
-            take_screenshot(shell.get(), region);
-        });
-    });
 
     for (u32 i = 0; i < 12; ++i) {
         hotkey(KEY_F1 + i, SeatModifier::ctrl | SeatModifier::alt, [shell, session = num_cast<i32>(i + 1)](auto...) {

@@ -58,31 +58,6 @@ Gpu::~Gpu()
 }
 
 static
-void load_renderdoc(Gpu* gpu)
-{
-    log_debug("Loading RenderDoc API");
-
-    void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
-    if (!mod) {
-        log_error("Failed to load shared object: [librenderdoc.so]");
-        return;
-    }
-
-    auto RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
-    if (!RENDERDOC_GetAPI) {
-        log_error("Failed to load symbol: [RENDERDOC_GetAPI]");
-        return;
-    }
-
-    RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_7_0, (void**)&gpu->renderdoc);
-
-    int major, minor, patch;
-    gpu->renderdoc->GetAPIVersion(&major, &minor, &patch);
-
-    log_debug("RenderDoc API loaded: {}.{}.{}", major, minor, patch);
-}
-
-static
 std::array required_device_extensions = {
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
@@ -431,9 +406,6 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
             if (tool.layer == "VK_LAYER_KHRONOS_validation"sv) {
                 log_warn("Detected validation layers, enabling validation support");
                 gpu->features |= GpuFeature::validation;
-
-            } else if (tool.name == "RenderDoc"sv) {
-                load_renderdoc(gpu.get());
             }
         }
     }
