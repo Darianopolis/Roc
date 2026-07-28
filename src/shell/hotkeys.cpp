@@ -130,120 +130,71 @@ void take_screenshot(Shell* shell, rect2f32 region)
     });
 }
 
-static
-auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
-{
-    switch (event->type) {
-        break;case SeatEventType::keyboard_key: {
-            if (!event->keyboard.key.pressed) return {};
-
-            auto mods = seat_keyboard_get_modifiers(event->keyboard.keyboard);
-
-            if (mods.contains(SeatModifier::ctrl | SeatModifier::alt)) {
-                switch (event->keyboard.key.code) {
-                    break;case KEY_F1 ... KEY_F12:
-                        if (mods.contains(SeatModifier::ctrl)) {
-                            auto session = 1 + num_cast<i32>(event->keyboard.key.code - KEY_F1);
-                            log_debug("Switching VT to {}", session);
-                            io_switch_session(shell->io.get(), session);
-                        }
-                }
-            }
-
-            if (mods.contains(shell->main_mod)) {
-                switch (event->keyboard.key.code) {
-                    break;case KEY_B: {
-                        auto res = shell_dbus_acquire_name(shell);
-                        if (res.ok()) {
-                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name acquired successfully");
-                        } else if (res.error == EALREADY) {
-                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name already acquired", {1, 1, 0, 1});
-                        } else {
-                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name could not be acquired", {1, 0, 0, 1});
-                        }
-                        return SeatEventFilterResult::capture;
-                    }
-                    break;case KEY_P:
-                        shell_launch(shell, "systemctl", {{"systemctl", "--user", "restart", "xdg-desktop-portal"}});
-                        wm_toast(shell->wm.get(), "XDG Desktop Portal : Restarted");
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_N:
-                        shell_launch(shell, "systemctl", {{"systemctl", "suspend"}});
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_D:
-                        shell_launch(shell, "launcher", {{"launcher"}});
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_X:
-                        shell_launch(shell, "tray", {{"tray"}});
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_ESC:
-                        io_stop(shell->io.get());
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_T:
-                        way_clear(shell->way.get());
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_O:
-                        io_output_create(shell->io.get());
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_G:
-                        print_scene_graph(shell);
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_J:
-                        renderdoc_capture(shell);
-                        return SeatEventFilterResult::capture;
-                    break;case KEY_C: {
-                        auto* pw_context = shell_pw_find_plugin(shell);
-                        pw_context->stream->enabled = !pw_context->stream->enabled;
-                        wm_toast(shell->wm.get(), std::format("Capture: {}", pw_context->stream->enabled ? "Enabled" : "Disabled"));
-                        return SeatEventFilterResult::capture;
-                    }
-                }
-            }
-
-            switch (event->keyboard.key.code) {
-                break;case KEY_PREVIOUSSONG:
-                    shell_launch(shell, "playerctl", {{"playerctl", "previous"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_PLAYPAUSE:
-                    shell_launch(shell, "playerctl", {{"playerctl", "play-pause"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_NEXTSONG:
-                    shell_launch(shell, "playerctl", {{"playerctl", "next"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_VOLUMEDOWN:
-                    shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_VOLUMEUP:
-                    shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}});
-                    return SeatEventFilterResult::capture;
-                break;case KEY_SYSRQ /* PRINT */: {
-                    auto* seat = seat_keyboard_get_seat(event->keyboard.keyboard);
-                    wm_begin_selection(shell->wm.get(), seat_get_pointer(seat), [shell = Weak(shell)](rect2f32 region) {
-                        if (!shell) return;
-                        take_screenshot(shell.get(), region);
-                    });
-                    return SeatEventFilterResult::capture;
-                }
-            }
-        }
-        break;default:
-            ;
-    }
-    return {};
-}
-
 struct ShellHotkeys : ShellPlugin
 {
-    Ref<SeatEventFilter> event_filter;
+    RefVector<WmHotkey> hotkeys;
 };
 
 void shell_init_hotkeys(Shell* shell)
 {
-    for (auto* seat : wm_get_seats(shell->wm.get())) {
-        auto hotkeys = ref_create<ShellHotkeys>();
-        hotkeys->event_filter = seat_add_event_filter(seat, [shell](SeatEvent* event) {
-            return filter_event(shell, event);
+    auto hotkeys = ref_create<ShellHotkeys>();
+    shell->plugins.emplace_back(hotkeys);
+
+    auto hotkey = [&](SeatInputCode code, Flags<SeatModifier> modifiers, std::function<WmHotkeyCallback> callback) {
+        hotkeys->hotkeys.emplace_back(wm_bind_hotkey(shell->wm.get(), modifiers, code, callback));
+    };
+
+    hotkey(KEY_B, shell->main_mod, [shell](auto...) {
+        auto res = shell_dbus_acquire_name(shell);
+        if (res.ok()) {
+            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name acquired successfully");
+        } else if (res.error == EALREADY) {
+            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name already acquired", {1, 1, 0, 1});
+        } else {
+            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name could not be acquired", {1, 0, 0, 1});
+        }
+    });
+
+    hotkey(KEY_P, shell->main_mod, [shell](auto...) {
+        shell_launch(shell, "systemctl", {{"systemctl", "--user", "restart", "xdg-desktop-portal"}});
+        wm_toast(shell->wm.get(), "XDG Desktop Portal : Restarted");
+    });
+
+    hotkey(KEY_N,   shell->main_mod, [shell](auto...) { shell_launch(shell, "systemctl", {{"systemctl", "suspend"}}); });
+    hotkey(KEY_T,   shell->main_mod, [shell](auto...) { way_clear(shell->way.get()); });
+    hotkey(KEY_ESC, shell->main_mod, [shell](auto...) { io_stop(shell->io.get()); });
+
+    hotkey(KEY_D, shell->main_mod, [shell](auto...) { shell_launch(shell, "launcher", {{"launcher"}}); });
+    hotkey(KEY_X, shell->main_mod, [shell](auto...) { shell_launch(shell, "tray", {{"tray"}}); });
+
+    hotkey(KEY_O, shell->main_mod, [shell](auto...) { io_output_create(shell->io.get()); });
+    hotkey(KEY_G, shell->main_mod, [shell](auto...) { print_scene_graph(shell); });
+    hotkey(KEY_J, shell->main_mod, [shell](auto...) { renderdoc_capture(shell); });
+
+    hotkey(KEY_C, shell->main_mod, [shell](auto...) {
+        auto* pw_context = shell_pw_find_plugin(shell);
+        if (!pw_context) return;
+        pw_context->stream->enabled = !pw_context->stream->enabled;
+        wm_toast(shell->wm.get(), std::format("Capture: {}", pw_context->stream->enabled ? "Enabled" : "Disabled"));
+    });
+
+    hotkey(KEY_PREVIOUSSONG, {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "previous"}}); });
+    hotkey(KEY_PLAYPAUSE,    {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "play-pause"}}); });
+    hotkey(KEY_NEXTSONG,     {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "next"}}); });
+    hotkey(KEY_VOLUMEDOWN,   {}, [shell](auto...) { shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02-"}}); });
+    hotkey(KEY_VOLUMEUP,     {}, [shell](auto...) { shell_launch(shell, "wpctl", {{"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.02+", "-l", "1.0"}}); });
+
+    hotkey(KEY_SYSRQ /* Print */, {}, [shell](Seat* seat, SeatFocus*) {
+        wm_begin_selection(shell->wm.get(), seat_get_pointer(seat), [shell = Weak(shell)](rect2f32 region) {
+            if (!shell) return;
+            take_screenshot(shell.get(), region);
         });
-        shell->plugins.emplace_back(hotkeys);
+    });
+
+    for (u32 i = 0; i < 12; ++i) {
+        hotkey(KEY_F1 + i, SeatModifier::ctrl | SeatModifier::alt, [shell, session = num_cast<i32>(i + 1)](auto...) {
+            log_debug("Switching VT to {}", session);
+            io_switch_session(shell->io.get(), session);
+        });
     }
 }

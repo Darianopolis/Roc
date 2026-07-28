@@ -92,6 +92,12 @@ auto wm_get_outputs(WmServer*) -> std::span<WmOutput* const>;
 
 // -----------------------------------------------------------------------------
 
+using WmHotkeyCallback = void(Seat*, SeatFocus*);
+struct WmHotkey;
+auto wm_bind_hotkey(WmServer*, Flags<SeatModifier>, SeatInputCode, std::function<WmHotkeyCallback>) -> Ref<WmHotkey>;
+
+// -----------------------------------------------------------------------------
+
 void wm_toast(WmServer*, std::string_view message,
               vec4f32 color = {0, 1, 0, 1},
               std::chrono::steady_clock::time_point expiration = std::chrono::steady_clock::now() + 1s);

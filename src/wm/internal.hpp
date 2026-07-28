@@ -68,6 +68,17 @@ enum class WmInteractionMode
 
 struct ShellLauncher;
 
+struct WmHotkey
+{
+    Weak<WmServer> server;
+    std::function<WmHotkeyCallback> callback;
+
+    Flags<SeatModifier> modifiers;
+    SeatInputCode code;
+
+    ~WmHotkey();
+};
+
 struct WmOutput
 {
     WmServer* server;
@@ -176,6 +187,8 @@ struct WmServer
 
     struct {
         Ref<SeatEventFilter> filter;
+        ankerl::unordered_dense::map<SeatInputCode, std::vector<WmHotkey*>> map;
+        RefVector<WmHotkey> builtins;
     } hotkeys;
 
     struct {
