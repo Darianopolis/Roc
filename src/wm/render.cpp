@@ -144,6 +144,8 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
 
     if (!output->needs_redraw) return false;
 
+    output->signals.frame();
+
     output->needs_redraw = false;
     output->bump_frame_id = true;
 

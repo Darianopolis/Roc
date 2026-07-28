@@ -80,3 +80,8 @@ void wm_interaction_set_mode(WmServer* server, WmInteractionMode mode)
     server->mode = mode;
     wm_cursor_visual_update(server);
 }
+
+auto wm_get_signals(WmServer* server) -> WmSignals&
+{
+    return server->signals;
+}

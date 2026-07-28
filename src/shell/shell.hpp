@@ -8,7 +8,10 @@
 #include <core/chrono.hpp>
 #include <core/log.hpp>
 
-struct UiClient;
+struct ShellPlugin
+{
+    virtual ~ShellPlugin() = default;
+};
 
 struct Shell
 {
@@ -23,14 +26,15 @@ struct Shell
     std::filesystem::path app_share;
     std::filesystem::path wallpaper;
 
-    RefVector<void> apps;
+    RefVector<ShellPlugin> plugins;
 
     Environment env;
     Fd dev_null;
 
     ~Shell()
     {
-        apps.destroy_all();
+        while (!plugins.empty()) plugins.pop_back();
+
         way.destroy();
         wm.destroy();
         io.destroy();

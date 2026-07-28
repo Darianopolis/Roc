@@ -39,11 +39,6 @@ void flatten_window_list(WmServer* server)
 
 WmWindow::~WmWindow()
 {
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_destroyed,
-        .window = this,
-    }));
-
     while (children.is_linked()) {
         set_parent_impl(LINK_GET(WmWindow, link, children.next), parent);
     }
@@ -87,11 +82,6 @@ auto wm_window_create(WmClient* client) -> Ref<WmWindow>
     }
 
     update_border_colors(window.get());
-
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_created,
-        .window = window.get(),
-    }));
 
     server->root_windows.link_prev(&window->link);
     flatten_window_list(server);
@@ -220,11 +210,6 @@ void wm_window_map(WmWindow* window)
 
     window->mapped = true;
     wm_arrange_windows(window->client->server);
-
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_mapped,
-        .window = window,
-    }));
 }
 
 auto wm_window_is_mapped(WmWindow* window) -> bool
@@ -274,11 +259,6 @@ void wm_window_unmap(WmWindow* window)
     wm_arrange_windows(server);
 
     try_revert_focus(server, window);
-
-    wm_window_post_event(ptr_to(WmWindowEvent {
-        .type = WmEventType::window_unmapped,
-        .window = window,
-    }));
 }
 
 // -----------------------------------------------------------------------------

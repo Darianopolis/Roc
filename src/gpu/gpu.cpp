@@ -21,7 +21,7 @@ Gpu::~Gpu()
         queue.syncobj.destroy();
         debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
 
-        debug_assert(!queue.commands, "Unflushed commands");
+        if (queue.commands) queue.commands = {};
         vk.DestroyCommandPool(device, queue.pool, nullptr);
 
         debug_assert(stats.active_images == 0, "{} unexpected images", stats.active_images);

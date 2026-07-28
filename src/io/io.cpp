@@ -69,7 +69,9 @@ static
 void handle_signal(IoContext* io)
 {
     signalfd_siginfo info = {};
-    unix_check<read>(io->signal_fd.get(), &info, sizeof(info));
+    if (unix_check<read>(io->signal_fd.get(), &info, sizeof(info)).err()) {
+        return;
+    }
 
     switch (info.ssi_signo) {
         break;case SIGINT:
@@ -78,7 +80,7 @@ void handle_signal(IoContext* io)
         break;case SIGCHLD:
             reap_child_processes(io);
         break;default:
-            debug_unreachable();
+            log_error("Unknown signal {}, ignoring..", info.ssi_signo);
     }
 }
 
