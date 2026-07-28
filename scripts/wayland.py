@@ -42,7 +42,7 @@ def generate_wayland_protocols(wayland_dir, deps):
 
     cmake_file = wayland_dir / "CMakeLists.txt"
 
-    cmake = f"add_library({target}\n"
+    cmake = f"add_library({target} OBJECT\n"
 
     for xml_path, name in list_wayland_protocols(deps):
 

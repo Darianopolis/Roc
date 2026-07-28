@@ -14,61 +14,6 @@ function(target_generated_source target visibility generated_source_name)
     target_sources(${target} ${visibility} "${CMAKE_CURRENT_BINARY_DIR}/${generated_source_name}")
 endfunction()
 
-function(init_target target_name)
-    target_precompile_headers(${target_name} PRIVATE src/core/pch.hpp)
-    target_compile_options(${target_name} PRIVATE
-        -std=c++26
-
-        -Wall
-        -Wextra
-        -Werror
-        -Wimplicit-fallthrough
-        -Wconversion
-
-        -Wno-missing-field-initializers
-        -Wno-unknown-pragmas
-        -Wno-unused-parameter
-        -Wno-invalid-offsetof
-        )
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(${target_name} PRIVATE
-            -Wshadow # (only enabled for clang, as gcc complains on shadowing in constructors)
-
-            -Wno-missing-designated-field-initializers
-            -Wno-sometimes-uninitialized
-            -Wno-delete-non-abstract-non-virtual-dtor # doesn't allow for protected non-virtual destructors
-
-            # GNU Extensions
-            -Wpedantic
-            -Wno-gnu-case-range
-            -Wno-zero-length-array
-            -Wno-gnu-conditional-omitted-operand
-            -Wno-nested-anon-types
-            )
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(${target_name} PRIVATE
-            -freflection
-
-            -Wno-changes-meaning # we use `foo* foo` a lot in wayland protocol bindings
-            -Wno-maybe-uninitialized
-            )
-    endif()
-    if(USE_ASAN)
-        target_compile_options(${target_name} PUBLIC -fsanitize=address)
-        target_link_options(   ${target_name} PUBLIC -fsanitize=address)
-    endif()
-endfunction()
-
-function(init_library target_name)
-    add_library(${target_name})
-    init_target(${target_name})
-endfunction()
-
-function(init_executable target_name)
-    add_executable(${target_name})
-    init_target(${target_name})
-endfunction()
-
 # ------------------------------------------------------------------------------
 #       System Dependencies
 # ------------------------------------------------------------------------------
@@ -95,7 +40,7 @@ add_subdirectory(${BUILD_DIR}/wayland EXCLUDE_FROM_ALL)
 
 # ------------------------------------------------------------------------------
 
-add_library(stb-image)
+add_library(stb-image OBJECT)
 target_include_directories(stb-image PUBLIC ${VENDOR_DIR}/stb)
 target_generated_source(stb-image PRIVATE stb_image.c       "#define STB_IMAGE_IMPLEMENTATION 1"       "#include <stb_image.h>")
 target_generated_source(stb-image PRIVATE stb_image_write.c "#define STB_IMAGE_WRITE_IMPLEMENTATION 1" "#include <stb_image_write.h>")
@@ -116,12 +61,67 @@ target_include_directories(renderdoc-api INTERFACE ${VENDOR_DIR}/renderdoc/rende
 add_library(vendor::renderdoc-api ALIAS renderdoc-api)
 
 # ------------------------------------------------------------------------------
+#       Library
+# ------------------------------------------------------------------------------
+
+set(LIBNAME "lib${PROGRAM_NAME}")
+add_library(${LIBNAME})
+
+set_target_properties(${LIBNAME} PROPERTIES PREFIX "")
+
+target_precompile_headers(${LIBNAME} PRIVATE src/core/pch.hpp)
+
+target_compile_options(${LIBNAME} PRIVATE
+    -std=c++26
+
+    -Wall
+    -Wextra
+    -Werror
+    -Wimplicit-fallthrough
+    -Wconversion
+
+    -Wno-missing-field-initializers
+    -Wno-unknown-pragmas
+    -Wno-unused-parameter
+    -Wno-invalid-offsetof
+    )
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${LIBNAME} PRIVATE
+        -Wshadow # (only enabled for clang, as gcc complains on shadowing in constructors)
+
+        -Wno-missing-designated-field-initializers
+        -Wno-sometimes-uninitialized
+        -Wno-delete-non-abstract-non-virtual-dtor # doesn't allow for protected non-virtual destructors
+
+        # GNU Extensions
+        -Wpedantic
+        -Wno-gnu-case-range
+        -Wno-zero-length-array
+        -Wno-gnu-conditional-omitted-operand
+        -Wno-nested-anon-types
+        )
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(${LIBNAME} PRIVATE
+        -freflection
+
+        -Wno-changes-meaning # we use `foo* foo` a lot in wayland protocol bindings
+        -Wno-maybe-uninitialized
+        )
+endif()
+
+if(USE_ASAN)
+    target_compile_options(${LIBNAME} PUBLIC -fsanitize=address)
+    target_link_options(   ${LIBNAME} PUBLIC -fsanitize=address)
+endif()
+
+target_compile_definitions(${LIBNAME} PUBLIC PROGRAM_NAME="${PROGRAM_NAME}" PROJECT_NAME="${PROJECT_NAME}")
+
+# ------------------------------------------------------------------------------
 #       Core
 # ------------------------------------------------------------------------------
 
-init_library(core)
-target_compile_definitions(core PUBLIC PROGRAM_NAME="${PROGRAM_NAME}" PROJECT_NAME="${PROJECT_NAME}")
-target_sources(core PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/core/log.cpp
     src/core/object.cpp
     src/core/fd.cpp
@@ -134,11 +134,13 @@ target_sources(core PRIVATE
     src/core/exec.cpp
     src/core/timer.cpp
     )
-target_include_directories(core PUBLIC
+
+target_include_directories(${LIBNAME} PUBLIC
     src
     ${BUILD_DIR}/math
     )
-target_link_libraries(core PUBLIC
+
+target_link_libraries(${LIBNAME} PUBLIC
     PkgConfig::wayland-server
     PkgConfig::wayland-client
     PkgConfig::xkbcommon
@@ -154,7 +156,6 @@ target_link_libraries(core PUBLIC
     vendor::stb-image
     vendor::renderdoc-api
 
-    Vulkan::Headers
     unordered_dense::unordered_dense
     generated::wayland
 
@@ -167,8 +168,7 @@ target_link_libraries(core PUBLIC
 
 add_subdirectory(${BUILD_DIR}/shaders)
 
-init_library(gpu)
-target_sources(gpu PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/gpu/gpu.cpp
     src/gpu/functions.cpp
     src/gpu/buffer.cpp
@@ -182,28 +182,29 @@ target_sources(gpu PRIVATE
     src/gpu/image-pool.cpp
     ${BUILD_DIR}/formats/formats.cpp
     )
-target_link_libraries(gpu PUBLIC core generated::shaders)
+
+target_link_libraries(${LIBNAME} PUBLIC
+    generated::shaders
+    Vulkan::Headers
+    )
 
 # ------------------------------------------------------------------------------
 #       Scene
 # ------------------------------------------------------------------------------
 
-init_library(scene)
-target_sources(scene PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/scene/render.cpp
     src/scene/node/node.cpp
     src/scene/node/texture.cpp
     src/scene/node/tree.cpp
     src/scene/node/input-region.cpp
     )
-target_link_libraries(scene PUBLIC core gpu)
 
 # ------------------------------------------------------------------------------
 #       Seat
 # ------------------------------------------------------------------------------
 
-init_library(seat)
-target_sources(seat PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/seat/keyboard.cpp
     src/seat/pointer.cpp
     src/seat/seat.cpp
@@ -212,25 +213,21 @@ target_sources(seat PRIVATE
     src/seat/data.cpp
     src/seat/focus.cpp
     )
-target_link_libraries(seat PUBLIC core scene)
 
 # ------------------------------------------------------------------------------
 #       UI
 # ------------------------------------------------------------------------------
 
-init_library(ui)
-target_sources(ui PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/ui/font.cpp
     src/ui/string.cpp
     )
-target_link_libraries(ui PUBLIC core scene seat)
 
 # ------------------------------------------------------------------------------
 #       Window Manager
 # ------------------------------------------------------------------------------
 
-init_library(wm)
-target_sources(wm PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/wm/wm.cpp
     src/wm/client.cpp
     src/wm/io.cpp
@@ -246,14 +243,12 @@ target_sources(wm PRIVATE
     src/wm/focus.cpp
     src/wm/pointer-constraints.cpp
     )
-target_link_libraries(wm PUBLIC core scene seat)
 
 # ------------------------------------------------------------------------------
 #       Session IO
 # ------------------------------------------------------------------------------
 
-init_library(io)
-target_sources(io PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/io/io.cpp
     src/io/output.cpp
     src/io/input.cpp
@@ -268,14 +263,12 @@ target_sources(io PRIVATE
     src/io/wayland/output.cpp
     src/io/wayland/seat.cpp
     )
-target_link_libraries(io PUBLIC wm)
 
 # ------------------------------------------------------------------------------
 #       Wayland
 # ------------------------------------------------------------------------------
 
-init_library(way)
-target_sources(way PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/way/client.cpp
     src/way/server.cpp
     src/way/util.cpp
@@ -306,17 +299,22 @@ target_sources(way PRIVATE
     src/way/surface/surface.cpp
     src/way/surface/viewport.cpp
     )
-target_link_libraries(way PUBLIC wm)
 
 # ------------------------------------------------------------------------------
 #       Shell
 # ------------------------------------------------------------------------------
 
-init_executable(${PROGRAM_NAME})
-target_sources(${PROGRAM_NAME} PRIVATE
+target_sources(${LIBNAME} PRIVATE
     src/shell/main.cpp
     src/shell/xwayland.cpp
     src/shell/hotkeys.cpp
     src/shell/background.cpp
     )
-target_link_libraries(${PROGRAM_NAME} PUBLIC wm io way ui)
+
+# ------------------------------------------------------------------------------
+#       Entry
+# ------------------------------------------------------------------------------
+
+add_executable(       ${PROGRAM_NAME})
+target_sources(       ${PROGRAM_NAME} PRIVATE src/shell/entry.cpp)
+target_link_libraries(${PROGRAM_NAME} PUBLIC ${LIBNAME})

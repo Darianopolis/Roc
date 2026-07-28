@@ -1,12 +1,14 @@
 #include "shell.hpp"
 
+#include "entry.hpp"
+
 #include <core/math.hpp>
 #include <core/signal.hpp>
 #include <core/log.hpp>
 
 #include <wm/wm.hpp>
 
-auto main(int argc, char* argv[]) -> int
+auto shell_main(int argc, char* argv[]) -> int
 {
     debug_handlers();
 
@@ -114,4 +116,6 @@ auto main(int argc, char* argv[]) -> int
 
     io_start(shell->io.get());
     exec_run(exec.get());
+
+    return EXIT_SUCCESS;
 }
