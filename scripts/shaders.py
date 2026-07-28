@@ -19,7 +19,7 @@ def build_shaders(cwd, build_dir):
     alias = "generated::shaders"
 
     cmake_path = shader_gen_dir / "CMakeLists.txt"
-    cmake_out  = f"add_library({target})\n"
+    cmake_out  = f"add_library({target} OBJECT)\n"
     cmake_out += f"target_include_directories({target} PUBLIC include)\n"
     cmake_out += f"target_compile_options({target} PRIVATE -std=c++26 -Wno-c23-extensions)\n"
     cmake_out += f"target_sources({target} PRIVATE\n"
