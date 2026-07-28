@@ -1,5 +1,7 @@
 #include "shell.hpp"
 
+#include "pipewire.hpp"
+
 #include <core/process.hpp>
 #include <core/chrono.hpp>
 
@@ -189,6 +191,12 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
                     break;case KEY_J:
                         renderdoc_capture(shell);
                         return SeatEventFilterResult::capture;
+                    break;case KEY_C: {
+                        auto* pw_context = shell_pw_find_plugin(shell);
+                        pw_context->stream->enabled = !pw_context->stream->enabled;
+                        wm_toast(shell->wm.get(), std::format("Capture: {}", pw_context->stream->enabled ? "Enabled" : "Disabled"));
+                        return SeatEventFilterResult::capture;
+                    }
                 }
             }
 

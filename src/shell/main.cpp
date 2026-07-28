@@ -10,6 +10,9 @@ auto main(int argc, char* argv[]) -> int
 {
     debug_handlers();
 
+    std::vector<std::string_view> args{argv, argv + argc};
+    bool screencast = std::ranges::contains(args, "--capture"sv);
+
     bool in_direct_session = env_get("WAYLAND_DISPLAY").value_or("").empty();
     auto home_dir = std::filesystem::path(env_get("HOME").value_or(""));
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
@@ -86,6 +89,10 @@ auto main(int argc, char* argv[]) -> int
     shell_init_hotkeys(shell.get());
 
     shell_dbus_init(shell.get(), in_direct_session);
+    if (screencast) {
+        shell_init_pipewire(shell.get());
+        shell_init_screencast(shell.get());
+    }
 
     if (in_direct_session) {
 

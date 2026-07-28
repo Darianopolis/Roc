@@ -87,6 +87,7 @@ pkg_check_modules(libudev        REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(libcap         REQUIRED IMPORTED_TARGET libcap)
 pkg_check_modules(freetype       REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(libsystemd     REQUIRED IMPORTED_TARGET libsystemd)
+pkg_check_modules(pipewire       REQUIRED IMPORTED_TARGET libpipewire-0.3)
 
 # ------------------------------------------------------------------------------
 #       Git Dependencies
@@ -152,6 +153,7 @@ target_link_libraries(core PUBLIC
     PkgConfig::libcap
     PkgConfig::freetype
     PkgConfig::libsystemd
+    PkgConfig::pipewire
 
     vendor::stb-image
     vendor::renderdoc-api
@@ -320,5 +322,7 @@ target_sources(${PROGRAM_NAME} PRIVATE
     src/shell/xwayland.cpp
     src/shell/hotkeys.cpp
     src/shell/background.cpp
+    src/shell/pipewire.cpp
+    src/shell/screencast.cpp
     )
 target_link_libraries(${PROGRAM_NAME} PUBLIC wm io way ui)

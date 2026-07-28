@@ -128,3 +128,5 @@ void shell_dbus_init(Shell* shell, bool grab_portal_name)
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
 void shell_init_background(Shell*);
 void shell_init_hotkeys(Shell*);
+void shell_init_pipewire(Shell*);
+void shell_init_screencast(Shell*);
