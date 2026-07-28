@@ -88,3 +88,5 @@ auto shell_launch(
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
 void shell_init_background(Shell*);
 void shell_init_hotkeys(Shell*);
+void shell_init_screenshot(Shell*);
+void shell_init_renderdoc(Shell*);

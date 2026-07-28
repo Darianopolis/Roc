@@ -29,6 +29,7 @@ auto wm_bind_hotkey(WmServer* server, Flags<SeatModifier> modifiers, SeatInputCo
 static
 auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
+
     Flags<SeatModifier> modifiers = seat_get_modifiers(wm_get_seat(server), SeatModifierFlag::ignore_locked);
     SeatInputCode code;
     Seat* seat;

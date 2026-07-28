@@ -86,6 +86,8 @@ auto shell_main(int argc, char* argv[]) -> int
     shell_init_background(shell.get());
     shell_init_xwayland(shell.get(), argc, argv);
     shell_init_hotkeys(shell.get());
+    shell_init_screenshot(shell.get());
+    shell_init_renderdoc(shell.get());
 
     if (in_direct_session) {
 

@@ -3,6 +3,8 @@
 #include <core/math.hpp>
 #include <core/log.hpp>
 
+#include <stb_image.h>
+
 struct ShellBackgroundOutput
 {
     Ref<SceneInputRegion> region;

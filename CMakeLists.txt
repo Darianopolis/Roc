@@ -309,6 +309,8 @@ target_sources(${LIBNAME} PRIVATE
     src/shell/xwayland.cpp
     src/shell/hotkeys.cpp
     src/shell/background.cpp
+    src/shell/screenshot.cpp
+    src/shell/renderdoc.cpp
     )
 
 # ------------------------------------------------------------------------------
