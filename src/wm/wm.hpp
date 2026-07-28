@@ -37,6 +37,13 @@ enum class WmLayer
 
 auto wm_get_layer(WmServer*, WmLayer) -> SceneTree*;
 
+struct WmSignals
+{
+    Signal<void()> output_layout;
+};
+
+auto wm_get_signals(WmServer*) -> WmSignals&;
+
 // -----------------------------------------------------------------------------
 
 enum class WmOutputCommitFlag
@@ -69,12 +76,24 @@ auto wm_output_create(WmServer*, void*, WmOutputInterface) -> Ref<WmOutput>;
 void wm_output_set_pixel_size(WmOutput*, vec2u32);
 auto wm_output_frame(WmOutput*, const GpuFormatSet*) -> bool;
 
+void wm_output_damage(WmOutput*);
+
 auto wm_output_get_viewport(WmOutput*) -> rect2f32;
 auto wm_output_get_workarea(WmOutput*) -> rect2f32;
+
+struct WmOutputSignals
+{
+    Signal<void()> frame;
+};
+
+auto wm_output_get_signals(WmOutput*) -> WmOutputSignals&;
+
+auto wm_get_outputs(WmServer*) -> std::span<WmOutput* const>;
 
 // -----------------------------------------------------------------------------
 
 void wm_toast(WmServer*, std::string_view message,
+              vec4f32 color = {0, 1, 0, 1},
               std::chrono::steady_clock::time_point expiration = std::chrono::steady_clock::now() + 1s);
 
 // -----------------------------------------------------------------------------
@@ -99,18 +118,9 @@ void wm_input_device_push_events(WmInputDevice*, bool quiet, std::span<WmInputDe
 
 enum class WmEventType
 {
-    window_created,
-    window_destroyed,
-    window_mapped,
-    window_unmapped,
-
     window_request_resize,
     window_request_close,
 
-    output_added,
-    output_configured,
-    output_removed,
-    output_layout,
     output_frame,
 
     seat_event,

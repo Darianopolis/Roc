@@ -89,6 +89,8 @@ struct WmOutput
     void* userdata;
     WmOutputInterface interface;
 
+    WmOutputSignals signals;
+
     ~WmOutput();
 };
 
@@ -111,6 +113,8 @@ struct WmToast
 struct WmServer
 {
     WmConfig config;
+
+    WmSignals signals;
 
     ExecContext* exec;
     Gpu*         gpu;

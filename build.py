@@ -63,7 +63,8 @@ formats.generate_formats(build_dir=build_dir)
 # -----------------------------------------------------------------------------
 
 local_bin_dir  = ensure_dir(os.path.expanduser("~/.local/bin"))
-xdg_portal_dir = ensure_dir(os.path.expanduser("~/.config/xdg-desktop-portal"))
+xdg_portal_conf_dir = ensure_dir(os.path.expanduser("~/.config/xdg-desktop-portal"))
+xdg_portal_dir = ensure_dir(os.path.expanduser("~/.local/share/xdg-desktop-portal/portals"))
 
 def install_file(file: Path, target: Path):
     if target.exists():
@@ -130,7 +131,8 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
 
     if install:
         install_file(cmake_dir / program_name, local_bin_dir / program_name)
-        install_file(cwd / "resources/portals.conf", xdg_portal_dir / f"{program_name}-portals.conf")
+        install_file(cwd / "resources/portals.conf", xdg_portal_conf_dir / f"{program_name}-portals.conf")
+        install_file(cwd / f"resources/{program_name}.portal", xdg_portal_dir / f"{program_name}.portal")
 
 # -----------------------------------------------------------------------------
 

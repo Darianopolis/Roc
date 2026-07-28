@@ -150,6 +150,21 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
 
             if (mods.contains(shell->main_mod)) {
                 switch (event->keyboard.key.code) {
+                    break;case KEY_B: {
+                        auto res = shell_dbus_acquire_name(shell);
+                        if (res.ok()) {
+                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name acquired successfully");
+                        } else if (res.error == EALREADY) {
+                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name already acquired", {1, 1, 0, 1});
+                        } else {
+                            wm_toast(shell->wm.get(), "XDG Desktop Portal : Name could not be acquired", {1, 0, 0, 1});
+                        }
+                        return SeatEventFilterResult::capture;
+                    }
+                    break;case KEY_P:
+                        shell_launch(shell, "systemctl", {{"systemctl", "--user", "restart", "xdg-desktop-portal"}});
+                        wm_toast(shell->wm.get(), "XDG Desktop Portal : Restarted");
+                        return SeatEventFilterResult::capture;
                     break;case KEY_N:
                         shell_launch(shell, "systemctl", {{"systemctl", "suspend"}});
                         return SeatEventFilterResult::capture;
@@ -209,11 +224,18 @@ auto filter_event(Shell* shell, SeatEvent* event) -> SeatEventFilterResult
     return {};
 }
 
+struct ShellHotkeys : ShellPlugin
+{
+    Ref<SeatEventFilter> event_filter;
+};
+
 void shell_init_hotkeys(Shell* shell)
 {
     for (auto* seat : wm_get_seats(shell->wm.get())) {
-        shell->apps.emplace_back( seat_add_event_filter(seat, [shell](SeatEvent* event) {
+        auto hotkeys = ref_create<ShellHotkeys>();
+        hotkeys->event_filter = seat_add_event_filter(seat, [shell](SeatEvent* event) {
             return filter_event(shell, event);
-        }));
+        });
+        shell->plugins.emplace_back(hotkeys);
     }
 }

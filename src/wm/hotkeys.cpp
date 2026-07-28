@@ -38,9 +38,7 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         server->debug.show_damage = !server->debug.show_damage;
                         wm_toast(server, std::format("Show scene damage: {}", server->debug.show_damage ? "Enabled" : "Disabled"));
                         for (auto* output : server->io.outputs) {
-                            output->needs_redraw = true;
-                            output->primary_damage = Region<f32>{output->viewport};
-                            output->interface.request_frame(output->userdata);
+                            wm_output_damage(output);
                         }
                         return SeatEventFilterResult::capture;
                     break;case KEY_A: {
@@ -54,8 +52,7 @@ auto filter_event(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
                         server->debug.disable_cursor_plane = !server->debug.disable_cursor_plane;
                         wm_toast(server, std::format("Cursor plane: {}", server->debug.disable_cursor_plane ? "Disabled" : "Enabled"));
                         for (auto* output : server->io.outputs) {
-                            output->needs_redraw = true;
-                            output->interface.request_frame(output->userdata);
+                            wm_output_damage(output);
                         }
                         return SeatEventFilterResult::capture;
                     break;case KEY_F: {

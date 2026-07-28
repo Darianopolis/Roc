@@ -8,7 +8,23 @@
 #include <core/chrono.hpp>
 #include <core/log.hpp>
 
-struct UiClient;
+UNIX_FUNCTION(sd_bus_open_user,                 UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_request_name,              UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_send,                      UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_emit_signal,               UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_reply_method_return,       UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_add_object_vtable,         UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_read,              UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_skip,              UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_new_method_return, UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_append,            UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_open_container,    UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_message_close_container,   UnixErrorBehavior::negative_errno)
+
+struct ShellPlugin
+{
+    virtual ~ShellPlugin() = default;
+};
 
 struct Shell
 {
@@ -23,18 +39,25 @@ struct Shell
     std::filesystem::path app_share;
     std::filesystem::path wallpaper;
 
-    RefVector<void> apps;
+    RefVector<ShellPlugin> plugins;
 
     Environment env;
     Fd dev_null;
 
+    sd_bus* dbus;
+
     ~Shell()
     {
-        apps.destroy_all();
+        while (!plugins.empty()) plugins.pop_back();
+
         way.destroy();
         wm.destroy();
         io.destroy();
         gpu.destroy();
+
+        fd_unlisten(exec, sd_bus_get_fd(dbus));
+        dbus = sd_bus_unref(dbus);
+        debug_assert(!dbus);
     }
 };
 
@@ -79,6 +102,27 @@ auto shell_launch(
     log_error("Failed to find executable {} on PATH", name);
 
     return {};
+}
+
+static constexpr auto xdg_desktop_portal_name = "org.freedesktop.impl.portal.desktop.roc";
+
+inline
+auto shell_dbus_acquire_name(Shell* shell) -> UnixResult<int>
+{
+    return unix_check<sd_bus_request_name, EALREADY>(shell->dbus, xdg_desktop_portal_name, literal_cast<u64>(SD_BUS_NAME_ALLOW_REPLACEMENT | SD_BUS_NAME_REPLACE_EXISTING));
+}
+
+inline
+void shell_dbus_init(Shell* shell, bool grab_portal_name)
+{
+    unix_check<sd_bus_open_user>(&shell->dbus);
+    fd_listen(shell->exec, sd_bus_get_fd(shell->dbus), FdEventBit::readable, [shell](fd_t, Flags<FdEventBit>) {
+        sd_bus_process(shell->dbus, nullptr);
+    });
+
+    if (grab_portal_name) {
+        shell_dbus_acquire_name(shell);
+    }
 }
 
 void shell_init_xwayland(Shell*, int argc, char* argv[]);

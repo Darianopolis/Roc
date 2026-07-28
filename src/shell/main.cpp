@@ -85,6 +85,8 @@ auto main(int argc, char* argv[]) -> int
     shell_init_xwayland(shell.get(), argc, argv);
     shell_init_hotkeys(shell.get());
 
+    shell_dbus_init(shell.get(), in_direct_session);
+
     if (in_direct_session) {
 
         // Helpers

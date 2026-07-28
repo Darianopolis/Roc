@@ -15,7 +15,7 @@ void arrange_toasts(WmServer* server)
     }
 }
 
-void wm_toast(WmServer* server, std::string_view message, std::chrono::steady_clock::time_point expiration)
+void wm_toast(WmServer* server, std::string_view message, vec4f32 color, std::chrono::steady_clock::time_point expiration)
 {
     log_info("Toast: {}", message);
 
@@ -31,7 +31,7 @@ void wm_toast(WmServer* server, std::string_view message, std::chrono::steady_cl
 
     auto& toast = server->toasts.emplace_back();
     toast.string = ui_string(server->gpu, server->toast_font.get(), message, {
-        .color = {0, 1, 0, 1},
+        .color = color,
         .border {
             .color = {0, 0, 0, 1},
             .width = 2.f,

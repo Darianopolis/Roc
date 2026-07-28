@@ -86,6 +86,7 @@ pkg_check_modules(xcursor        REQUIRED IMPORTED_TARGET xcursor)
 pkg_check_modules(libudev        REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(libcap         REQUIRED IMPORTED_TARGET libcap)
 pkg_check_modules(freetype       REQUIRED IMPORTED_TARGET freetype2)
+pkg_check_modules(libsystemd     REQUIRED IMPORTED_TARGET libsystemd)
 
 # ------------------------------------------------------------------------------
 #       Git Dependencies
@@ -150,6 +151,7 @@ target_link_libraries(core PUBLIC
     PkgConfig::libseat
     PkgConfig::libcap
     PkgConfig::freetype
+    PkgConfig::libsystemd
 
     vendor::stb-image
     vendor::renderdoc-api

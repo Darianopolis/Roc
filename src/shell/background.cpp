@@ -10,7 +10,7 @@ struct ShellBackgroundOutput
     Ref<SceneTexture> texture;
 };
 
-struct ShellBackground
+struct ShellBackground : ShellPlugin
 {
     Shell* shell;
 
@@ -18,6 +18,8 @@ struct ShellBackground
 
     Ref<GpuImage>   image;
     Ref<GpuSampler> sampler;
+
+    Listener<void()> output_layout_listener;
 
     std::vector<ShellBackgroundOutput> outputs;
 };
@@ -107,12 +109,14 @@ void shell_init_background(Shell* shell)
 
     bg->image = load_background_image(shell);
 
+    bg->output_layout_listener = wm_get_signals(shell->wm.get()).output_layout.listen([bg = bg.get()] {
+        update_backgrounds(bg);
+    });
+
     // Listen for outputs to assign backgrounds to
     bg->client = wm_connect(shell->wm.get());
     wm_listen(bg->client.get(), [bg = bg.get()](WmClient*, WmEvent* event) {
         switch (event->type) {
-            break;case WmEventType::output_layout:
-                update_backgrounds(bg);
             break;case WmEventType::seat_event:
                 handle_seat_event(bg, event->seat.event);
 
@@ -121,5 +125,5 @@ void shell_init_background(Shell* shell)
         }
     });
 
-    shell->apps.emplace_back(bg);
+    shell->plugins.emplace_back(bg);
 }

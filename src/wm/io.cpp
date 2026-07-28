@@ -31,12 +31,6 @@ void reflow_outputs(WmServer* server, bool any_changed = false)
 
         if (last != output->viewport) {
             any_changed = true;
-            wm_broadcast_event(server, ptr_to(WmEvent {
-                .output = {
-                    .type = WmEventType::output_configured,
-                    .output = output,
-                }
-            }));
             for (auto* window : server->windows) {
                 if (wm_window_get_fullscreen(window) == output) {
                     wm_window_request_reposition(window, wm_output_get_viewport(output), vec2f32{1, 1});
@@ -46,11 +40,7 @@ void reflow_outputs(WmServer* server, bool any_changed = false)
     }
 
     if (any_changed) {
-        wm_broadcast_event(server, ptr_to(WmEvent {
-            .output = {
-                .type = WmEventType::output_layout,
-            }
-        }));
+        server->signals.output_layout();
         for (auto* output : server->io.outputs) {
             output->primary_damage = aabb_make_infinite<f32>();
             output->interface.request_frame(output->userdata);
@@ -68,12 +58,6 @@ auto wm_output_create(WmServer* server, void* userdata, WmOutputInterface interf
     output->primary_damage = aabb_make_infinite<f32>();
 
     server->io.outputs.emplace_back(output.get());
-    wm_broadcast_event(server, ptr_to(WmEvent {
-        .output = {
-            .type = WmEventType::output_added,
-            .output = output.get(),
-        }
-    }));
     reflow_outputs(server, true);
 
     return output;
@@ -88,13 +72,17 @@ WmOutput::~WmOutput()
     }
 
     std::erase(server->io.outputs, this);
-    wm_broadcast_event(server, ptr_to(WmEvent {
-        .output = {
-            .type = WmEventType::output_removed,
-            .output = this,
-        }
-    }));
     reflow_outputs(server, true);
+}
+
+auto wm_get_outputs(WmServer* server) -> std::span<WmOutput* const>
+{
+    return server->io.outputs;
+}
+
+auto wm_output_get_signals(WmOutput* output) -> WmOutputSignals&
+{
+    return output->signals;
 }
 
 void wm_output_set_pixel_size(WmOutput* output, vec2u32 pixel_size)
@@ -116,6 +104,13 @@ auto wm_output_get_workarea(WmOutput* output) -> rect2f32
     workarea.origin += vec_cast<f32>(server->config.workarea.padding.tl);
     workarea.extent -= vec_cast<f32>(server->config.workarea.padding.tl + server->config.workarea.padding.br);
     return workarea;
+}
+
+void wm_output_damage(WmOutput* output)
+{
+    output->needs_redraw = true;
+    output->primary_damage = Region<f32>{output->viewport};
+    output->interface.request_frame(output->userdata);
 }
 
 void wm_request_frame(WmServer* server)
