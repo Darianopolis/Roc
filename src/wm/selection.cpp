@@ -78,6 +78,14 @@ static
 auto filter_event_selection(WmServer* server, SeatEvent* event) -> SeatEventFilterResult
 {
     switch (event->type) {
+        break;case SeatEventType::keyboard_key:
+            if (event->keyboard.key.pressed) {
+                if (event->keyboard.key.code == KEY_ESC) {
+                    server->selection.selecting = false;
+                    end_selection(server);
+                }
+                return SeatEventFilterResult::capture;
+            }
         break;case SeatEventType::pointer_motion:
             if (event->pointer.pointer == server->selection.pointer) {
                 selection_update_regions(server);
@@ -87,14 +95,25 @@ auto filter_event_selection(WmServer* server, SeatEvent* event) -> SeatEventFilt
             if (event->pointer.pointer == server->selection.pointer) {
                 if (event->pointer.button.pressed) {
                     if (event->pointer.button.code == BTN_LEFT) {
-                        toggle_selecting(server);
+                        auto* seat = seat_pointer_get_seat(event->pointer.pointer);
+                        auto mods = seat_get_modifiers(seat);
+                        if (mods.contains(SeatModifier::shift)) {
+                            auto position = seat_pointer_get_position(event->pointer.pointer);
+                            auto[output, point] = wm_find_output_at(server, position);
+                            if (output && point == position) {
+                                server->selection.rect = output->viewport;
+                                server->selection.selecting = true;
+                                end_selection(server);
+                            } else {
+                                wm_toast(server, "No output under cursor to select", {1, 0, 0, 1});
+                            }
+                        } else {
+                            toggle_selecting(server);
+                        }
                     }
-                }
-                if (seat_pointer_get_pressed(server->selection.pointer).empty()) {
-                    end_selection(server);
-                }
-                if (event->pointer.button.pressed) {
                     return SeatEventFilterResult::capture;
+                } else if (seat_pointer_get_pressed(server->selection.pointer).empty()) {
+                    end_selection(server);
                 }
             }
         break;case SeatEventType::pointer_scroll:
