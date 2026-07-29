@@ -2,6 +2,9 @@
 
 #include <core/log.hpp>
 
+static
+void handle_signal(IoContext*);
+
 auto io_create(WmServer* wm, ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
 {
     auto io = ref_create<IoContext>();
@@ -9,6 +12,18 @@ auto io_create(WmServer* wm, ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     io->wm = wm;
     io->exec = exec;
     io->gpu = gpu;
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, nullptr);
+
+    io->signal_fd = Fd(unix_check<signalfd>(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
+    fd_listen(io->exec, io->signal_fd.get(), FdEventBit::readable, [io = io.get()](fd_t, Flags<FdEventBit>){
+        handle_signal(io);
+    });
 
     io->timer = timer_create(io->exec);
 
@@ -93,17 +108,6 @@ void io_start(IoContext* io)
     if (io->drm) {
         io_drm_start(io);
     }
-
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &mask, nullptr);
-    io->signal_fd = Fd(unix_check<signalfd>(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
-    fd_listen(io->exec, io->signal_fd.get(), FdEventBit::readable, [io](fd_t, Flags<FdEventBit>){
-        handle_signal(io);
-    });
 }
 
 void io_stop(IoContext* io)
