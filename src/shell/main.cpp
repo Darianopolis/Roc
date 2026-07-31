@@ -94,7 +94,6 @@ auto shell_main(int argc, char* argv[]) -> int
 
     shell_dbus_init(shell.get(), in_direct_session);
     if (screencast) {
-        shell_init_pipewire(shell.get());
         shell_init_screencast(shell.get());
     }
 

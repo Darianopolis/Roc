@@ -20,6 +20,9 @@ UNIX_FUNCTION(sd_bus_message_new_method_return, UnixErrorBehavior::negative_errn
 UNIX_FUNCTION(sd_bus_message_append,            UnixErrorBehavior::negative_errno)
 UNIX_FUNCTION(sd_bus_message_open_container,    UnixErrorBehavior::negative_errno)
 UNIX_FUNCTION(sd_bus_message_close_container,   UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_get_sender,                UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_track_new,                 UnixErrorBehavior::negative_errno)
+UNIX_FUNCTION(sd_bus_track_add_sender,          UnixErrorBehavior::negative_errno)
 
 struct ShellPlugin
 {
@@ -128,7 +131,6 @@ void shell_dbus_init(Shell* shell, bool grab_portal_name)
 void shell_init_xwayland(Shell*, int argc, char* argv[]);
 void shell_init_background(Shell*);
 void shell_init_hotkeys(Shell*);
-void shell_init_pipewire(Shell*);
 void shell_init_screencast(Shell*);
 void shell_init_screenshot(Shell*);
 void shell_init_renderdoc(Shell*);

@@ -15,6 +15,8 @@ PkgConfig:
 - libcap
 - libseat
 - libinput
+- libsystemd
+- libpipewire-0.3
 - freetype2
 - xkbcommon
 - xcursor

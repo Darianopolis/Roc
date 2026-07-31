@@ -156,11 +156,12 @@ void on_state_changed(void* data, pw_stream_state old, pw_stream_state state, co
         log_debug("PIPEWIRE stream {} state changed: {} -> {}", int(pw_stream_get_node_id(stream->stream)),  old, state);
     }
 
-    if (state == PW_STREAM_STATE_STREAMING) {
-        for (auto* output : wm_get_outputs(stream->ctx->shell->wm.get())) {
-            wm_output_damage(output);
-        }
-    }
+    stream->signals.state_changed(state);
+    // if (state == PW_STREAM_STATE_STREAMING) {
+    //     for (auto* output : wm_get_outputs(stream->wm)) {
+    //         wm_output_damage(output);
+    //     }
+    // }
 }
 
 static constexpr auto DAMAGE_REGION_COUNT = 16;
@@ -210,7 +211,7 @@ void on_param_changed(void* data, u32 id, const spa_pod* param)
             }
 
             auto format = from_spa_format(fmt_info.format);
-            auto image = gpu_image_create(stream->ctx->shell->gpu.get(), GpuImageCreateInfo{
+            auto image = gpu_image_create(stream->ctx->gpu, GpuImageCreateInfo{
                 .extent = stream->extent,
                 .format = format,
                 .usage = GpuImageUsage::storage,
@@ -266,8 +267,7 @@ void on_param_changed(void* data, u32 id, const spa_pod* param)
 ShellPwBuffer::~ShellPwBuffer()
 {
     if (mapped) {
-        u32 row_stride = gpu_image_compute_packed_stride(stream->format, stream->extent.x);
-        unix_check<munmap>(mapped, stream->extent.y * row_stride);
+        unix_check<munmap>(mapped, extent.y * stride);
     }
 }
 
@@ -282,6 +282,9 @@ void on_add_buffer(void* data, pw_buffer* buffer)
 
     auto buf = object_create_unsafe<ShellPwBuffer>();
     buffer->user_data = buf;
+    buf->buffer = buffer;
+    buf->extent = stream->extent;
+    buf->format = stream->format;
 
     u32 flags = SPA_DATA_FLAG_READABLE;
     spa_data_type t;
@@ -293,16 +296,20 @@ void on_add_buffer(void* data, pw_buffer* buffer)
         buf->fd = Fd(unix_check<memfd_create>(PROGRAM_NAME "-pipewire-memfd-buffer", MFD_CLOEXEC).value);
         unix_check<ftruncate>(buf->fd.get(), size);
 
-        buf->mapped = (u8*)unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, buf->fd.get(), 0).value;
+        buf->mapped = static_cast<u8*>(unix_check<mmap>(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, buf->fd.get(), 0).value);
     } else {
         t = SPA_DATA_DmaBuf;
-        buf->dmabuf = gpu_image_create(stream->ctx->shell->gpu.get(), {
+        buf->dmabuf = gpu_image_create(stream->ctx->gpu, {
             .extent = stream->extent,
             .format = stream->format,
             .usage = GpuImageUsage::storage,
             .modifiers = ptr_to(GpuFormatModifierSet{stream->modifier}),
         });
         buf->fd = gpu_image_export(buf->dmabuf.get()).planes[0].fd;
+
+        auto exported = gpu_image_export(buf->dmabuf.get());
+        row_stride = exported.planes[0].stride;
+        size = row_stride * stream->extent.y;
 
         debug_assert(buf->dmabuf->base()->memory.count == 1, "TODO: Multi-plane support");
     }
@@ -313,7 +320,7 @@ void on_add_buffer(void* data, pw_buffer* buffer)
     datas[0].maxsize = size;
     datas[0].mapoffset = 0;
     datas[0].chunk->size = size;
-    datas[0].chunk->stride = i32(row_stride);
+    datas[0].chunk->stride = num_cast<i32>(row_stride);
     datas[0].chunk->offset = 0;
     datas[0].flags = flags;
     datas[0].fd = buf->fd.get();
@@ -328,84 +335,19 @@ void on_remove_buffer(void* data, pw_buffer* b)
     object_unref(static_cast<ShellPwBuffer*>(b->user_data));
 }
 
-#define PIPEWIRE_NOISY_STREAM 0
-
-static
-bool try_dequeue(ShellPwStream* stream)
+auto shell_pw_stream_dequeue(ShellPwStream* stream) -> ShellPwBuffer*
 {
-    if (!stream->enabled) return false;
-    if (stream->state != PW_STREAM_STATE_STREAMING) return false;
+    if (stream->state != PW_STREAM_STATE_STREAMING) return nullptr;
 
     auto buffer = pw_stream_dequeue_buffer(stream->stream);
-    if (!buffer) return false;
+    if (!buffer) return nullptr;
 
-    auto* gpu = stream->ctx->shell->gpu.get();
-    auto* wm = stream->ctx->shell->wm.get();
-
-    auto* buf = static_cast<ShellPwBuffer*>(buffer->user_data);
-
-#if PIPEWIRE_NOISY_STREAM
-    {
-        static auto last = std::chrono::steady_clock::now();
-        static usz frames = 0;
-        auto now = std::chrono::steady_clock::now();
-        frames++;
-        auto delta = now - last;
-        if (delta > 500ms) {
-            auto delta_s = std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count();
-            log_trace("PIPEWIRE :: Frametime {} ({:.2f}/s) {}", FmtDuration{(now - last) / frames}, f64(frames) / delta_s, buf->dmabuf ? "DMA" : "SHM");
-            last = now;
-            frames = 0;
-        }
-    }
-#endif
-
-    if (buf->dmabuf) {
-        scene_render(wm_get_scene_renderer(wm), {
-            .root = wm_get_scene(wm),
-            .target = buf->dmabuf.get(),
-            .viewport = stream->viewport,
-        });
-
-        gpu_wait(gpu_flush(gpu), [stream = Weak(stream), buffer](u64) {
-            if (!stream) return;
-            pw_stream_queue_buffer(stream->stream, buffer);
-        });
-    } else {
-        auto image = stream->ctx->pool->acquire({
-            .extent = stream->extent,
-            .format = stream->format,
-            .usage = GpuImageUsage::storage,
-        });
-        stream->last_image = image;
-        u32 row_stride = gpu_image_compute_packed_stride(stream->format, stream->extent.x);
-        auto staging = gpu_buffer_create(gpu, row_stride * stream->extent.y, GpuBufferFlag::host);
-
-        scene_render(wm_get_scene_renderer(wm), {
-            .root = wm_get_scene(wm),
-            .target = image.get(),
-            .viewport = stream->viewport,
-        });
-        gpu_copy_image_to_buffer(staging.get(), image.get());
-
-        gpu_wait(gpu_flush(gpu), [stream = Weak(stream), buffer, staging](u64) {
-            if (!stream) return;
-
-            auto* buf = static_cast<ShellPwBuffer*>(buffer->user_data);
-            u32 row_stride = gpu_image_compute_packed_stride(stream->format, stream->extent.x);
-            std::memcpy(buf->mapped, staging->host_address, row_stride * stream->extent.y);
-
-            pw_stream_queue_buffer(stream->stream, buffer);
-        });
-    }
-
-    return true;
+    return static_cast<ShellPwBuffer*>(buffer->user_data);
 }
 
-static
-void frame(ShellPwStream* stream)
+void shell_pw_stream_enqueue(ShellPwStream* stream, ShellPwBuffer* buffer)
 {
-    try_dequeue(stream);
+    pw_stream_queue_buffer(stream->stream, buffer->buffer);
 }
 
 static constexpr pw_stream_events stream_events {
@@ -420,13 +362,11 @@ static constexpr pw_stream_events stream_events {
 
 ShellPwContext::~ShellPwContext()
 {
-    stream.destroy();
-
     check(pw_core_disconnect(core));
 
     pw_context_destroy(context);
 
-    fd_unlisten(shell->exec, pw_loop_get_fd(loop));
+    fd_unlisten(exec, pw_loop_get_fd(loop));
 	pw_loop_leave(loop);
     pw_loop_destroy(loop);
 
@@ -447,35 +387,18 @@ static constexpr pw_core_events core_events = {
     }
 };
 
-auto shell_pw_find_plugin(Shell* shell) -> ShellPwContext*
-{
-    for (auto* plugin : shell->plugins) {
-        if (auto* ctx = dynamic_cast<ShellPwContext*>(plugin)) {
-            return ctx;
-        }
-    }
-    return nullptr;
-}
-
-void shell_init_pipewire(Shell* shell)
+auto shell_pw_context_create(ExecContext* exec, Gpu* gpu) -> Ref<ShellPwContext>
 {
     auto ctx = ref_create<ShellPwContext>();
-    shell->plugins.emplace_back(ctx);
-
-    ctx->shell = shell;
-
-    auto gpu = shell->gpu.get();
-    ctx->pool = gpu_image_pool_create(gpu);
-
-    auto name = PROGRAM_NAME "-screencast";
-    auto desc = PROJECT_NAME " ScreenCast";
+    ctx->exec = exec;
+    ctx->gpu = gpu;
 
     // PipeWire Loop
 
     pw_init(nullptr, nullptr);
 
     ctx->loop = check(pw_loop_new(nullptr));
-    fd_listen(shell->exec, pw_loop_get_fd(ctx->loop), FdEventBit::readable, [ctx = ctx.get()](fd_t fd, Flags<FdEventBit> events) {
+    fd_listen(exec, pw_loop_get_fd(ctx->loop), FdEventBit::readable, [ctx = ctx.get()](fd_t fd, Flags<FdEventBit> events) {
         check(pw_loop_iterate(ctx->loop, 0));
     });
 
@@ -486,34 +409,45 @@ void shell_init_pipewire(Shell* shell)
     spa_zero(ctx->core_hook);
     pw_core_add_listener(ctx->core, &ctx->core_hook, &core_events, ctx.get());
 
-    // PipeWire Stream
-
 	pw_loop_enter(ctx->loop);
+
+    return ctx;
+}
+
+auto shell_pw_stream_create(ShellPwContext* ctx, vec2u32 extent) -> Ref<ShellPwStream>
+{
+    u32 id_a = std::random_device{}();
+    u32 id_b = std::random_device{}();
+
+    auto name = std::format(PROGRAM_NAME "-screencast-{:x}{:x}", id_a, id_b);
+    auto desc = std::format(PROJECT_NAME " ScreenCast {:x}{:x}", id_a, id_b);
+
+    // PipeWire Stream
 
     auto props = check(pw_properties_new(
         PW_KEY_MEDIA_CLASS,     "Video/Source",
         PW_KEY_MEDIA_TYPE,      "Video",
         PW_KEY_MEDIA_CATEGORY,  "Capture",
         PW_KEY_MEDIA_ROLE,      "Screen",
-        PW_KEY_NODE_NAME,        name,
-        PW_KEY_NODE_DESCRIPTION, desc,
+        PW_KEY_NODE_NAME,        name.c_str(),
+        PW_KEY_NODE_DESCRIPTION, desc.c_str(),
         nullptr));
 
     auto stream = ref_create<ShellPwStream>();
-    stream->ctx = ctx.get();
-    ctx->stream = stream;
+    stream->ctx = ctx;
 
-    stream->stream = check(pw_stream_new(ctx->core, name, props));
+    stream->stream = check(pw_stream_new(ctx->core, name.c_str(), props));
     spa_zero(stream->stream_hook);
     pw_stream_add_listener(stream->stream, &stream->stream_hook, &stream_events, stream.get());
 
+    stream->extent = extent;
+
+    log_debug("STREAM EXTENT {}", extent);
+
     // NOTE: Fixed stream properties for now
 
-    stream->extent = {3840, 2160};
-    stream->viewport = {{}, {3840, 2160}, xywh};
-
     auto format = gpu_format_from_drm(DRM_FORMAT_XRGB8888);
-    auto modifiers = gpu_get_format_properties(gpu, format, GpuImageUsage::storage)->mods;
+    auto modifiers = gpu_get_format_properties(ctx->gpu, format, GpuImageUsage::storage)->mods;
 
     spa_pod_dynamic_builder builder;
     spa_pod_dynamic_builder_init(&builder, nullptr, 0, 65'536);
@@ -521,31 +455,14 @@ void shell_init_pipewire(Shell* shell)
 
     std::vector<const spa_pod*> params;
     params.emplace_back(build_format(&builder.b, format, stream->extent, 0, modifiers));
-    params.emplace_back(build_format(&builder.b, format, stream->extent, 60, {}));
+    // params.emplace_back(build_format(&builder.b, format, stream->extent, 0, {{DRM_FORMAT_MOD_LINEAR}}));
+    // params.emplace_back(build_format(&builder.b, format, stream->extent, 0, {}));
 
     check(pw_stream_connect(stream->stream,
         PW_DIRECTION_OUTPUT,
         PW_ID_ANY,
-        literal_cast<pw_stream_flags>(
-            PW_STREAM_FLAG_ALLOC_BUFFERS
-            | PW_STREAM_FLAG_DRIVER
-        ),
+        literal_cast<pw_stream_flags>(PW_STREAM_FLAG_ALLOC_BUFFERS | PW_STREAM_FLAG_DRIVER),
         params.data(), num_cast<u32>(params.size())));
 
-    // Sync the stream to whichever output covers the point at (0, 0)
-
-    ctx->output_layout_listener = wm_get_signals(shell->wm.get()).output_layout.listen([ctx = ctx.get()] {
-        for (auto* stream : {ctx->stream.get()}) {
-            for (auto[i, output] : wm_get_outputs(stream->ctx->shell->wm.get()) | std::views::enumerate) {
-                auto viewport = wm_output_get_viewport(output);
-                if (rect_contains(viewport, vec2f32{})) {
-                    log_info("PIPEWIRE :: Syncing stream to output[{}]: {}", i, viewport);
-                    stream->frame_listener = wm_output_get_signals(output).frame.listen([stream] {
-                        frame(stream);
-                    });
-                    break;
-                }
-            }
-        }
-    });
+    return stream;
 }

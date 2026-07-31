@@ -84,12 +84,12 @@ void shell_init_hotkeys(Shell* shell)
     hotkey(KEY_O, shell->main_mod, [shell](auto...) { io_output_create(shell->io.get()); });
     hotkey(KEY_G, shell->main_mod, [shell](auto...) { print_scene_graph(shell); });
 
-    hotkey(KEY_C, shell->main_mod, [shell](auto...) {
-        auto* pw_context = shell_pw_find_plugin(shell);
-        if (!pw_context) return;
-        pw_context->stream->enabled = !pw_context->stream->enabled;
-        wm_toast(shell->wm.get(), std::format("Capture: {}", pw_context->stream->enabled ? "Enabled" : "Disabled"));
-    });
+    // hotkey(KEY_C, shell->main_mod, [shell](auto...) {
+    //     auto* pw_context = shell_pw_find_plugin(shell);
+    //     if (!pw_context) return;
+    //     pw_context->stream->enabled = !pw_context->stream->enabled;
+    //     wm_toast(shell->wm.get(), std::format("Capture: {}", pw_context->stream->enabled ? "Enabled" : "Disabled"));
+    // });
 
     hotkey(KEY_PREVIOUSSONG, {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "previous"}}); });
     hotkey(KEY_PLAYPAUSE,    {}, [shell](auto...) { shell_launch(shell, "playerctl", {{"playerctl", "play-pause"}}); });

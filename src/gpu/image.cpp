@@ -415,7 +415,7 @@ auto gpu_image_is_exportable(GpuImage* image) -> bool
 auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
 {
     auto* image = _image->base();
-    debug_assert(image);
+    debug_assert(gpu_image_is_exportable(image));
 
     auto* gpu = image->gpu;
 

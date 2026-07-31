@@ -13,28 +13,22 @@
 #include <spa/buffer/meta.h>
 #include <spa/utils/result.h>
 
-struct ShellPwStream;
-
-struct ShellPwContext : ShellPlugin
+struct ShellPwContext
 {
+    Gpu* gpu;
+    ExecContext* exec;
+
     pw_loop*    loop;
     pw_context* context;
     pw_core*    core;
     spa_hook    core_hook;
-
-    Shell* shell;
-    Ref<GpuImagePool> pool;
-
-    Ref<ShellPwStream> stream;
-
-    Listener<void()> output_layout_listener;
 
     ~ShellPwContext();
 };
 
 struct ShellPwStream
 {
-    ShellPwContext* ctx;
+    Ref<ShellPwContext> ctx;
 
     pw_stream* stream;
     spa_hook   stream_hook;
@@ -42,27 +36,33 @@ struct ShellPwStream
     GpuFormat format;
     GpuDrmModifier modifier;
     vec2u32 extent;
-    rect2f32 viewport;
-
-    Ref<GpuImage> last_image;
 
     pw_stream_state state;
-    bool enabled = false;
 
-    Listener<void()> frame_listener;
+    struct {
+        Signal<void(pw_stream_state)> state_changed;
+    } signals;
 
     ~ShellPwStream();
 };
 
 struct ShellPwBuffer
 {
-    ShellPwStream* stream;
+    GpuFormat format;
+    vec2u32 extent;
+
+    pw_buffer* buffer;
 
     Fd fd;
     void* mapped;
     Ref<GpuImage> dmabuf;
+    u32 stride;
 
     ~ShellPwBuffer();
 };
 
-auto shell_pw_find_plugin(Shell*) -> ShellPwContext*;
+auto shell_pw_context_create(ExecContext*, Gpu*) -> Ref<ShellPwContext>;
+auto shell_pw_stream_create(ShellPwContext*, vec2u32 extent) -> Ref<ShellPwStream>;
+
+auto shell_pw_stream_dequeue(ShellPwStream*) -> ShellPwBuffer*;
+void shell_pw_stream_enqueue(ShellPwStream*, ShellPwBuffer*);
