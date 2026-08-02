@@ -44,6 +44,8 @@ struct UnixResult
 
     auto ok()  const noexcept -> bool { return !error; }
     auto err() const noexcept -> bool { return  error; }
+
+    explicit operator bool() const noexcept { return ok(); }
 };
 
 #define UNIX_ERROR_BEHAVIOR_SIMPLE(ErrorExpr, ...) \

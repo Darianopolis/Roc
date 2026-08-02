@@ -175,6 +175,12 @@ struct Ref
 };
 
 template<typename T>
+struct std::hash<Ref<T>>
+{
+    auto operator()(const Ref<T>& v) -> usz { return hash_single(v.value); }
+};
+
+template<typename T>
 auto ref_adopt(T* t) -> Ref<T>
 {
     return {t, RefAdoptTag{}};

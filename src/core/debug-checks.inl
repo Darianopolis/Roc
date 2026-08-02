@@ -52,6 +52,14 @@ UNIX_FUNCTION(eventfd_write,   UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(eventfd_read,    UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(signalfd,        UnixErrorBehavior::negative_one)
 
+UNIX_FUNCTION(socket,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(bind,    UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(connect, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(listen,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(accept,  UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(sendmsg, UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(recvmsg, UnixErrorBehavior::negative_one)
+
 // Capabilities
 
 UNIX_FUNCTION(cap_get_proc, UnixErrorBehavior::null)

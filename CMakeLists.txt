@@ -71,7 +71,7 @@ set_target_properties(${LIBNAME} PROPERTIES PREFIX "")
 
 target_precompile_headers(${LIBNAME} PRIVATE src/core/pch.hpp)
 
-target_compile_options(${LIBNAME} PRIVATE
+target_compile_options(${LIBNAME} PUBLIC
     -std=c++26
 
     -Wall
@@ -87,7 +87,7 @@ target_compile_options(${LIBNAME} PRIVATE
     )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(${LIBNAME} PRIVATE
+    target_compile_options(${LIBNAME} PUBLIC
         -Wshadow # (only enabled for clang, as gcc complains on shadowing in constructors)
 
         -Wno-missing-designated-field-initializers
@@ -102,7 +102,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         -Wno-nested-anon-types
         )
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(${LIBNAME} PRIVATE
+    target_compile_options(${LIBNAME} PUBLIC
         -freflection
 
         -Wno-changes-meaning # we use `foo* foo` a lot in wayland protocol bindings
@@ -133,6 +133,8 @@ target_sources(${LIBNAME} PRIVATE
     src/core/id.cpp
     src/core/exec.cpp
     src/core/timer.cpp
+
+    src/ipc/socket.cpp
     )
 
 target_include_directories(${LIBNAME} PUBLIC
@@ -320,3 +322,9 @@ target_sources(${LIBNAME} PRIVATE
 add_executable(       ${PROGRAM_NAME})
 target_sources(       ${PROGRAM_NAME} PRIVATE src/shell/entry.cpp)
 target_link_libraries(${PROGRAM_NAME} PUBLIC ${LIBNAME})
+
+# ------------------------------------------------------------------------------
+#       Tests
+# ------------------------------------------------------------------------------
+
+add_subdirectory(test)
