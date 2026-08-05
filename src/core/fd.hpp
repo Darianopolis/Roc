@@ -1,12 +1,27 @@
 #pragma once
 
 #include "types.hpp"
+#include "debug.hpp"
 
 // -----------------------------------------------------------------------------
 
 using fd_t = int;
 
-static constexpr fd_t fd_limit = 1024;
+// -----------------------------------------------------------------------------
+
+void fd_registry_init();
+void fd_registry_deinit();
+
+// -----------------------------------------------------------------------------
+
+struct FdLimits
+{
+    fd_t inherited;
+    fd_t current;
+    fd_t max;
+};
+
+auto fd_get_limits() -> const FdLimits&;
 
 // -----------------------------------------------------------------------------
 
@@ -16,8 +31,7 @@ auto fd_to_index(fd_t fd) -> u32
     return num_cast<u32>(fd);
 }
 
-void fd_leak_mark_inherited();
-void fd_leak_check();
+void fd_mark_open_as_inherited();
 
 // -----------------------------------------------------------------------------
 
@@ -26,11 +40,7 @@ auto fd_dup_unsafe(fd_t fd) -> fd_t;
 
 // -----------------------------------------------------------------------------
 
-inline
-auto fd_is_valid(fd_t fd) -> bool
-{
-    return fd >= 0 && fd < fd_limit;
-}
+auto fd_is_valid(fd_t fd) -> bool;
 
 auto fd_get_ref_count(fd_t fd) -> u32;
 

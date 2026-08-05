@@ -36,6 +36,8 @@ auto exec_create() -> Ref<ExecContext>
 {
     auto exec = ref_create<ExecContext>();
 
+    exec->fd_map = memory_map<FdListener*>(num_cast<usz>(fd_get_limits().current));
+
     exec->os_thread = std::this_thread::get_id();
 
     exec->epoll_fd = Fd(unix_check<epoll_create1>(EPOLL_CLOEXEC).value);
@@ -64,9 +66,7 @@ auto exec_get_thread_context() -> ExecContext*
 static
 void check_all_listeners_unregistered(ExecContext* exec)
 {
-    for (auto[i, listener] : exec->listeners | std::views::enumerate) {
-        debug_assert(!listener, "Listener for ({}) still registered", i);
-    }
+    debug_assert(exec->listeners.empty(), "ExecContext error : {} still registered", exec->listeners.size());
 }
 
 ExecContext::~ExecContext()
@@ -74,6 +74,7 @@ ExecContext::~ExecContext()
     debug_assert(stopped);
     debug_assert(queue.empty());
     check_all_listeners_unregistered(this);
+    memory_unmap(fd_map, num_cast<usz>(fd_get_limits().current));
 }
 
 void exec_stop(ExecContext* exec)
@@ -120,7 +121,7 @@ void exec_run(ExecContext* exec)
         if (count > 0) {
             for (usz i = 0; i < num_cast<usz>(count); ++i) {
                 auto fd = events[i].data.fd;
-                Ref listener = exec->listeners[fd_to_index(fd)];
+                Ref listener = exec->fd_map[fd_to_index(fd)];
                 if (!listener) continue;
 
                 auto event_bits = from_epoll_events(events[i].events);
@@ -170,9 +171,10 @@ void fd_listen(
     debug_assert(fd_is_valid(fd));
 
     debug_assert(events);
-    debug_assert(!exec->listeners[fd_to_index(fd)]);
+    debug_assert(!exec->listeners[fd]);
 
-    exec->listeners[fd_to_index(fd)] = listener;
+    exec->listeners[fd] = listener;
+    exec->fd_map[fd_to_index(fd)] = listener;
 
     unix_check<epoll_ctl>(exec->epoll_fd.get(), EPOLL_CTL_ADD, fd, ptr_to(epoll_event {
         .events = to_epoll_events(events),
@@ -186,12 +188,13 @@ void fd_unlisten(ExecContext* exec, fd_t fd)
 {
     debug_assert(fd_is_valid(fd));
 
-    if (!exec->listeners[fd_to_index(fd)]) {
+    if (!exec->listeners[fd]) {
         log_warn("fd does not have registered listener");
     }
 
     auto res = unix_check<epoll_ctl>(exec->epoll_fd.get(), EPOLL_CTL_DEL, fd, nullptr);
     debug_assert(res.ok());
 
-    exec->listeners[fd_to_index(fd)] = nullptr;
+    exec->listeners.erase(fd);
+    exec->fd_map[fd_to_index(fd)] = nullptr;
 }

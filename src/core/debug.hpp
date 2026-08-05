@@ -2,7 +2,7 @@
 
 #include "pch.hpp"
 
-void debug_handlers();
+void debug_init();
 
 CORE_NOINLINE inline
 void debug_break()
@@ -69,12 +69,17 @@ namespace UnixErrorBehavior
 template<auto Function>
 struct UnixFunction { static_assert(false); };
 
+template<auto Function>
+auto unix_call(auto... args) -> UnixResult<decltype(Function(args...))>
+{
+    return UnixFunction<Function>::behavior.template operator()<Function>(args...);
+}
+
 template<auto Function, unix_error_t... Quiet>
 auto unix_check(auto... args) -> UnixResult<decltype(Function(args...))>
 {
-    auto res = UnixFunction<Function>::behavior.template operator()<Function>(args...);
-    if (res.ok()) return res;
-    if (!(... || (res.error == Quiet))) log_unix_error(UnixFunction<Function>::function_name, res.error);
+    auto res = unix_call<Function>(args...);
+    if (!res && !(... || (res.error == Quiet))) log_unix_error(UnixFunction<Function>::function_name, res.error);
     return res;
 }
 

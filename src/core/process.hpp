@@ -69,8 +69,15 @@ struct SpawnFdInherit
     SpawnFdInherit(fd_t parent, fd_t child): parent(parent), child(child) {}
 };
 
-auto spawn(
-    fd_t exe,
-    std::span<const std::string_view> args,
-    const Environment* env = nullptr,
-    std::span<const SpawnFdInherit> fds = {{STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO}}) -> Fd;
+struct SpawnInfo
+{
+    fd_t executable; // File descriptor of executable to run
+    fd_t directory;  // Working directory
+    fd_t fd_limit;   // NOFILE limit to set for child
+
+    std::span<const std::string_view> args;
+    std::span<const std::pair<std::string_view, std::string_view>> env;
+    std::span<const SpawnFdInherit> fds;
+};
+
+auto spawn(const SpawnInfo& info) -> Fd;

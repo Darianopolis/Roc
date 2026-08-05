@@ -2,6 +2,59 @@
 
 #include "debug.hpp"
 #include "log.hpp"
+#include "memory.hpp"
+#include "chrono.hpp"
+
+struct FdRegistry
+{
+    FdLimits limit;
+
+    u32 * ref_counts;
+    bool* inherited;
+};
+
+static FdRegistry registry;
+
+void fd_registry_init()
+{
+    rlimit lim;
+    unix_check<getrlimit>(RLIMIT_NOFILE, &lim);
+    registry.limit.max = num_cast<fd_t>(lim.rlim_max);
+    registry.limit.inherited = num_cast<fd_t>(lim.rlim_cur);
+    registry.limit.current = std::min(registry.limit.max, 1 << 20);
+
+    lim.rlim_cur = num_cast<rlim_t>(registry.limit.current);
+    auto res = unix_check<setrlimit>(RLIMIT_NOFILE, &lim);
+    debug_assert(res);
+
+    registry.ref_counts = memory_map<u32 >(num_cast<usz>(registry.limit.current));
+    registry.inherited  = memory_map<bool>(num_cast<usz>(registry.limit.current));
+}
+
+static
+void fd_leak_check();
+
+void fd_registry_deinit()
+{
+    fd_leak_check();
+
+    memory_unmap(registry.ref_counts, num_cast<usz>(registry.limit.current));
+    memory_unmap(registry.inherited,  num_cast<usz>(registry.limit.current));
+}
+
+// -----------------------------------------------------------------------------
+
+auto fd_get_limits() -> const FdLimits&
+{
+    return registry.limit;
+}
+
+// -----------------------------------------------------------------------------
+
+auto fd_is_valid(fd_t fd) -> bool
+{
+    return fd >= 0 && fd < num_cast<fd_t>(registry.limit.current);
+}
 
 auto fd_are_same(fd_t fd0, fd_t fd1) -> bool
 {
@@ -30,38 +83,34 @@ auto fd_exists(fd_t fd) -> bool
     return access(path.c_str(), F_OK) == 0;
 }
 
-struct FdRegistry
-{
-    std::array<u32,  fd_limit> ref_counts = {};
-    std::array<bool, fd_limit> inherited  = {};
-};
-
 static
-auto get_registry() -> FdRegistry&
+auto iterate_open_fds()
 {
-    static FdRegistry registry;
-    return registry;
+   return std::filesystem::directory_iterator("/proc/self/fd")
+        | std::views::transform([](auto& entry) -> fd_t {
+            fd_t fd = -1;
+            auto str = entry.path().filename().string();
+            auto res = std::from_chars(str.data(), str.data() + str.size(), fd);
+            debug_assert(res.ec == std::errc{}, "Fd :: Parsing [/proc/self/fd/{}] failed with error: {}", str, std::make_error_code(res.ec).message());
+            return fd;
+        });
 }
 
-void fd_leak_mark_inherited()
+void fd_mark_open_as_inherited()
 {
-    auto& fds = get_registry();
-    for (fd_t fd = 0; fd < fd_limit; ++fd) {
-        if (fd_exists(fd)) {
-            fds.inherited[fd_to_index(fd)] = true;
-        }
+    for (fd_t open : iterate_open_fds()) {
+        registry.inherited[fd_to_index(open)] = true;
     }
 }
 
+static
 void fd_leak_check()
 {
-    auto& fds = get_registry();
-    auto leaked = std::views::iota(fd_t(0))
-        | std::views::take(fd_limit)
-        | std::views::filter([&](fd_t fd) { return !fds.inherited[fd_to_index(fd)] && fd_exists(fd); });
+    auto leaked = std::ranges::to<std::vector>(iterate_open_fds()
+        | std::views::filter([&](fd_t fd) { return !registry.inherited[fd_to_index(fd)] && fd_exists(fd); }));
 
     if (!leaked.empty()) {
-        log_error("File Descriptors leaked: {}", leaked);
+        log_error("Fd :: {} file descriptor(s) leaked", leaked);
     }
 }
 
@@ -69,16 +118,14 @@ auto fd_get_ref_count(fd_t fd) -> u32
 {
     if (!fd_is_valid(fd)) return 0;
 
-    auto& fds = get_registry();
-    return fds.ref_counts[fd_to_index(fd)];
+    return registry.ref_counts[fd_to_index(fd)];
 }
 
 auto fd_ref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    auto& fds = get_registry();
-    fds.ref_counts[fd_to_index(fd)]++;
+    registry.ref_counts[fd_to_index(fd)]++;
     return fd;
 }
 
@@ -92,8 +139,7 @@ auto fd_unref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    auto& fds = get_registry();
-    if (!--fds.ref_counts[fd_to_index(fd)]) {
+    if (!--registry.ref_counts[fd_to_index(fd)]) {
         destroy_fd(fd);
         return -1;
     }
@@ -105,8 +151,7 @@ auto fd_extract(fd_t fd) -> fd_t
 {
     debug_assert(fd_is_valid(fd));
     debug_assert(fd_get_ref_count(fd) == 1);
-    auto& fds = get_registry();
-    fds.ref_counts[fd_to_index(fd)] = 0;
+    registry.ref_counts[fd_to_index(fd)] = 0;
     return fd;
 }
 

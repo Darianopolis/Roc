@@ -4,6 +4,7 @@
 #include <core/util.hpp>
 #include <core/log.hpp>
 #include <core/enum.hpp>
+#include <core/entry.inl>
 
 static
 auto process_message(SocketConnection* conn) -> bool
@@ -42,7 +43,7 @@ auto process_message(SocketConnection* conn) -> bool
     return true;
 }
 
-int main()
+int server(int argc, char* argv[])
 {
     auto exec = exec_create();
     auto listener = socket_listen(exec.get(), "ipc-test-socket");
@@ -66,4 +67,8 @@ int main()
     };
 
     exec_run(exec.get());
+
+    return EXIT_SUCCESS;
 }
+
+DEFINE_MAIN(server)

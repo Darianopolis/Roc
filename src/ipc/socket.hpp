@@ -6,12 +6,19 @@
 
 // -----------------------------------------------------------------------------
 
+/*
+ * Max number of file descriptors that can be sent via `SCM_RIGHTS` in a `sendmsg` call
+ *
+ * Stable since Linux 2.6.38
+ */
+static constexpr usz ipc_scm_max_fd = 253;
+
 struct SocketConnectionBufferInfo
 {
     usz data_size = 65'536;
     usz fd_count  = 1024;
-    usz max_fds_per_recv = 28;
-    usz max_fds_per_send = 28;
+    usz max_fds_per_recv = ipc_scm_max_fd; // Defaulted to 253 to match absolute kernel limits.
+    usz max_fds_per_send = 28;             // Defaulted to  28 to match libwayland's implementation limits.
 };
 
 struct SocketConnectionBuffers

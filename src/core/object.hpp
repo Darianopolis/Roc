@@ -7,8 +7,6 @@
 
 // -----------------------------------------------------------------------------
 
-static constexpr u32 allocation_max_count = 1 << 20;
-
 using AllocationVersion = u32;
 
 struct Allocation
@@ -33,7 +31,10 @@ auto allocation_from(void*) -> Allocation;
 
 // -----------------------------------------------------------------------------
 
-auto registry_allocate(usz size, AllocationFree free) -> Allocation;
+void allocator_init();
+void allocator_deinit();
+
+auto allocation_new(usz size, AllocationFree free) -> Allocation;
 
 // -----------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ void object_free(Allocation alloc)
 template<typename T>
 auto object_create_uninitialized() -> T*
 {
-    return static_cast<T*>(allocation_get_data(registry_allocate(sizeof(T), object_free<T>)));
+    return static_cast<T*>(allocation_get_data(allocation_new(sizeof(T), object_free<T>)));
 }
 
 template<typename T>

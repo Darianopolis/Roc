@@ -67,7 +67,17 @@ auto shell_launch(
         if (std::filesystem::exists(test)) {
             // Launch
             auto start = std::chrono::steady_clock::now();
-            auto process = spawn(path_open(test).get(), args, &shell->env, fds);
+            auto process = spawn(SpawnInfo {
+                .executable = path_open(test).get(),
+                .directory = shell->env.dir.get(),
+                .fd_limit = fd_get_limits().inherited,
+                .args = args,
+                .env = std::ranges::to<std::vector>(shell->env.entries
+                    | std::views::transform([](const auto& e) {
+                        return std::make_pair(std::string_view(e.first), std::string_view(e.second));
+                    })),
+                .fds = fds,
+            });
             auto end = std::chrono::steady_clock::now();
             if (process) {
                 log_debug("Process {} launched in {}", test, FmtDuration{end - start});

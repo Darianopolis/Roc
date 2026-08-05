@@ -1,5 +1,9 @@
 #include "object.hpp"
 
+#include "memory.hpp"
+#include "chrono.hpp"
+#include "log.hpp"
+
 // -----------------------------------------------------------------------------
 
 static
@@ -14,7 +18,9 @@ auto get(auto&& field, Allocation alloc) -> decltype(auto)
     return get(field, alloc.index);
 }
 
-struct Registry
+#define GET(Field, Index) get(registry.Field, (Index))
+
+struct AllocationRegistry
 {
     std::flat_map<void*, u32, std::greater<void*>> lookup;
 
@@ -23,26 +29,41 @@ struct Registry
 
     AllocationVersion last_version = 0;
 
-    std::array<            void*, allocation_max_count> data;
-    std::array<              usz, allocation_max_count> size;
-    std::array<AllocationVersion, allocation_max_count> version;
-    std::array<              u32, allocation_max_count> ref_count;
-    std::array<   AllocationFree, allocation_max_count> free;
+    u32 slot_count;
+
+    void**             data;
+    usz*               size;
+    AllocationVersion* version;
+    u32*               ref_count;
+    AllocationFree*    free;
 };
 
-static
-auto get_registry() -> Registry&
+static AllocationRegistry registry;
+
+void allocator_init()
 {
-    static Registry registry = {};
-    return registry;
+    registry.slot_count = 1 << 20;
+
+    registry.data      = memory_map<            void*>(registry.slot_count);
+    registry.size      = memory_map<              usz>(registry.slot_count);
+    registry.version   = memory_map<AllocationVersion>(registry.slot_count);
+    registry.ref_count = memory_map<              u32>(registry.slot_count);
+    registry.free      = memory_map<   AllocationFree>(registry.slot_count);
+}
+
+void allocator_deinit()
+{
+    memory_unmap(registry.data,      registry.slot_count);
+    memory_unmap(registry.size,      registry.slot_count);
+    memory_unmap(registry.version,   registry.slot_count);
+    memory_unmap(registry.ref_count, registry.slot_count);
+    memory_unmap(registry.free,      registry.slot_count);
 }
 
 // -----------------------------------------------------------------------------
 
-auto registry_allocate(usz size, AllocationFree free) -> Allocation
+auto allocation_new(usz size, AllocationFree free) -> Allocation
 {
-    auto& registry = get_registry();
-
     u32 index;
     if (registry.freelist.empty()) {
         index = ++registry.last_index;
@@ -52,11 +73,11 @@ auto registry_allocate(usz size, AllocationFree free) -> Allocation
     }
 
     auto data = unix_check<malloc>(size).value;
-    get(registry.data, index) = data;
-    get(registry.size, index) = size;
-    get(registry.version, index) = ++registry.last_version;
-    get(registry.ref_count, index) = 1;
-    get(registry.free, index) = free;
+    GET(data, index) = data;
+    GET(size, index) = size;
+    GET(version, index) = ++registry.last_version;
+    GET(ref_count, index) = 1;
+    GET(free, index) = free;
 
     registry.lookup.emplace(data, index);
 
@@ -64,19 +85,17 @@ auto registry_allocate(usz size, AllocationFree free) -> Allocation
 }
 
 static
-void registry_free(Allocation alloc)
+void allocation_free(Allocation alloc)
 {
-    auto& registry = get_registry();
-
     debug_assert(alloc);
-    debug_assert(get(registry.version, alloc));
-    debug_assert(get(registry.ref_count, alloc) == 0);
+    debug_assert(GET(version, alloc));
+    debug_assert(GET(ref_count, alloc) == 0);
 
-    get(registry.free, alloc)(alloc);
-    get(registry.version, alloc) = 0;
-    free(get(registry.data, alloc));
+    GET(free, alloc)(alloc);
+    GET(version, alloc) = 0;
+    free(GET(data, alloc));
 
-    registry.lookup.erase(get(registry.data, alloc));
+    registry.lookup.erase(GET(data, alloc));
 
     registry.freelist.emplace_back(alloc.index);
 }
@@ -85,54 +104,42 @@ void registry_free(Allocation alloc)
 
 auto allocation_get_version(Allocation alloc) -> AllocationVersion
 {
-    auto& registry = get_registry();
-
-    return get(registry.version, alloc);
+    return GET(version, alloc);
 }
 
 auto allocation_ref(Allocation alloc) -> u32
 {
     if (!alloc) return 0;
 
-    auto& registry = get_registry();
-
-    debug_assert(get(registry.version, alloc));
-    return ++get(registry.ref_count, alloc);
+    debug_assert(GET(version, alloc));
+    return ++GET(ref_count, alloc);
 }
 
 auto allocation_unref(Allocation alloc) -> u32
 {
     if (!alloc) return 0;
 
-    auto& registry = get_registry();
-
-    debug_assert(get(registry.version, alloc));
-    if (!--get(registry.ref_count, alloc)) {
-        registry_free(alloc);
+    debug_assert(GET(version, alloc));
+    if (!--GET(ref_count, alloc)) {
+        allocation_free(alloc);
         return 0;
     }
-    return get(registry.ref_count, alloc);
+    return GET(ref_count, alloc);
 }
 
 auto allocation_get_ref_count(Allocation alloc) -> u32&
 {
-    auto& registry = get_registry();
-
-    return get(registry.ref_count, alloc);
+    return GET(ref_count, alloc);
 }
 
 auto allocation_get_data(Allocation alloc) -> void*
 {
-    auto& registry = get_registry();
-
-    return get(registry.data, alloc);
+    return GET(data, alloc);
 }
 
 auto allocation_from(void* data) -> Allocation
 {
     if (!data) return {};
-
-    auto& registry = get_registry();
 
     // std::flat_map::lower_bound returns the first entry that is `>= data`
     // We reverse this by using `std::greater` in place of `std::less`
@@ -143,11 +150,11 @@ auto allocation_from(void* data) -> Allocation
     Allocation alloc = {iter->second};
 
     // We then bounds check to see if this pointer is contained within the specified allocation
-    uintptr_t lower = uintptr_t(get(registry.data, alloc));
-    uintptr_t upper = lower + get(registry.size, alloc);
+    uintptr_t lower = uintptr_t(GET(data, alloc));
+    uintptr_t upper = lower + GET(size, alloc);
     if (upper <= uintptr_t(data)) return {};
 
-    debug_assert(get(registry.version, alloc));
+    debug_assert(GET(version, alloc));
 
     return alloc;
 }

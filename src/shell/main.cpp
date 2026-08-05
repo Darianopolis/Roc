@@ -10,8 +10,6 @@
 
 auto shell_main(int argc, char* argv[]) -> int
 {
-    debug_handlers();
-
     bool in_direct_session = env_get("WAYLAND_DISPLAY").value_or("").empty();
     auto home_dir = std::filesystem::path(env_get("HOME").value_or(""));
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
@@ -27,10 +25,7 @@ auto shell_main(int argc, char* argv[]) -> int
         log_set_structured_log(PROGRAM_NAME ".log");
     }
 
-    fd_leak_mark_inherited();
-    defer {
-        fd_leak_check();
-    };
+    fd_mark_open_as_inherited();
 
     log_info("{} ({:n:})", PROJECT_NAME, std::span<const char* const>(argv, num_cast<usz>(argc)));
 

@@ -4,8 +4,10 @@
 #include <core/log.hpp>
 #include <core/enum.hpp>
 #include <core/chrono.hpp>
+#include <core/entry.inl>
 
-int main()
+static
+auto client(int argc, char* argv[]) -> int
 {
     auto exec = exec_create();
     auto conn = socket_connect(exec.get(), "ipc-test-socket");
@@ -71,4 +73,8 @@ int main()
     };
 
     exec_run(exec.get());
+
+    return EXIT_SUCCESS;
 }
+
+DEFINE_MAIN(client)

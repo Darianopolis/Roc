@@ -12,19 +12,19 @@
 struct SpawnActionDup2
 {
     fd_t from, to;
-    auto operator()() const { return unix_check<dup2>(from, to); }
+    auto operator()() const { return unix_call<dup2>(from, to); }
 };
 
 struct SpawnActionClose
 {
     fd_t fd;
-    auto operator()() const { return unix_check<close>(fd); }
+    auto operator()() const { return unix_call<close>(fd); }
 };
 
 struct SpawnActionSetFdFlags
 {
     fd_t fd; int flags;
-    auto operator()() const { return unix_check<fcntl>(fd, F_SETFD, flags); }
+    auto operator()() const { return unix_call<fcntl>(fd, F_SETFD, flags); }
 };
 
 using SpawnAction = std::variant<SpawnActionDup2,  SpawnActionClose, SpawnActionSetFdFlags>;
@@ -36,10 +36,12 @@ extern "C"
 
 static
 auto spawn(
-    fd_t exec_file,
-    char** argv,
-    char** env,
+    fd_t exe,
     fd_t dir,
+    char** argv,
+    char** envp,
+    u32 fd_lim_cur,
+    u32 fd_lim_max,
     std::span<const SpawnAction> actions) -> UnixResult<Fd>
 {
     int pidfd = -1;
@@ -54,26 +56,37 @@ auto spawn(
     // Prepopulate stack with child spawn function
 
     int error = 0;
-#define SPAWN_TRY(...) if ((error = (__VA_ARGS__).error)) goto spawn_failure
+#define SPAWN_FAIL return 127
+#define SPAWN_TRY(...) if ((error = (__VA_ARGS__).error)) SPAWN_FAIL
 
     auto prepare_and_exec = [&] -> int {
-        // Change working directory
-        if (dir != -1) SPAWN_TRY(unix_check<fchdir>(dir));
 
-        // Unblock any signals currently blocked for signalfd handling purposes
+        // Change working directory
+        if (dir != -1) SPAWN_TRY(unix_call<fchdir>(dir));
+
+        // Unblock all signals
         sigset_t mask;
-        SPAWN_TRY(unix_check<sigfillset>(&mask));
-        SPAWN_TRY(unix_check<sigprocmask>(SIG_UNBLOCK, &mask, nullptr));
+        SPAWN_TRY(unix_call<sigfillset>(&mask));
+        SPAWN_TRY(unix_call<sigprocmask>(SIG_UNBLOCK, &mask, nullptr));
+
+        // Mark all file descriptors below inherited limit for close-on-exec
+        SPAWN_TRY(unix_call<close_range>(0u, fd_lim_cur - 1, literal_cast<int>(CLOSE_RANGE_CLOEXEC)));
 
         // Apply file descriptor actions
         for (auto& action : actions) {
             SPAWN_TRY(std::visit([](auto&& op) { return op(); }, action));
         }
 
-        SPAWN_TRY(unix_check<execveat>(exec_file, "", argv, env, AT_EMPTY_PATH));
+        // Close file descriptors above target limit
+        SPAWN_TRY(unix_call<close_range>(fd_lim_cur, ~0u, 0));
 
-    spawn_failure:
-        return 127;
+        // Update NOFILE limit
+        SPAWN_TRY(unix_call<setrlimit>(RLIMIT_NOFILE, ptr_to(rlimit{fd_lim_cur, fd_lim_max})));
+
+        // Exec
+        SPAWN_TRY(unix_call<execveat>(exe, "", argv, envp, AT_EMPTY_PATH));
+
+        SPAWN_FAIL;
     };
 
     {
@@ -93,6 +106,10 @@ auto spawn(
         .stack = __u64(stack),
         .stack_size = stack_size - 16,
     }), sizeof(clone_args));
+
+    if (error) {
+        log_error("Spawn : Error in pre-exec step: {}", strerror(error));
+    }
 
     if (pid < 0) {
         return {{}, errno};
@@ -151,66 +168,92 @@ auto generate_fd_actions(std::span<const SpawnFdInherit> remaps, fd_t free_slot)
     return ops;
 }
 
-auto spawn(
-    fd_t exe,
-    std::span<const std::string_view> args,
-    const Environment* env,
-    std::span<const SpawnFdInherit> fds) -> Fd
+struct SpawnCStrs
 {
-    // Generate file descriptor actions
+    std::deque<std::string> strs;
+    std::vector<char*> cstrs;
 
-    std::flat_set<fd_t> parent_fds;
-    std::flat_set<fd_t> child_fds;
-    parent_fds.insert_range(fds | std::views::transform([](auto f) { return f.parent; }));
-    child_fds.insert_range( fds | std::views::transform([](auto f) { return f.child;  }));
-    child_fds.emplace(exe);
+    SpawnCStrs(const auto& src)
+    {
+        for (const auto& str : src) {
+            cstrs.emplace_back(strs.emplace_back(str).data());
+        }
+        cstrs.emplace_back(nullptr);
+    }
 
-    auto allocate_fd_slot = [&] {
-        for (int i = fd_limit; i --> 0;) {
-            if (!child_fds.contains(i) && !parent_fds.contains(i)) {
-                child_fds.emplace(i);
-                return i;
+    char** get()
+    {
+        return cstrs.data();
+    }
+};
+
+auto spawn(const SpawnInfo& info) -> Fd
+{
+    for (auto& map : info.fds) {
+        debug_assert(map.child < info.fd_limit,
+            "spawn : FD mapping invalid : child FD {} must be lower than child FD limit {}", map.child, info.fd_limit);
+    }
+
+    // Map out protected file descriptors that we can't trample
+
+    auto find_free_fd = [&](fd_t limit, const auto& ...used) {
+        for (fd_t fd = 0; fd < limit; ++fd) {
+            if ((... && !used.contains(fd))) {
+                return fd;
             }
         }
-
-        debug_assert_fail("allocate_fd_slot", "File descriptors exhausted!");
+        return -1;
     };
 
-    auto actions = generate_fd_actions(fds, allocate_fd_slot());
+    std::vector<SpawnFdInherit> fd_map{info.fds.begin(), info.fds.end()};
 
-    for (fd_t fd : {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO}) {
-        if (!child_fds.contains(fd)) actions.emplace_back(SpawnActionClose{fd});
+    std::flat_set<fd_t> parent_fds;
+    parent_fds.insert_range(info.fds | std::views::transform([](auto f) { return f.parent; }));
+
+    std::flat_set<fd_t> child_fds;
+    child_fds.insert_range(info.fds | std::views::transform([](auto f) { return f.child; }));
+
+    // Allocate spot in child file descriptor space for executable
+
+    fd_t exe_child = find_free_fd(info.fd_limit, child_fds);
+    if (exe_child < 0) {
+        log_error("Spawn : Failed to allocate fd for executable in child fd space");
+        return {};
     }
+    parent_fds.emplace(info.executable);
+    child_fds.emplace(exe_child);
+    fd_map.emplace_back(info.executable, exe_child);
+
+    // Allocate scratch file descriptor for performing file actions
+
+    fd_t scratch_fd = find_free_fd(fd_get_limits().current, child_fds, parent_fds);
+    if (scratch_fd < 0) {
+        log_error("Spawn : Failed to allocate scratch fd for fd actions");
+        return {};
+    }
+
+    child_fds.emplace(scratch_fd);
+
+    // Generate file actions
+
+    auto actions = generate_fd_actions(fd_map, scratch_fd);
+    actions.emplace_back(SpawnActionSetFdFlags{exe_child, FD_CLOEXEC});
 
     // Convert args and env to char** for exec
 
-    std::vector<std::string> strs;
-    std::vector<char*> cstrs;
-
-    strs.reserve( args.size() + (env ? env->entries.size() : 0));
-    cstrs.reserve(args.size() + (env ? env->entries.size() : 0) + 2);
-
-    for (auto& a : args) {
-        cstrs.emplace_back(strs.emplace_back(a).data());
-    }
-    cstrs.emplace_back(nullptr);
-
-    char** argp = cstrs.data();
-    char** envp;
-
-    if (env) {
-        envp = cstrs.data() + cstrs.size();
-        for (auto[key, value] : env->entries) {
-            cstrs.emplace_back(strs.emplace_back(std::format("{}={}", key, value)).data());
-        }
-        cstrs.emplace_back(nullptr);
-    } else {
-        envp = environ;
-    }
+    SpawnCStrs args{info.args};
+    SpawnCStrs envp{info.env | std::views::transform([](const auto& e) { return std::format("{}={}", e.first, e.second); })};
 
     // Spawn process
 
-    auto res = spawn(exe, argp, envp, env ? env->dir.get() : -1, actions);
+    auto res = spawn(
+        /*        exe = */ exe_child,
+        /*        dir = */ info.directory,
+        /*       argv = */ args.get(),
+        /*       envp = */ envp.get(),
+        /* fd_lim_cur = */ num_cast<u32>(info.fd_limit),
+        /* fd_lim_max = */ num_cast<u32>(fd_get_limits().max),
+        /* fd_actions = */ actions);
 
     if (res.ok()) {
         return std::move(res.value);

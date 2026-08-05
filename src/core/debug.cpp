@@ -50,7 +50,7 @@ void handle_signal(int signal, siginfo_t*, void*)
     fflush(stderr);
 }
 
-void debug_handlers()
+void debug_init()
 {
     for (int signal : posix_signals) {
         struct sigaction action;

@@ -11,14 +11,19 @@ UNIX_FUNCTION(pipe,   UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(dup2,   UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(fchdir, UnixErrorBehavior::negative_one)
 
+UNIX_FUNCTION(close_range, UnixErrorBehavior::negative_one)
+
 UNIX_FUNCTION(fdopen,  UnixErrorBehavior::null)
 UNIX_FUNCTION(freopen, UnixErrorBehavior::null)
+UNIX_FUNCTION(fclose,  UnixErrorBehavior::null)
 
 // Process
 
 UNIX_FUNCTION(sigfillset,  UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(sigprocmask, UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(execveat,    UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(getrlimit,   UnixErrorBehavior::negative_one)
+UNIX_FUNCTION(setrlimit,   UnixErrorBehavior::negative_one)
 
 // Memory
 

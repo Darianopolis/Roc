@@ -16,16 +16,10 @@ struct LogState
     std::recursive_mutex mutex;
 };
 
-static
-auto get_log_state() -> LogState&
-{
-    static LogState state;
-    return state;
-}
+static LogState state;
 
 void log_set_structured_log(const std::filesystem::path& path)
 {
-    auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };
 
     auto fd = path_open(path, O_RDWR | O_TRUNC | O_APPEND | O_CREAT, 0666);
@@ -40,7 +34,6 @@ void log_redirect_stdout(const std::filesystem::path& path)
 
 void log_redirect_stderr(const std::filesystem::path& path)
 {
-    auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };
 
     state.is_stderr_redirected = true;
@@ -54,7 +47,6 @@ void log(LogSemantic semantic, std::string_view message)
 
     auto timestamp = std::chrono::system_clock::now();
 
-    auto& state = get_log_state();
     std::scoped_lock _ { state.mutex };
 
 #define LOG(...) std::println(stderr, __VA_ARGS__, FmtTime{timestamp, TimeFormat::time_ms}, message)

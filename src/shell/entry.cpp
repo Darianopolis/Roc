@@ -1,6 +1,5 @@
 #include "entry.hpp"
 
-auto main(int argc, char* argv[]) -> int
-{
-    return shell_main(argc, argv);
-}
+#include <core/entry.inl>
+
+DEFINE_MAIN(shell_main)

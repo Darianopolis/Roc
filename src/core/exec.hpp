@@ -30,7 +30,8 @@ struct ExecContext
 
     Fd epoll_fd;
 
-    std::array<Ref<FdListener>, fd_limit> listeners = {};
+    ankerl::unordered_dense::map<fd_t, Ref<FdListener>> listeners = {};
+    FdListener** fd_map;
 
     ~ExecContext();
 };

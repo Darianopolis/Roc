@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "debug.hpp"
 
 inline
 auto as_bytes(auto&& range) -> std::span<const byte>
@@ -77,4 +78,18 @@ constexpr
 auto align_up_power2(T v, usz align) noexcept -> T
 {
     return num_cast<T>((num_cast<usz>(v) + (align - 1)) &~ (align - 1));
+}
+
+// -----------------------------------------------------------------------------
+
+template<typename T>
+auto memory_map(usz count) -> T*
+{
+    return reinterpret_cast<T*>(unix_check<mmap>(nullptr, count * sizeof(T), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0).value);
+}
+
+template<typename T>
+void memory_unmap(T* data, usz count)
+{
+    unix_check<munmap>(data, count * sizeof(T));
 }

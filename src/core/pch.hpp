@@ -61,12 +61,14 @@
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 
 #include <drm/drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
 #include <linux/dma-buf.h>
+#include <linux/types.h>
 
 // -----------------------------------------------------------------------------
 
