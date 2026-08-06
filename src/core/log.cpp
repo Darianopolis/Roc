@@ -1,30 +1,31 @@
 #include "pch.hpp"
 #include "log.hpp"
-#include "stacktrace.hpp"
 #include "chrono.hpp"
 #include "enum.hpp"
 #include "fd.hpp"
 #include "process.hpp"
 
-struct LogState
+static Logger* logger;
+
+Logger::Logger()
 {
-    std::unique_ptr<FILE, decltype([](FILE* f) { fclose(f); })> log_file;
+    debug_assert(!logger);
+    logger = this;
+}
 
-    bool is_stderr_redirected;
-
-    StacktraceCache stacktraces;
-    std::recursive_mutex mutex;
-};
-
-static LogState state;
+Logger::~Logger()
+{
+    debug_assert(logger == this);
+    logger = nullptr;
+}
 
 void log_set_structured_log(const std::filesystem::path& path)
 {
-    std::scoped_lock _ { state.mutex };
+    std::scoped_lock _ { logger->mutex };
 
     auto fd = path_open(path, O_RDWR | O_TRUNC | O_APPEND | O_CREAT, 0666);
-    state.log_file.reset(unix_check<fdopen>(fd.get(), "w").value);
-    if (state.log_file) fd.extract();
+    logger->log_file.reset(unix_check<fdopen>(fd.get(), "w").value);
+    if (logger->log_file) fd.extract();
 }
 
 void log_redirect_stdout(const std::filesystem::path& path)
@@ -34,9 +35,9 @@ void log_redirect_stdout(const std::filesystem::path& path)
 
 void log_redirect_stderr(const std::filesystem::path& path)
 {
-    std::scoped_lock _ { state.mutex };
+    std::scoped_lock _ { logger->mutex };
 
-    state.is_stderr_redirected = true;
+    logger->is_stderr_redirected = true;
     unix_check<freopen>(path.c_str(), "w", stderr);
 }
 
@@ -47,12 +48,12 @@ void log(LogSemantic semantic, std::string_view message)
 
     auto timestamp = std::chrono::system_clock::now();
 
-    std::scoped_lock _ { state.mutex };
+    std::scoped_lock _ { logger->mutex };
 
 #define LOG(...) std::println(stderr, __VA_ARGS__, FmtTime{timestamp, TimeFormat::time_ms}, message)
 #define LOG_COLOR(color, text) "\u001B[" #color "m" text "\u001B[0m"
 
-    if (state.is_stderr_redirected) {
+    if (logger->is_stderr_redirected) {
         switch (semantic) {
             break;case LogSemantic::trace: LOG("{} [TRACE] {}");
             break;case LogSemantic::debug: LOG("{} [DEBUG] {}");
@@ -73,8 +74,8 @@ void log(LogSemantic semantic, std::string_view message)
     }
     fflush(stderr);
 
-    if (auto* out = state.log_file.get()) {
-        auto[stacktrace, new_stacktrace] = state.stacktraces.insert(std::stacktrace::current(1));
+    if (auto* out = logger->log_file.get()) {
+        auto[stacktrace, new_stacktrace] = logger->stacktraces.insert(std::stacktrace::current(1));
         if (new_stacktrace) {
             std::println(out, "s {}", (void*)stacktrace);
             for (auto& entry : *stacktrace) {

@@ -31,8 +31,26 @@ auto allocation_from(void*) -> Allocation;
 
 // -----------------------------------------------------------------------------
 
-void allocator_init();
-void allocator_deinit();
+struct Allocator
+{
+    std::flat_map<void*, u32, std::greater<void*>> lookup;
+
+    std::vector<u32> freelist;
+    u32 last_index = 0;
+
+    AllocationVersion last_version = 0;
+
+    u32 slot_count;
+
+    void**             data;
+    usz*               size;
+    AllocationVersion* version;
+    u32*               ref_count;
+    AllocationFree*    free;
+
+    Allocator();
+    ~Allocator();
+};
 
 auto allocation_new(usz size, AllocationFree free) -> Allocation;
 

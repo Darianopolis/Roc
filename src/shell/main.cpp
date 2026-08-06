@@ -10,6 +10,11 @@
 
 auto shell_main(int argc, char* argv[]) -> int
 {
+    DebugSignalHandlers _;
+    Logger _;
+    Allocator _;
+    FdRegistry _;
+
     bool in_direct_session = env_get("WAYLAND_DISPLAY").value_or("").empty();
     auto home_dir = std::filesystem::path(env_get("HOME").value_or(""));
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
@@ -27,7 +32,9 @@ auto shell_main(int argc, char* argv[]) -> int
 
     fd_mark_open_as_inherited();
 
-    log_info("{} ({:n:})", PROJECT_NAME, std::span<const char* const>(argv, num_cast<usz>(argc)));
+    log_info("{} started at [{}]", PROJECT_NAME, FmtTime{std::chrono::system_clock::now(), TimeFormat::iso8601});
+    log_info("  args: {}", std::span<const char* const>(argv, num_cast<usz>(argc)));
+    log_info("  fd limits: (current: {}, child: {})", fd_get_limits().current, fd_get_limits().inherited);
 
     auto exec = exec_create();
 

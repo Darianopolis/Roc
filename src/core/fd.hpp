@@ -9,11 +9,6 @@ using fd_t = int;
 
 // -----------------------------------------------------------------------------
 
-void fd_registry_init();
-void fd_registry_deinit();
-
-// -----------------------------------------------------------------------------
-
 struct FdLimits
 {
     fd_t inherited;
@@ -25,13 +20,26 @@ auto fd_get_limits() -> const FdLimits&;
 
 // -----------------------------------------------------------------------------
 
+struct FdRegistry
+{
+    FdLimits limit;
+
+    u32 * ref_counts;
+    bool* inherited;
+
+    FdRegistry();
+    ~FdRegistry();
+};
+
+void fd_mark_open_as_inherited();
+
+// -----------------------------------------------------------------------------
+
 inline
 auto fd_to_index(fd_t fd) -> u32
 {
     return num_cast<u32>(fd);
 }
-
-void fd_mark_open_as_inherited();
 
 // -----------------------------------------------------------------------------
 

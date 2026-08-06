@@ -4,7 +4,6 @@
 #include <core/util.hpp>
 #include <core/log.hpp>
 #include <core/enum.hpp>
-#include <core/entry.inl>
 
 static
 auto process_message(SocketConnection* conn) -> bool
@@ -43,8 +42,14 @@ auto process_message(SocketConnection* conn) -> bool
     return true;
 }
 
-int server(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
+    DebugSignalHandlers _;
+    Logger _;
+    Allocator _;
+    FdRegistry _;
+    fd_mark_open_as_inherited();
+
     auto exec = exec_create();
     auto listener = socket_listen(exec.get(), "ipc-test-socket");
     ankerl::unordered_dense::set<Ref<SocketConnection>> connections;
@@ -70,5 +75,3 @@ int server(int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
-
-DEFINE_MAIN(server)

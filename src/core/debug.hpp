@@ -2,7 +2,11 @@
 
 #include "pch.hpp"
 
-void debug_init();
+struct DebugSignalHandlers
+{
+    DebugSignalHandlers();
+    ~DebugSignalHandlers();
+};
 
 CORE_NOINLINE inline
 void debug_break()

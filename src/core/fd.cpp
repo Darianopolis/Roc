@@ -5,55 +5,55 @@
 #include "memory.hpp"
 #include "chrono.hpp"
 
-struct FdRegistry
+static FdRegistry* registry;
+
+FdRegistry::FdRegistry()
 {
-    FdLimits limit;
+    debug_assert(!registry);
 
-    u32 * ref_counts;
-    bool* inherited;
-};
-
-static FdRegistry registry;
-
-void fd_registry_init()
-{
     rlimit lim;
     unix_check<getrlimit>(RLIMIT_NOFILE, &lim);
-    registry.limit.max = num_cast<fd_t>(lim.rlim_max);
-    registry.limit.inherited = num_cast<fd_t>(lim.rlim_cur);
-    registry.limit.current = std::min(registry.limit.max, 1 << 20);
+    limit.max = num_cast<fd_t>(lim.rlim_max);
+    limit.inherited = num_cast<fd_t>(lim.rlim_cur);
+    limit.current = std::min(limit.max, 1 << 20);
 
-    lim.rlim_cur = num_cast<rlim_t>(registry.limit.current);
+    lim.rlim_cur = num_cast<rlim_t>(limit.current);
     auto res = unix_check<setrlimit>(RLIMIT_NOFILE, &lim);
     debug_assert(res);
 
-    registry.ref_counts = memory_map<u32 >(num_cast<usz>(registry.limit.current));
-    registry.inherited  = memory_map<bool>(num_cast<usz>(registry.limit.current));
+    ref_counts = memory_map<u32 >(num_cast<usz>(limit.current));
+    inherited  = memory_map<bool>(num_cast<usz>(limit.current));
+
+    registry = this;
 }
 
 static
 void fd_leak_check();
 
-void fd_registry_deinit()
+FdRegistry::~FdRegistry()
 {
+    debug_assert(registry == this);
+
     fd_leak_check();
 
-    memory_unmap(registry.ref_counts, num_cast<usz>(registry.limit.current));
-    memory_unmap(registry.inherited,  num_cast<usz>(registry.limit.current));
+    memory_unmap(ref_counts, num_cast<usz>(limit.current));
+    memory_unmap(inherited,  num_cast<usz>(limit.current));
+
+    registry = nullptr;
 }
 
 // -----------------------------------------------------------------------------
 
 auto fd_get_limits() -> const FdLimits&
 {
-    return registry.limit;
+    return registry->limit;
 }
 
 // -----------------------------------------------------------------------------
 
 auto fd_is_valid(fd_t fd) -> bool
 {
-    return fd >= 0 && fd < num_cast<fd_t>(registry.limit.current);
+    return fd >= 0 && fd < num_cast<fd_t>(registry->limit.current);
 }
 
 auto fd_are_same(fd_t fd0, fd_t fd1) -> bool
@@ -99,7 +99,7 @@ auto iterate_open_fds()
 void fd_mark_open_as_inherited()
 {
     for (fd_t open : iterate_open_fds()) {
-        registry.inherited[fd_to_index(open)] = true;
+        registry->inherited[fd_to_index(open)] = true;
     }
 }
 
@@ -107,7 +107,7 @@ static
 void fd_leak_check()
 {
     auto leaked = std::ranges::to<std::vector>(iterate_open_fds()
-        | std::views::filter([&](fd_t fd) { return !registry.inherited[fd_to_index(fd)] && fd_exists(fd); }));
+        | std::views::filter([&](fd_t fd) { return !registry->inherited[fd_to_index(fd)] && fd_exists(fd); }));
 
     if (!leaked.empty()) {
         log_error("Fd :: {} file descriptor(s) leaked", leaked);
@@ -118,14 +118,14 @@ auto fd_get_ref_count(fd_t fd) -> u32
 {
     if (!fd_is_valid(fd)) return 0;
 
-    return registry.ref_counts[fd_to_index(fd)];
+    return registry->ref_counts[fd_to_index(fd)];
 }
 
 auto fd_ref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    registry.ref_counts[fd_to_index(fd)]++;
+    registry->ref_counts[fd_to_index(fd)]++;
     return fd;
 }
 
@@ -139,7 +139,7 @@ auto fd_unref(fd_t fd) -> fd_t
 {
     if (!fd_is_valid(fd)) return -1;
 
-    if (!--registry.ref_counts[fd_to_index(fd)]) {
+    if (!--registry->ref_counts[fd_to_index(fd)]) {
         destroy_fd(fd);
         return -1;
     }
@@ -151,7 +151,7 @@ auto fd_extract(fd_t fd) -> fd_t
 {
     debug_assert(fd_is_valid(fd));
     debug_assert(fd_get_ref_count(fd) == 1);
-    registry.ref_counts[fd_to_index(fd)] = 0;
+    registry->ref_counts[fd_to_index(fd)] = 0;
     return fd;
 }
 

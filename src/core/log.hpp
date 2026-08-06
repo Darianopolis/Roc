@@ -2,6 +2,20 @@
 
 #include "pch.hpp"
 #include "types.hpp"
+#include "stacktrace.hpp"
+
+struct Logger
+{
+    std::unique_ptr<FILE, decltype([](FILE* f) { fclose(f); })> log_file;
+
+    bool is_stderr_redirected;
+
+    StacktraceCache stacktraces;
+    std::recursive_mutex mutex;
+
+    Logger();
+    ~Logger();
+};
 
 enum class LogSemantic : u32
 {

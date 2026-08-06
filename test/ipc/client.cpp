@@ -4,11 +4,15 @@
 #include <core/log.hpp>
 #include <core/enum.hpp>
 #include <core/chrono.hpp>
-#include <core/entry.inl>
 
-static
-auto client(int argc, char* argv[]) -> int
+auto main(int argc, char* argv[]) -> int
 {
+    DebugSignalHandlers _;
+    Logger _;
+    Allocator _;
+    FdRegistry _;
+    fd_mark_open_as_inherited();
+
     auto exec = exec_create();
     auto conn = socket_connect(exec.get(), "ipc-test-socket");
 
@@ -76,5 +80,3 @@ auto client(int argc, char* argv[]) -> int
 
     return EXIT_SUCCESS;
 }
-
-DEFINE_MAIN(client)

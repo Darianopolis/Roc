@@ -58,6 +58,14 @@ auto path_open(const std::filesystem::path& path, int oflags = 0, auto... args) 
     return Fd(unix_check<open>(path.c_str(), oflags | O_CLOEXEC, args...).value);
 }
 
+inline
+auto path_real(fd_t fd) -> std::filesystem::path
+{
+    auto real = ::realpath(std::format("/proc/self/fd/{}", fd).c_str(), nullptr);
+    defer { ::free(real); };
+    return real;
+}
+
 // -----------------------------------------------------------------------------
 
 struct SpawnFdInherit
