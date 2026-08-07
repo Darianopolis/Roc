@@ -279,6 +279,7 @@ target_sources(${LIBNAME} PRIVATE
     src/way/buffer/buffer.cpp
     src/way/buffer/dmabuf.cpp
     src/way/buffer/shm.cpp
+    src/way/buffer/tearing.cpp
 
     src/way/data/data.cpp
 

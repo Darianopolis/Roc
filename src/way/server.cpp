@@ -65,6 +65,7 @@ auto way_create(WmServer* wm, ExecContext* exec) -> Ref<WayServer>
     way_global(server.get(), xdg_activation_v1);
     way_output_init(server.get());
     way_dmabuf_init(server.get());
+    way_global(server.get(), wp_tearing_control_manager_v1);
 
     way_seat_init(server.get());
 

@@ -7,6 +7,7 @@
 
 #include <wayland/server/linux-dmabuf-v1.h>
 #include <wayland/server/linux-drm-syncobj-v1.h>
+#include <wayland/server/tearing-control-v1.h>
 
 enum class WayBufferAcquireFlags : u32
 {
@@ -49,3 +50,6 @@ WAY_INTERFACE_DECLARE(wl_shm_pool);
 WAY_INTERFACE_DECLARE(zwp_linux_dmabuf_v1, 5);
 WAY_INTERFACE_DECLARE(zwp_linux_buffer_params_v1);
 WAY_INTERFACE_DECLARE(zwp_linux_dmabuf_feedback_v1);
+
+WAY_INTERFACE_DECLARE(wp_tearing_control_manager_v1, 1);
+WAY_INTERFACE_DECLARE(wp_tearing_control_v1);
