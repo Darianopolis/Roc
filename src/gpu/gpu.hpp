@@ -231,7 +231,7 @@ struct Gpu
 
     ankerl::unordered_dense::segmented_map<GpuFormatPropertiesKey, GpuFormatProperties> format_props;
 
-    ankerl::unordered_dense::map<u64, std::vector<VkDeviceMemory>> buffer_allocation_cache;
+    ankerl::unordered_dense::map<u64, std::vector<std::pair<VkDeviceMemory, void*>>> buffer_allocation_cache;
 
     struct {
         u32 family;

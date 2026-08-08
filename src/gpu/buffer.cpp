@@ -40,14 +40,16 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
             .allocationSize = cache_size,
             .memoryTypeIndex = index.value(),
         }), nullptr, &buffer->memory));
+
+        gpu_check(gpu->vk.MapMemory(gpu->device, buffer->memory, 0, size, {}, &buffer->host_address));
     } else {
-        buffer->memory = cache.back();
+        auto[memory, data] = cache.back();
+        buffer->memory = memory;
+        buffer->host_address = data;
         cache.pop_back();
     }
 
     gpu->vk.BindBufferMemory(gpu->device, buffer->buffer, buffer->memory, 0);
-
-    gpu_check(gpu->vk.MapMemory(gpu->device, buffer->memory, 0, size, {}, &buffer->host_address));
 
     buffer->device_address = gpu->vk.GetBufferDeviceAddress(gpu->device, ptr_to(VkBufferDeviceAddressInfo {
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -64,6 +66,6 @@ GpuBuffer::~GpuBuffer()
     VkMemoryRequirements mem_reqs;
     gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer, &mem_reqs);
     auto cache_size = round_up_power2(mem_reqs.size);
-    gpu->buffer_allocation_cache[cache_size].emplace_back(memory);
+    gpu->buffer_allocation_cache[cache_size].emplace_back(memory, host_address);
     gpu->vk.DestroyBuffer(gpu->device, buffer, nullptr);
 }

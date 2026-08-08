@@ -13,7 +13,7 @@ Gpu::~Gpu()
 
     if (device) {
         for (auto[_, memory_cache] : buffer_allocation_cache) {
-            for (auto memory : memory_cache) {
+            for (auto[memory, data] : memory_cache) {
                 vk.FreeMemory(device, memory, nullptr);
             }
         }

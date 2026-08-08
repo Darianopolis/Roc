@@ -50,6 +50,7 @@
     DO(DestroyBuffer) \
     DO(FreeMemory) \
     DO(MapMemory) \
+    DO(UnmapMemory) \
     DO(GetBufferDeviceAddress) \
     DO(CmdPushConstants) \
     DO(DestroyImage) \
