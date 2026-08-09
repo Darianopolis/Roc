@@ -107,10 +107,6 @@ auto spawn(
         .stack_size = stack_size - 16,
     }), sizeof(clone_args));
 
-    if (error) {
-        log_error("Spawn : Error in pre-exec step: {}", strerror(error));
-    }
-
     if (pid < 0) {
         return {{}, errno};
     } else if (pid) {
@@ -126,43 +122,76 @@ auto generate_fd_actions(std::span<const SpawnFdInherit> remaps, fd_t free_slot)
 {
     std::vector<SpawnAction> ops;
 
-    bool free_slot_used = false;
+    struct Unresolved
+    {
+        fd_t parent;
+        int blocker_count;
+    };
 
-    std::unordered_map<int, int> mapping;
-    for (auto& m : remaps) mapping[m.parent] = m.child;
+    ankerl::unordered_dense::map<fd_t, Unresolved> unresolved;
 
-    while (!mapping.empty()) {
-        auto[cycle_start, next] = *mapping.begin();
-
-        if (cycle_start == next) {
-            // Identity, simply mark inherited
-            ops.push_back(SpawnActionSetFdFlags{cycle_start, 0});
-            mapping.erase(cycle_start);
-            continue;
-        }
-
-        std::vector<int> elements{cycle_start, next};
-        while (next != cycle_start && mapping.contains(next)) {
-            elements.emplace_back((next = mapping.at(next)));
-        }
-
-        if (next == cycle_start) {
-            ops.push_back(SpawnActionDup2{next, free_slot});
-            elements[0] = free_slot;
-            free_slot_used = true;
-        }
-
-        for (usz i = elements.size() - 1; i --> 0;) {
-            ops.push_back(SpawnActionDup2{elements[i], elements[i + 1]});
-        }
-
-        for (auto e : elements) {
-            mapping.erase(e);
+    for (auto[parent, child] : remaps) {
+        if (parent == child) {
+            // Trivial inheritance case, drop close-on-exec flag
+            ops.emplace_back(SpawnActionSetFdFlags{child, 0});
+        } else {
+            // Add to unresolved set
+            auto res = unresolved.insert({child, {parent, 0}});
+            debug_assert(res.second, "Spawn :: Duplicate remap target fd");
         }
     }
 
-    if (free_slot_used) {
-        ops.push_back(SpawnActionClose{free_slot});
+    // A given copy (A) is blocked by any other copy (B) where B.read == A.write
+    for (auto[parent, child] : remaps) {
+        if (parent == child) continue;
+
+        auto blocked = unresolved.find(parent);
+        if (blocked != unresolved.end()) {
+            blocked->second.blocker_count++;
+        }
+    }
+
+    std::deque<fd_t> to_unblock;
+
+    // Enqueue any initial unblocked entries
+    for (auto&[child, pending] : unresolved) {
+        if (pending.blocker_count == 0) {
+            to_unblock.emplace_back(child);
+        }
+    }
+
+    fd_t scratch_content = -1;
+
+    for (;;) {
+        while (!to_unblock.empty()) {
+            fd_t child = to_unblock.front();
+            to_unblock.pop_front();
+
+            fd_t parent = unresolved.at(child).parent;
+            unresolved.erase(child);
+
+            ops.emplace_back(SpawnActionDup2{parent == scratch_content ? free_slot : parent, child});
+
+            auto blocked = unresolved.find(parent);
+            if (blocked != unresolved.end()) {
+                if (--blocked->second.blocker_count == 0) {
+                    to_unblock.emplace_back(parent);
+                }
+            }
+        }
+
+        if (unresolved.empty()) break;
+
+        // Arbitrarily pick the first unresolved copy to unblock
+        auto first = unresolved.begin();
+        auto&[child, pending] = *first;
+        ops.emplace_back(SpawnActionDup2{pending.parent, free_slot});
+        scratch_content = pending.parent;
+        to_unblock.emplace_back(pending.parent);
+    }
+
+    if (scratch_content != -1) {
+        ops.emplace_back(SpawnActionClose{free_slot});
     }
 
     return ops;
@@ -231,8 +260,6 @@ auto spawn(const SpawnInfo& info) -> Fd
         log_error("Spawn : Failed to allocate scratch fd for fd actions");
         return {};
     }
-
-    child_fds.emplace(scratch_fd);
 
     // Generate file actions
 
