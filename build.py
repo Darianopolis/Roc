@@ -2,13 +2,14 @@
 
 import os
 import shutil
+import stat
 from pathlib import Path
 import subprocess
 import argparse
 import filecmp
 import multiprocessing
 
-from scripts.utils import ensure_dir
+from scripts.utils import ensure_dir, write_file_lazy
 import scripts.deps as deps
 import scripts.wayland as wayland
 import scripts.shaders as shaders
@@ -62,17 +63,32 @@ formats.generate_formats(build_dir=build_dir)
 
 # -----------------------------------------------------------------------------
 
-local_bin_dir  = ensure_dir(os.path.expanduser("~/.local/bin"))
+local_bin_dir       = ensure_dir(os.path.expanduser("~/.local/bin"))
 xdg_portal_conf_dir = ensure_dir(os.path.expanduser("~/.config/xdg-desktop-portal"))
-xdg_portal_dir = ensure_dir(os.path.expanduser("~/.local/share/xdg-desktop-portal/portals"))
+xdg_portal_dir      = ensure_dir(os.path.expanduser("~/.local/share/xdg-desktop-portal/portals"))
+systemd_user_dir    =       Path(os.path.expanduser("~/.config/systemd/user"))
 
-def install_file(file: Path, target: Path):
-    if target.exists():
-        if filecmp.cmp(file, target):
-            return
-        os.remove(target)
-    print(f"Installing [{file.relative_to(cwd)}] to [{target}]")
-    shutil.copy2(file, target)
+def install_file(file: Path, target: Path, substitutions = [], make_executable = False):
+    # Apply substitutions
+    if len(substitutions):
+        data = file.read_text()
+        for (find, replace) in substitutions:
+            data = data.replace(find, replace)
+    else:
+        data = file.read_bytes()
+
+    # Update file contents
+    ensure_dir(target.parent)
+    updated = write_file_lazy(target, data)
+
+    # Update file permissions
+    if make_executable:
+        exe_mode = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+        st = os.stat(target)
+        if (st.st_mode & exe_mode) != exe_mode:
+            os.chmod(target, st.st_mode | exe_mode)
+
+    return updated
 
 # -----------------------------------------------------------------------------
 
@@ -81,7 +97,7 @@ cxx_compilers = {
     "gcc":   "g++",
 }
 
-def build(build_type, compiler, linker_type, program_name: str, install: bool):
+def build(build_type, compiler, linker_type, program_name: str, project_name: str, install: bool):
     build_name = f"{build_type.lower()}-{compiler}-{linker_type.lower()}"
     if args.asan:
         build_name += "-asan"
@@ -90,6 +106,7 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
     configure_ok = True
 
     use_ninja = shutil.which("ninja") is not None
+    use_systemd = shutil.which("systemctl") is not None
 
     if ((args.build or args.install) and not cmake_dir.exists()) or args.configure:
         cmd = [
@@ -97,6 +114,7 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
              "-B", cmake_dir,
             f"-DBUILD_DIR={build_dir}",
             f"-DVENDOR_DIR={vendor_dir}",
+            f"-DPROJECT_NAME={project_name}",
             f"-DPROGRAM_NAME={program_name}",
              "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             f"-DCMAKE_C_COMPILER={compiler}",
@@ -127,20 +145,31 @@ def build(build_type, compiler, linker_type, program_name: str, install: bool):
         if res.returncode != 0:
             os._exit(res.returncode)
 
-    install_file(cmake_dir / program_name, build_dir / program_name)
+    install_file(cmake_dir / program_name, build_dir / program_name, make_executable=True)
 
     if install:
-        install_file(cmake_dir / program_name, local_bin_dir / program_name)
+        install_file(cmake_dir / program_name, local_bin_dir / program_name, make_executable=True)
         install_file(cwd / "resources/portals.conf", xdg_portal_conf_dir / f"{program_name}-portals.conf")
+        if use_systemd:
+            install_file(cwd / "resources/session", local_bin_dir / f"{program_name}-session",
+                substitutions=[("${PROGRAM_NAME}", program_name)],
+                make_executable=True)
+            if install_file(cwd / "resources/session.target", systemd_user_dir / f"{program_name}-session.target",
+                    substitutions=[("{PROJECT_NAME}", project_name)]):
+                subprocess.run(["systemctl", "--user", "daemon-reload"])
 
 # -----------------------------------------------------------------------------
 
 use_mold = not args.system_linker and shutil.which("mold")
 
+project_name = "Roc"
+program_name = project_name.lower()
+
 build(
     build_type   = "RelWithDebInfo" if args.release else "Debug",
     compiler     = "clang"          if args.clang   else "gcc",
     linker_type  = "MOLD"           if use_mold     else "SYSTEM",
-    program_name = "roc",
+    program_name = program_name,
+    project_name = project_name,
     install      = args.install
     )

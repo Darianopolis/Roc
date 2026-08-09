@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.0)
 
-project(Roc C CXX ASM)
+project(${PROJECT_NAME} C CXX ASM)
 
 # ------------------------------------------------------------------------------
 #       Helpers

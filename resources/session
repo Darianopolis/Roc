@@ -1,0 +1,5 @@
+#!/bin/sh
+
+systemctl --user start ${PROGRAM_NAME}-session.target
+${PROGRAM_NAME} "$@"
+systemctl --user stop ${PROGRAM_NAME}-session.target
