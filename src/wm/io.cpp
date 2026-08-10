@@ -42,8 +42,7 @@ void reflow_outputs(WmServer* server, bool any_changed = false)
     if (any_changed) {
         server->signals.output_layout();
         for (auto* output : server->io.outputs) {
-            output->primary_damage = aabb_make_infinite<f32>();
-            output->interface.request_frame(output->userdata);
+            wm_output_damage(output);
         }
     }
 }
@@ -55,7 +54,7 @@ auto wm_output_create(WmServer* server, void* userdata, WmOutputInterface interf
     output->userdata = userdata;
     output->interface = interface;
 
-    output->primary_damage = aabb_make_infinite<f32>();
+    wm_output_damage(output.get());
 
     server->io.outputs.emplace_back(output.get());
     reflow_outputs(server, true);

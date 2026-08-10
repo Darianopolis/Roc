@@ -49,7 +49,7 @@ void main()
                     uv = fma(uv, quad._.src.extent, quad._.src.origin);
 
             // Blend
-            color += quad_sample(quad, uv) * (1.f - color.w);
+            color += quad_sample(quad, uv) * (1.f - color.a);
 
             // Early stop
             if (color.a >= 1) break;

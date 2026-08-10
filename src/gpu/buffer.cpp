@@ -7,6 +7,8 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
 
     buffer->size = size;
 
+    if (size == 0) return buffer;
+
     gpu->stats.active_buffers++;
 
     gpu_check(gpu->vk.CreateBuffer(gpu->device, ptr_to(VkBufferCreateInfo {
@@ -61,6 +63,8 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
 
 GpuBuffer::~GpuBuffer()
 {
+    if (size == 0) return;
+
     gpu->stats.active_buffers--;
 
     VkMemoryRequirements mem_reqs;
