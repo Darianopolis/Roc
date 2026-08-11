@@ -130,4 +130,22 @@ void wm_init_hotkeys(WmServer* server)
             wm_output_damage(output);
         }
     });
+
+    // DEBUG : Toggle VRR
+    hotkey(KEY_U, [server](auto...) {
+        server->debug.use_vrr = !server->debug.use_vrr;
+        wm_toast(server, std::format("Variable Refresh Rate: {}", server->debug.use_vrr ? "Enabled" : "Disabled"));
+        for (auto* output : server->io.outputs) {
+            wm_output_damage(output);
+        }
+    });
+
+    // DEBUG : Toggle Direct Scanout
+    hotkey(KEY_I, [server](auto...) {
+        server->debug.use_direct_scanout = !server->debug.use_direct_scanout;
+        wm_toast(server, std::format("Direct Scanout: {}", server->debug.use_direct_scanout ? "Enabled" : "Disabled"));
+        for (auto* output : server->io.outputs) {
+            wm_output_damage(output);
+        }
+    });
 }

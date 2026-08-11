@@ -14,6 +14,12 @@ bool try_commit(WmOutput* output, GpuImage* primary, bool use_cursor_plane)
     auto pointer_region = server->cursor_image_bounds;
     pointer_region.origin += seat_pointer_get_position(pointer);
 
+    Flags<WmOutputCommitFlag> flags = {};
+    flags |= WmOutputCommitFlag::vsync;
+    if (server->debug.use_vrr) {
+        flags |= WmOutputCommitFlag::vrr;
+    }
+
     return output->interface.commit(output->userdata, {
         .primary { .image = primary },
         .cursor {
@@ -23,7 +29,7 @@ bool try_commit(WmOutput* output, GpuImage* primary, bool use_cursor_plane)
             .position = vec_cast<i32>(pointer_region.origin - output->viewport.origin),
         },
         .ready = gpu_flush(server->gpu),
-        .flags = WmOutputCommitFlag::vsync
+        .flags = flags,
     });
 }
 
@@ -166,7 +172,7 @@ auto wm_output_frame(WmOutput* output, const GpuFormatSet* formats) -> bool
     // Try direct scanout
 
     if (use_cursor_plane || aabb_is_empty(composited_cursor_bounds)) {
-        if (try_direct_scanout(output, formats, use_cursor_plane)) {
+        if (server->debug.use_direct_scanout && try_direct_scanout(output, formats, use_cursor_plane)) {
             // Set infinite damage to avoid accumulating damage cruft
             output->primary_damage = aabb_make_infinite<f32>();
             return true;

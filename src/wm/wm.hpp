@@ -49,7 +49,8 @@ auto wm_get_signals(WmServer*) -> WmSignals&;
 enum class WmOutputCommitFlag
 {
     vsync = 1 << 0,
-    test  = 1 << 1,
+    vrr   = 1 << 1,
+    test  = 1 << 2,
 };
 
 struct WmOutputCommitInfo

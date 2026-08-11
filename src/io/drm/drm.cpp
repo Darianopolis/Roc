@@ -373,7 +373,7 @@ auto IoDrmOutput::commit(const WmOutputCommitInfo& commit) -> bool
         cursor_plane->set(req, "CRTC_ID", 0);
     }
 
-    crtc->set(req, "VRR_ENABLED", connector->get("vrr_capable"));
+    crtc->set(req, "VRR_ENABLED", commit.flags.contains(WmOutputCommitFlag::vrr) && connector->get("vrr_capable"));
 
     auto flags = literal_cast<u32>(DRM_MODE_ATOMIC_NONBLOCK) | literal_cast<u32>(DRM_MODE_PAGE_FLIP_EVENT);
 
