@@ -383,7 +383,7 @@ auto gpu_image_import(Gpu* gpu, const GpuDmaParams& params, Flags<GpuImageUsage>
             .allocationSize = mem_reqs.memoryRequirements.size,
             .memoryTypeIndex = mem.value(),
         }), nullptr, &image->memory[i]));
-        vk_fd = -1;
+        vk_fd = FD_INVALID;
 
         bind_info[i].sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO;
         bind_info[i].image = image->image;
@@ -442,7 +442,7 @@ auto gpu_image_export(GpuImage* _image) -> GpuDmaParams
     // Export file descriptors
 
     auto export_fd = [&](VkDeviceMemory mem) {
-        fd_t _fd = -1;
+        fd_t _fd = FD_INVALID;
         gpu_check(gpu->vk.GetMemoryFdKHR(gpu->device, ptr_to(VkMemoryGetFdInfoKHR {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
             .memory = image->memory[0],

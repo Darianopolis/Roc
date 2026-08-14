@@ -7,6 +7,8 @@
 
 using fd_t = int;
 
+static constexpr fd_t FD_INVALID = -1;
+
 // -----------------------------------------------------------------------------
 
 struct FdLimits
@@ -62,7 +64,7 @@ struct Fd
     fd_t fd;
 
     Fd()
-        : fd(-1)
+        : fd(FD_INVALID)
     {}
 
     explicit Fd(fd_t fd)
@@ -86,14 +88,14 @@ struct Fd
     }
 
     Fd(Fd&& other)
-        : fd(std::exchange(other.fd, -1))
+        : fd(std::exchange(other.fd, FD_INVALID))
     {}
 
     auto& operator=(Fd&& other)
     {
         if (this != &other) {
             fd_unref(fd);
-            fd = std::exchange(other.fd, -1);
+            fd = std::exchange(other.fd, FD_INVALID);
         }
         return *this;
     }
@@ -103,7 +105,7 @@ struct Fd
         fd_unref(fd);
     }
 
-    void reset(fd_t new_fd = -1)
+    void reset(fd_t new_fd = FD_INVALID)
     {
         fd_unref(fd);
         fd = fd_ref(new_fd);

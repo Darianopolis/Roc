@@ -66,7 +66,7 @@ auto io_session_get_seat_name(IoSession* session) -> const char*
 
 auto io_session_open_device(IoSession* session, const char* path) -> fd_t
 {
-    fd_t fd = -1;
+    fd_t fd = FD_INVALID;
     auto devid = libseat_open_device(session->seat, path, &fd);
     session->devices.emplace_back(IoSeatDevice {
         .id = devid,

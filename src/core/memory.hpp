@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "debug.hpp"
+#include "fd.hpp"
 
 inline
 auto as_bytes(auto&& range) -> std::span<const byte>
@@ -85,7 +86,7 @@ auto align_up_power2(T v, usz align) noexcept -> T
 template<typename T>
 auto memory_map(usz count) -> T*
 {
-    return reinterpret_cast<T*>(unix_check<mmap>(nullptr, count * sizeof(T), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0).value);
+    return reinterpret_cast<T*>(unix_check<mmap>(nullptr, count * sizeof(T), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, FD_INVALID, 0).value);
 }
 
 template<typename T>

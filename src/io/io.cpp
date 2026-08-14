@@ -20,7 +20,7 @@ auto io_create(WmServer* wm, ExecContext* exec, Gpu* gpu) -> Ref<IoContext>
     sigaddset(&mask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &mask, nullptr);
 
-    io->signal_fd = Fd(unix_check<signalfd>(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
+    io->signal_fd = Fd(unix_check<signalfd>(FD_INVALID, &mask, SFD_NONBLOCK | SFD_CLOEXEC).value);
     fd_listen(io->exec, io->signal_fd.get(), FdEventBit::readable, [io = io.get()](fd_t, Flags<FdEventBit>){
         handle_signal(io);
     });

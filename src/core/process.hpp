@@ -79,9 +79,9 @@ struct SpawnFdInherit
 
 struct SpawnInfo
 {
-    fd_t executable; // File descriptor of executable to run
-    fd_t directory;  // Working directory
-    fd_t fd_limit;   // NOFILE limit to set for child
+    fd_t executable = FD_INVALID; // File descriptor of executable to run
+    fd_t directory  = FD_INVALID; // Working directory
+    fd_t fd_limit;                // NOFILE limit to set for child
 
     std::span<const std::string_view> args;
     std::span<const std::pair<std::string_view, std::string_view>> env;

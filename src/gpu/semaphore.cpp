@@ -62,7 +62,7 @@ auto gpu_syncobj_import(Gpu* gpu, fd_t syncobj_fd) -> Ref<GpuSyncobj>
 
 auto gpu_syncobj_export(GpuSyncobj* syncobj) -> Fd
 {
-    fd_t fd = -1;
+    fd_t fd = FD_INVALID;
     unix_check<drmSyncobjHandleToFD>(syncobj->gpu->drm.fd, syncobj->syncobj, &fd);
     return Fd(fd);
 }
@@ -71,7 +71,7 @@ void gpu_syncobj_import_syncfile(GpuSyncobj* syncobj, u64 target_point, fd_t syn
 {
     auto* gpu = syncobj->gpu;
 
-    if (sync_fd == -1) {
+    if (sync_fd == FD_INVALID) {
         unix_check<drmSyncobjTimelineSignal>(gpu->drm.fd, &syncobj->syncobj, &target_point, 1u);
         return;
     }
@@ -91,7 +91,7 @@ auto gpu_syncobj_export_syncfile(GpuSyncobj* syncobj, u64 source_point) -> Fd
     // and then export the syncfile from that.
 
     unix_check<drmSyncobjTransfer>(gpu->drm.fd, gpu->drm.syncobj, 0u, syncobj->syncobj, source_point, 0u);
-    fd_t sync_fd = -1;
+    fd_t sync_fd = FD_INVALID;
     unix_check<drmSyncobjExportSyncFile>(gpu->drm.fd, gpu->drm.syncobj, &sync_fd);
 
     return Fd(sync_fd);

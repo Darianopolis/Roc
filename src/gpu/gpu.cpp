@@ -138,7 +138,7 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
 
     // Match DRM device
 
-    gpu->drm.fd = -1;
+    gpu->drm.fd = FD_INVALID;
 
     if (check_extension(VK_EXT_PHYSICAL_DEVICE_DRM_EXTENSION_NAME)) {
         VkPhysicalDeviceDrmPropertiesEXT drm_props {
@@ -210,7 +210,7 @@ auto try_physical_device(Gpu* gpu, VkPhysicalDevice phdev) -> bool
         }
     }
 
-    if (gpu->drm.fd == -1)  {
+    if (gpu->drm.fd == FD_INVALID)  {
         log_warn("  failed to find or open DRM device, skipping...");
         return false;
     }
@@ -301,7 +301,7 @@ auto test_timeline_syncobj_export(Gpu* gpu) -> bool
 
     // Export as OPAQUE_FD
 
-    fd_t fd = -1;
+    fd_t fd = FD_INVALID;
     defer { close(fd); };
     gpu_check(gpu->vk.GetSemaphoreFdKHR(gpu->device, ptr_to(VkSemaphoreGetFdInfoKHR {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,

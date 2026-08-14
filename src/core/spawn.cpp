@@ -44,13 +44,13 @@ auto spawn(
     u32 fd_lim_max,
     std::span<const SpawnAction> actions) -> UnixResult<Fd>
 {
-    int pidfd = -1;
+    int pidfd = FD_INVALID;
 
     usz stack_size = 65'536;
     void* stack = unix_check<mmap>(nullptr, stack_size,
         PROT_READ | PROT_WRITE,
         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
-        -1, 0).value;
+        FD_INVALID, 0).value;
     defer { unix_check<munmap>(stack, stack_size); };
 
     // Prepopulate stack with child spawn function
@@ -62,7 +62,7 @@ auto spawn(
     auto prepare_and_exec = [&] -> int {
 
         // Change working directory
-        if (dir != -1) SPAWN_TRY(unix_call<fchdir>(dir));
+        if (dir != FD_INVALID) SPAWN_TRY(unix_call<fchdir>(dir));
 
         // Unblock all signals
         sigset_t mask;
@@ -160,7 +160,7 @@ auto generate_fd_actions(std::span<const SpawnFdInherit> remaps, fd_t free_slot)
         }
     }
 
-    fd_t scratch_content = -1;
+    fd_t scratch_content = FD_INVALID;
 
     for (;;) {
         while (!to_unblock.empty()) {
@@ -190,7 +190,7 @@ auto generate_fd_actions(std::span<const SpawnFdInherit> remaps, fd_t free_slot)
         to_unblock.emplace_back(pending.parent);
     }
 
-    if (scratch_content != -1) {
+    if (scratch_content != FD_INVALID) {
         ops.emplace_back(SpawnActionClose{free_slot});
     }
 
@@ -231,7 +231,7 @@ auto spawn(const SpawnInfo& info) -> Fd
                 return fd;
             }
         }
-        return -1;
+        return FD_INVALID;
     };
 
     std::vector<SpawnFdInherit> fd_map{info.fds.begin(), info.fds.end()};

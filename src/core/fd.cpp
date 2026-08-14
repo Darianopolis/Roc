@@ -88,7 +88,7 @@ auto iterate_open_fds()
 {
    return std::filesystem::directory_iterator("/proc/self/fd")
         | std::views::transform([](auto& entry) -> fd_t {
-            fd_t fd = -1;
+            fd_t fd = FD_INVALID;
             auto str = entry.path().filename().string();
             auto res = std::from_chars(str.data(), str.data() + str.size(), fd);
             debug_assert(res.ec == std::errc{}, "Fd :: Parsing [/proc/self/fd/{}] failed with error: {}", str, std::make_error_code(res.ec).message());
@@ -123,7 +123,7 @@ auto fd_get_ref_count(fd_t fd) -> u32
 
 auto fd_ref(fd_t fd) -> fd_t
 {
-    if (!fd_is_valid(fd)) return -1;
+    if (!fd_is_valid(fd)) return FD_INVALID;
 
     registry->ref_counts[fd_to_index(fd)]++;
     return fd;
@@ -137,11 +137,11 @@ void destroy_fd(fd_t fd)
 
 auto fd_unref(fd_t fd) -> fd_t
 {
-    if (!fd_is_valid(fd)) return -1;
+    if (!fd_is_valid(fd)) return FD_INVALID;
 
     if (!--registry->ref_counts[fd_to_index(fd)]) {
         destroy_fd(fd);
-        return -1;
+        return FD_INVALID;
     }
 
     return fd;
@@ -157,5 +157,5 @@ auto fd_extract(fd_t fd) -> fd_t
 
 auto Fd::extract() noexcept -> fd_t
 {
-    return fd_extract(std::exchange(fd, -1));
+    return fd_extract(std::exchange(fd, FD_INVALID));
 }

@@ -48,7 +48,7 @@ struct RingBuffer
 
         usz cap_bytes = capacity * sizeof(T);
 
-        data = static_cast<T*>(unix_check<mmap>(nullptr, cap_bytes * 2, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0).value);
+        data = static_cast<T*>(unix_check<mmap>(nullptr, cap_bytes * 2, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, FD_INVALID, 0).value);
 
         int prot  = PROT_READ | PROT_WRITE;
         int flags = MAP_SHARED | MAP_FIXED | MAP_FILE;
