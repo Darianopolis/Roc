@@ -26,6 +26,8 @@ auto from_wayland_dnd_action(wl_data_device_manager_dnd_action wl) -> Flags<Seat
 
 // -----------------------------------------------------------------------------
 
+#define WAY_NOISY_DATASOURCES 0
+
 static
 void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 {
@@ -36,7 +38,9 @@ void create_data_source(wl_client* wl_client, wl_resource* resource, u32 id)
 
     source->resource = way_resource_create_refcounted(wl_data_source, wl_client, resource, id, source.get());
 
+#if WAY_NOISY_DATASOURCES
     log_debug("WayDataSource created {}", (void*)source.get());
+#endif
 }
 
 void WayDataSource::cancel()
@@ -48,7 +52,9 @@ void WayDataSource::cancel()
 
 void WayDataSource::send(std::string_view mime, fd_t fd)
 {
+#if WAY_NOISY_DATASOURCES
     log_debug("WayDataSource::send({}, {})", mime, fd);
+#endif
     way_send<wl_data_source_send_send>(resource, std::string(mime).c_str(), fd);
 }
 
@@ -56,7 +62,9 @@ void WayDataSource::action_update(SeatDndAction action)
 {
     if (last_action && *last_action == action) return;
     last_action = action;
+#if WAY_NOISY_DATASOURCES
     log_debug("WayDataSource::action({})", action);
+#endif
     way_send<wl_data_source_send_action>(resource, to_wayland_dnd_action(action));
 }
 
@@ -108,7 +116,9 @@ void accept(wl_client* client, wl_resource* resource, u32 serial, const char* mi
 static
 void receive(wl_client* client, wl_resource* resource, const char* mime_type, fd_t fd)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("wl_data_offer.receive({})", mime_type ?: "NONE");
+#endif
 
     auto write = Fd(fd);
 
@@ -119,7 +129,9 @@ void receive(wl_client* client, wl_resource* resource, const char* mime_type, fd
 static
 void finish(wl_client* client, wl_resource* wl_data_offer)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("wl_data_offer.finish()");
+#endif
 
     auto* offer = way_get_userdata<WayDataOffer>(wl_data_offer);
     seat_data_offer_finish(offer->offer.get());
@@ -156,7 +168,9 @@ WAY_INTERFACE(wl_data_offer) = {
 static
 void offer(wl_client* client, wl_resource* resource, const char* mime_type)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("wl_data_source.offer({})", mime_type ?: "NONE");
+#endif
 
     auto* source = way_get_userdata<WayDataSource>(resource);
     source->offered.emplace(mime_type);
@@ -165,7 +179,9 @@ void offer(wl_client* client, wl_resource* resource, const char* mime_type)
 static
 void source_set_actions(wl_client* client, wl_resource* wl_data_source, u32 actions)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("wl_data_source.set_actions({})", Flags(from_wayland_dnd_action(wl_data_device_manager_dnd_action(actions))));
+#endif
 
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
     source->supported_actions = from_wayland_dnd_action(wl_data_device_manager_dnd_action(actions));
@@ -196,7 +212,9 @@ void start_drag(
     wl_resource* icon_surface,
     u32 serial)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("wl_data_device.start_drag()");
+#endif
 
     auto* client_seat = way_get_userdata<WayClientSeat>(wl_data_device);
     auto* source = way_get_userdata<WayDataSource>(wl_data_source);
@@ -309,7 +327,9 @@ void way_data_offer_selection(WayClientSeat* client_seat)
             way_send<wl_data_device_send_selection>(wl_data_device, offer->resource);
         }
     } else {
+#if WAY_NOISY_DATASOURCES
         log_warn("clearing selection");
+#endif
         for (auto* wl_data_device : client_seat->data_devices) {
             way_send<wl_data_device_send_selection>(wl_data_device, nullptr);
         }
@@ -333,7 +353,9 @@ auto to_surface_pos(WaySurface* surface, vec2f32 global_pos)
 static
 void drag_leave(WayClientSeat* client_seat, SeatDataEvent* event)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("drag_leave");
+#endif
 
     for (auto* wl_data_device : client_seat->data_devices) {
         way_send<wl_data_device_send_leave>(wl_data_device);
@@ -345,7 +367,9 @@ void drag_leave(WayClientSeat* client_seat, SeatDataEvent* event)
 static
 void drag_enter(WayClientSeat* client_seat, SeatDataEvent* event)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("drag_enter");
+#endif
 
     auto* pointer = seat_get_pointer(event->seat);
 
@@ -384,7 +408,9 @@ void drag_motion(WayClientSeat* client_seat, SeatDataEvent* event)
 static
 void drag_drop(WayClientSeat* client_seat, SeatDataEvent* event)
 {
+#if WAY_NOISY_DATASOURCES
     log_trace("drag_drop");
+#endif
 
     for (auto& offer : client_seat->drag_offers) {
         if (!offer) continue;

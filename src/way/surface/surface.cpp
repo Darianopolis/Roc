@@ -230,7 +230,7 @@ void surface_set_mapped(WaySurface* surface, bool mapped)
     if (mapped == surface->mapped) return;
     surface->mapped = mapped;
 
-    log_info("Surface {} was {}", (void*)surface, mapped ? "mapped" : "unmapped");
+    // log_info("Surface {} was {}", (void*)surface, mapped ? "mapped" : "unmapped");
 
     scene_tree_set_enabled(surface->scene.tree.get(), mapped);
 

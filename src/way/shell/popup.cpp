@@ -73,7 +73,8 @@ struct WayPositionerAxisRules
     bool resize;
 };
 
-#define WAY_NOISY_POSITIONERS 1
+#define WAY_NOISY_POSITIONERS 0
+#define WAY_NOISY_POPUPS 0
 
 static
 auto positioner_apply_axis(const WayPositionerAxisRules& rules, WayAxisRegion constraint) -> WayAxisRegion
@@ -274,7 +275,9 @@ void position(WaySurface* surface, const WayPositionerRules& rules, std::optiona
     }
 
     auto geometry = positioner_apply(rules, constraint);
+#if WAY_NOISY_POPUPS
     log_debug("popup geometry: {}", geometry);
+#endif
     surface->popup->position = vec_cast<f32>(geometry.origin);
 
     if (token) {
@@ -318,7 +321,7 @@ void reposition(wl_client* client, wl_resource* resource, wl_resource* positione
 
 WAY_INTERFACE(xdg_popup) = {
     .destroy = way_simple_destroy,
-    WAY_STUB(grab),
+    WAY_STUB_QUIET(grab),
     .reposition = reposition,
 };
 

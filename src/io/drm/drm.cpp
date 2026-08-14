@@ -275,13 +275,17 @@ void on_page_flip(fd_t fd, u32 sequence, u32 tv_sec, u32 tv_usec, u32 crtc_id, v
 
 // -----------------------------------------------------------------------------
 
+#define IO_DRM_NOISY_FRAMEBUFFER_IMPORT 0
+
 static
 auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
 {
     std::optional<u32> found = std::nullopt;
     std::erase_if(io->drm->buffer_cache, [&](const auto& entry) {
         if (!entry.image) {
+#if IO_DRM_NOISY_FRAMEBUFFER_IMPORT
             log_warn("KMS : Retiring old framebuffer");
+#endif
             unix_check<drmModeCloseFB>(io->drm->fd, entry.framebuffer);
             return true;
         }
@@ -290,7 +294,9 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
     });
     if (found) return *found;
 
+#if IO_DRM_NOISY_FRAMEBUFFER_IMPORT
     log_warn("KMS : Importing new framebuffer");
+#endif
 
     auto dma_params = gpu_image_export(image);
     auto size = image->extent;
@@ -304,7 +310,9 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
     u64 modifiers[4] = {};
     for (u32 i = 0; i < dma_params.planes.count; ++i) {
         unix_check<drmPrimeFDToHandle>(io->drm->fd, dma_params.planes[i].fd.get(), &handles[i]);
+#if IO_DRM_NOISY_FRAMEBUFFER_IMPORT
         log_warn("KMS :   plane[{}] prime fd {} -> GEM handle {}", i, dma_params.planes[i].fd.get(), handles[i]);
+#endif
         pitches[i] = dma_params.planes[i].stride;
         offsets[i] = dma_params.planes[i].offset;
         modifiers[i] = dma_params.modifier;
@@ -317,7 +325,9 @@ auto get_image_framebuffer(IoContext* io, GpuImageBase* image) -> u32
         size.x, size.y,
         format->drm, handles, pitches, offsets, modifiers,
         &framebuffer, literal_cast<u32>(DRM_MODE_FB_MODIFIERS));
+#if IO_DRM_NOISY_FRAMEBUFFER_IMPORT
     log_warn("KMS :   framebuffer: {}", framebuffer);
+#endif
 
     // Close GEM handles
     //
