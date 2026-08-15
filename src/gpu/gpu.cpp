@@ -12,17 +12,13 @@ Gpu::~Gpu()
     log_info("GPU context destroyed");
 
     if (device) {
-        for (auto[_, memory_cache] : buffer_allocation_cache) {
-            for (auto[memory, data] : memory_cache) {
-                vk.FreeMemory(device, memory, nullptr);
-            }
-        }
-
         queue.syncobj.destroy();
         debug_assert(stats.active_syncobjs == 0, "{} unexpected syncobj", stats.active_syncobjs);
 
         if (queue.commands) queue.commands = {};
         vk.DestroyCommandPool(device, queue.pool, nullptr);
+
+        transfer.buffer.destroy();
 
         debug_assert(stats.active_images == 0, "{} unexpected images", stats.active_images);
         debug_assert(stats.active_buffers == 0, "{} unexpected buffers", stats.active_buffers);
@@ -543,6 +539,10 @@ auto gpu_create(ExecContext* exec, Flags<GpuFeature> _features) -> Ref<Gpu>
     // Transfer syncobj
 
     unix_check<drmSyncobjCreate>(gpu->drm.fd, 0u, &gpu->drm.syncobj);
+
+    // Transfer buffer
+
+    gpu->transfer.buffer = gpu_buffer_create(gpu.get(), 64ull * 1024 * 1024, GpuBufferFlag::host);
 
     // State initialization
 

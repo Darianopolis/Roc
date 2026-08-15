@@ -68,6 +68,7 @@ auto byte_offset_pointer(void* source, auto offset) -> T*
 inline
 auto compute_geometric_growth(usz current_size, usz new_min_size) -> usz
 {
+    if (new_min_size <= current_size) return current_size;
     usz geometric = current_size + (current_size >> 1);
     return std::max(geometric, new_min_size);
 }
@@ -78,6 +79,7 @@ template<typename T>
 constexpr
 auto align_up_power2(T v, usz align) noexcept -> T
 {
+    debug_assert(std::popcount(align) == 1);
     return num_cast<T>((num_cast<usz>(v) + (align - 1)) &~ (align - 1));
 }
 

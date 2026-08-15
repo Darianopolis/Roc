@@ -72,6 +72,9 @@ struct GpuCommands
 
     u64 submitted_value;
 
+    usz             new_transfer_tail;
+    Weak<GpuBuffer> used_transfer_buffer;
+
 #if GPU_VALIDATION_COMPATIBILITY
     struct {
         VkFence fence;

@@ -22,6 +22,11 @@ GpuCommands::~GpuCommands()
 {
     gpu->vk.FreeCommandBuffers(gpu->device, gpu->queue.pool, 1, &buffer);
 
+    if (used_transfer_buffer == gpu->transfer.buffer) {
+        debug_assert(new_transfer_tail >= gpu->transfer.tail);
+        gpu->transfer.tail = new_transfer_tail;
+    }
+
 #if GPU_VALIDATION_COMPATIBILITY
     if (validation.fence) {
         gpu->vk.DestroyFence(gpu->device, validation.fence, nullptr);

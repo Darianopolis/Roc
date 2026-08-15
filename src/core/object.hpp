@@ -111,7 +111,7 @@ struct RefAdoptTag {};
 template<typename T>
 struct Ref
 {
-    T* value;
+    T* value = nullptr;
 
     void reset(T* t = nullptr)
     {

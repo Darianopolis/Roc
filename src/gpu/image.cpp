@@ -487,7 +487,7 @@ void gpu_copy_image_to_buffer(GpuBuffer* buffer, GpuImage* _image)
     }));
 }
 
-void gpu_copy_buffer_to_image(GpuImage* _image, GpuBuffer* buffer, std::span<const GpuBufferImageCopy> regions)
+void gpu_copy_buffer_to_image(GpuImage* _image, GpuBuffer* buffer, std::span<const GpuBufferImageCopy> regions, usz buffer_offset)
 {
     auto* image = _image->base();
     auto* gpu = image->gpu;
@@ -497,7 +497,7 @@ void gpu_copy_buffer_to_image(GpuImage* _image, GpuBuffer* buffer, std::span<con
     auto* copies = stack.allocate<VkBufferImageCopy>(regions.size());
     for (auto[i, region] : regions | std::views::enumerate) {
         copies[i] = {
-            .bufferOffset = region.buffer_offset,
+            .bufferOffset = buffer_offset + region.buffer_offset,
             .bufferRowLength = region.buffer_row_length,
             .imageSubresource = { image->format->aspect, 0, 0, 1 },
             .imageOffset = { region.image_offset.x, region.image_offset.y },
@@ -515,12 +515,12 @@ void gpu_copy_memory_to_image(GpuImage* image, std::span<const byte> data, std::
 {
     auto* gpu = image->base()->gpu;
 
-    // TODO: This should be stored persistently for transfers
-    Ref buffer = gpu_buffer_create(gpu, data.size(), GpuBufferFlag::host);
+    auto  transfer_offset = gpu_reserve_transfer(gpu_record(gpu), data.size(), 4);
+    auto* transfer_buffer = gpu->transfer.buffer.get();
 
-    std::memcpy(buffer->host_address, data.data(), data.size());
+    std::memcpy(byte_offset_pointer<void>(transfer_buffer->host_address, transfer_offset), data.data(), data.size());
 
-    gpu_copy_buffer_to_image(image, buffer.get(), regions);
+    gpu_copy_buffer_to_image(image, transfer_buffer, regions, transfer_offset);
 }
 
 auto gpu_image_compute_packed_stride(GpuFormat format, u32 width) -> u32

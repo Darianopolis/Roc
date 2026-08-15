@@ -231,8 +231,6 @@ struct Gpu
 
     ankerl::unordered_dense::segmented_map<GpuFormatPropertiesKey, GpuFormatProperties> format_props;
 
-    ankerl::unordered_dense::map<u64, std::vector<std::pair<VkDeviceMemory, void*>>> buffer_allocation_cache;
-
     struct {
         u32 family;
         VkQueue queue;
@@ -241,6 +239,12 @@ struct Gpu
         Ref<GpuSyncobj> syncobj;
         u64 submitted;
     } queue;
+
+    struct {
+        Ref<GpuBuffer> buffer;
+        usz head;
+        usz tail;
+    } transfer;
 
     ~Gpu();
 };
@@ -415,7 +419,7 @@ struct GpuBufferImageCopy
     u32 buffer_row_length;
 };
 
-void gpu_copy_buffer_to_image(GpuImage*, GpuBuffer*, std::span<const GpuBufferImageCopy> regions);
+void gpu_copy_buffer_to_image(GpuImage*, GpuBuffer*, std::span<const GpuBufferImageCopy> regions, usz buffer_offset = 0);
 
 void gpu_copy_memory_to_image(GpuImage*, std::span<const byte> data, std::span<const GpuBufferImageCopy> regions);
 
@@ -471,6 +475,8 @@ void gpu_barrier(GpuCommands*,
 
 void gpu_push_constants(GpuCommands*, u32 offset, std::span<const byte> data);
 void gpu_bind_pipeline( GpuCommands*, GpuPipeline*);
+
+auto gpu_reserve_transfer(GpuCommands*, usz size, usz align) -> usz;
 
 // -----------------------------------------------------------------------------
 

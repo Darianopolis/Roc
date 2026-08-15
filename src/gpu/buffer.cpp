@@ -30,26 +30,17 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
         ? gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_CACHED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
         : gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    auto cache_size = round_up_power2(mem_reqs.size);
-    auto& cache = gpu->buffer_allocation_cache[cache_size];
-    if (cache.empty()) {
-        gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .pNext = ptr_to(VkMemoryAllocateFlagsInfo {
-                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
-                .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
-            }),
-            .allocationSize = cache_size,
-            .memoryTypeIndex = index.value(),
-        }), nullptr, &buffer->memory));
+    gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = ptr_to(VkMemoryAllocateFlagsInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+        }),
+        .allocationSize = mem_reqs.size,
+        .memoryTypeIndex = index.value(),
+    }), nullptr, &buffer->memory));
 
-        gpu_check(gpu->vk.MapMemory(gpu->device, buffer->memory, 0, size, {}, &buffer->host_address));
-    } else {
-        auto[memory, data] = cache.back();
-        buffer->memory = memory;
-        buffer->host_address = data;
-        cache.pop_back();
-    }
+    gpu_check(gpu->vk.MapMemory(gpu->device, buffer->memory, 0, size, {}, &buffer->host_address));
 
     gpu->vk.BindBufferMemory(gpu->device, buffer->buffer, buffer->memory, 0);
 
@@ -69,7 +60,45 @@ GpuBuffer::~GpuBuffer()
 
     VkMemoryRequirements mem_reqs;
     gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer, &mem_reqs);
-    auto cache_size = round_up_power2(mem_reqs.size);
-    gpu->buffer_allocation_cache[cache_size].emplace_back(memory, host_address);
     gpu->vk.DestroyBuffer(gpu->device, buffer, nullptr);
+    gpu->vk.FreeMemory(gpu->device, memory, nullptr);
+}
+
+// -----------------------------------------------------------------------------
+
+auto gpu_reserve_transfer(GpuCommands* cmd, usz size, usz align) -> usz
+{
+    auto* gpu = cmd->gpu;
+    auto& ring = gpu->transfer;
+    auto* buf = ring.buffer.get();
+
+    usz capacity = buf->size;
+
+    usz aligned_head = align_up_power2(ring.head, align);
+    usz reserved_end = aligned_head + size;
+    usz wrap_point = align_up_power2(aligned_head, capacity);
+
+    if (wrap_point > aligned_head && wrap_point < reserved_end) {
+        aligned_head = wrap_point;
+        reserved_end = aligned_head + size;
+    }
+
+    if (reserved_end - ring.tail > capacity) {
+        usz new_capacity = round_up_power2(reserved_end - ring.tail);
+        log_warn("Transfer ring buffer ran out of space ({}), allocating larger buffer ({})", FmtBytes{capacity}, FmtBytes{new_capacity});
+        buf = (ring.buffer = gpu_buffer_create(gpu, new_capacity, GpuBufferFlag::host)).get();
+        aligned_head = ring.head = ring.tail = 0;
+        reserved_end = size;
+        capacity = new_capacity;
+    }
+
+    debug_assert((num_cast<uintptr_t>(buf->host_address) & (align - 1)) == 0,
+        "Reserve request has stricter alignment than supported by the transfer ring buffer");
+
+    ring.head = reserved_end;
+
+    cmd->new_transfer_tail = reserved_end;
+    cmd->used_transfer_buffer = buf;
+
+    return aligned_head & (capacity - 1);
 }

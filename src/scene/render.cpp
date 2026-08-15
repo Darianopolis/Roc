@@ -235,35 +235,93 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     auto cmd = gpu_record(gpu);
 
-    auto copy_to_gpu = [&]<typename T>(std::span<const T> elements) {
-        auto buffer = gpu_buffer_create(gpu, elements.size() * sizeof(T), {});
-        std::memcpy(buffer->host_address, elements.data(), buffer->size);
-        gpu_protect(cmd, buffer);
-        return buffer;
+    usz quad_bounds_offset       = 0;
+    usz quad_opaque_flags_offset = 0;
+    usz quads_offset             = 0;
+    usz coarse_bins_offset       = 0;
+    usz coarse_bin_infos_offset  = 0;
+    usz fine_bins_offset         = 0;
+    usz gpu_buffer_size          = 0;
+
+    {
+        auto next_offset = [&]<typename T>(std::span<T> elements) {
+            usz current = align_up_power2(gpu_buffer_size, alignof(T));
+            gpu_buffer_size = current + elements.size() * sizeof(T);
+            return current;
+        };
+
+        quad_bounds_offset       = next_offset(std::span(quad_bounds));
+        quad_opaque_flags_offset = next_offset(std::span(quad_opaque_flags));
+        quads_offset             = next_offset(std::span(quads));
+        coarse_bins_offset       = next_offset(std::span(coarse_bins));
+        coarse_bin_infos_offset  = next_offset(std::span(coarse_bin_infos));
+        fine_bins_offset         = next_offset(std::span(byte_offset_pointer<SCENE_RENDER_QUAD_INDEX_TYPE>(nullptr, 0),
+                                                         fine_bin_slots));
+    }
+
+    renderer->buffer_size = compute_geometric_growth(renderer->buffer_size, gpu_buffer_size);
+    debug_assert(renderer->buffer_size < 128ull * 1024 * 1024);
+
+    renderer->buffers.erase_if([&](auto* buffer) {
+        return buffer->size < renderer->buffer_size;
+    });
+
+    Ref<GpuBuffer> gpu_buffer = {};
+    if (renderer->buffers.empty()) {
+        log_warn("Allocating new render buffer ({})", FmtBytes{renderer->buffer_size});
+        gpu_buffer = gpu_buffer_create(gpu, renderer->buffer_size, {});
+    } else {
+        gpu_buffer = renderer->buffers.pop_back();
+    }
+
+    struct RenderBufferGuard
+    {
+        Ref<GpuBuffer> buffer;
+        Weak<SceneRenderer> renderer;
+
+        ~RenderBufferGuard()
+        {
+            if (!renderer) return;
+            if (buffer->size < renderer->buffer_size) return;
+            renderer->buffers.emplace_back(std::move(buffer));
+        }
     };
 
-    auto gpu_quad_bounds = copy_to_gpu.operator()<aabb2f32>(quad_bounds);
-    auto gpu_quad_opaque_flags = copy_to_gpu.operator()<u8>(quad_opaque_flags);
+    auto buffer_guard = ref_create<RenderBufferGuard>();
+    buffer_guard->buffer = gpu_buffer;
+    buffer_guard->renderer = renderer;
 
-    auto gpu_quads = copy_to_gpu.operator()<SceneRenderQuad>(quads);
+    gpu_protect(cmd, buffer_guard);
+    gpu_barrier(cmd, reads, {{gpu_buffer.get()}});
 
-    auto gpu_coarse_bins = copy_to_gpu.operator()<SceneRenderBin>(coarse_bins);
-    auto gpu_coarse_bin_infos = copy_to_gpu.operator()<SceneRenderCoarseBinInfo>(coarse_bin_infos);
+    auto upload = [&]<typename T>(usz offset, std::vector<T> elements) {
+        std::memcpy(gpu_buffer->host<void>(offset), elements.data(), elements.size() * sizeof(T));
+    };
 
-    auto gpu_fine_bins = gpu_buffer_create(gpu, fine_bin_slots * sizeof(SCENE_RENDER_QUAD_INDEX_TYPE), {});
-    gpu_protect(cmd, gpu_fine_bins);
+#define UPLOAD(Field) upload(Field##_offset, Field)
 
-    gpu_barrier(cmd, reads, {{gpu_fine_bins.get()}});
+    UPLOAD(quad_bounds);
+    UPLOAD(quad_opaque_flags);
+    UPLOAD(quads);
+    UPLOAD(coarse_bins);
+    UPLOAD(coarse_bin_infos);
+
+#undef UPLOAD
+
+#define GET_DEVICE_PTR(Field) gpu_buffer->device<decltype(Field)::value_type>(Field##_offset)
+
+    // NOTE: Dummy span used to provide ::value_type for GPU_DEVICE_PTR
+    std::span<SCENE_RENDER_QUAD_INDEX_TYPE> fine_bins;
 
     vec2u32 fine_bin_counts = coarse_bin_counts * literal_cast<u32>(SCENE_RENDER_COARSE_FINE_BIN_RATIO);
 
     gpu_bind_pipeline(cmd, renderer->compute_bin.get());
     gpu_push_constants(cmd, 0, view_bytes(SceneRenderBinPassInput {
-        .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
-        .quad_opaque_flags = gpu_quad_opaque_flags->device<u8>(),
-        .coarse_bins = gpu_coarse_bins->device<SceneRenderBin>(),
-        .coarse_bin_infos = gpu_coarse_bin_infos->device<SceneRenderCoarseBinInfo>(),
-        .fine_bins = gpu_fine_bins->device<SCENE_RENDER_QUAD_INDEX_TYPE>(),
+        .quad_bounds = GET_DEVICE_PTR(quad_bounds),
+        .quad_opaque_flags = GET_DEVICE_PTR(quad_opaque_flags),
+        .coarse_bins = GET_DEVICE_PTR(coarse_bins),
+        .coarse_bin_infos = GET_DEVICE_PTR(coarse_bin_infos),
+        .fine_bins = GET_DEVICE_PTR(fine_bins),
         .coarse_bin_row_stride = coarse_bin_counts.x,
         .extent = fine_bin_counts,
     }));
@@ -273,18 +331,20 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     // 3. Pixel GPU pass
 
-    gpu_barrier(cmd, {{gpu_fine_bins.get()}}, {{info.target}});
+    gpu_barrier(cmd, {{gpu_buffer.get()}}, {{info.target}});
 
     gpu_bind_pipeline(cmd, renderer->compute_pixel.get());
     gpu_push_constants(cmd, 0, view_bytes(SceneRenderPixelPassInput {
-        .quad_bounds = gpu_quad_bounds->device<aabb2f32>(),
-        .quads = gpu_quads->device<SceneRenderQuad>(),
-        .coarse_bin_infos = gpu_coarse_bin_infos->device<SceneRenderCoarseBinInfo>(),
-        .fine_bins = gpu_fine_bins->device<SCENE_RENDER_QUAD_INDEX_TYPE>(),
+        .quad_bounds = GET_DEVICE_PTR(quad_bounds),
+        .quads = GET_DEVICE_PTR(quads),
+        .coarse_bin_infos = GET_DEVICE_PTR(coarse_bin_infos),
+        .fine_bins = GET_DEVICE_PTR(fine_bins),
         .coarse_bin_row_stride = coarse_bin_counts.x,
         .target = info.target,
         .extent = extent,
     }));
+
+#undef GET_DEVICE_PTR
 
     gpu_dispatch(cmd, vec_join((extent + literal_cast<u32>(SCENE_RENDER_PIXEL_PASS_LOCAL_SIZE - 1))
                                        / literal_cast<u32>(SCENE_RENDER_PIXEL_PASS_LOCAL_SIZE), 1u));
