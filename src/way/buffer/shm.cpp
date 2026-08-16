@@ -198,17 +198,39 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
         log_trace("  damage {}", rect);
 #endif
 
-        auto read_start = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.min),     stride);
-        auto read_end   = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.max - 1), stride) + format->texel_block_size;
+        // Compute transfer staging properties
+        debug_assert(format->texels_per_block == 1, "TODO");
+        auto copy_stride = format->texel_block_size * num_cast<u32>(rect.extent.x);
+        auto copy_size = copy_stride * num_cast<u32>(rect.extent.y);
 
-        debug_assert((offset + read_end) <= pool->size, "accessed {} > available {}", offset + read_end, pool->size);
-        gpu_copy_memory_to_image(image.get(),
-            as_bytes(byte_offset_pointer<void>(pool->data, offset + read_start), read_end - read_start),
-            {{{
+        // Reserve transfer region
+        auto* gpu = image->base()->gpu;
+        auto cmd = gpu_record(gpu);
+        auto transfer_offset = gpu_reserve_transfer(cmd, copy_size, 16);
+        auto out = gpu->transfer.buffer->host<std::byte>(transfer_offset);
+
+        // Compute transfer source properties
+        auto read_start = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.min), stride);
+        auto read_end   = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.max - 1), stride) + format->texel_block_size;
+        auto in = byte_offset_pointer<std::byte>(pool->data, offset + read_start);
+
+        if (copy_stride == stride) {
+            // Source rows are contiguous in memory, perform single copy
+            std::memcpy(out, in, read_end - read_start);
+        } else {
+            // Source rows are discontiguous (copy does not span full width), copy by row
+            for (u32 i = 0; i < num_cast<u32>(rect.extent.y); ++i) {
+                std::memcpy(out + i * copy_stride, in + i * stride, copy_stride);
+            }
+        }
+
+        gpu_copy_buffer_to_image(image.get(), gpu->transfer.buffer.get(), {{
+            {
                 .image_extent = vec_cast<u32>(rect.extent),
                 .image_offset = rect.origin,
-                .buffer_row_length = num_cast<u32>(stride) / format->texel_block_size,
-            }}});
+                .buffer_offset = num_cast<u32>(transfer_offset),
+            }
+        }});
     }
 #if NOISY_SHM_BUFFER_IMAGES
     else {
