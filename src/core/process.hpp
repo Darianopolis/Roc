@@ -5,6 +5,15 @@
 
 // -----------------------------------------------------------------------------
 
+inline
+auto process_get_pagesize() -> usz
+{
+    static const usz page_size = num_cast<usz>(sysconf(_SC_PAGESIZE));
+    return page_size;
+}
+
+// -----------------------------------------------------------------------------
+
 auto process_has_cap( cap_value_t cap) -> bool;
 void process_drop_cap(cap_value_t cap);
 

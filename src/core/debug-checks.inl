@@ -3,6 +3,8 @@
 
 // File IO
 
+UNIX_FUNCTION(ioctl,  UnixErrorBehavior::negative_one)
+
 UNIX_FUNCTION(open,   UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(close,  UnixErrorBehavior::negative_one)
 UNIX_FUNCTION(read,   UnixErrorBehavior::negative_one)

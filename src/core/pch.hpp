@@ -69,6 +69,7 @@
 
 #include <linux/dma-buf.h>
 #include <linux/types.h>
+#include <linux/udmabuf.h>
 
 // -----------------------------------------------------------------------------
 

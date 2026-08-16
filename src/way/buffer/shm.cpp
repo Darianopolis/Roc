@@ -2,6 +2,8 @@
 
 #include "../surface/surface.hpp"
 
+#include <core/process.hpp>
+
 static
 auto from_drm(GpuDrmFormat drm) -> wl_shm_format
 {
@@ -35,6 +37,8 @@ struct WayShmPool
     void* data;
     usz   size;
 
+    Ref<GpuBuffer> imported;
+
     ~WayShmPool();
 };
 
@@ -62,14 +66,67 @@ void pool_map(WayShmPool* pool, usz size)
     }
 }
 
+#define WAY_NOISY_SHM_POOL_IMPORT 0
+
+static
+auto try_prepare_import(fd_t fd, i32 initial_size) -> i32
+{
+    auto seals = unix_check<fcntl>(fd, F_GET_SEALS);
+    if (seals.err()) {
+        log_error("wl_shm_pool :: file does not support sealing, falling back to staged transfers ({})", FmtBytes{num_cast<usz>(initial_size)});
+        return 0;
+    }
+
+    // Ensure SHRINK seal if possible
+    if (!(seals.value & F_SEAL_SHRINK)) {
+        if (seals.value & F_SEAL_SEAL || unix_check<fcntl>(fd, F_ADD_SEALS, F_SEAL_SHRINK).err()) {
+            log_error("wl_shm_pool :: file cannot be sealed with SHRINK, falling back to staged transfers ({})", FmtBytes{num_cast<usz>(initial_size)});
+            return 0;
+        }
+    }
+
+    // Compute page-aligned size
+    auto pagesize = process_get_pagesize();
+    i32 aligned_size = align_up_power2(initial_size, pagesize);
+
+    // Memfd already page aligned, trivial to map whole buffer
+    if (aligned_size == initial_size) {
+#if WAY_NOISY_SHM_POOL_IMPORT
+        log_debug("wl_shm_pool :: file already meets page-size alignment ({})", FmtBytes{num_cast<usz>(initial_size)});
+#endif
+        return initial_size;
+    }
+
+    if (!(seals.value & F_SEAL_GROW) && unix_check<ftruncate>(fd, aligned_size).ok()) {
+        // Memfd can grow, expand to aligned size
+#if WAY_NOISY_SHM_POOL_IMPORT
+        log_debug("wl_shm_pool :: file expanded by {:4} bytes to meet page-size alignment ({})", aligned_size - initial_size, FmtBytes{num_cast<usz>(initial_size)});
+#endif
+        return aligned_size;
+    }
+
+    // Memfd cannot grow, map up to last full page
+    i32 mappable = aligned_size - num_cast<i32>(pagesize);
+#if WAY_NOISY_SHM_POOL_IMPORT
+    log_warn("wl_shm_pool :: file size is frozen, import truncated by {:4} bytes ({})", initial_size - mappable, FmtBytes{num_cast<usz>(initial_size)});
+#endif
+    return mappable;
+}
+
 static
 void create_pool(wl_client* client, wl_resource* resource, u32 id, fd_t fd, i32 size)
 {
+    i32 importable_size = try_prepare_import(fd, size);
+
     auto pool = ref_create<WayShmPool>();
     pool->server = way_get_userdata<WayServer>(resource);
     pool->fd = Fd(fd);
     pool->resource = way_resource_create_refcounted(wl_shm_pool, client, resource, id, pool.get());
     pool_map(pool.get(), num_cast<usz>(size));
+
+    if (importable_size) {
+        pool->imported = gpu_buffer_import_from_memfd(pool->server->gpu, num_cast<usz>(importable_size), GpuBufferFlag::host, fd, 0);
+    }
 }
 
 WAY_INTERFACE(wl_shm) = {
@@ -162,8 +219,8 @@ auto try_steal(WayShmBuffer* buffer, WaySurface* surface) -> GpuImage*
     if (candidate->base()->format != buffer->format) return nullptr;
 
 #if NOISY_SHM_BUFFER_IMAGES
-    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  candidate->extent());
-    else                      log_debug("STEALING shm buffer image {}", candidate->extent());
+    if (shm_buffer == buffer) log_info( "REUSING shm buffer image {}",  candidate->base()->extent);
+    else                      log_debug("STEALING shm buffer image {}", candidate->base()->extent);
 #endif
 
     return candidate;
@@ -191,46 +248,109 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
 
     damage.clip_to({{}, vec_cast<i32>(extent), minmax});
 
+    bool immediate_release = true;
+
     if (damage) {
-        aabb2i32 aabb = damage.bounds();
-        rect2i32 rect = aabb;
+        rect2i32 rect = damage.bounds();
 #if NOISY_SHM_BUFFER_IMAGES
         log_trace("  damage {}", rect);
 #endif
 
-        // Compute transfer staging properties
-        debug_assert(format->texels_per_block == 1, "TODO");
-        auto copy_stride = format->texel_block_size * num_cast<u32>(rect.extent.x);
-        auto copy_size = copy_stride * num_cast<u32>(rect.extent.y);
-
-        // Reserve transfer region
-        auto* gpu = image->base()->gpu;
-        auto cmd = gpu_record(gpu);
-        auto transfer_offset = gpu_reserve_transfer(cmd, copy_size, 16);
-        auto out = gpu->transfer.buffer->host<std::byte>(transfer_offset);
-
         // Compute transfer source properties
-        auto read_start = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.min), stride);
-        auto read_end   = gpu_image_compute_linear_offset(format, vec_cast<u32>(aabb.max - 1), stride) + format->texel_block_size;
-        auto in = byte_offset_pointer<std::byte>(pool->data, offset + read_start);
+        auto read_start = gpu_image_compute_linear_offset(format, vec_cast<u32>(rect.origin), stride);
+        auto read_end   = gpu_image_compute_linear_offset(format, vec_cast<u32>(rect.origin + rect.extent - 1), stride) + format->texel_block_size;
 
-        if (copy_stride == stride) {
-            // Source rows are contiguous in memory, perform single copy
-            std::memcpy(out, in, read_end - read_start);
-        } else {
-            // Source rows are discontiguous (copy does not span full width), copy by row
-            for (u32 i = 0; i < num_cast<u32>(rect.extent.y); ++i) {
-                std::memcpy(out + i * copy_stride, in + i * stride, copy_stride);
+#if NOISY_SHM_BUFFER_IMAGES
+        auto total_copy_size = u32(rect.extent.x * rect.extent.y) * format->texel_block_size;
+#endif
+
+        // Attempt to copy as much directly from imported buffer
+        if (pool->imported && stride % format->texel_block_size == 0 && offset + read_start < pool->imported->size) {
+
+            auto fast_read_end = read_end;
+            rect2i32 fast_rect = rect;
+
+            if (offset + fast_read_end > pool->imported->size) {
+                auto remainder = offset + fast_read_end - pool->imported->size;
+                auto rows = std::min((remainder + stride - 1) / stride, num_cast<usz>(fast_rect.extent.y));
+                fast_read_end -= num_cast<u32>(rows * stride);
+                fast_rect.extent.y -= num_cast<i32>(rows);
+            }
+
+            if (fast_rect.extent.y) {
+                gpu_copy_buffer_to_image(image.get(), pool->imported.get(), {{
+                    {
+                        .image_extent = vec_cast<u32>(fast_rect.extent),
+                        .image_offset = fast_rect.origin,
+                        .buffer_offset = num_cast<u32>(offset + read_start),
+                        .buffer_row_length = stride / format->texel_block_size,
+                    }
+                }});
+
+#if NOISY_SHM_BUFFER_IMAGES
+                log_debug("Performing direct copy of {}", FmtBytes{u32(fast_rect.extent.x * fast_rect.extent.y) * format->texel_block_size});
+#endif
+
+                read_start = fast_read_end;
+                rect.origin.y += fast_rect.extent.y;
+                rect.extent.y -= fast_rect.extent.y;
+
+                struct BufferGuard
+                {
+                    Weak<WayShmBuffer> buffer;
+                    WayTimelinePoint release_point;
+
+                    ~BufferGuard()
+                    {
+                        if (!buffer) return;
+                        buffer->release(std::move(release_point));
+                    }
+                };
+
+                gpu_protect(gpu_record(image->base()->gpu), ref_create<BufferGuard>(this, release_point));
+                immediate_release = false;
             }
         }
 
-        gpu_copy_buffer_to_image(image.get(), gpu->transfer.buffer.get(), {{
-            {
-                .image_extent = vec_cast<u32>(rect.extent),
-                .image_offset = rect.origin,
-                .buffer_offset = num_cast<u32>(transfer_offset),
+        // Perform remaining copy based upload
+        if (read_end > read_start) {
+
+            // Compute transfer staging properties
+            debug_assert(format->texels_per_block == 1, "TODO");
+            auto copy_stride = format->texel_block_size * num_cast<u32>(rect.extent.x);
+            auto copy_size = copy_stride * num_cast<u32>(rect.extent.y);
+
+#if NOISY_SHM_BUFFER_IMAGES
+            log_warn("Performing staged copy of {} remaining bytes ({:.2f}%)", FmtBytes{copy_size}, 100.0 * f64(copy_size) / total_copy_size);
+#endif
+
+            // Reserve transfer region
+            auto* gpu = image->base()->gpu;
+            auto cmd = gpu_record(gpu);
+            auto transfer_offset = gpu_reserve_transfer(cmd, copy_size, 16);
+            auto out = gpu->transfer.buffer->host<std::byte>(transfer_offset);
+
+            // Compute transfer source properties
+            auto in = byte_offset_pointer<std::byte>(pool->data, offset + read_start);
+
+            if (copy_stride == stride) {
+                // Source rows are contiguous in memory, perform single copy
+                std::memcpy(out, in, read_end - read_start);
+            } else {
+                // Source rows are discontiguous (copy does not span full width), copy by row
+                for (u32 i = 0; i < num_cast<u32>(rect.extent.y); ++i) {
+                    std::memcpy(out + i * copy_stride, in + i * stride, copy_stride);
+                }
             }
-        }});
+
+            gpu_copy_buffer_to_image(image.get(), gpu->transfer.buffer.get(), {{
+                {
+                    .image_extent = vec_cast<u32>(rect.extent),
+                    .image_offset = rect.origin,
+                    .buffer_offset = num_cast<u32>(transfer_offset),
+                }
+            }});
+        }
     }
 #if NOISY_SHM_BUFFER_IMAGES
     else {
@@ -238,7 +358,9 @@ auto WayShmBuffer::do_acquire(WaySurface* surface, WayDamageRegion damage, Flags
     }
 #endif
 
-    release(std::move(release_point));
+    if (immediate_release) {
+        release(std::move(release_point));
+    }
 
     return image;
 }

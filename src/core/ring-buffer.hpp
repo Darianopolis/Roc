@@ -5,6 +5,7 @@
 #include "util.hpp"
 #include "memory.hpp"
 #include "fd.hpp"
+#include "process.hpp"
 
 template<typename T>
 auto ring_buffer_align_capacity(usz capacity) -> usz
@@ -15,7 +16,7 @@ auto ring_buffer_align_capacity(usz capacity) -> usz
     capacity = round_up_power2(capacity);
     debug_assert(capacity);
 
-    static const usz page_size = num_cast<usz>(sysconf(_SC_PAGESIZE));
+    usz page_size = process_get_pagesize();
     while ((capacity * sizeof(T)) % page_size != 0) {
         capacity <<= 1;
         debug_assert(capacity);

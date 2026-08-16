@@ -1,5 +1,7 @@
 #include "internal.hpp"
 
+#include <core/process.hpp>
+
 auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<GpuBuffer>
 {
     auto buffer = ref_create<GpuBuffer>();
@@ -52,14 +54,85 @@ auto gpu_buffer_create(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags) -> Ref<Gp
     return buffer;
 }
 
+static
+auto create_udmabuf_from_memfd(fd_t memfd, u64 offset, u64 size) -> Fd
+{
+    Fd devfd = path_open("/dev/udmabuf", O_RDWR);
+
+    udmabuf_create create;
+    create.flags = UDMABUF_FLAGS_CLOEXEC;
+    create.memfd = num_cast<u32>(memfd);
+    create.offset = offset;
+    create.size = size;
+
+    auto res = unix_check<ioctl>(devfd.get(), UDMABUF_CREATE, &create);
+    if (!res) return {};
+    return Fd(num_cast<fd_t>(res.value));
+}
+
+auto gpu_buffer_import_from_memfd(Gpu* gpu, usz size, Flags<GpuBufferFlag> flags, fd_t memfd, usz offset) -> Ref<GpuBuffer>
+{
+    auto buffer = ref_create<GpuBuffer>();
+    buffer->gpu = gpu;
+
+    if (size == 0) return buffer;
+
+    auto udmabuf = create_udmabuf_from_memfd(memfd, offset, size);
+    if (!udmabuf) {
+        return nullptr;
+    }
+
+    buffer->size = size;
+
+    auto handle_type = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+
+    VkMemoryFdPropertiesKHR fd_props = {.sType = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR};
+    gpu_check(gpu->vk.GetMemoryFdPropertiesKHR(gpu->device, handle_type, udmabuf.get(), &fd_props));
+
+    gpu_check(gpu->vk.CreateBuffer(gpu->device, ptr_to(VkBufferCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = ptr_to(VkExternalMemoryBufferCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+            .handleTypes = handle_type,
+        }),
+        .size = size,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+            | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    }), nullptr, &buffer->buffer));
+
+    VkMemoryRequirements mem_reqs = {};
+    gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer->buffer, &mem_reqs);
+
+    u32 memory_type = gpu_find_memory_type_index(gpu, mem_reqs.memoryTypeBits & fd_props.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT).value();
+
+    gpu_check(gpu->vk.AllocateMemory(gpu->device, ptr_to(VkMemoryAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = ptr_to(VkImportMemoryFdInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+            .handleType = handle_type,
+            .fd = udmabuf.get(),
+        }),
+        .allocationSize = mem_reqs.size,
+        .memoryTypeIndex = memory_type,
+    }), nullptr, &buffer->memory));
+
+    udmabuf.extract();
+
+    gpu_check(gpu->vk.BindBufferMemory(gpu->device, buffer->buffer, buffer->memory, 0));
+
+    gpu->stats.active_buffers++;
+
+    return buffer;
+}
+
 GpuBuffer::~GpuBuffer()
 {
     if (size == 0) return;
 
     gpu->stats.active_buffers--;
 
-    VkMemoryRequirements mem_reqs;
-    gpu->vk.GetBufferMemoryRequirements(gpu->device, buffer, &mem_reqs);
     gpu->vk.DestroyBuffer(gpu->device, buffer, nullptr);
     gpu->vk.FreeMemory(gpu->device, memory, nullptr);
 }

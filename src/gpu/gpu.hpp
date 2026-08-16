@@ -348,6 +348,8 @@ enum class GpuBufferFlag : u32
 
 auto gpu_buffer_create(Gpu*, usz size, Flags<GpuBufferFlag>) -> Ref<GpuBuffer>;
 
+auto gpu_buffer_import_from_memfd(Gpu*, usz size, Flags<GpuBufferFlag>, fd_t, usz offset) -> Ref<GpuBuffer>;
+
 // -----------------------------------------------------------------------------
 
 enum class GpuImageUsage : u32

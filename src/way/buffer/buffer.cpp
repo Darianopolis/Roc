@@ -64,5 +64,7 @@ void WayBuffer::release(WayTimelinePoint&& point)
         gpu_syncobj_signal_value(point.syncobj.get(), point.value);
         point.syncobj = nullptr;
     }
-    way_send<wl_buffer_send_release>(_resource);
+    if (_resource) {
+        way_send<wl_buffer_send_release>(_resource);
+    }
 }
