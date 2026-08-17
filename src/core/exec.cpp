@@ -188,13 +188,15 @@ void fd_unlisten(ExecContext* exec, fd_t fd)
 {
     debug_assert(fd_is_valid(fd));
 
-    if (!exec->listeners[fd]) {
-        log_warn("fd does not have registered listener");
+    auto iter = exec->listeners.find(fd);
+    if (iter == exec->listeners.end()) {
+        log_warn("fd_unlisten called on fd ({}) that does not have registered listener", fd);
+        return;
     }
 
     auto res = unix_check<epoll_ctl>(exec->epoll_fd.get(), EPOLL_CTL_DEL, fd, nullptr);
     debug_assert(res.ok());
 
-    exec->listeners.erase(fd);
+    exec->listeners.erase(iter);
     exec->fd_map[fd_to_index(fd)] = nullptr;
 }
