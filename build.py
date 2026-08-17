@@ -87,6 +87,10 @@ def install_file(file: Path, target: Path, substitutions = [], make_executable =
         st = os.stat(target)
         if (st.st_mode & exe_mode) != exe_mode:
             os.chmod(target, st.st_mode | exe_mode)
+            updated = True
+
+    if updated:
+        print(f"File [{file}] installed to [{target}]")
 
     return updated
 
