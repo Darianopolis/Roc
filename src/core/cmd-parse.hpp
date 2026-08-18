@@ -2,38 +2,77 @@
 
 #include "types.hpp"
 
-struct CommandParser
+struct CommandElement
 {
-    std::span<const std::string_view> args;
-    u32 index;
-
-    operator bool() const { return index < args.size(); }
-
-    auto match(std::string_view arg) -> bool
-    {
-        if (index < args.size() && args[index] == arg) {
-            index++;
-            return true;
-        }
-        return false;
-    }
-
-    auto peek_rest() -> std::span<const std::string_view> { return args.subspan(index); }
-
-    auto peek()       -> std::string_view { return index < args.size() ? args[index]   : std::string_view{}; }
-    auto get_string() -> std::string_view { return index < args.size() ? args[index++] : std::string_view{}; }
+    std::string_view key;
+    std::string_view value;
+    bool force_positional;
+    bool has_value;
 
     template<typename T>
-    auto get_from_chars() -> std::optional<T>
+    auto value_as() -> std::optional<T>
     {
-        if (index >= args.size()) return std::nullopt;
+        if (!has_value) return std::nullopt;
 
         T value;
-        auto res = std::from_chars(args[index].begin(), args[index].end(), value);
+        auto res = std::from_chars(value.begin(), value.end(), value);
         if (!res) return std::nullopt;
 
-        index++;
-
         return value;
+    }
+};
+
+struct CommandArgs
+{
+    std::string_view named;
+    std::vector<CommandElement> elements;
+
+    CommandArgs(int argc, char* argv[])
+    {
+        if (argc == 0) return;
+        named = argv[0];
+        for (int i = 1; i < argc; ++i) {
+            std::string_view arg = argv[i];
+            if (arg == "--") {
+                // Interpret remaining args as positionals
+                for (int j = i + 1; j < argc; ++j) {
+                    elements.emplace_back(CommandElement {
+                        .value = argv[j],
+                        .force_positional = true,
+                        .has_value = true,
+                    });
+                }
+                break;
+            } if (arg.starts_with("-")) {
+                size_t equal = arg.find_first_of('=');
+                if (equal != std::string_view::npos) {
+                    // --key=value
+                    elements.emplace_back(CommandElement {
+                        .key = arg.substr(0, equal),
+                        .value = arg.substr(equal + 1),
+                        .has_value = true,
+                    });
+                } else {
+                    // --key
+                    elements.emplace_back(CommandElement {
+                        .key = arg,
+                        .has_value = false,
+                    });
+                }
+            } else {
+                elements.emplace_back(CommandElement {
+                    .value = argv[i],
+                    .has_value = true,
+                });
+            }
+        }
+    }
+
+    auto find(std::string_view key) const -> const CommandElement*
+    {
+        for (auto& element : elements) {
+            if (element.key == key) return &element;
+        }
+        return nullptr;
     }
 };

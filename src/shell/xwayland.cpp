@@ -3,21 +3,18 @@
 #include <core/log.hpp>
 #include <core/process.hpp>
 
-void shell_init_xwayland(Shell* shell, int argc, char* argv[])
+void shell_init_xwayland(Shell* shell, const CommandArgs& args)
 {
-    std::vector<std::string> args;
-    args.append_range(std::span(argv, num_cast<usz>(argc)));
-
-    if (auto iter = std::ranges::find(args, std::string("--xwayland")); iter != args.end()) {
-        auto socket = ++iter;
-        if (socket == args.end()) {
-            log_error("Expected XWayland socket name");
+    if (auto* socket = args.find("--xwayland")) {
+        if (!socket->has_value) {
+            log_error("Expected socket name for --xwayland option (E.g. --xwayland=:0)");
             return;
         }
-        log_debug("Launching xwayland-satellite instance, DISPLAY={}", *socket);
 
-        shell_launch(shell, "xwayland-satellite", {{ "xwayland-satellite", socket->c_str(), }}, {});
+        log_debug("Launching xwayland-satellite instance, DISPLAY={}", socket->value);
 
-        shell->env.set("DISPLAY", *socket);
+        shell_launch(shell, "xwayland-satellite", {{ "xwayland-satellite", socket->value, }}, {});
+
+        shell->env.set("DISPLAY", std::string(socket->value));
     }
 }

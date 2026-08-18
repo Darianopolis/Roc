@@ -7,6 +7,7 @@
 #include <core/process.hpp>
 #include <core/chrono.hpp>
 #include <core/log.hpp>
+#include <core/cmd-parse.hpp>
 
 struct ShellPlugin
 {
@@ -47,7 +48,8 @@ auto shell_launch(
     Shell* shell,
     std::string_view name,
     std::span<const std::string_view> args,
-    std::span<const SpawnFdInherit> _fds = {}) -> Fd
+    std::span<const SpawnFdInherit> _fds = {},
+    fd_t dir = -1) -> Fd
 {
     auto& path = shell->env.entries.at("PATH");
 
@@ -69,7 +71,7 @@ auto shell_launch(
             auto start = std::chrono::steady_clock::now();
             auto process = spawn(SpawnInfo {
                 .executable = path_open(test).get(),
-                .directory = shell->env.dir.get(),
+                .directory = fd_is_valid(dir) ? dir : shell->env.dir.get(),
                 .fd_limit = fd_get_limits().inherited,
                 .args = args,
                 .env = std::ranges::to<std::vector>(shell->env.entries
@@ -95,7 +97,7 @@ auto shell_launch(
     return {};
 }
 
-void shell_init_xwayland(Shell*, int argc, char* argv[]);
+void shell_init_xwayland(Shell*, const CommandArgs&);
 void shell_init_background(Shell*);
 void shell_init_hotkeys(Shell*);
 void shell_init_screenshot(Shell*);

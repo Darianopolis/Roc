@@ -10,6 +10,7 @@
 
 auto shell_main(int argc, char* argv[]) -> int
 {
+    CommandArgs args{argc, argv};
     DebugSignalHandlers _;
     Logger _;
     Allocator _;
@@ -20,10 +21,19 @@ auto shell_main(int argc, char* argv[]) -> int
     auto app_share = home_dir / ".local/share" / PROGRAM_NAME;
     std::filesystem::create_directories(app_share);
 
+    bool export_session = args.find("--session");
+    if (export_session && !in_direct_session) {
+        log_warn("Exporting nested session will override parent session state");
+    }
+
     if (in_direct_session) {
-        log_set_structured_log(app_share / PROGRAM_NAME ".log");
-        log_redirect_stdout(app_share / "stdout.log");
-        log_redirect_stderr(app_share / "stderr.log");
+        auto log_dir = export_session
+            ? app_share
+            : std::filesystem::current_path();
+
+        log_set_structured_log(log_dir / PROGRAM_NAME ".log");
+        log_redirect_stdout(log_dir / "stdout.log");
+        log_redirect_stderr(log_dir / "stderr.log");
 
         env_set("XDG_SESSION_TYPE", "wayland");
     } else {
@@ -86,12 +96,16 @@ auto shell_main(int argc, char* argv[]) -> int
     // Applets
 
     shell_init_background(shell.get());
-    shell_init_xwayland(shell.get(), argc, argv);
+    shell_init_xwayland(shell.get(), args);
     shell_init_hotkeys(shell.get());
     shell_init_screenshot(shell.get());
     shell_init_renderdoc(shell.get());
 
-    if (in_direct_session) {
+    for (auto& arg : args.elements | std::views::filter([&](auto& arg) { return arg.key == "--run"; })) {
+        shell_launch(shell.get(), "sh", {{"sh", "-c", arg.value}}, {}, path_open(".").get());
+    }
+
+    if (export_session) {
 
         // Helpers
 
@@ -103,7 +117,7 @@ auto shell_main(int argc, char* argv[]) -> int
         // System
 
         log_info("Exporting environment to system...");
-        std::vector<std::string_view> args {
+        std::vector<std::string_view> cmd_args {
             "systemctl",
             "--user", "import-environment",
             "XDG_CURRENT_DESKTOP",
@@ -111,9 +125,9 @@ auto shell_main(int argc, char* argv[]) -> int
             "WAYLAND_DISPLAY"
         };
         if (shell->env.entries.contains("DISPLAY")) {
-            args.emplace_back("DISPLAY");
+            cmd_args.emplace_back("DISPLAY");
         }
-        shell_launch(shell.get(), "systemctl", args);
+        shell_launch(shell.get(), "systemctl", cmd_args);
     }
 
     // Run
