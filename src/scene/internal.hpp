@@ -18,8 +18,7 @@ struct SceneRenderer
     Ref<GpuPipeline> compute_bin;
     Ref<GpuPipeline> compute_pixel;
 
-    RefVector<GpuBuffer> buffers;
-    usz buffer_size;
+    Ref<GpuBuffer> buffer;
 };
 
 inline

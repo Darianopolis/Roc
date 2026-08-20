@@ -175,3 +175,20 @@ auto gpu_reserve_transfer(GpuCommands* cmd, usz size, usz align) -> usz
 
     return aligned_head & (capacity - 1);
 }
+
+void gpu_copy_memory_to_buffer(GpuBuffer* buffer, usz offset, std::span<const byte> data)
+{
+    auto* gpu = buffer->gpu;
+    auto* cmd = gpu_record(gpu);
+
+    auto transfer_offset = gpu_reserve_transfer(cmd, data.size_bytes(), 1);
+    std::memcpy(byte_offset_pointer<void>(gpu->transfer.buffer->host_address, transfer_offset), data.data(), data.size_bytes());
+
+    gpu_barrier(cmd, {}, {{buffer}});
+
+    gpu->vk.CmdCopyBuffer(cmd->buffer, gpu->transfer.buffer->buffer, buffer->buffer, 1, ptr_to(VkBufferCopy {
+        .srcOffset = transfer_offset,
+        .dstOffset = offset,
+        .size = data.size_bytes(),
+    }));
+}

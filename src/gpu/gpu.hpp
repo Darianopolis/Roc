@@ -350,6 +350,8 @@ auto gpu_buffer_create(Gpu*, usz size, Flags<GpuBufferFlag>) -> Ref<GpuBuffer>;
 
 auto gpu_buffer_import_from_memfd(Gpu*, usz size, Flags<GpuBufferFlag>, fd_t, usz offset) -> Ref<GpuBuffer>;
 
+void gpu_copy_memory_to_buffer(GpuBuffer* buffer, usz offset, std::span<const byte> data);
+
 // -----------------------------------------------------------------------------
 
 enum class GpuImageUsage : u32

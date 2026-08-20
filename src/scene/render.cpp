@@ -255,50 +255,16 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
         quads_offset             = next_offset(std::span(quads));
         coarse_bins_offset       = next_offset(std::span(coarse_bins));
         coarse_bin_infos_offset  = next_offset(std::span(coarse_bin_infos));
-        fine_bins_offset         = next_offset(std::span(byte_offset_pointer<SCENE_RENDER_QUAD_INDEX_TYPE>(nullptr, 0),
+        fine_bins_offset         = next_offset(std::span(static_cast<SCENE_RENDER_QUAD_INDEX_TYPE*>(nullptr),
                                                          fine_bin_slots));
     }
 
-    renderer->buffer_size = compute_geometric_growth(renderer->buffer_size, gpu_buffer_size);
-    debug_assert(renderer->buffer_size < 128ull * 1024 * 1024);
-
-    renderer->buffers.erase_if([&](auto* buffer) {
-        return buffer->size < renderer->buffer_size;
-    });
-
-    Ref<GpuBuffer> gpu_buffer = {};
-    if (renderer->buffers.empty()) {
-        log_warn("Allocating new render buffer ({})", FmtBytes{renderer->buffer_size});
-        gpu_buffer = gpu_buffer_create(gpu, renderer->buffer_size, {});
-    } else {
-        gpu_buffer = renderer->buffers.pop_back();
+    if (!renderer->buffer || renderer->buffer->size < gpu_buffer_size) {
+        usz new_size = compute_geometric_growth(renderer->buffer ? renderer->buffer->size : 0, gpu_buffer_size);
+        renderer->buffer = gpu_buffer_create(gpu, new_size, {});
     }
 
-    struct RenderBufferGuard
-    {
-        Ref<GpuBuffer> buffer;
-        Weak<SceneRenderer> renderer;
-
-        ~RenderBufferGuard()
-        {
-            if (!renderer) return;
-            if (buffer->size < renderer->buffer_size) return;
-            renderer->buffers.emplace_back(std::move(buffer));
-        }
-    };
-
-    auto buffer_guard = ref_create<RenderBufferGuard>();
-    buffer_guard->buffer = gpu_buffer;
-    buffer_guard->renderer = renderer;
-
-    gpu_protect(cmd, buffer_guard);
-    gpu_barrier(cmd, reads, {{gpu_buffer.get()}});
-
-    auto upload = [&]<typename T>(usz offset, std::vector<T> elements) {
-        std::memcpy(gpu_buffer->host<void>(offset), elements.data(), elements.size() * sizeof(T));
-    };
-
-#define UPLOAD(Field) upload(Field##_offset, Field)
+#define UPLOAD(Field) gpu_copy_memory_to_buffer(renderer->buffer.get(), Field##_offset, as_bytes(Field));
 
     UPLOAD(quad_bounds);
     UPLOAD(quad_opaque_flags);
@@ -308,7 +274,7 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
 #undef UPLOAD
 
-#define GET_DEVICE_PTR(Field) gpu_buffer->device<decltype(Field)::value_type>(Field##_offset)
+#define GET_DEVICE_PTR(Field) renderer->buffer->device<decltype(Field)::value_type>(Field##_offset)
 
     // NOTE: Dummy span used to provide ::value_type for GPU_DEVICE_PTR
     std::span<SCENE_RENDER_QUAD_INDEX_TYPE> fine_bins;
@@ -317,11 +283,11 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     gpu_bind_pipeline(cmd, renderer->compute_bin.get());
     gpu_push_constants(cmd, 0, view_bytes(SceneRenderBinPassInput {
-        .quad_bounds = GET_DEVICE_PTR(quad_bounds),
+        .quad_bounds       = GET_DEVICE_PTR(quad_bounds),
         .quad_opaque_flags = GET_DEVICE_PTR(quad_opaque_flags),
-        .coarse_bins = GET_DEVICE_PTR(coarse_bins),
-        .coarse_bin_infos = GET_DEVICE_PTR(coarse_bin_infos),
-        .fine_bins = GET_DEVICE_PTR(fine_bins),
+        .coarse_bins       = GET_DEVICE_PTR(coarse_bins),
+        .coarse_bin_infos  = GET_DEVICE_PTR(coarse_bin_infos),
+        .fine_bins         = GET_DEVICE_PTR(fine_bins),
         .coarse_bin_row_stride = coarse_bin_counts.x,
         .extent = fine_bin_counts,
     }));
@@ -331,14 +297,14 @@ void scene_render(SceneRenderer* renderer, const SceneRenderInfo& info)
 
     // 3. Pixel GPU pass
 
-    gpu_barrier(cmd, {{gpu_buffer.get()}}, {{info.target}});
+    gpu_barrier(cmd, {{renderer->buffer.get()}}, {{info.target}});
 
     gpu_bind_pipeline(cmd, renderer->compute_pixel.get());
     gpu_push_constants(cmd, 0, view_bytes(SceneRenderPixelPassInput {
-        .quad_bounds = GET_DEVICE_PTR(quad_bounds),
-        .quads = GET_DEVICE_PTR(quads),
+        .quad_bounds      = GET_DEVICE_PTR(quad_bounds),
+        .quads            = GET_DEVICE_PTR(quads),
         .coarse_bin_infos = GET_DEVICE_PTR(coarse_bin_infos),
-        .fine_bins = GET_DEVICE_PTR(fine_bins),
+        .fine_bins        = GET_DEVICE_PTR(fine_bins),
         .coarse_bin_row_stride = coarse_bin_counts.x,
         .target = info.target,
         .extent = extent,
