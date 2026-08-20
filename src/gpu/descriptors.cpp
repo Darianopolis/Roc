@@ -5,6 +5,7 @@ void gpu_init_descriptors(Gpu* gpu)
     auto& vk = gpu->vk;
 
     VkDescriptorBindingFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
+        | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT
         | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
     constexpr auto num_image_descriptors_each = 65535;
