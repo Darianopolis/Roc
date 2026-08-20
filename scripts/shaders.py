@@ -5,8 +5,8 @@ from .utils import write_file_lazy, ensure_dir
 
 def build_shaders(cwd, build_dir):
     shaders = [
-        ("src/scene/shader/bin.glsl",   "scene_shader_bin",   "comp"),
-        ("src/scene/shader/pixel.glsl", "scene_shader_pixel", "comp"),
+        ("src/scene/shader/bin.comp",   "scene_shader_bin",   "comp"),
+        ("src/scene/shader/pixel.comp", "scene_shader_pixel", "comp"),
     ]
 
     shader_gen_dir         = ensure_dir(build_dir / "shaders")
